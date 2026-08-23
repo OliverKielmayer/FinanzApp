@@ -174,6 +174,79 @@ In der Zielarchitektur entsprechen diese Daten API-Ressourcen — der Client hä
 
 Beträge durchgehend `decimal` (nie `double`/`float`), Rundung erst in der Anzeige, Formatierung `de-DE`. Umbuchungen dürfen in Auswertungen nicht als Einnahme/Ausgabe zählen (im Prototyp durch eigene Art + `.tag-outline` sichtbar gemacht).
 
+---
+
+# Nachtrag 2 — Login & Mehrbenutzerbetrieb (23.08.2026)
+
+Diese Ergänzung kommt **nach** der bestehenden Umsetzung im Repo (Stand `31eb21a`). Sie betrifft zunächst den Client; die API braucht dafür Authentifizierung und Mandantentrennung, die es heute nicht gibt (siehe „Offene Punkte" der Repo-README).
+
+## Modell
+
+Ein **Haushalt** besitzt die Konten, Buchungen, Budgets, Depots und Darlehen. Ein **Benutzer** meldet sich mit eigenen Zugangsdaten an und gehört genau einem Haushalt. Rollen:
+
+| Rolle | Bedeutung |
+| --- | --- |
+| Inhaber | verwaltet Benutzer und Einladungen, voller Schreibzugriff |
+| Mitglied | voller Schreibzugriff auf die Daten des Haushalts, keine Benutzerverwaltung |
+| Lesezugriff | sieht alles, ändert nichts (gedacht für das Steuerbüro) |
+
+Die Rechtematrix im Detail ist noch nicht designt. Umzusetzen ist zunächst: Lesezugriff blendet alle schreibenden Aktionen aus (Erfassen-Tab, Import-Übernahme, Kategorieauswahl im Sheet, Budgetanlage), Mitglied sieht die Benutzerverwaltung nur lesend.
+
+2FA ist ausdrücklich **später**. Ihr Platz ist der Schritt nach „Anmelden"; die Sicherheits-Zeile auf „Mehr" steht bereits auf „2FA noch nicht aktiv · Prüfen".
+
+## Auth-Gate
+
+Ohne angemeldeten Benutzer zeigt die App **nur** den Auth-Screen: kein Kopf, keine Tab-Bar, keine Seitennavigation. Der Toast bleibt aktiv (Fehlermeldungen). Nach Anmeldung landet man auf dem Dashboard.
+
+Gemeinsamer Auth-Kopf (Padding 34/20/20, 2px Unterlinie): Kicker „Vermögen & Haushalt" (10px uppercase accent, Letter-Spacing .14em), Wortmarke „FINANZAPP" (34px/800, Letter-Spacing −.035em, weiches Trennzeichen zwischen FINANZ und APP), darunter eine je nach Modus wechselnde Erklärzeile (12px neutral-700).
+
+Gemeinsamer Fuß (am unteren Rand, 2px Oberlinie, 10px uppercase neutral-600): „Daten bleiben auf dem Server des Haushalts" links, Versionsnummer rechts.
+
+### Anmelden
+
+1. **Profile auf diesem Gerät** — Abschnittslabel, darunter je Profil eine Zeile (Padding 13/20, 1px Unterlinie): Name (15px/600) über E-Mail (11px, Ellipsis), rechts die Rolle (10px uppercase; Inhaber in Akzent, sonst neutral-600). Tap wählt das Profil, füllt die E-Mail und leert das Passwortfeld; die gewählte Zeile bekommt Fläche `rgba(236,48,19,.07)` und Akzenttext. Real: nur Profile, die sich auf diesem Gerät bereits angemeldet haben — lokal gespeichert, ohne Passwort.
+2. **Weiteren Benutzer hinzufügen** — Zeile in Akzent mit „+", 2px Unterlinie, führt zur Registrierung.
+3. **Formular** — Feld „E-Mail" (type=email) und „Passwort" (type=password), je min-height 44. Darunter eine Reihe: Checkbox (`.radio`) „Angemeldet bleiben", Default an, links; „Passwort vergessen" (12px/600 accent) rechts.
+4. **`.btn-primary.btn-block` „Anmelden"** (min-height 50, Label linksbündig).
+5. Zwei Hinweiszeilen (11px neutral-600): Sichtbarkeitsregel („Jeder Benutzer sieht nur die Konten seines Haushalts. Zwei-Faktor-Anmeldung folgt.") und letzte Anmeldung mit Gerät.
+
+Validierung im Prototyp: leere E-Mail → Toast „E-Mail fehlt"; Passwort unter 4 Zeichen → „Passwort zu kurz". Real: **eine einzige unspezifische Meldung** bei falscher Kombination („E-Mail oder Passwort stimmt nicht") — nie verraten, ob die Adresse existiert. Dazu Rate-Limit und Sperre nach mehreren Fehlversuchen; die Meldung dafür fehlt noch im Design.
+
+### Registrieren
+
+Felder: Name, E-Mail, Passwort (Platzhalter „mindestens 12 Zeichen"). Unter dem Passwort eine **Stärkeanzeige**: vier gleich breite 4px-Balken mit 4px Abstand (gefüllt neutral-800, ab Stufe 3 in Akzent, Rest `--color-neutral-300`), darunter der Text „Noch kein Passwort / Zu schwach / Schwach / Gut / Stark" (11px neutral-600). Im Prototyp hängt die Stufe an der Länge — real gegen eine echte Prüfung (zxcvbn o. ä.) und die Mindestregeln des Servers setzen.
+
+Danach der Abschnitt **Haushalt**: Zwei-Segment-Umschalter „Beitreten" / „Neu anlegen" (gleiche Optik wie der Art-Umschalter der Erfassung). „Beitreten" zeigt das Feld „Einladungscode" (Platzhalter `HH-4K2P-9XQ1`), „Neu anlegen" das Feld „Name des Haushalts". Die Erklärzeile darunter wechselt mit: Beitreten → „Der Code kommt vom Inhaber des Haushalts. Mitglieder sehen alle gemeinsamen Konten."; Neu anlegen → „Du wirst Inhaber und kannst danach weitere Benutzer einladen."
+
+Aktionen: `.btn-primary` „Konto anlegen" (flex:1) + `.btn-secondary` „Zurück". Validierung: Name und E-Mail nötig, Stärke mindestens „Gut", bei „Beitreten" ein Code.
+
+### Passwort zurücksetzen
+
+Erklärtext (13px neutral-700, Gültigkeit 30 Minuten), Feld „E-Mail", `.btn-primary` „Link senden" + `.btn-secondary` „Zurück". Danach zurück auf Anmelden mit Toast. Real: **immer** dieselbe Bestätigung zeigen, unabhängig davon, ob die Adresse existiert.
+
+## Screen „Benutzer & Anmeldung"
+
+Detailscreen (Kicker „Konto", Titel „Benutzer & Anmeldung", Zurück-Schalter im Kopf), erreichbar über „Mehr" und die Seitennavigation.
+
+- **Kopfblock** (2px Unterlinie): Label „Haushalt", Name 26px/800, Unterzeile „3 Benutzer · gemeinsame Konten, getrennte Anmeldung".
+- **Mitgliederliste**: je Zeile Name (15px/600), E-Mail (11px, Ellipsis), Aktivität („zuletzt aktiv: heute, 08:24"); rechts das Rollen-Tag (`.tag-accent` Inhaber, `.tag-neutral` Mitglied, `.tag-outline` Lesezugriff) und darunter „Rechte" (11px/600 accent) — öffnet später die Rechteverwaltung.
+- **Einladen**: Code als 19px/800 mit Letter-Spacing .06em, rechts „Neuer Code" (12px/600 accent), darunter „Gültig bis 30.08.2026 · einmalige Verwendung".
+- **Diese Sitzung**: Zeile „Angemeldet als … · seit 08:24 · dieses Gerät", darunter `.btn-secondary` „Benutzer wechseln" (flex:1) und `.btn-primary` „Abmelden". „Benutzer wechseln" führt auf den Anmeldescreen mit erhaltener Profilliste, „Abmelden" leert zusätzlich die E-Mail.
+
+Die Drawer-Variante zeigt im Kopf Benutzername und Haushalt statt der früheren festen Zeile. Auf „Mehr" trägt der neue Eintrag „Benutzer & Anmeldung" den Namen des angemeldeten Benutzers als Wert; die Sicherheits-Zeile lautet jetzt „2FA noch nicht aktiv · Backup 23.08.2026 03:00 · Prüfen".
+
+## Folgen für die Umsetzung
+
+- **Client**: neue Screens `Pages/Login.razor`, `Pages/Register.razor`, `Pages/ResetPassword.razor`, `Pages/Users.razor`; ein Auth-Gate im Layout, das ohne Sitzung Kopf, Tab-Bar und Seitennavigation unterdrückt; `AppState` um den angemeldeten Benutzer und dessen Rolle erweitern; `ScreenCatalog` um den Detailscreen `/benutzer`.
+- **API**: Authentifizierung (Cookie oder Token), Passwort-Hashing mit Argon2id oder PBKDF2 in aktuellen Parametern, „Angemeldet bleiben" als langlebiges, widerrufbares Gerät-Token.
+- **Mandantentrennung**: jede Abfrage filtert auf den Haushalt des angemeldeten Benutzers — als globaler Query-Filter im `DbContext`, nicht je Service. Ohne das wird aus dem Mehrbenutzerbetrieb ein Datenleck.
+- **Neue Endpunkte**: Anmelden, Abmelden, Registrieren, Reset anfordern und einlösen, Mitglieder lesen, Einladung erzeugen und einlösen, Rolle ändern, Sitzungen widerrufen.
+- Alle bestehenden Endpunkte werden geschützt (`Program.cs`, `Endpoints/ApiEndpoints.cs`). Rollenprüfung serverseitig, nicht nur im Client: Lesezugriff darf schreibende Endpunkte nicht aufrufen können.
+- Beispieldaten: die drei Profile (Oliver W. / Inhaber, Sabine K. / Mitglied, Steuerbüro Haas / Lesezugriff) gehören in `SeedData` desselben Haushalts „Haushalt Kielmayer".
+
+
+---
+
 ## Assets
 
 Keine Bild- oder Icon-Assets. Der Prototyp ist bewusst iconfrei und typografisch — die einzigen Grafiken sind zwei Inline-SVG-Linienchts sowie geometrische Elemente (Drawer-Balken, Fortschrittsbalken). Falls im Produkt Icons gewünscht sind, verwendet Modernist **Lucide** (lucide.dev). Schrift: Archivo via Google Fonts (im Produkt selbst hosten).

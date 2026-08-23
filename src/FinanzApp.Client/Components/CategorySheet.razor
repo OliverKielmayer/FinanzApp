@@ -17,31 +17,48 @@
     </div>
 
     <div class="sheet-body">
-        <div class="chipcloud">
-            @foreach (var category in Categories)
-            {
-                <button type="button"
-                        class="chip @(Transaction.CategoryId == category.Id ? "active" : null)"
-                        @onclick="() => OnPickCategory.InvokeAsync(category)">@category.Name</button>
-            }
+        @* Lesezugriff sieht die Buchung, ordnet aber nichts zu. *@
+        <AuthorizeView Roles="Owner,Member">
+            <Authorized>
+                <div class="chipcloud">
+                    @foreach (var category in Categories)
+                    {
+                        <button type="button"
+                                class="chip @(Transaction.CategoryId == category.Id ? "active" : null)"
+                                @onclick="() => OnPickCategory.InvokeAsync(category)">@category.Name</button>
+                    }
 
-            <button type="button"
-                    class="chip @(Transaction.Kind == TransactionKind.Transfer ? "active" : null)"
-                    @onclick="OnPickTransfer">Umbuchung</button>
-        </div>
+                    <button type="button"
+                            class="chip @(Transaction.Kind == TransactionKind.Transfer ? "active" : null)"
+                            @onclick="OnPickTransfer">Umbuchung</button>
+                </div>
 
-        <div class="sheet-rule">
-            <span class="sheet-rule-text">Regel für „@rulePattern“ merken</span>
-            <label class="radio">
-                <input type="checkbox" checked="@rememberRule" @onchange="ToggleRule" />
-                <span class="dot"></span>
-            </label>
-        </div>
+                <div class="sheet-rule">
+                    <span class="sheet-rule-text">Regel für „@rulePattern“ merken</span>
+                    <label class="radio">
+                        <input type="checkbox" checked="@rememberRule" @onchange="ToggleRule" />
+                        <span class="dot"></span>
+                    </label>
+                </div>
+            </Authorized>
+            <NotAuthorized>
+                <span class="auth-note">
+                    Dieser Zugang darf Buchungen ansehen, aber nicht kategorisieren.
+                </span>
+            </NotAuthorized>
+        </AuthorizeView>
     </div>
 
     <div class="sheet-foot">
-        <button type="button" class="btn btn-primary" @onclick="Confirm">Fertig</button>
-        <button type="button" class="btn btn-secondary" @onclick="OnSplit">Splitten</button>
+        <AuthorizeView Roles="Owner,Member">
+            <Authorized>
+                <button type="button" class="btn btn-primary" @onclick="Confirm">Fertig</button>
+                <button type="button" class="btn btn-secondary" @onclick="OnSplit">Splitten</button>
+            </Authorized>
+            <NotAuthorized>
+                <button type="button" class="btn btn-primary" @onclick="OnClose">Schließen</button>
+            </NotAuthorized>
+        </AuthorizeView>
     </div>
 </div>
 

@@ -1,0 +1,165 @@
+@page "/registrieren"
+@layout AuthLayout
+@inject FinanzAppApi Api
+@inject FinanzAppAuthStateProvider Auth
+@inject DeviceProfileStore Profiles
+@inject ToastService Toasts
+@inject NavigationManager Navigation
+
+<PageTitle>Konto anlegen — FinanzApp</PageTitle>
+
+<EditForm Model="this" OnValidSubmit="CreateAccountAsync">
+    <div class="auth-form tight">
+        <div class="field">
+            <label for="reg-name">Name</label>
+            <InputText id="reg-name" class="input" autocomplete="name"
+                       placeholder="Vorname Nachname" @bind-Value="name" />
+        </div>
+        <div class="field">
+            <label for="reg-mail">E-Mail</label>
+            <InputText id="reg-mail" class="input" type="email" autocomplete="username"
+                       placeholder="name@haushalt.de" @bind-Value="email" />
+        </div>
+        <div class="field">
+            <label for="reg-pass">Passwort</label>
+            <input id="reg-pass" class="input" type="password" autocomplete="new-password"
+                   placeholder="@($"mindestens {PasswordPolicy.MinimumLength} Zeichen")"
+                   value="@password" @oninput="OnPasswordInput" />
+        </div>
+
+        <div class="strength">
+            <div class="strength-bars" role="img" aria-label="@($"Passwortstärke: {strengthText}")">
+                @for (var level = 1; level <= 4; level++)
+                {
+                    <div class="strength-bar @BarClass(level)"></div>
+                }
+            </div>
+            <span class="strength-text">@strengthText</span>
+        </div>
+    </div>
+
+    <div class="household-section">
+        <span class="label-strong">Haushalt</span>
+
+        <div class="segmented inline">
+            <button type="button" class="segmented-opt @(mode == HouseholdMode.Join ? "active" : null)"
+                    @onclick="() => mode = HouseholdMode.Join">Beitreten</button>
+            <button type="button" class="segmented-opt @(mode == HouseholdMode.Create ? "active" : null)"
+                    @onclick="() => mode = HouseholdMode.Create">Neu anlegen</button>
+        </div>
+
+        @if (mode == HouseholdMode.Join)
+        {
+            <div class="field" style="margin-top:14px">
+                <label for="reg-code">Einladungscode</label>
+                <InputText id="reg-code" class="input" placeholder="z. B. HH-4K2P-9XQ1"
+                           @bind-Value="inviteCode" />
+            </div>
+        }
+        else
+        {
+            <div class="field" style="margin-top:14px">
+                <label for="reg-household">Name des Haushalts</label>
+                <InputText id="reg-household" class="input" placeholder="z. B. Haushalt Kielmayer"
+                           @bind-Value="householdName" />
+            </div>
+        }
+
+        <span class="household-hint">
+            @(mode == HouseholdMode.Join
+                ? "Der Code kommt vom Inhaber des Haushalts. Mitglieder sehen alle gemeinsamen Konten."
+                : "Du wirst Inhaber und kannst danach weitere Benutzer einladen.")
+        </span>
+    </div>
+
+    <div class="auth-actions">
+        <button type="submit" class="btn btn-primary" disabled="@busy">Konto anlegen</button>
+        <button type="button" class="btn btn-secondary"
+                @onclick="@(() => Navigation.NavigateTo(AuthScreens.Login))">Zurück</button>
+    </div>
+</EditForm>
+
+@code {
+    private string name = string.Empty;
+    private string email = string.Empty;
+    private string password = string.Empty;
+    private string inviteCode = string.Empty;
+    private string householdName = string.Empty;
+    private HouseholdMode mode = HouseholdMode.Join;
+    private bool busy;
+
+    private PasswordStrength strength = PasswordStrength.None;
+    private string strengthText = PasswordPolicy.Describe(PasswordStrength.None);
+
+    private void OnPasswordInput(ChangeEventArgs e)
+    {
+        password = e.Value?.ToString() ?? string.Empty;
+        strength = PasswordPolicy.Evaluate(password);
+        strengthText = PasswordPolicy.Describe(strength);
+    }
+
+    /// <summary>Gefüllte Balken bis zur erreichten Stufe; ab „Gut“ in Akzent.</summary>
+    private string? BarClass(int level)
+    {
+        if (level > (int)strength)
+        {
+            return null;
+        }
+
+        return strength >= PasswordPolicy.Required ? "filled enough" : "filled";
+    }
+
+    private async Task CreateAccountAsync()
+    {
+        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(email))
+        {
+            Toasts.Show("Name und E-Mail nötig");
+            return;
+        }
+
+        if (!PasswordPolicy.IsAcceptable(password))
+        {
+            Toasts.Show($"Passwort zu schwach — mindestens {PasswordPolicy.MinimumLength} Zeichen und Stufe „Gut“");
+            return;
+        }
+
+        if (mode == HouseholdMode.Join && string.IsNullOrWhiteSpace(inviteCode))
+        {
+            Toasts.Show("Einladungscode fehlt");
+            return;
+        }
+
+        if (mode == HouseholdMode.Create && string.IsNullOrWhiteSpace(householdName))
+        {
+            Toasts.Show("Name des Haushalts fehlt");
+            return;
+        }
+
+        busy = true;
+        try
+        {
+            var user = await Api.RegisterAsync(new RegisterRequest
+            {
+                Name = name.Trim(),
+                Email = email.Trim(),
+                Password = password,
+                HouseholdMode = mode,
+                InviteCode = mode == HouseholdMode.Join ? inviteCode.Trim() : null,
+                HouseholdName = mode == HouseholdMode.Create ? householdName.Trim() : null,
+            });
+
+            await Profiles.RememberAsync(user);
+            Auth.SetUser(user);
+            Toasts.Show("Konto angelegt · " + user.HouseholdName);
+            Navigation.NavigateTo("/", replace: true);
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

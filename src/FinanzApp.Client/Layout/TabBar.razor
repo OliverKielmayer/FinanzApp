@@ -1,5 +1,5 @@
 <nav class="tabbar" aria-label="Hauptbereiche">
-    @foreach (var tab in ScreenCatalog.Tabs)
+    @foreach (var tab in ScreenCatalog.Tabs.Where(t => CanWrite || !t.RequiresWrite))
     {
         <a href="@tab.Route" class="tabbar-item @(tab == Current ? "active" : null)"
            aria-current="@(tab == Current ? "page" : null)">
@@ -12,4 +12,8 @@
 @code {
     [Parameter, EditorRequired]
     public Screen Current { get; set; } = default!;
+
+    /// <summary>Ohne Schreibrecht fehlt der Erfassen-Tab — Lesezugriff bucht nicht.</summary>
+    [Parameter]
+    public bool CanWrite { get; set; } = true;
 }

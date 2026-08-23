@@ -20,6 +20,60 @@ public sealed class FinanzAppApi(HttpClient http)
         Converters = { new JsonStringEnumConverter() },
     };
 
+    // ── Anmeldung ──────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Der angemeldete Benutzer, oder <c>null</c>, wenn keine gültige Sitzung besteht.
+    /// Ein 401 ist hier kein Fehler, sondern die Antwort „nicht angemeldet“.
+    /// </summary>
+    public async Task<CurrentUserDto?> GetCurrentUserAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            using var response = await http.GetAsync("api/auth/me", ct);
+            if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+            {
+                return null;
+            }
+
+            return response.IsSuccessStatusCode
+                ? await response.Content.ReadFromJsonAsync<CurrentUserDto>(Json, ct)
+                : null;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException)
+        {
+            throw new ApiException(Describe(ex), ex);
+        }
+    }
+
+    public Task<CurrentUserDto> LoginAsync(LoginRequest request, CancellationToken ct = default)
+        => PostAsync<LoginRequest, CurrentUserDto>("api/auth/login", request, ct);
+
+    public Task<CurrentUserDto> RegisterAsync(RegisterRequest request, CancellationToken ct = default)
+        => PostAsync<RegisterRequest, CurrentUserDto>("api/auth/register", request, ct);
+
+    public Task LogoutAsync(CancellationToken ct = default)
+        => SendWithoutResultAsync(HttpMethod.Post, "api/auth/logout", (object?)null, ct);
+
+    public Task RequestPasswordResetAsync(string email, CancellationToken ct = default)
+        => SendWithoutResultAsync(
+            HttpMethod.Post, "api/auth/password-reset", new PasswordResetStartRequest { Email = email }, ct);
+
+    public Task RedeemPasswordResetAsync(string token, string newPassword, CancellationToken ct = default)
+        => SendWithoutResultAsync(
+            HttpMethod.Post,
+            "api/auth/password-reset/redeem",
+            new PasswordResetRedeemRequest { Token = token, NewPassword = newPassword },
+            ct);
+
+    public Task<HouseholdOverviewDto> GetHouseholdAsync(CancellationToken ct = default)
+        => GetAsync<HouseholdOverviewDto>("api/household", ct);
+
+    public Task<InvitationDto> CreateInvitationAsync(CancellationToken ct = default)
+        => PostAsync<object?, InvitationDto>("api/household/invitations", null, ct);
+
+    // ── Fachdaten ──────────────────────────────────────────────────────────────────────────
+
     public Task<DashboardDto> GetDashboardAsync(CancellationToken ct = default)
         => GetAsync<DashboardDto>("api/dashboard", ct);
 
@@ -85,6 +139,30 @@ public sealed class FinanzAppApi(HttpClient http)
     private Task<TResult> PostAsync<TBody, TResult>(string url, TBody body, CancellationToken ct)
         => SendAsync<TBody, TResult>(HttpMethod.Post, url, body, ct);
 
+    /// <summary>Für Endpunkte, die 204 antworten.</summary>
+    private async Task SendWithoutResultAsync<TBody>(
+        HttpMethod method, string url, TBody body, CancellationToken ct)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(method, url);
+            if (body is not null)
+            {
+                request.Content = JsonContent.Create(body, options: Json);
+            }
+
+            using var response = await http.SendAsync(request, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new ApiException(await DescribeAsync(response, ct));
+            }
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException)
+        {
+            throw new ApiException(Describe(ex), ex);
+        }
+    }
+
     private async Task<TResult> SendAsync<TBody, TResult>(
         HttpMethod method, string url, TBody body, CancellationToken ct)
     {
@@ -118,9 +196,13 @@ public sealed class FinanzAppApi(HttpClient http)
         _ => "Die Antwort des Servers war unlesbar.",
     };
 
+    /// <summary>
+    /// Die Meldung des Servers hat Vorrang — bei der Anmeldung ist sie bewusst formuliert und
+    /// darf nicht durch einen allgemeinen Text ersetzt werden.
+    /// </summary>
     private static async Task<string> DescribeAsync(HttpResponseMessage response, CancellationToken ct)
     {
-        if (response.StatusCode == HttpStatusCode.BadRequest)
+        try
         {
             var problem = await response.Content.ReadFromJsonAsync<ProblemPayload>(Json, ct);
             if (!string.IsNullOrWhiteSpace(problem?.Detail))
@@ -128,10 +210,17 @@ public sealed class FinanzAppApi(HttpClient http)
                 return problem.Detail;
             }
         }
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
+        {
+            // Keine Problem-Details im Rumpf — dann greift die Meldung unten.
+        }
 
         return response.StatusCode switch
         {
+            HttpStatusCode.Unauthorized => "Nicht angemeldet.",
+            HttpStatusCode.Forbidden => "Dafür fehlen die Rechte.",
             HttpStatusCode.NotFound => "Der Datensatz wurde nicht gefunden.",
+            HttpStatusCode.TooManyRequests => "Zu viele Versuche. Bitte kurz warten.",
             _ => "Der Server hat die Anfrage abgelehnt.",
         };
     }

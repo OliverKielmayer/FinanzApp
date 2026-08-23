@@ -1,4 +1,5 @@
 using FinanzApp.Api.Application;
+using FinanzApp.Api.Infrastructure;
 using FinanzApp.Shared.Contracts;
 
 namespace FinanzApp.Api.Endpoints;
@@ -7,11 +8,16 @@ namespace FinanzApp.Api.Endpoints;
 /// Die HTTP-Oberfläche der Anwendung. Die Endpunkte enthalten keine Fachlogik — sie nehmen
 /// Parameter entgegen, rufen einen Application-Service und geben dessen Ergebnis zurück.
 /// </summary>
+/// <remarks>
+/// Die ganze Gruppe verlangt eine Anmeldung; welchen Haushalt eine Anfrage sieht, entscheidet
+/// nicht der Aufrufer, sondern der Mandantenfilter im <c>DbContext</c>. Schreibende Endpunkte
+/// verlangen zusätzlich <see cref="AuthPolicies.Write"/>.
+/// </remarks>
 public static class ApiEndpoints
 {
     public static void MapApi(this IEndpointRouteBuilder app)
     {
-        var api = app.MapGroup("/api").WithTags("FinanzApp");
+        var api = app.MapGroup("/api").WithTags("FinanzApp").RequireAuthorization();
 
         api.MapGet("/dashboard", async (DashboardService service, CancellationToken ct)
             => Results.Ok(await service.GetAsync(ct)));
@@ -35,7 +41,7 @@ public static class ApiEndpoints
             {
                 return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
             }
-        });
+        }).RequireAuthorization(AuthPolicies.Write);
 
         api.MapPatch("/transactions/{id:int}/category", async (
             int id, AssignCategoryRequest request, TransactionService service, CancellationToken ct) =>
@@ -49,7 +55,7 @@ public static class ApiEndpoints
             {
                 return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
             }
-        });
+        }).RequireAuthorization(AuthPolicies.Write);
 
         api.MapGet("/categories", async (
                 CategoryDirection? direction, CatalogService service, CancellationToken ct)
@@ -100,7 +106,7 @@ public static class ApiEndpoints
             {
                 return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
             }
-        });
+        }).RequireAuthorization(AuthPolicies.Write);
 
         api.MapGet("/overview/more", async (OverviewService service, CancellationToken ct)
             => Results.Ok(await service.GetAsync(ct)));

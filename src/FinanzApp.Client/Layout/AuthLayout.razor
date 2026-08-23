@@ -1,0 +1,50 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject NavigationManager Navigation
+
+@*
+    Rahmen der Anmeldung: Wortmarke oben, Fußzeile unten, dazwischen der jeweilige Screen.
+    Kopfzeile, Tab-Bar und Seitennavigation fehlen hier bewusst — ohne Sitzung soll nichts von
+    der Anwendung durchscheinen.
+*@
+<div class="auth">
+    <div class="auth-scroll">
+        <div class="auth-content">
+            <header class="auth-head">
+                <span class="auth-kicker">Vermögen &amp; Haushalt</span>
+                <h1 class="auth-wordmark">FINANZ&shy;APP</h1>
+                <span class="auth-intro">@intro</span>
+            </header>
+
+            @Body
+        </div>
+    </div>
+
+    <div class="auth-foot">
+        <span>Daten bleiben auf dem Server des Haushalts</span>
+        <span>v @AppVersion.Short</span>
+    </div>
+</div>
+
+<Toast />
+
+@code {
+    private string intro = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        UpdateIntro();
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        UpdateIntro();
+        StateHasChanged();
+    }
+
+    private void UpdateIntro()
+        => intro = AuthScreens.IntroFor(Navigation.ToBaseRelativePath(Navigation.Uri));
+
+    public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
+}

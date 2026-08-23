@@ -1,0 +1,8 @@
+<Project>
+
+  <PropertyGroup>
+    <!-- Eine Fassungsnummer für alle Projekte. Die Anmeldung zeigt sie in der Fußzeile. -->
+    <Version>0.4.0</Version>
+  </PropertyGroup>
+
+</Project>

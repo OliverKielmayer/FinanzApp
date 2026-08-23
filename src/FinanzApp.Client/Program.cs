@@ -1,6 +1,7 @@
 using FinanzApp.Client;
 using FinanzApp.Client.Navigation;
 using FinanzApp.Client.Services;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 
@@ -13,5 +14,13 @@ builder.Services.AddScoped<FinanzAppApi>();
 builder.Services.AddScoped<AppState>();
 builder.Services.AddScoped<ToastService>();
 builder.Services.AddScoped<NavigationHistory>();
+builder.Services.AddScoped<DeviceProfileStore>();
+
+// Der Anmeldezustand kommt aus dem Cookie und wird über /api/auth/me gelesen.
+builder.Services.AddScoped<FinanzAppAuthStateProvider>();
+builder.Services.AddScoped<AuthenticationStateProvider>(
+    sp => sp.GetRequiredService<FinanzAppAuthStateProvider>());
+builder.Services.AddAuthorizationCore();
+builder.Services.AddCascadingAuthenticationState();
 
 await builder.Build().RunAsync();

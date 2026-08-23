@@ -1,0 +1,172 @@
+@page "/benutzer"
+@attribute [Authorize]
+@inherits AppPage
+@inject FinanzAppAuthStateProvider Auth
+@inject DeviceProfileStore Profiles
+
+<PageTitle>Benutzer &amp; Anmeldung — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (data is { } household)
+    {
+        <div class="household-head">
+            <span class="label-muted">Haushalt</span>
+            <span class="household-name">@household.HouseholdName</span>
+            <span class="household-sub">
+                @household.Members.Count @(household.Members.Count == 1 ? "Benutzer" : "Benutzer") ·
+                gemeinsame Konten, getrennte Anmeldung
+            </span>
+        </div>
+
+        @foreach (var member in household.Members)
+        {
+            <div class="member-row">
+                <div class="stack">
+                    <span class="member-name">@member.Name</span>
+                    <span class="member-mail">@member.Email</span>
+                    <span class="meta">zuletzt aktiv: @LastSeen(member.LastSeenAt)</span>
+                </div>
+                <div class="member-side">
+                    <span class="tag @RoleTag(member.Role)">@RoleLabel(member.Role)</span>
+                    @if (canManage)
+                    {
+                        <button type="button" class="member-rights"
+                                @onclick="@(() => Toasts.Show("Rechteverwaltung folgt"))">Rechte</button>
+                    }
+                </div>
+            </div>
+        }
+
+        @if (household.Invitation is { } invitation)
+        {
+            <div class="invite">
+                <span class="label-strong">Einladen</span>
+                <div class="invite-line">
+                    <span class="invite-code">@invitation.Code</span>
+                    <button type="button" class="invite-link" disabled="@busy"
+                            @onclick="NewInviteAsync">Neuer Code</button>
+                </div>
+                <span class="meta">
+                    Gültig bis @GermanFormat.Date(DateOnly.FromDateTime(invitation.ExpiresAt)) ·
+                    einmalige Verwendung
+                </span>
+            </div>
+        }
+        else if (canManage)
+        {
+            <div class="invite">
+                <span class="label-strong">Einladen</span>
+                <div class="invite-line">
+                    <span class="meta">Kein gültiger Code.</span>
+                    <button type="button" class="invite-link" disabled="@busy"
+                            @onclick="NewInviteAsync">Code erzeugen</button>
+                </div>
+            </div>
+        }
+
+        <div class="session">
+            <span class="label-strong">Diese Sitzung</span>
+            <span class="session-line">
+                Angemeldet als @household.Session.UserName ·
+                seit @household.Session.SignedInAt.ToString("HH:mm") · dieses Gerät
+            </span>
+            <div class="session-actions">
+                <button type="button" class="btn btn-secondary" disabled="@busy"
+                        @onclick="SwitchUserAsync">Benutzer wechseln</button>
+                <button type="button" class="btn btn-primary" disabled="@busy"
+                        @onclick="LogoutAsync">Abmelden</button>
+            </div>
+        </div>
+
+        <div class="spacer"></div>
+    }
+</AsyncView>
+
+@code {
+    private HouseholdOverviewDto? data;
+    private bool canManage;
+    private bool busy;
+
+    protected override async Task LoadAsync()
+    {
+        data = await Api.GetHouseholdAsync();
+        canManage = Auth.User?.CanManageUsers == true;
+    }
+
+    private Task NewInviteAsync() => RunAsync(async () =>
+    {
+        busy = true;
+        try
+        {
+            var invitation = await Api.CreateInvitationAsync();
+            data = data! with { Invitation = invitation };
+            Toasts.Show("Neuer Einladungscode erzeugt");
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    /// <summary>Meldet ab, lässt die Profilliste des Geräts aber stehen.</summary>
+    private Task SwitchUserAsync() => EndSessionAsync(forgetProfile: false, "Benutzer wechseln");
+
+    /// <summary>Meldet ab und vergisst das Profil auf diesem Gerät.</summary>
+    private Task LogoutAsync() => EndSessionAsync(forgetProfile: true, "Abgemeldet");
+
+    private async Task EndSessionAsync(bool forgetProfile, string message)
+    {
+        busy = true;
+        try
+        {
+            var email = Auth.User?.Email;
+            await Api.LogoutAsync();
+
+            if (forgetProfile && email is not null)
+            {
+                await Profiles.ForgetAsync(email);
+            }
+
+            Auth.SetUser(null);
+            Toasts.Show(message);
+            Navigation.NavigateTo(AuthScreens.Login, replace: true);
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private static string LastSeen(DateTime? value)
+    {
+        if (value is not { } seen)
+        {
+            return "noch nie";
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        var day = DateOnly.FromDateTime(seen);
+
+        return day == today ? $"heute, {seen:HH:mm}"
+            : day == today.AddDays(-1) ? $"gestern, {seen:HH:mm}"
+            : GermanFormat.Date(day);
+    }
+
+    private static string RoleLabel(HouseholdRole role) => role switch
+    {
+        HouseholdRole.Owner => "Inhaber",
+        HouseholdRole.Member => "Mitglied",
+        _ => "Lesezugriff",
+    };
+
+    private static string RoleTag(HouseholdRole role) => role switch
+    {
+        HouseholdRole.Owner => "tag-accent",
+        HouseholdRole.Member => "tag-neutral",
+        _ => "tag-outline",
+    };
+}

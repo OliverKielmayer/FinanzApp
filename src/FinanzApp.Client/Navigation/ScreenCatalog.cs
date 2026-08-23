@@ -8,12 +8,14 @@ namespace FinanzApp.Client.Navigation;
 /// <param name="Title">Titel im Kopf.</param>
 /// <param name="TabLabel">Beschriftung in der Tab-Bar; <c>null</c>, wenn der Screen kein Tab ist.</param>
 /// <param name="IsDetail">Detailscreens bekommen im Kopf einen Zurück-Schalter.</param>
+/// <param name="RequiresWrite">Nur für Benutzer mit Schreibrecht sichtbar.</param>
 public sealed record Screen(
     string Route,
     string Kicker,
     string Title,
     string? TabLabel = null,
-    bool IsDetail = false);
+    bool IsDetail = false,
+    bool RequiresWrite = false);
 
 /// <summary>
 /// Kopfzeilen und Navigationsbeschriftungen an einer Stelle. Die Reihenfolge ist zugleich die
@@ -25,10 +27,11 @@ public static class ScreenCatalog
     [
         new("/", "Übersicht", "Vermögen", "Vermögen"),
         new("/konten", "Finanzen", "Konten & Buchungen", "Konten"),
-        new("/erfassen", "Erfassen", "Neue Buchung", "Erfassen"),
+        new("/erfassen", "Erfassen", "Neue Buchung", "Erfassen", RequiresWrite: true),
         new("/budgets", "Planung", "Budgets", "Budgets"),
         new("/depot", "Investments", "Depot", "Depot"),
         new("/mehr", "Mehr", "Alle Bereiche", IsDetail: true),
+        new("/benutzer", "Konto", "Benutzer & Anmeldung", IsDetail: true),
         new("/darlehen", "Finanzierungen", "Darlehen", IsDetail: true),
         new("/import", "Import", "Import\u00advorschau", IsDetail: true),
     ];

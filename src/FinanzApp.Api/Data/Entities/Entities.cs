@@ -2,15 +2,25 @@ using FinanzApp.Shared.Contracts;
 
 namespace FinanzApp.Api.Data.Entities;
 
+/// <summary>
+/// Gehört einem Haushalt. Der <c>DbContext</c> hängt an diese Schnittstelle den globalen
+/// Abfragefilter — dadurch kann kein Dienst die Mandantentrennung versehentlich umgehen.
+/// </summary>
+public interface IHouseholdOwned
+{
+    int HouseholdId { get; set; }
+}
+
 public enum AccountKind
 {
     Checking = 0,
     Savings = 1,
 }
 
-public class Account
+public class Account : IHouseholdOwned
 {
     public int Id { get; set; }
+    public int HouseholdId { get; set; }
     public required string Name { get; set; }
 
     /// <summary>Kurzform für die Buchungsliste, z. B. „Sparkasse“.</summary>
@@ -35,9 +45,10 @@ public class Account
     public List<Transaction> Transactions { get; set; } = [];
 }
 
-public class Category
+public class Category : IHouseholdOwned
 {
     public int Id { get; set; }
+    public int HouseholdId { get; set; }
     public required string Name { get; set; }
     public CategoryDirection Direction { get; set; }
 
@@ -46,9 +57,10 @@ public class Category
     public List<CategorizationRule> Rules { get; set; } = [];
 }
 
-public class Transaction
+public class Transaction : IHouseholdOwned
 {
     public int Id { get; set; }
+    public int HouseholdId { get; set; }
     public DateOnly BookingDate { get; set; }
     public required string Payee { get; set; }
     public TransactionKind Kind { get; set; }
@@ -77,9 +89,10 @@ public class Transaction
     public DateTime CreatedAt { get; set; }
 }
 
-public class CategorizationRule
+public class CategorizationRule : IHouseholdOwned
 {
     public int Id { get; set; }
+    public int HouseholdId { get; set; }
 
     /// <summary>Präfix des Empfängers, case-insensitiv verglichen.</summary>
     public required string PayeePattern { get; set; }
@@ -88,9 +101,10 @@ public class CategorizationRule
     public Category? Category { get; set; }
 }
 
-public class Budget
+public class Budget : IHouseholdOwned
 {
     public int Id { get; set; }
+    public int HouseholdId { get; set; }
     public required string Name { get; set; }
 
     /// <summary>Geplanter Betrag je Monat. Quartals- und Jahressicht rechnen hoch.</summary>
@@ -103,9 +117,10 @@ public class Budget
     public Category? Category { get; set; }
 }
 
-public class Depot
+public class Depot : IHouseholdOwned
 {
     public int Id { get; set; }
+    public int HouseholdId { get; set; }
     public required string Name { get; set; }
 
     /// <summary>Zeitgewichtete Rendite p. a. Wird vom Depotanbieter geliefert.</summary>
@@ -114,9 +129,10 @@ public class Depot
     public List<PortfolioPosition> Positions { get; set; } = [];
 }
 
-public class PortfolioPosition
+public class PortfolioPosition : IHouseholdOwned
 {
     public int Id { get; set; }
+    public int HouseholdId { get; set; }
     public int DepotId { get; set; }
     public Depot? Depot { get; set; }
     public required string Name { get; set; }
@@ -132,9 +148,10 @@ public class PortfolioPosition
     public DateTime PriceAsOf { get; set; }
 }
 
-public class Loan
+public class Loan : IHouseholdOwned
 {
     public int Id { get; set; }
+    public int HouseholdId { get; set; }
     public required string Name { get; set; }
     public required string Lender { get; set; }
     public decimal RemainingDebt { get; set; }
@@ -143,9 +160,10 @@ public class Loan
     public DateOnly NextPaymentDate { get; set; }
 }
 
-public class InsurancePolicy
+public class InsurancePolicy : IHouseholdOwned
 {
     public int Id { get; set; }
+    public int HouseholdId { get; set; }
     public required string Provider { get; set; }
     public required string Name { get; set; }
 
@@ -155,9 +173,10 @@ public class InsurancePolicy
     public DateOnly ValuationDate { get; set; }
 }
 
-public class ImportProfile
+public class ImportProfile : IHouseholdOwned
 {
     public int Id { get; set; }
+    public int HouseholdId { get; set; }
     public required string Name { get; set; }
     public required string BankName { get; set; }
 
@@ -167,25 +186,28 @@ public class ImportProfile
 
 /// <summary>Monatswert der Vermögensentwicklung. In einem Vollausbau würde diese Reihe
 /// aus historischen Salden berechnet; hier ist sie eine eigene Tabelle.</summary>
-public class NetWorthSnapshot
+public class NetWorthSnapshot : IHouseholdOwned
 {
     public int Id { get; set; }
+    public int HouseholdId { get; set; }
     public DateOnly Month { get; set; }
     public decimal Value { get; set; }
 }
 
 /// <summary>Monatswert der Depotentwicklung.</summary>
-public class PortfolioSnapshot
+public class PortfolioSnapshot : IHouseholdOwned
 {
     public int Id { get; set; }
+    public int HouseholdId { get; set; }
     public DateOnly Month { get; set; }
     public decimal Value { get; set; }
 }
 
 /// <summary>Sicherheitszustand für die Sammelseite „Mehr“.</summary>
-public class SecurityState
+public class SecurityState : IHouseholdOwned
 {
     public int Id { get; set; }
+    public int HouseholdId { get; set; }
     public bool TwoFactorEnabled { get; set; }
     public DateTime LastBackup { get; set; }
 }

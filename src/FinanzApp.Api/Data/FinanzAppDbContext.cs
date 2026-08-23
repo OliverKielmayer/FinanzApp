@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using FinanzApp.Api.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
@@ -6,6 +7,23 @@ namespace FinanzApp.Api.Data;
 
 public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : DbContext(options)
 {
+    /// <summary>
+    /// Haushalt, dessen Daten in diesem Kontext sichtbar sind. Wird je Anfrage aus dem
+    /// angemeldeten Benutzer gesetzt.
+    /// </summary>
+    /// <remarks>
+    /// Bleibt der Wert 0, findet der Abfragefilter nichts — der Standardfall ist also „nichts
+    /// sichtbar“, nicht „alles sichtbar“. Ein vergessenes Setzen führt damit zu einer leeren
+    /// Antwort, nicht zu fremden Daten.
+    /// </remarks>
+    public int CurrentHouseholdId { get; set; }
+
+    public DbSet<Household> Households => Set<Household>();
+    public DbSet<User> Users => Set<User>();
+    public DbSet<UserSession> UserSessions => Set<UserSession>();
+    public DbSet<Invitation> Invitations => Set<Invitation>();
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+
     public DbSet<Account> Accounts => Set<Account>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
@@ -37,6 +55,55 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
 
     protected override void OnModelCreating(ModelBuilder b)
     {
+        ConfigureAuth(b);
+        ConfigureFinance(b);
+        ApplyHouseholdFilter(b);
+    }
+
+    private static void ConfigureAuth(ModelBuilder b)
+    {
+        b.Entity<Household>(e => e.Property(x => x.Name).HasMaxLength(120).IsRequired());
+
+        b.Entity<User>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(120).IsRequired();
+            e.Property(x => x.Email).HasMaxLength(200).IsRequired();
+            e.Property(x => x.PasswordHash).HasMaxLength(400).IsRequired();
+
+            // Eine Adresse meldet sich genau einmal an, über alle Haushalte hinweg.
+            e.HasIndex(x => x.Email).IsUnique();
+
+            e.HasOne(x => x.Household).WithMany(h => h.Users)
+                .HasForeignKey(x => x.HouseholdId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<UserSession>(e =>
+        {
+            e.Property(x => x.Device).HasMaxLength(200);
+            e.HasIndex(x => x.UserId);
+            e.HasOne(x => x.User).WithMany(u => u.Sessions)
+                .HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<Invitation>(e =>
+        {
+            e.Property(x => x.Code).HasMaxLength(20).IsRequired();
+            e.HasIndex(x => x.Code).IsUnique();
+            e.HasOne(x => x.Household).WithMany(h => h.Invitations)
+                .HasForeignKey(x => x.HouseholdId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<PasswordResetToken>(e =>
+        {
+            e.Property(x => x.TokenHash).HasMaxLength(120).IsRequired();
+            e.HasIndex(x => x.TokenHash).IsUnique();
+            e.HasOne(x => x.User).WithMany()
+                .HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
+    private static void ConfigureFinance(ModelBuilder b)
+    {
         b.Entity<Account>(e =>
         {
             e.Property(x => x.Name).HasMaxLength(120).IsRequired();
@@ -45,12 +112,13 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
             e.Property(x => x.Iban).HasMaxLength(34);
             e.Property(x => x.OpeningBalance).HasConversion(MoneyConverter);
             e.Property(x => x.InterestYearToDate).HasConversion(NullableMoneyConverter);
+            e.HasIndex(x => x.HouseholdId);
         });
 
         b.Entity<Category>(e =>
         {
             e.Property(x => x.Name).HasMaxLength(80).IsRequired();
-            e.HasIndex(x => new { x.Name, x.Direction }).IsUnique();
+            e.HasIndex(x => new { x.HouseholdId, x.Name, x.Direction }).IsUnique();
         });
 
         b.Entity<Transaction>(e =>
@@ -59,8 +127,8 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
             e.Property(x => x.Note).HasMaxLength(500);
             e.Property(x => x.ImportReference).HasMaxLength(120);
             e.Property(x => x.Amount).HasConversion(MoneyConverter);
-            e.HasIndex(x => x.BookingDate);
-            e.HasIndex(x => x.ImportReference);
+            e.HasIndex(x => new { x.HouseholdId, x.BookingDate });
+            e.HasIndex(x => new { x.HouseholdId, x.ImportReference });
 
             // Trägt die Idempotenz von POST /api/transactions: derselbe Schlüssel kann nur
             // einmal eine Buchung anlegen, auch wenn der Client die Anfrage wiederholt.
@@ -75,7 +143,7 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
         b.Entity<CategorizationRule>(e =>
         {
             e.Property(x => x.PayeePattern).HasMaxLength(120).IsRequired();
-            e.HasIndex(x => x.PayeePattern).IsUnique();
+            e.HasIndex(x => new { x.HouseholdId, x.PayeePattern }).IsUnique();
             e.HasOne(x => x.Category).WithMany(c => c.Rules)
                 .HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.Cascade);
         });
@@ -93,11 +161,11 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
         b.Entity<PortfolioPosition>(e =>
         {
             e.Property(x => x.Name).HasMaxLength(160).IsRequired();
-            e.HasOne(x => x.Depot).WithMany(d => d.Positions)
-                .HasForeignKey(x => x.DepotId).OnDelete(DeleteBehavior.Cascade);
             e.Property(x => x.Isin).HasMaxLength(12).IsRequired();
             e.Property(x => x.Price).HasConversion(MoneyConverter);
             e.Property(x => x.CostBasis).HasConversion(MoneyConverter);
+            e.HasOne(x => x.Depot).WithMany(d => d.Positions)
+                .HasForeignKey(x => x.DepotId).OnDelete(DeleteBehavior.Cascade);
         });
 
         b.Entity<Loan>(e =>
@@ -125,13 +193,60 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
         b.Entity<NetWorthSnapshot>(e =>
         {
             e.Property(x => x.Value).HasConversion(MoneyConverter);
-            e.HasIndex(x => x.Month).IsUnique();
+            e.HasIndex(x => new { x.HouseholdId, x.Month }).IsUnique();
         });
 
         b.Entity<PortfolioSnapshot>(e =>
         {
             e.Property(x => x.Value).HasConversion(MoneyConverter);
-            e.HasIndex(x => x.Month).IsUnique();
+            e.HasIndex(x => new { x.HouseholdId, x.Month }).IsUnique();
         });
+
+        b.Entity<SecurityState>(e => e.HasIndex(x => x.HouseholdId).IsUnique());
+    }
+
+    /// <summary>
+    /// Hängt den Mandantenfilter an jede Entität, die <see cref="IHouseholdOwned"/> trägt.
+    /// </summary>
+    /// <remarks>
+    /// Bewusst über eine Schleife statt je Entität von Hand: eine neue Tabelle bekommt den Filter
+    /// dadurch automatisch. Wer ihn von Hand setzen müsste, vergisst irgendwann eine — und genau
+    /// das wäre das Datenleck, vor dem der Handoff warnt.
+    /// Die Anmeldedaten (Benutzer, Sitzungen, Einladungen, Reset-Token) bleiben ungefiltert: sie
+    /// werden gebraucht, <em>bevor</em> ein Haushalt feststeht. Ihre Abfragen tragen die
+    /// Haushaltsbedingung ausdrücklich.
+    /// </remarks>
+    private void ApplyHouseholdFilter(ModelBuilder b)
+    {
+        foreach (var entityType in b.Model.GetEntityTypes()
+                     .Where(t => typeof(IHouseholdOwned).IsAssignableFrom(t.ClrType)))
+        {
+            var entity = Expression.Parameter(entityType.ClrType, "e");
+            var householdId = Expression.Property(entity, nameof(IHouseholdOwned.HouseholdId));
+            var current = Expression.Property(Expression.Constant(this), nameof(CurrentHouseholdId));
+
+            entityType.SetQueryFilter(Expression.Lambda(Expression.Equal(householdId, current), entity));
+        }
+    }
+
+    /// <summary>
+    /// Stempelt neue Datensätze auf den aktuellen Haushalt, sofern sie noch keinen tragen. Ein
+    /// vergessenes <c>HouseholdId = …</c> in einem Dienst landet damit nicht als Waise in der
+    /// Datenbank, sondern beim richtigen Haushalt.
+    /// </summary>
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        if (CurrentHouseholdId != 0)
+        {
+            foreach (var entry in ChangeTracker.Entries<IHouseholdOwned>())
+            {
+                if (entry.State == EntityState.Added && entry.Entity.HouseholdId == 0)
+                {
+                    entry.Entity.HouseholdId = CurrentHouseholdId;
+                }
+            }
+        }
+
+        return base.SaveChangesAsync(cancellationToken);
     }
 }

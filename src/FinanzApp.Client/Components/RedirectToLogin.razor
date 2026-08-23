@@ -1,0 +1,17 @@
+@inject NavigationManager Navigation
+
+@*
+    Wird gezeigt, wenn ein geschützter Screen ohne Sitzung aufgerufen wird. Die Seite, die
+    gemeint war, wandert als Rücksprungziel mit — nach dem Anmelden geht es dort weiter.
+*@
+@code {
+    protected override void OnInitialized()
+    {
+        var target = Navigation.ToBaseRelativePath(Navigation.Uri);
+        var query = string.IsNullOrEmpty(target) || target.StartsWith("anmelden", StringComparison.Ordinal)
+            ? string.Empty
+            : "?weiter=" + Uri.EscapeDataString("/" + target);
+
+        Navigation.NavigateTo(AuthScreens.Login + query, replace: true);
+    }
+}

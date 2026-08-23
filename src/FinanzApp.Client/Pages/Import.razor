@@ -1,4 +1,5 @@
 @page "/import"
+@attribute [Authorize]
 @inherits AppPage
 
 <PageTitle>Importvorschau — FinanzApp</PageTitle>
@@ -49,10 +50,14 @@
         </div>
 
         <div class="actions">
-            <button type="button" class="btn btn-primary" disabled="@(running || preview.NewCount == 0)"
-                    @onclick="RunImport">
-                @preview.NewCount @(preview.NewCount == 1 ? "Buchung" : "Buchungen") importieren
-            </button>
+            @* Lesezugriff sieht die Vorschau, übernimmt aber nichts. Der Server lehnt den
+               Aufruf ohnehin ab — die Schaltfläche zu zeigen wäre nur ein leeres Versprechen. *@
+            <AuthorizeView Roles="Owner,Member">
+                <button type="button" class="btn btn-primary" disabled="@(running || preview.NewCount == 0)"
+                        @onclick="RunImport">
+                    @preview.NewCount @(preview.NewCount == 1 ? "Buchung" : "Buchungen") importieren
+                </button>
+            </AuthorizeView>
             <button type="button" class="btn btn-secondary"
                     @onclick="@(() => Navigation.NavigateTo("/konten"))">Abbrechen</button>
         </div>

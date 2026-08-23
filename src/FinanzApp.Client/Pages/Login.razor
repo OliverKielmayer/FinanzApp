@@ -1,0 +1,175 @@
+@page "/anmelden"
+@layout AuthLayout
+@implements IDisposable
+@inject FinanzAppApi Api
+@inject FinanzAppAuthStateProvider Auth
+@inject DeviceProfileStore Profiles
+@inject ToastService Toasts
+@inject NavigationManager Navigation
+
+<PageTitle>Anmelden — FinanzApp</PageTitle>
+
+@if (profiles.Count > 0)
+{
+    <div class="auth-section">
+        <span class="label-strong">Profile auf diesem Gerät</span>
+    </div>
+
+    @foreach (var profile in profiles)
+    {
+        <button type="button" class="profile-row @(email == profile.Email ? "active" : null)"
+                @onclick="() => PickProfile(profile)">
+            <span class="stack">
+                <span class="profile-name">@profile.Name</span>
+                <span class="profile-mail">@profile.Email</span>
+            </span>
+            <span class="profile-role @(profile.Role == HouseholdRole.Owner ? "owner" : null)">
+                @RoleLabel(profile.Role)
+            </span>
+        </button>
+    }
+}
+
+<button type="button" class="profile-add" @onclick="@(() => Navigation.NavigateTo(AuthScreens.Register))">
+    <span class="profile-add-label">Weiteren Benutzer hinzufügen</span>
+    <span class="profile-add-plus" aria-hidden="true">+</span>
+</button>
+
+<EditForm Model="this" OnValidSubmit="SignInAsync">
+    <div class="auth-form">
+        <div class="field">
+            <label for="login-mail">E-Mail</label>
+            <InputText id="login-mail" class="input" type="email" autocomplete="username"
+                       placeholder="name@haushalt.de" @bind-Value="email" />
+        </div>
+        <div class="field">
+            <label for="login-pass">Passwort</label>
+            <InputText id="login-pass" class="input" type="password" autocomplete="current-password"
+                       placeholder="••••••••" @bind-Value="password" />
+        </div>
+        <div class="auth-row">
+            <label class="radio">
+                <input type="checkbox" checked="@staySignedIn" @onchange="e => staySignedIn = e.Value is true" />
+                <span class="dot"></span>
+                <span>Angemeldet bleiben</span>
+            </label>
+            <button type="button" class="auth-link"
+                    @onclick="@(() => Navigation.NavigateTo(AuthScreens.ForgotPassword))">
+                Passwort vergessen
+            </button>
+        </div>
+    </div>
+
+    <div class="auth-submit">
+        <button type="submit" class="btn btn-primary btn-block" disabled="@busy">Anmelden</button>
+    </div>
+</EditForm>
+
+<div class="auth-notes">
+    <span class="auth-note">
+        Jeder Benutzer sieht nur die Konten seines Haushalts. Zwei-Faktor-Anmeldung folgt.
+    </span>
+    @if (lastProfile is { } last)
+    {
+        <span class="auth-note">Zuletzt angemeldet auf diesem Gerät: @last.Name</span>
+    }
+</div>
+
+@code {
+    /// <summary>Wohin es nach dem Anmelden weitergeht. Gesetzt, wenn ein geschützter Screen
+    /// ohne Sitzung aufgerufen wurde.</summary>
+    [SupplyParameterFromQuery(Name = "weiter")]
+    public string? ReturnTo { get; set; }
+
+    private IReadOnlyList<DeviceProfile> profiles = [];
+    private DeviceProfile? lastProfile;
+
+    private string email = string.Empty;
+    private string password = string.Empty;
+    private bool staySignedIn = true;
+    private bool busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Wer schon angemeldet ist, hat auf dem Anmeldescreen nichts verloren.
+        if ((await Auth.GetAuthenticationStateAsync()).User.Identity?.IsAuthenticated == true)
+        {
+            Navigation.NavigateTo("/", replace: true);
+            return;
+        }
+
+        profiles = await Profiles.GetAsync();
+        lastProfile = profiles.FirstOrDefault();
+        email = lastProfile?.Email ?? string.Empty;
+    }
+
+    private void PickProfile(DeviceProfile profile)
+    {
+        email = profile.Email;
+        password = string.Empty;
+    }
+
+    private async Task SignInAsync()
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            Toasts.Show("E-Mail fehlt");
+            return;
+        }
+
+        if (string.IsNullOrEmpty(password))
+        {
+            Toasts.Show("Passwort fehlt");
+            return;
+        }
+
+        busy = true;
+        try
+        {
+            var user = await Api.LoginAsync(new LoginRequest
+            {
+                Email = email.Trim(),
+                Password = password,
+                StaySignedIn = staySignedIn,
+            });
+
+            await Profiles.RememberAsync(user);
+            Auth.SetUser(user);
+            Toasts.Show("Angemeldet als " + user.Name);
+            Navigation.NavigateTo(SafeReturnTarget(), replace: true);
+        }
+        catch (ApiException ex)
+        {
+            password = string.Empty;
+            Toasts.Show(ex.Message);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    /// <summary>
+    /// Nur anwendungsinterne Pfade sind als Rücksprungziel zulässig. Eine absolute Adresse aus
+    /// der Abfragezeichenfolge würde die Anmeldung zur Weiterleitung auf fremde Seiten machen.
+    /// </summary>
+    private string SafeReturnTarget()
+        => ReturnTo is { Length: > 1 } target
+           && target.StartsWith('/')
+           && !target.StartsWith("//", StringComparison.Ordinal)
+            ? target
+            : "/";
+
+    private static string RoleLabel(HouseholdRole role) => role switch
+    {
+        HouseholdRole.Owner => "Inhaber",
+        HouseholdRole.Member => "Mitglied",
+        _ => "Lesezugriff",
+    };
+
+    public void Dispose()
+    {
+        // Das Passwort nicht länger im Speicher halten als nötig.
+        password = string.Empty;
+    }
+}

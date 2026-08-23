@@ -1,5 +1,6 @@
 using FinanzApp.Api.Data.Entities;
 using FinanzApp.Shared.Contracts;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace FinanzApp.Api.Data;
@@ -35,12 +36,34 @@ public static class SeedData
         ["Tagesgeld Raiffeisen"] = 50000.00m,
     };
 
-    public static async Task EnsureSeededAsync(FinanzAppDbContext db, CancellationToken ct = default)
+    /// <summary>Name des Demo-Haushalts.</summary>
+    public const string DemoHouseholdName = "Haushalt Kielmayer";
+
+    /// <summary>
+    /// Passwort aller drei Demo-Benutzer.
+    /// </summary>
+    /// <remarks>
+    /// Es steht bewusst im Quelltext, weil dieser Stand eine Vorführung des Design-Handoffs ist
+    /// und ohne Zugangsdaten niemand hineinkäme. Vor jedem echten Betrieb gehören diese Konten
+    /// gelöscht — sie sind öffentlich bekannt.
+    /// </remarks>
+    public const string DemoPassword = "Demo-Haushalt-2026!";
+
+    public static async Task EnsureSeededAsync(
+        FinanzAppDbContext db, IPasswordHasher<User> hasher, CancellationToken ct = default)
     {
-        if (await db.Accounts.AnyAsync(ct))
+        if (await db.Households.AnyAsync(ct))
         {
             return;
         }
+
+        var household = new Household { Name = DemoHouseholdName, CreatedAt = Today.ToDateTime(TimeOnly.MinValue) };
+        db.Households.Add(household);
+        await db.SaveChangesAsync(ct);
+
+        // Ab hier stempelt der DbContext jeden neuen Datensatz auf diesen Haushalt.
+        db.CurrentHouseholdId = household.Id;
+        SeedUsers(db, hasher, household);
 
         var categories = SeedCategories(db);
         var accounts = SeedAccounts(db);
@@ -59,35 +82,112 @@ public static class SeedData
 
         db.SecurityStates.Add(new SecurityState
         {
-            TwoFactorEnabled = true,
+            // Der zweite Faktor kommt laut Handoff in einer späteren Runde.
+            TwoFactorEnabled = false,
             LastBackup = new DateTime(2026, 8, 23, 3, 0, 0, DateTimeKind.Local),
         });
 
         await db.SaveChangesAsync(ct);
     }
 
-    private static Dictionary<string, Category> SeedCategories(FinanzAppDbContext db)
+    /// <summary>Die drei Profile des Handoffs: Inhaber, Mitglied und der lesende Zugang
+    /// für das Steuerbüro.</summary>
+    private static void SeedUsers(FinanzAppDbContext db, IPasswordHasher<User> hasher, Household household)
+    {
+        (string Name, string Email, HouseholdRole Role, DateTime LastSeen)[] rows =
+        [
+            ("Oliver W.", "oliver@haushalt-kielmayer.de", HouseholdRole.Owner,
+                new DateTime(2026, 8, 23, 8, 24, 0, DateTimeKind.Local)),
+            ("Sabine K.", "sabine@haushalt-kielmayer.de", HouseholdRole.Member,
+                new DateTime(2026, 8, 22, 21, 5, 0, DateTimeKind.Local)),
+            ("Steuerbüro Haas", "kanzlei@haas-stb.de", HouseholdRole.ReadOnly,
+                new DateTime(2026, 8, 1, 10, 12, 0, DateTimeKind.Local)),
+        ];
+
+        foreach (var row in rows)
+        {
+            var user = new User
+            {
+                Household = household,
+                Name = row.Name,
+                Email = row.Email,
+                PasswordHash = "-",
+                Role = row.Role,
+                CreatedAt = household.CreatedAt,
+                LastSeenAt = row.LastSeen,
+                TwoFactorEnabled = false,
+            };
+
+            user.PasswordHash = hasher.HashPassword(user, DemoPassword);
+            db.Users.Add(user);
+        }
+
+        db.Invitations.Add(new Invitation
+        {
+            HouseholdId = household.Id,
+            Code = "HH-4K2P-9XQ1",
+            Role = HouseholdRole.Member,
+            CreatedAt = household.CreatedAt,
+            ExpiresAt = new DateTime(2026, 8, 30, 23, 59, 59, DateTimeKind.Local),
+        });
+    }
+
+    /// <summary>
+    /// Grundausstattung eines frisch angelegten Haushalts: die Kategorien, ohne die sich keine
+    /// Buchung zuordnen ließe. Konten, Budgets und Depots legt der Benutzer selbst an.
+    /// </summary>
+    public static async Task SeedNewHouseholdAsync(
+        FinanzAppDbContext db, int householdId, CancellationToken ct = default)
+    {
+        if (await db.Categories.IgnoreQueryFilters().AnyAsync(c => c.HouseholdId == householdId, ct))
+        {
+            return;
+        }
+
+        foreach (var category in DefaultCategories())
+        {
+            category.HouseholdId = householdId;
+            db.Categories.Add(category);
+        }
+
+        db.SecurityStates.Add(new SecurityState
+        {
+            HouseholdId = householdId,
+            TwoFactorEnabled = false,
+            LastBackup = default,
+        });
+
+        await db.SaveChangesAsync(ct);
+    }
+
+    private static IEnumerable<Category> DefaultCategories()
     {
         string[] expenses =
             ["Wohnen", "Lebensmittel", "Auto", "Freizeit", "Reisen", "Gesundheit", "Versicherung", "Sonstiges"];
         string[] income = ["Gehalt", "Dividenden", "Zinsen", "Miete", "Sonstiges"];
 
-        var map = new Dictionary<string, Category>();
         foreach (var name in expenses)
         {
-            var category = new Category { Name = name, Direction = CategoryDirection.Expense };
-            db.Categories.Add(category);
-            map[name] = category;
+            yield return new Category { Name = name, Direction = CategoryDirection.Expense };
         }
 
         foreach (var name in income)
         {
-            var category = new Category { Name = name, Direction = CategoryDirection.Income };
+            yield return new Category { Name = name, Direction = CategoryDirection.Income };
+        }
+    }
+
+    private static Dictionary<string, Category> SeedCategories(FinanzAppDbContext db)
+    {
+        var map = new Dictionary<string, Category>();
+        foreach (var category in DefaultCategories())
+        {
             db.Categories.Add(category);
 
             // Ausgaben- und Einnahmenkategorien dürfen denselben Namen tragen. Im Seed-Schlüssel
             // bekommt die Einnahmenseite deshalb ein Pluszeichen vorangestellt.
-            map["+" + name] = category;
+            var key = category.Direction == CategoryDirection.Income ? "+" + category.Name : category.Name;
+            map[key] = category;
         }
 
         return map;

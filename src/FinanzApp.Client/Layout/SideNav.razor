@@ -2,11 +2,11 @@
    app.css sie aus — der Handoff verlangt für schmale Geräte ausdrücklich Tabs. *@
 <nav class="sidenav" aria-label="Bereiche">
     <div class="sidenav-brand">
-        <span class="kicker">Vermögen &amp; Haushalt</span>
+        <span class="kicker">@(HouseholdName ?? "Vermögen & Haushalt")</span>
         <span class="sidenav-brand-name">FinanzApp</span>
     </div>
 
-    @foreach (var screen in ScreenCatalog.Tabs)
+    @foreach (var screen in ScreenCatalog.Tabs.Where(s => CanWrite || !s.RequiresWrite))
     {
         <a href="@screen.Route" class="sidenav-item @(screen == Current ? "active" : null)"
            aria-current="@(screen == Current ? "page" : null)">@screen.Title</a>
@@ -16,7 +16,7 @@
         <span class="label-strong">Weitere Bereiche</span>
     </div>
 
-    @foreach (var screen in ScreenCatalog.Secondary)
+    @foreach (var screen in ScreenCatalog.Secondary.Where(s => CanWrite || !s.RequiresWrite))
     {
         <a href="@screen.Route" class="sidenav-item @(screen == Current ? "active" : null)"
            aria-current="@(screen == Current ? "page" : null)">@screen.Title</a>
@@ -26,4 +26,11 @@
 @code {
     [Parameter, EditorRequired]
     public Screen Current { get; set; } = default!;
+
+    [Parameter]
+    public bool CanWrite { get; set; } = true;
+
+    /// <summary>Name des Haushalts als Kicker über der Wortmarke.</summary>
+    [Parameter]
+    public string? HouseholdName { get; set; }
 }

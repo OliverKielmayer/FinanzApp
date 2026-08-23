@@ -2,7 +2,28 @@
 
 <Router AppAssembly="@typeof(App).Assembly" NotFoundPage="typeof(NotFound)">
     <Found Context="routeData">
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+        @* Jeder Screen mit [Authorize] geht ohne Sitzung auf die Anmeldung. Das ist die eine
+           Stelle, an der das Auth-Gate hängt. *@
+        <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+            <NotAuthorized Context="authState">
+                @if (authState.User.Identity?.IsAuthenticated == true)
+                {
+                    @* Angemeldet, aber die Rolle reicht nicht — hier wäre eine Weiterleitung
+                       auf die Anmeldung irreführend. *@
+                    <div class="state" role="alert">
+                        <span class="state-title">Dafür fehlen die Rechte.</span>
+                        <a class="btn btn-secondary" href="/">Zur Übersicht</a>
+                    </div>
+                }
+                else
+                {
+                    <RedirectToLogin />
+                }
+            </NotAuthorized>
+            <Authorizing>
+                <div class="state" aria-busy="true">Wird geladen …</div>
+            </Authorizing>
+        </AuthorizeRouteView>
         <FocusOnNavigate RouteData="@routeData" Selector="h1" />
     </Found>
 </Router>

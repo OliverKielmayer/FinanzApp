@@ -1,5 +1,7 @@
 @page "/mehr"
+@attribute [Authorize]
 @inherits AppPage
+@inject FinanzAppAuthStateProvider Auth
 
 <PageTitle>Alle Bereiche — FinanzApp</PageTitle>
 
@@ -56,11 +58,25 @@
             <span class="more-value"></span>
         </button>
 
-        <button type="button" class="tap more-row" @onclick="@(() => Toasts.Show("Alle Backups gültig"))">
+        <button type="button" class="tap more-row" @onclick="@(() => Navigation.NavigateTo("/benutzer"))">
+            <span class="stack">
+                <span class="more-label">Benutzer &amp; Anmeldung</span>
+                <span class="meta">
+                    @Auth.User?.HouseholdName · @overview.HouseholdMemberCount
+                    @(overview.HouseholdMemberCount == 1 ? "Benutzer" : "Benutzer")
+                </span>
+            </span>
+            <span class="more-value">@Auth.User?.Name</span>
+        </button>
+
+        <button type="button" class="tap more-row"
+                @onclick="@(() => Toasts.Show(overview.Security.TwoFactorEnabled
+                    ? "Alle Backups gültig"
+                    : "2FA folgt in einer späteren Runde"))">
             <span class="stack">
                 <span class="more-label">Sicherheit</span>
                 <span class="meta">
-                    @(overview.Security.TwoFactorEnabled ? "2FA aktiv" : "2FA inaktiv") ·
+                    @(overview.Security.TwoFactorEnabled ? "2FA aktiv" : "2FA noch nicht aktiv") ·
                     Backup @GermanFormat.DateTime(overview.Security.LastBackup)
                 </span>
             </span>

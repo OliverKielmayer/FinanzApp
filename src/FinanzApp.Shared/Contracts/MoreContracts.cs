@@ -8,6 +8,9 @@ public sealed record MoreOverviewDto
     public required ImportSummaryDto Import { get; init; }
     public required int CategoryCount { get; init; }
     public required int RuleCount { get; init; }
+
+    /// <summary>Benutzer im Haushalt — Untertitel der Zeile „Benutzer &amp; Anmeldung“.</summary>
+    public required int HouseholdMemberCount { get; init; }
     public required SecuritySummaryDto Security { get; init; }
 }
 

@@ -1,4 +1,5 @@
 using FinanzApp.Api.Data;
+using FinanzApp.Api.Infrastructure;
 using FinanzApp.Shared.Contracts;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,7 +10,8 @@ public sealed class OverviewService(
     FinanzAppDbContext db,
     CatalogService catalog,
     ImportService imports,
-    LoanService loans)
+    LoanService loans,
+    CurrentUser current)
 {
     public async Task<MoreOverviewDto> GetAsync(CancellationToken ct = default)
     {
@@ -41,6 +43,7 @@ public sealed class OverviewService(
             },
             CategoryCount = await catalog.GetCategoryCountAsync(ct),
             RuleCount = await catalog.GetRuleCountAsync(ct),
+            HouseholdMemberCount = await db.Users.CountAsync(u => u.HouseholdId == current.HouseholdId, ct),
             Security = new SecuritySummaryDto
             {
                 TwoFactorEnabled = security?.TwoFactorEnabled ?? false,

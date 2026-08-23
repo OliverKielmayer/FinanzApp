@@ -3,39 +3,54 @@
 @inject NavigationManager Navigation
 @inject NavigationHistory History
 @inject AppState State
+@inject FinanzAppAuthStateProvider Auth
 
-<div class="app">
-    <SideNav Current="@screen" />
+@*
+    Das Auth-Gate: ohne Sitzung bleiben Kopfzeile, Tab-Bar und Seitennavigation weg. Der Rumpf
+    enthält dann die Weiterleitung auf die Anmeldung und zeigt selbst nichts.
+*@
+<AuthorizeView>
+    <Authorized>
+        <div class="app">
+            <SideNav Current="@screen" CanWrite="@CanWrite" HouseholdName="@Auth.User?.HouseholdName" />
 
-    <div class="app-body">
-        <header class="app-header">
-            @if (screen.IsDetail)
-            {
-                <button type="button" class="header-action" @onclick="History.GoBack">Zurück</button>
-            }
+            <div class="app-body">
+                <header class="app-header">
+                    @if (screen.IsDetail)
+                    {
+                        <button type="button" class="header-action" @onclick="History.GoBack">Zurück</button>
+                    }
 
-            <div class="app-header-titles">
-                <span class="kicker">@screen.Kicker</span>
-                <h1 class="app-title">@screen.Title</h1>
+                    <div class="app-header-titles">
+                        <span class="kicker">@screen.Kicker</span>
+                        <h1 class="app-title">@screen.Title</h1>
+                    </div>
+
+                    <button type="button" class="header-action"
+                            @onclick="State.ToggleAmounts">@State.ToggleLabel</button>
+                </header>
+
+                <main class="app-main">
+                    <div class="app-content">
+                        @Body
+                    </div>
+                </main>
+
+                <TabBar Current="@screen" CanWrite="@CanWrite" />
             </div>
-
-            <button type="button" class="header-action" @onclick="State.ToggleAmounts">@State.ToggleLabel</button>
-        </header>
-
-        <main class="app-main">
-            <div class="app-content">
-                @Body
-            </div>
-        </main>
-
-        <TabBar Current="@screen" />
-    </div>
-</div>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        @Body
+    </NotAuthorized>
+</AuthorizeView>
 
 <Toast />
 
 @code {
     private Screen screen = ScreenCatalog.All[0];
+
+    private bool CanWrite => Auth.User?.CanWrite ?? false;
 
     protected override void OnInitialized()
     {
