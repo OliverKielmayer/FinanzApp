@@ -1,0 +1,82 @@
+@page "/liquiditaet/sparen"
+@attribute [Authorize]
+@inherits AppPage
+
+<PageTitle>Sparpotential — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (data is { } savings)
+    {
+        @if (savings.Items.Count == 0)
+        {
+            <div class="empty-area">
+                <span class="empty-area-text">
+                    Kein Hebel gefunden. Budgets werden eingehalten und keine Frist läuft.
+                </span>
+            </div>
+        }
+        else
+        {
+            @foreach (var item in savings.Items)
+            {
+                <button type="button" class="tap saving-row @(item.IsUrgent ? "urgent" : null)"
+                        @onclick="() => Open(item)">
+                    <span class="stack">
+                        <span class="work-title">@item.Title</span>
+                        <span class="work-due">@item.Detail · heute @State.Euro0(item.CurrentCostPerMonth) je Monat</span>
+                    </span>
+                    @if (item.AmountPerMonth is { } amount)
+                    {
+                        <span class="saving-amount num">@State.Euro0(amount, withPlusSign: true)</span>
+                    }
+                    else
+                    {
+                        <span class="saving-amount unknown">offen</span>
+                    }
+                </button>
+            }
+
+            <section class="section">
+                <div class="section-head">
+                    <span class="label-strong">Wenn alles umgesetzt wird</span>
+                </div>
+                <span class="hero-value medium num">@State.Euro0(savings.TotalPerMonth, withPlusSign: true) je Monat</span>
+                @if (savings.UnquantifiedCount > 0)
+                {
+                    <span class="meta" style="display:block;padding-top:8px">
+                        @savings.UnquantifiedCount weitere Gelegenheiten sind nicht beziffert — was ein
+                        Anbieterwechsel bringt, weiß die Anwendung nicht. Eine geschätzte Ersparnis
+                        wäre eine erfundene Zahl.
+                    </span>
+                }
+            </section>
+        }
+
+        <div class="spacer"></div>
+    }
+</AsyncView>
+
+@code {
+    private SavingsPotentialDto? data;
+
+    protected override async Task LoadAsync() => data = await Api.GetSavingsPotentialAsync();
+
+    private void Open(SavingsItemDto item)
+    {
+        var route = (item.SourceType, item.SourceId) switch
+        {
+            (LinkTargetType.Contract, { } id) => $"/vertraege/{id}",
+            (LinkTargetType.Insurance, { } id) => $"/versicherungen/{id}",
+            _ => null,
+        };
+
+        if (route is not null)
+        {
+            Navigation.NavigateTo(route);
+        }
+        else
+        {
+            Navigation.NavigateTo("/budgets");
+        }
+    }
+}

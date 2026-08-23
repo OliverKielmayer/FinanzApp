@@ -7,7 +7,42 @@
 <AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
     @if (data is { } dashboard)
     {
-        <section class="hero">
+        @*
+            Neu über dem bisherigen Inhalt: was diesen Monat übrig bleibt, und was offen ist.
+            Das Nettovermögen rückt eine Sektion nach unten, sonst bleibt alles wie es war.
+        *@
+        @if (liquidity is { } cash)
+        {
+            <button type="button" class="tap hero" @onclick="@(() => Navigation.NavigateTo("/liquiditaet"))">
+                <span class="label-muted">Bleibt übrig · @GermanFormat.MonthName(cash.Month)</span>
+                <span class="hero-value num">@State.Euro(cash.Remaining, withPlusSign: true)</span>
+                <span class="hero-deltas">
+                    <span class="hero-delta-secondary num">
+                        Einnahmen @State.Euro0(cash.Income) · Ausgaben @State.Euro0(cash.Expenses)
+                    </span>
+                    <span class="hero-delta-primary num">
+                        Sparquote @GermanFormat.Percent(cash.SavingsRatePercent)
+                    </span>
+                </span>
+            </button>
+        }
+
+        @if (work is { OpenCount: > 0 } summary)
+        {
+            <div class="triage-wrap">
+                <button type="button" class="triage" @onclick="@(() => Navigation.NavigateTo("/vorgaenge"))">
+                    <span class="stack">
+                        <span class="triage-title">
+                            @summary.OpenCount @(summary.OpenCount == 1 ? "offener Vorgang" : "offene Vorgänge")
+                        </span>
+                        <span class="triage-sub num">@DescribeWork(summary)</span>
+                    </span>
+                    <span class="triage-arrow" aria-hidden="true">→</span>
+                </button>
+            </div>
+        }
+
+        <section class="section">
             <span class="label-muted">Nettovermögen</span>
             <span class="hero-value num">@State.Euro(dashboard.NetWorth.Net)</span>
             <div class="hero-deltas">
@@ -120,8 +155,40 @@
 
 @code {
     private DashboardDto? data;
+    private LiquidityDto? liquidity;
+    private OpenWorkSummaryDto? work;
 
-    protected override async Task LoadAsync() => data = await Api.GetDashboardAsync();
+    protected override async Task LoadAsync()
+    {
+        data = await Api.GetDashboardAsync();
+        liquidity = await Api.GetLiquidityAsync();
+        work = await Api.GetWorkSummaryAsync();
+    }
+
+    /// <summary>Die Untertitelzeile des Banners nennt, was die Vorgänge ausmacht.</summary>
+    private string DescribeWork(OpenWorkSummaryDto summary)
+    {
+        var parts = new List<string>();
+
+        if (summary.ExpectedReimbursement > 0)
+        {
+            parts.Add("Erstattung " + State.Euro0(summary.ExpectedReimbursement));
+        }
+
+        if (summary.DueInvoiceCount > 0)
+        {
+            parts.Add(summary.DueInvoiceCount == 1
+                ? "1 Rechnung fällig"
+                : $"{summary.DueInvoiceCount} Rechnungen fällig");
+        }
+
+        if (summary.OverdueCount > 0)
+        {
+            parts.Add(summary.OverdueCount == 1 ? "1 überfällig" : $"{summary.OverdueCount} überfällig");
+        }
+
+        return parts.Count == 0 ? "Jetzt ansehen" : string.Join(" · ", parts);
+    }
 
     private void OpenLoan()
     {

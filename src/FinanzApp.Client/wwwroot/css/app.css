@@ -133,7 +133,12 @@ body {
 .app {
   display: flex;
   flex-direction: column;
-  min-height: 100dvh;
+
+  /* Feste Höhe, nicht Mindesthöhe: sonst wächst der Rahmen mit dem Inhalt, das Fenster wird
+     zum Scroller — und die Tab-Bar wandert nach unten aus dem Bild. Sie soll stehen bleiben. */
+  height: 100dvh;
+  overflow: hidden;
+
   background: var(--color-bg);
 }
 
@@ -1376,7 +1381,6 @@ body {
 @media (min-width: 768px) {
   .app {
     flex-direction: row;
-    height: 100dvh;
   }
 
   .tabbar {
@@ -1489,7 +1493,11 @@ body {
 .auth {
   display: flex;
   flex-direction: column;
-  min-height: 100dvh;
+
+  /* Wie beim App-Rahmen: die Fußzeile bleibt unten, gescrollt wird innen. */
+  height: 100dvh;
+  overflow: hidden;
+
   background: var(--color-bg);
 }
 
@@ -1903,4 +1911,502 @@ body {
   .auth-scroll {
     align-items: flex-start;
   }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Erweiterung — Dokumente, Vorgänge, Gesundheit, Versicherungen, Wohnen,
+   Liquidität. Dieselben Bausteine wie der Bestand, keine neuen Farben.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* Der Akzentblock der vier Zustände aus dem Handoff: überfällig, fällig,
+   Datei fehlt, Frist läuft. Ein Muster, mehrere Verwendungen. */
+.notice {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0 16px 12px;
+  padding: 12px 14px;
+  background: var(--color-accent-100);
+  border-left: 2px solid var(--color-accent);
+}
+
+.notice-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-accent-800);
+}
+
+.notice-text {
+  font-size: 11px;
+  color: var(--color-accent-800);
+}
+
+.notice.flush {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+/* Erklärzeile plus Primäraktion — nie eine leere Liste. */
+.empty-area {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 24px 16px;
+}
+
+.empty-area-text {
+  font-size: 13px;
+  color: var(--color-neutral-700);
+}
+
+/* ── Erfassen-Sheet ─────────────────────────────────────────────────────── */
+
+.tabbar-action {
+  font: inherit;
+  color: inherit;
+}
+
+.tabbar-action .tabbar-label {
+  color: var(--color-accent);
+}
+
+.tabbar-action .tabbar-mark {
+  background: var(--color-accent);
+}
+
+.sidenav-action {
+  color: var(--color-accent);
+}
+
+.capture-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.capture-item {
+  width: 100%;
+  min-height: 48px;
+  justify-content: flex-start;
+}
+
+.capture-note {
+  display: block;
+  margin-top: 14px;
+  font-size: 11px;
+  color: var(--color-neutral-600);
+}
+
+/* ── Vorgänge ───────────────────────────────────────────────────────────── */
+
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 2px solid var(--color-divider);
+}
+
+.work-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.work-row.overdue {
+  background: var(--color-accent-100);
+  border-left: 2px solid var(--color-accent);
+}
+
+.work-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.work-row.overdue .work-title {
+  color: var(--color-accent-800);
+}
+
+.work-amount {
+  flex: none;
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.work-row.overdue .work-amount {
+  color: var(--color-accent);
+}
+
+.work-due {
+  font-size: 11px;
+  color: var(--color-neutral-600);
+}
+
+.work-row.overdue .work-due {
+  color: var(--color-accent-800);
+}
+
+/* ── Dokumente ──────────────────────────────────────────────────────────── */
+
+.doc-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.doc-row.missing {
+  background: var(--color-accent-100);
+  border-left: 2px solid var(--color-accent);
+}
+
+.doc-name {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.doc-row.missing .doc-name {
+  color: var(--color-accent-800);
+}
+
+.doc-meta {
+  font-size: 11px;
+  color: var(--color-neutral-600);
+}
+
+.doc-row.missing .doc-meta {
+  color: var(--color-accent-800);
+}
+
+.doc-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px 20px;
+  font-size: 11px;
+  color: var(--color-neutral-600);
+}
+
+.doc-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 96px;
+  margin: 0 16px 12px;
+  padding: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider);
+  font-size: 12px;
+  color: var(--color-neutral-600);
+}
+
+.doc-path {
+  display: block;
+  padding: 0 16px 12px;
+  font-size: 12px;
+  color: var(--color-neutral-700);
+  word-break: break-all;
+}
+
+.doc-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 16px 16px;
+}
+
+.doc-actions .btn {
+  min-height: 46px;
+  justify-content: flex-start;
+}
+
+/* ── Gesundheit / PKV ───────────────────────────────────────────────────── */
+
+.bill-split {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-right: -1px;
+  border-top: 2px solid var(--color-divider);
+  border-bottom: 2px solid var(--color-divider);
+}
+
+.bill-split-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 14px 10px 16px 16px;
+  border-right: 1px solid var(--color-divider);
+}
+
+.bill-split-value {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.bill-split-value.own {
+  color: var(--color-accent-700);
+}
+
+.chain {
+  display: flex;
+  flex-direction: column;
+}
+
+.chain-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--color-divider);
+  font-size: 14px;
+  color: var(--color-neutral-600);
+}
+
+.chain-step.done {
+  color: var(--color-text);
+}
+
+.chain-step.current {
+  background: var(--color-accent-100);
+  border-left: 2px solid var(--color-accent);
+  color: var(--color-accent-800);
+  font-weight: 600;
+}
+
+.chain-mark {
+  flex: none;
+  width: 14px;
+  font-family: var(--font-heading);
+  font-weight: 800;
+}
+
+.chain-date {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--color-neutral-600);
+}
+
+.candidate-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.candidate-row.best {
+  background: var(--color-accent-100);
+  border-left: 2px solid var(--color-accent);
+}
+
+.candidate-amount {
+  flex: none;
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.candidate-row.best .candidate-amount {
+  color: var(--color-accent);
+}
+
+/* ── Liquidität ─────────────────────────────────────────────────────────── */
+
+.liq-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 16px 14px;
+}
+
+.liq-bar-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.liq-bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--color-neutral-700);
+}
+
+.pending-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--color-divider);
+  font-size: 13px;
+}
+
+.pending-amount {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.pending-amount.out {
+  color: var(--color-accent-700);
+}
+
+.flow-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.flow-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.flow-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.flow-amount {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.flow-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--color-neutral-600);
+}
+
+.flow-row.over .flow-name,
+.flow-row.over .flow-amount,
+.flow-row.over .flow-meta {
+  color: var(--color-accent);
+}
+
+.saving-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.saving-row.urgent {
+  background: var(--color-accent-100);
+  border-left: 2px solid var(--color-accent);
+}
+
+.saving-amount {
+  flex: none;
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 15px;
+  text-align: right;
+}
+
+.saving-row.urgent .saving-amount {
+  color: var(--color-accent);
+}
+
+.saving-amount.unknown {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--color-neutral-600);
+}
+
+/* ── Versicherungen, Verträge, Rechnungen ───────────────────────────────── */
+
+.contract-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.contract-row.deadline {
+  background: var(--color-accent-100);
+  border-left: 2px solid var(--color-accent);
+}
+
+.contract-name {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.contract-row.deadline .contract-name {
+  color: var(--color-accent-800);
+}
+
+.contract-amount {
+  flex: none;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.ref-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.ref-value {
+  flex: none;
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.ref-value.debt {
+  color: var(--color-accent-700);
+}
+
+.detail-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.detail-label {
+  font-size: 11px;
+  color: var(--color-neutral-600);
+}
+
+.detail-value {
+  font-size: 14px;
 }

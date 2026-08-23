@@ -1,0 +1,108 @@
+@page "/vertraege/{Id:int}"
+@attribute [Authorize]
+@inherits AppPage
+
+<PageTitle>Vertrag — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (data is { } contract)
+    {
+        <section class="hero">
+            <span class="label-muted">@contract.Name</span>
+            <span class="hero-value medium">@contract.Provider</span>
+            <span class="loan-sub num">
+                @(contract.ContractNumber is { Length: > 0 } number ? "Nr. " + number + " · " : string.Empty)
+                @(contract.StartsOn is { } from ? "seit " + GermanFormat.Date(from) : "Beginn offen")
+            </span>
+        </section>
+
+        <div class="detail-block">
+            <span class="detail-label">Abschlag · Konto</span>
+            <span class="detail-value num">
+                @State.Euro(contract.MonthlyAmount) monatlich
+                @(contract.AccountName is { Length: > 0 } account ? " · " + account : string.Empty)
+            </span>
+        </div>
+
+        @if (contract.NoticeDeadline is { } deadline && contract.NoticeIsDue)
+        {
+            <div class="notice">
+                <span class="notice-title">Kündigung bis @GermanFormat.Date(deadline)</span>
+                <span class="notice-text">
+                    @contract.NoticePeriodWeeks Wochen zum @(contract.NoticeToDate is { } to
+                        ? GermanFormat.Date(to)
+                        : "Stichtag")
+                </span>
+            </div>
+        }
+        else
+        {
+            <div class="detail-block">
+                <span class="detail-label">Kündigungsfrist</span>
+                <span class="detail-value num">
+                    @(contract.NoticeToDate is { } to
+                        ? $"{contract.NoticePeriodWeeks} Wochen zum {GermanFormat.Date(to)}"
+                        : "keine Frist hinterlegt")
+                </span>
+            </div>
+        }
+
+        <div class="list-head">
+            <span class="label-strong">Rechnungen</span>
+            <span class="list-count num">@contract.Invoices.Count</span>
+        </div>
+
+        @if (contract.Invoices.Count == 0)
+        {
+            <div class="empty-area">
+                <span class="empty-area-text">Zu diesem Vertrag liegt noch keine Rechnung vor.</span>
+            </div>
+        }
+
+        @foreach (var invoice in contract.Invoices)
+        {
+            <button type="button" class="tap contract-row @(invoice.Status == InvoiceStatus.Open ? "deadline" : null)"
+                    @onclick="@(() => Navigation.NavigateTo($"/rechnungen/{invoice.Id}"))">
+                <span class="stack">
+                    <span class="contract-name">@invoice.Subject</span>
+                    <span class="meta">@Describe(invoice)</span>
+                </span>
+                <span class="contract-amount num">@State.Euro(invoice.Amount)</span>
+            </button>
+        }
+
+        <div class="list-head">
+            <span class="label-strong">Dokumente</span>
+            <span class="list-count num">@contract.Documents.Count</span>
+        </div>
+
+        @foreach (var document in contract.Documents)
+        {
+            <button type="button" class="tap doc-row @(document.FileExists ? null : "missing")"
+                    @onclick="@(() => Navigation.NavigateTo($"/dokumente/{document.Id}"))">
+                <span class="stack">
+                    <span class="doc-name">@document.Title</span>
+                    <span class="doc-meta">@(document.FileExists ? document.TypeName : "Datei nicht gefunden")</span>
+                </span>
+            </button>
+        }
+
+        <div class="spacer"></div>
+    }
+</AsyncView>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private ContractDetailDto? data;
+
+    protected override async Task LoadAsync() => data = await Api.GetContractAsync(Id);
+
+    private static string Describe(InvoiceListItemDto invoice) => invoice switch
+    {
+        { Status: InvoiceStatus.Paid } => "bezahlt · " + GermanFormat.Date(invoice.DueOn),
+        { Status: InvoiceStatus.Cancelled } => "storniert",
+        { IsOverdue: true } => $"überfällig seit {-invoice.DaysUntilDue} T",
+        _ => $"offen, fällig {GermanFormat.Date(invoice.DueOn)}",
+    };
+}

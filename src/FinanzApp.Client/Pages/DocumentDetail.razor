@@ -1,0 +1,198 @@
+@page "/dokumente/{Id:int}"
+@attribute [Authorize]
+@inherits AppPage
+
+<PageTitle>Dokument — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (data is { } document)
+    {
+        <section class="hero">
+            <span class="label-muted">@(document.TypeName ?? "Dokument")</span>
+            <span class="sheet-payee">@document.Title</span>
+            <span class="meta">@document.FileName</span>
+        </section>
+
+        @if (document.FileExists)
+        {
+            <div class="doc-preview">Vorschau — die Datei öffnet in einem neuen Fenster.</div>
+            <div class="doc-actions">
+                <a class="btn btn-primary" href="@($"/api/documents/{document.Id}/file")"
+                   target="_blank" rel="noopener">Datei öffnen</a>
+            </div>
+        }
+        else
+        {
+            @*
+                Datei fehlt: der Eintrag bleibt vollständig sichtbar und verknüpft. Ausblenden
+                wäre der schlechteste Ausweg — dann wüsste niemand mehr, dass es ihn gab.
+            *@
+            <div class="notice">
+                <span class="notice-title">Datei nicht gefunden</span>
+                <span class="notice-text num">@document.RelativePath</span>
+            </div>
+
+            <AuthorizeView Roles="Owner,Member">
+                <div class="doc-actions">
+                    @if (fixing)
+                    {
+                        <div class="field">
+                            <label for="doc-path">Neuer Pfad im Dokumentordner</label>
+                            <input id="doc-path" class="input" placeholder="Bereich/Ordner/Datei.pdf"
+                                   value="@newPath" @oninput="e => newPath = e.Value?.ToString() ?? string.Empty" />
+                        </div>
+                        <button type="button" class="btn btn-primary" disabled="@busy"
+                                @onclick="SavePathAsync">Pfad speichern</button>
+                        <button type="button" class="btn btn-secondary"
+                                @onclick="@(() => fixing = false)">Abbrechen</button>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-primary" @onclick="StartFix">Pfad korrigieren</button>
+                        <button type="button" class="btn btn-secondary"
+                                @onclick="@(() => Toasts.Show("Ordnersuche folgt"))">Im Ordner suchen</button>
+                        <button type="button" class="btn btn-secondary"
+                                @onclick="@(() => Toasts.Show("Eintrag bleibt bestehen"))">
+                            Eintrag behalten, Datei später
+                        </button>
+                    }
+                </div>
+            </AuthorizeView>
+        }
+
+        <div class="detail-block">
+            <span class="detail-label">Pfad</span>
+            <span class="detail-value num">@document.RelativePath</span>
+        </div>
+
+        <div class="detail-block">
+            <span class="detail-label">Typ · Dokumentdatum · Gültigkeit</span>
+            <span class="detail-value">@DescribeMeta(document)</span>
+        </div>
+
+        @if (document.Tags.Count > 0)
+        {
+            <div class="picker">
+                <span class="label-strong">Schlagworte</span>
+                <div class="chipcloud">
+                    @foreach (var tag in document.Tags)
+                    {
+                        <span class="chip">@tag</span>
+                    }
+                </div>
+            </div>
+        }
+
+        <div class="list-head">
+            <span class="label-strong">Verknüpft mit</span>
+            <span class="list-count num">@document.Links.Count</span>
+        </div>
+
+        @if (document.Links.Count == 0)
+        {
+            <div class="empty-area">
+                <span class="empty-area-text">
+                    Noch mit nichts verknüpft. Verknüpft wird sonst am Objekt — die Versicherung
+                    hängt ihr Dokument an.
+                </span>
+            </div>
+        }
+
+        @foreach (var link in document.Links)
+        {
+            <button type="button" class="tap more-row" @onclick="() => OpenLink(link)">
+                <span class="stack">
+                    <span class="more-label">@link.Label</span>
+                    <span class="meta">@link.TargetLabel</span>
+                </span>
+            </button>
+        }
+
+        <div class="spacer"></div>
+    }
+</AsyncView>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private DocumentDetailDto? data;
+    private bool fixing;
+    private bool busy;
+    private string newPath = string.Empty;
+
+    protected override async Task LoadAsync() => data = await Api.GetDocumentAsync(Id);
+
+    private void StartFix()
+    {
+        newPath = data?.RelativePath ?? string.Empty;
+        fixing = true;
+    }
+
+    private async Task SavePathAsync()
+    {
+        busy = true;
+        try
+        {
+            data = await Api.FixDocumentPathAsync(Id, newPath);
+            fixing = false;
+            Toasts.Show("Pfad gespeichert");
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private static string DescribeMeta(DocumentDetailDto document)
+    {
+        var parts = new List<string>();
+        if (document.TypeName is { Length: > 0 } type)
+        {
+            parts.Add(type);
+        }
+
+        if (document.DocumentDate is { } date)
+        {
+            parts.Add(GermanFormat.Date(date));
+        }
+
+        if (document.ValidFrom is { } from)
+        {
+            parts.Add("ab " + GermanFormat.Date(from));
+        }
+
+        if (document.ValidUntil is { } until)
+        {
+            parts.Add("bis " + GermanFormat.Date(until));
+        }
+
+        return parts.Count == 0 ? "—" : string.Join(" · ", parts);
+    }
+
+    private void OpenLink(DocumentLinkDto link)
+    {
+        var route = link.TargetType switch
+        {
+            LinkTargetType.Insurance => $"/versicherungen/{link.TargetId}",
+            LinkTargetType.Contract => $"/vertraege/{link.TargetId}",
+            LinkTargetType.Property => $"/wohnen/{link.TargetId}",
+            LinkTargetType.Invoice => $"/rechnungen/{link.TargetId}",
+            LinkTargetType.MedicalBill => $"/gesundheit/{link.TargetId}",
+            LinkTargetType.Loan => $"/darlehen?id={link.TargetId}",
+            LinkTargetType.Transaction or LinkTargetType.Account => "/konten",
+            _ => null,
+        };
+
+        if (route is null)
+        {
+            Toasts.Show("Zu diesem Objekt gibt es keinen eigenen Screen.");
+            return;
+        }
+
+        Navigation.NavigateTo(route);
+    }
+}

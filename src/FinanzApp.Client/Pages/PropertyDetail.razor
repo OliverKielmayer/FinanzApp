@@ -1,0 +1,109 @@
+@page "/wohnen/{Id:int}"
+@attribute [Authorize]
+@inherits AppPage
+
+<PageTitle>Immobilie — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (data is { } property)
+    {
+        <section class="hero">
+            <span class="label-muted">
+                Marktwert@(property.PurchaseDate is { } bought ? " · Kauf " + bought.Year : string.Empty)
+            </span>
+            <span class="hero-value medium num">@State.Euro0(property.MarketValue)</span>
+            <span class="loan-sub">@(property.Address ?? property.Name)</span>
+        </section>
+
+        @if (property.Loan is { } loan)
+        {
+            @*
+                Das Darlehen wird nicht kopiert — die Zeile verweist auf den bestehenden
+                Darlehensscreen samt Tilgungsplan.
+            *@
+            <button type="button" class="tap ref-row"
+                    @onclick="@(() => Navigation.NavigateTo($"/darlehen?id={loan.LoanId}"))">
+                <span class="stack">
+                    <span class="balance-label plain">Darlehen</span>
+                    <span class="meta num">
+                        Rate @State.Euro0(loan.Installment) ·
+                        @GermanFormat.Percent(loan.InterestRatePercent, 2) Sollzins
+                    </span>
+                </span>
+                <span class="ref-value debt num">@State.Euro0(-loan.RemainingDebt)</span>
+            </button>
+        }
+
+        <section class="section">
+            <div class="section-head">
+                <span class="label-strong">Kosten 12 Monate</span>
+            </div>
+            <span class="hero-value medium num">@State.Euro0(property.CostsLastTwelveMonths)</span>
+            <span class="meta" style="display:block;padding-top:6px">
+                @(property.CostParts.Count == 0 ? "keine Kostenquelle hinterlegt" : string.Join(" · ", property.CostParts))
+            </span>
+        </section>
+
+        <div class="list-head">
+            <span class="label-strong">Verträge</span>
+            <span class="list-count num">@property.Contracts.Count</span>
+        </div>
+
+        @foreach (var contract in property.Contracts)
+        {
+            <button type="button" class="tap contract-row @(contract.NoticeIsDue ? "deadline" : null)"
+                    @onclick="@(() => Navigation.NavigateTo($"/vertraege/{contract.Id}"))">
+                <span class="stack">
+                    <span class="contract-name">@contract.Name</span>
+                    <span class="meta">@Describe(contract)</span>
+                </span>
+                <span class="contract-amount num">@State.Euro(contract.MonthlyAmount)</span>
+            </button>
+        }
+
+        <div class="list-head">
+            <span class="label-strong">Dokumente</span>
+            <span class="list-count num">@property.Documents.Count</span>
+        </div>
+
+        @foreach (var document in property.Documents)
+        {
+            <button type="button" class="tap doc-row @(document.FileExists ? null : "missing")"
+                    @onclick="@(() => Navigation.NavigateTo($"/dokumente/{document.Id}"))">
+                <span class="stack">
+                    <span class="doc-name">@document.Title</span>
+                    <span class="doc-meta">@(document.FileExists ? document.TypeName : "Datei nicht gefunden")</span>
+                </span>
+            </button>
+        }
+
+        <div class="spacer"></div>
+    }
+</AsyncView>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private PropertyDetailDto? data;
+
+    protected override async Task LoadAsync() => data = await Api.GetPropertyAsync(Id);
+
+    private static string Describe(ContractListItemDto contract)
+    {
+        var parts = new List<string> { contract.Provider };
+
+        if (contract.OpenInvoiceCount > 0)
+        {
+            parts.Add(contract.OpenInvoiceCount == 1
+                ? "1 offene Rechnung"
+                : $"{contract.OpenInvoiceCount} offene Rechnungen");
+        }
+
+        if (contract.NoticeIsDue && contract.NoticeDeadline is { } deadline)
+        {
+            parts.Add("Kündigung bis " + GermanFormat.Date(deadline));
+        }
+
+        return string.Join(" · ", parts);
+    }
+}

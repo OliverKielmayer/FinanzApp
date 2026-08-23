@@ -123,7 +123,7 @@ public sealed class FinanzAppApi(HttpClient http)
     public Task<MoreOverviewDto> GetMoreOverviewAsync(CancellationToken ct = default)
         => GetAsync<MoreOverviewDto>("api/overview/more", ct);
 
-    private async Task<T> GetAsync<T>(string url, CancellationToken ct)
+    internal async Task<T> GetAsync<T>(string url, CancellationToken ct)
     {
         try
         {
@@ -136,11 +136,11 @@ public sealed class FinanzAppApi(HttpClient http)
         }
     }
 
-    private Task<TResult> PostAsync<TBody, TResult>(string url, TBody body, CancellationToken ct)
+    internal Task<TResult> PostAsync<TBody, TResult>(string url, TBody body, CancellationToken ct)
         => SendAsync<TBody, TResult>(HttpMethod.Post, url, body, ct);
 
     /// <summary>Für Endpunkte, die 204 antworten.</summary>
-    private async Task SendWithoutResultAsync<TBody>(
+    internal async Task SendWithoutResultAsync<TBody>(
         HttpMethod method, string url, TBody body, CancellationToken ct)
     {
         try
@@ -163,7 +163,7 @@ public sealed class FinanzAppApi(HttpClient http)
         }
     }
 
-    private async Task<TResult> SendAsync<TBody, TResult>(
+    internal async Task<TResult> SendAsync<TBody, TResult>(
         HttpMethod method, string url, TBody body, CancellationToken ct)
     {
         try
@@ -175,6 +175,30 @@ public sealed class FinanzAppApi(HttpClient http)
             }
 
             using var response = await http.SendAsync(request, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new ApiException(await DescribeAsync(response, ct));
+            }
+
+            return await response.Content.ReadFromJsonAsync<TResult>(Json, ct)
+                   ?? throw new ApiException("Die Antwort des Servers war leer.");
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException)
+        {
+            throw new ApiException(Describe(ex), ex);
+        }
+    }
+
+    /// <summary>
+    /// Schickt ein Formular mit Datei. Der Schutz gegen fremde Formulare liegt beim Anmelde-Cookie
+    /// mit SameSite=Strict — ein anderer Ursprung bekommt es nicht mitgeschickt.
+    /// </summary>
+    internal async Task<TResult> PostFormAsync<TResult>(
+        string url, MultipartFormDataContent form, CancellationToken ct)
+    {
+        try
+        {
+            using var response = await http.PostAsync(url, form, ct);
             if (!response.IsSuccessStatusCode)
             {
                 throw new ApiException(await DescribeAsync(response, ct));

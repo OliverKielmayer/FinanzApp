@@ -1,22 +1,29 @@
-@* Ab Tabletbreite ersetzt diese Spalte die Tab-Bar. Unterhalb davon blendet
-   app.css sie aus — der Handoff verlangt für schmale Geräte ausdrücklich Tabs. *@
+@* Ab Tabletbreite ersetzt diese Spalte die Tab-Bar. Dort ist Platz, also stehen alle Bereiche
+   flach untereinander — kein Umweg über „Mehr“. *@
 <nav class="sidenav" aria-label="Bereiche">
     <div class="sidenav-brand">
         <span class="kicker">@(HouseholdName ?? "Vermögen & Haushalt")</span>
         <span class="sidenav-brand-name">FinanzApp</span>
     </div>
 
-    @foreach (var screen in ScreenCatalog.Tabs.Where(s => CanWrite || !s.RequiresWrite))
+    @foreach (var screen in ScreenCatalog.Tabs.Where(s => (CanWrite || !s.RequiresWrite) && !s.IsAction))
     {
         <a href="@screen.Route" class="sidenav-item @(screen == Current ? "active" : null)"
            aria-current="@(screen == Current ? "page" : null)">@screen.Title</a>
     }
 
+    @if (CanWrite)
+    {
+        <button type="button" class="sidenav-item sidenav-action" @onclick="OnCapture" aria-haspopup="dialog">
+            Erfassen …
+        </button>
+    }
+
     <div class="sidenav-group">
-        <span class="label-strong">Weitere Bereiche</span>
+        <span class="label-strong">Bereiche</span>
     </div>
 
-    @foreach (var screen in ScreenCatalog.Secondary.Where(s => CanWrite || !s.RequiresWrite))
+    @foreach (var screen in ScreenCatalog.Areas)
     {
         <a href="@screen.Route" class="sidenav-item @(screen == Current ? "active" : null)"
            aria-current="@(screen == Current ? "page" : null)">@screen.Title</a>
@@ -33,4 +40,7 @@
     /// <summary>Name des Haushalts als Kicker über der Wortmarke.</summary>
     [Parameter]
     public string? HouseholdName { get; set; }
+
+    [Parameter]
+    public EventCallback OnCapture { get; set; }
 }

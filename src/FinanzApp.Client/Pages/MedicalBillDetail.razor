@@ -1,0 +1,206 @@
+@page "/gesundheit/{Id:int}"
+@attribute [Authorize]
+@inherits AppPage
+
+<PageTitle>PKV-Vorgang — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (data is { } bill)
+    {
+        <section class="hero">
+            <span class="label-muted">@(bill.BillNumber is { Length: > 0 } n ? "Rechnung " + n : "Arztrechnung")</span>
+            <span class="hero-value medium num">@State.Euro(bill.GrossAmount)</span>
+            <span class="loan-sub">@bill.Provider · @GermanFormat.Date(bill.BillDate)</span>
+        </section>
+
+        @* Die Dreiteilung ist der Kern: Rechnung, Erstattung, Eigenanteil. *@
+        <div class="bill-split">
+            <div class="bill-split-cell">
+                <span class="label-muted">Rechnung</span>
+                <span class="bill-split-value num">@State.Euro0(bill.GrossAmount)</span>
+            </div>
+            <div class="bill-split-cell">
+                <span class="label-muted">Erstattung</span>
+                <span class="bill-split-value num">@State.Euro0(bill.ActualReimbursement ?? bill.ExpectedReimbursement)</span>
+            </div>
+            <div class="bill-split-cell">
+                <span class="label-muted">Eigenanteil</span>
+                <span class="bill-split-value own num">@State.Euro0(bill.OwnShare)</span>
+            </div>
+        </div>
+
+        @if (bill.IsOverdue)
+        {
+            <div class="notice">
+                <span class="notice-title">Wartet seit @bill.DaysWaiting Tagen</span>
+                <span class="notice-text">übliche Dauer @bill.UsualProcessingDays T</span>
+            </div>
+
+            <AuthorizeView Roles="Owner,Member">
+                <div class="doc-actions">
+                    <button type="button" class="btn btn-secondary"
+                            @onclick="@(() => Toasts.Show("Erinnerung folgt"))">Erinnerung setzen</button>
+                    <button type="button" class="btn btn-secondary"
+                            @onclick="@(() => Toasts.Show("Nachfrage folgt"))">Bei PKV nachfragen</button>
+                </div>
+            </AuthorizeView>
+        }
+
+        <div class="section" style="padding-bottom:4px">
+            <span class="label-strong">Verlauf</span>
+        </div>
+
+        <div class="chain">
+            @foreach (var step in bill.Steps)
+            {
+                <div class="chain-step @(step.Done ? "done" : null) @(step.Current ? "current" : null)">
+                    <span class="chain-mark" aria-hidden="true">@(step.Done ? "✓" : "◻")</span>
+                    <span>@step.Label</span>
+                    @if (step.At is { } at)
+                    {
+                        <span class="chain-date num">@GermanFormat.Date(at)</span>
+                    }
+                </div>
+            }
+        </div>
+
+        <span class="entry-summary" style="display:block;padding-top:12px">
+            Der Eigenanteil ist eine gebuchte Ausgabe, keine offene Forderung. Offen sind
+            @State.Euro(bill.OpenAmount).
+        </span>
+
+        <AuthorizeView Roles="Owner,Member">
+            @if (bill.NextStatus is { } next && bill.NextActionLabel is { } label)
+            {
+                <div class="actions">
+                    <button type="button" class="btn btn-primary" disabled="@busy"
+                            @onclick="() => AdvanceAsync(next, label)">@label</button>
+                    @if (bill.Status != MedicalBillStatus.Rejected)
+                    {
+                        <button type="button" class="btn btn-secondary" disabled="@busy"
+                                @onclick="RejectAsync">Abgelehnt</button>
+                    }
+                </div>
+            }
+        </AuthorizeView>
+
+        @if (candidates is { Count: > 0 })
+        {
+            <div class="list-head">
+                <span class="label-strong">Passende Buchungen</span>
+                <span class="list-count num">@candidates.Count</span>
+            </div>
+
+            @foreach (var candidate in candidates)
+            {
+                <button type="button" class="tap candidate-row @(candidate.IsBestMatch ? "best" : null)"
+                        disabled="@busy" @onclick="() => LinkAsync(candidate)">
+                    <span class="stack">
+                        <span class="work-title num">
+                            @State.Euro(candidate.Amount, withPlusSign: true) · @GermanFormat.DateShort(candidate.BookingDate)
+                        </span>
+                        <span class="work-due">@candidate.AccountName · @candidate.Payee · @candidate.Reason</span>
+                    </span>
+                    <span class="candidate-amount num">@candidate.Score</span>
+                </button>
+            }
+
+            <span class="entry-summary" style="display:block">
+                Vorschlag über Betrag, Datum und Verwendungszweck — bestätigt wird von Hand.
+            </span>
+        }
+        else if (candidatesLoaded)
+        {
+            <div class="empty-area">
+                <span class="empty-area-text">Keine Buchung passt zur erwarteten Erstattung.</span>
+            </div>
+        }
+
+        @if (bill.Documents.Count > 0)
+        {
+            <div class="list-head">
+                <span class="label-strong">Dokumente</span>
+                <span class="list-count num">@bill.Documents.Count</span>
+            </div>
+
+            @foreach (var document in bill.Documents)
+            {
+                <button type="button" class="tap doc-row @(document.FileExists ? null : "missing")"
+                        @onclick="@(() => Navigation.NavigateTo($"/dokumente/{document.Id}"))">
+                    <span class="stack">
+                        <span class="doc-name">@document.FileName</span>
+                        <span class="doc-meta">@(document.FileExists ? document.TypeName : "Datei nicht gefunden")</span>
+                    </span>
+                </button>
+            }
+        }
+
+        <div class="spacer"></div>
+    }
+</AsyncView>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private MedicalBillDetailDto? data;
+    private IReadOnlyList<PaymentCandidateDto>? candidates;
+    private bool candidatesLoaded;
+    private bool busy;
+
+    protected override async Task LoadAsync()
+    {
+        data = await Api.GetMedicalBillAsync(Id);
+
+        // Vorschläge nur holen, wenn noch etwas offen ist — sonst gibt es nichts zuzuordnen.
+        if (data is { OpenAmount: > 0 })
+        {
+            candidates = await Api.GetBillPaymentCandidatesAsync(Id);
+            candidatesLoaded = true;
+        }
+        else
+        {
+            candidates = null;
+            candidatesLoaded = false;
+        }
+    }
+
+    private async Task AdvanceAsync(MedicalBillStatus status, string label)
+    {
+        busy = true;
+        try
+        {
+            data = await Api.AdvanceMedicalBillAsync(Id, status);
+            Toasts.Show(label + " ✓");
+            await LoadAsync();
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private Task RejectAsync() => AdvanceAsync(MedicalBillStatus.Rejected, "Als abgelehnt vermerkt");
+
+    private async Task LinkAsync(PaymentCandidateDto candidate)
+    {
+        busy = true;
+        try
+        {
+            data = await Api.LinkBillPaymentAsync(Id, candidate.TransactionId);
+            Toasts.Show("Zahlung zugeordnet");
+            await LoadAsync();
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link href="https://fonts.googleapis.com/css2?family=Kalam:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#f0eee9;font-family:Kalam,system-ui,sans-serif}
+a{color:#c0392b}a:hover{color:#8e2a20}
+.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}
+.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 20px}
+.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px;text-decoration:none}
+.dv-tname{font:700 15px/1.2 Kalam,sans-serif;color:#1a1a1a}
+.dv-opts{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}
+.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none}
+.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 13px/1.3 Kalam,sans-serif;color:rgba(0,0,0,.6)}
+.dv-card{max-width:100%;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden;padding:18px}
+.dv-opt:target .dv-oid{background:#2a78d6;color:#fff}
+.dv-next{margin:22px 0 0;font:13px/1.5 Kalam,sans-serif;color:rgba(0,0,0,.55)}
+.row{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.ph{width:246px;flex:none;border:2px solid #2b2b2b;border-radius:10px;background:#fff;display:flex;flex-direction:column;overflow:hidden}
+.ph-t{font:700 13px Kalam;padding:7px 10px;border-bottom:2px solid #2b2b2b;background:#f4f2ee;display:flex;justify-content:space-between;align-items:center}
+.ph-b{padding:9px 10px;display:flex;flex-direction:column;gap:8px;flex:1}
+.sec{font:700 11px Kalam;letter-spacing:.04em;color:#5b5b5b;text-transform:uppercase}
+.bx{border:1.5px solid #9a9a9a;border-radius:4px;padding:7px 8px;display:flex;flex-direction:column;gap:5px;font:400 12px/1.25 Kalam;color:#2b2b2b}
+.bx-a{border-color:#c0392b;background:#fdf1ef}
+.bx-g{background:#f2f1ee}
+.ln{height:7px;border-radius:3px;background:#dedbd5}
+.hd{font:700 15px Kalam;color:#1a1a1a}
+.big{font:700 26px Kalam;color:#1a1a1a;line-height:1}
+.sm{font:400 11px Kalam;color:#6a6a6a}
+.red{color:#c0392b}
+.btn{border:1.5px solid #2b2b2b;border-radius:4px;padding:7px 9px;font:700 12px Kalam;text-align:left}
+.btn-p{background:#2b2b2b;color:#fff}
+.tabs{margin-top:auto;border-top:2px solid #2b2b2b;display:grid;grid-template-columns:repeat(5,1fr);font:400 10px Kalam;text-align:center}
+.tabs > span{padding:7px 2px;border-right:1px solid #cfcbc4;color:#6a6a6a}
+.on{color:#c0392b;font-weight:700;background:#fdf1ef}
+.chips{display:flex;flex-wrap:wrap;gap:5px;font:400 11px Kalam}
+.chip{border:1.5px solid #9a9a9a;border-radius:12px;padding:3px 8px}
+.chip-a{border-color:#c0392b;color:#c0392b}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.arrow{align-self:center;font:700 22px Kalam;color:#9a9a9a;padding:0 2px}
+.note{font:400 12px/1.45 Kalam;color:#5b5b5b;max-width:250px}
+</style>
+</helmet>
+
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Erweiterung: Dokumente, PKV, Immobilie, Liquidität — Wireframes</span></div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1a">
+  <div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Navigation A — Finanzen bleibt vorn, „Vorgänge" wird der 5. Tab</div>
+  <div class="dv-card">
+    <div class="row">
+      <div class="ph">
+        <div class="ph-t"><span>Vermögen</span><span class="sm">•••</span></div>
+        <div class="ph-b">
+          <div class="sec">Liquidität August</div>
+          <div class="bx"><span class="big">+1.628 €</span><span class="sm">Einnahmen 5.240 · Ausgaben 3.612</span><div class="ln"></div></div>
+          <div class="bx bx-a"><span><b>3 offene Vorgänge</b></span><span class="sm">Erstattung 680 € · 2 Rechnungen fällig</span></div>
+          <div class="sec">Vermögen</div>
+          <div class="grid2">
+            <div class="bx bx-g"><span class="sm">Konten</span><b>6.760 €</b></div>
+            <div class="bx bx-g"><span class="sm">Depot</span><b>132.480 €</b></div>
+          </div>
+          <div class="bx bx-g"><span class="sm">Netto</span><b>125.840 €</b></div>
+        </div>
+        <div class="tabs"><span class="on">Vermögen</span><span>Konten</span><span>Erfassen</span><span>Vorgänge</span><span>Mehr</span></div>
+      </div>
+      <div class="ph">
+        <div class="ph-t"><span>Vorgänge</span><span class="sm">Filter</span></div>
+        <div class="ph-b">
+          <div class="chips"><span class="chip chip-a">Offen 6</span><span class="chip">Wartet 3</span><span class="chip">Erledigt</span></div>
+          <div class="bx bx-a"><b>PKV-Erstattung 680 €</b><span class="sm">eingereicht 02.08 · überfällig seit 12 T</span></div>
+          <div class="bx"><b>Stromrechnung 142,50 €</b><span class="sm">fällig in 5 Tagen · Stadtwerke</span></div>
+          <div class="bx"><b>Kündigungsfrist Hausrat</b><span class="sm">bis 30.09.2027 · in 18 Tagen erinnern</span></div>
+          <div class="bx bx-g"><b>Arztrechnung 210 €</b><span class="sm">noch nicht eingereicht</span></div>
+          <div class="sm">Aufgaben und Fristen laufen hier zusammen — automatisch erzeugt aus Verträgen, Rechnungen, PKV.</div>
+        </div>
+        <div class="tabs"><span>Vermögen</span><span>Konten</span><span>Erfassen</span><span class="on">Vorgänge</span><span>Mehr</span></div>
+      </div>
+      <div class="ph">
+        <div class="ph-t"><span>Mehr</span><span class="sm">Suche</span></div>
+        <div class="ph-b">
+          <div class="sec">Bereiche</div>
+          <div class="bx">Dokumente <span class="sm">312 · 2 ohne Datei</span></div>
+          <div class="bx">Versicherungen <span class="sm">7 Verträge</span></div>
+          <div class="bx">Gesundheit / PKV <span class="sm">4 Vorgänge offen</span></div>
+          <div class="bx">Wohnen &amp; Immobilien <span class="sm">1 Objekt · 6 Verträge</span></div>
+          <div class="bx">Arbeit &amp; Beruf <span class="sm">Lohn 08/2026</span></div>
+          <div class="bx bx-g">Budgets · Depot · Darlehen · Import</div>
+          <div class="bx bx-g">Benutzer · Administration</div>
+        </div>
+        <div class="tabs"><span>Vermögen</span><span>Konten</span><span>Erfassen</span><span>Vorgänge</span><span class="on">Mehr</span></div>
+      </div>
+    </div>
+    <p class="note" style="max-width:none;margin:14px 0 0">Der bestehende Tab-Rahmen bleibt; Budgets und Depot rücken nach „Mehr". Neu ist ein Vorgangs-Tab, der alles Unerledigte trägt — Fristen, Rechnungen, Erstattungen.</p>
+  </div>
+</div>
+
+<div class="dv-opt" id="1b">
+  <div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Navigation B — Bereichsraster statt fester Tabs</div>
+  <div class="dv-card">
+    <div class="row">
+      <div class="ph">
+        <div class="ph-t"><span>Start</span><span class="sm">Oliver W.</span></div>
+        <div class="ph-b">
+          <div class="bx"><span class="sm">Liquidität diesen Monat</span><span class="big">+1.628 €</span></div>
+          <div class="bx bx-a"><b>Fällt in 30 Tagen an</b><span class="sm">3 Fristen · 2 Rechnungen · 1 Erstattung</span></div>
+          <div class="sec">Bereiche</div>
+          <div class="grid2">
+            <div class="bx bx-g">Finanzen</div><div class="bx bx-g">Dokumente</div>
+            <div class="bx bx-g">Gesundheit</div><div class="bx bx-g">Versicherungen</div>
+            <div class="bx bx-g">Wohnen</div><div class="bx bx-g">Arbeit</div>
+            <div class="bx bx-g">Fristen</div><div class="bx bx-g">Auswertung</div>
+          </div>
+        </div>
+      </div>
+      <div class="ph">
+        <div class="ph-t"><span>‹ Versicherungen</span><span class="sm">+</span></div>
+        <div class="ph-b">
+          <div class="chips"><span class="chip chip-a">Alle 7</span><span class="chip">Frist</span><span class="chip">Beitrag</span></div>
+          <div class="bx"><b>Privathaftpflicht</b><span class="sm">HUK · 89 €/Jahr · bis 31.12.2027</span></div>
+          <div class="bx bx-a"><b>Hausrat</b><span class="sm">Kündigung bis 30.09. — 18 Tage</span></div>
+          <div class="bx"><b>Risikoleben</b><span class="sm">Heidelberger · 42 €/Monat</span></div>
+          <div class="bx"><b>Kfz</b><span class="sm">Allianz · 618 €/Jahr</span></div>
+          <div class="sm">Objektseite zeigt jeweils Vertrag, Beiträge, Dokumente, Fristen.</div>
+        </div>
+      </div>
+      <div class="ph">
+        <div class="ph-t"><span>‹ Hausrat</span><span class="sm">Bearbeiten</span></div>
+        <div class="ph-b">
+          <div class="bx"><b>HUK-Coburg</b><span class="sm">Nr. HR-88 421 · 156 €/Jahr</span></div>
+          <div class="sec">Fristen</div>
+          <div class="bx bx-a">Kündigung bis 30.09.2027 <span class="sm">3 Monate vor Ablauf</span></div>
+          <div class="sec">Dokumente (4)</div>
+          <div class="bx">Versicherungsschein 2024 <span class="sm">PDF · 12.01.2024</span></div>
+          <div class="bx">Beitragsanpassung 2026 <span class="sm">PDF · 04.02.2026</span></div>
+          <div class="sec">Zahlungen</div>
+          <div class="bx bx-g">156 € · 04.02.2026 <span class="sm">→ Buchung Sparkasse</span></div>
+        </div>
+      </div>
+    </div>
+    <p class="note" style="max-width:none;margin:14px 0 0">Gleichrangige Bereiche, kein Tab-Zwang — dafür ein Tap mehr zu den Finanzen. Verknüpfung liegt am Objekt: die Versicherung führt ihre Dokumente und Zahlungen.</p>
+  </div>
+</div>
+
+<div class="dv-opt" id="1c">
+  <div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Navigation C — Erfassen als zentrale Aktion (Scan zuerst)</div>
+  <div class="dv-card">
+    <div class="row">
+      <div class="ph">
+        <div class="ph-t"><span>Vermögen</span><span class="sm">•••</span></div>
+        <div class="ph-b">
+          <div class="bx"><span class="sm">Liquidität</span><span class="big">+1.628 €</span></div>
+          <div class="bx bx-g"><span class="sm">Netto</span><b>125.840 €</b></div>
+          <div class="bx bx-a"><b>Erstattung überfällig</b><span class="sm">680 € seit 12 Tagen</span></div>
+          <div class="ln"></div><div class="ln" style="width:70%"></div>
+        </div>
+        <div class="tabs"><span>Vermögen</span><span>Vorgänge</span><span class="on" style="font-size:13px">＋</span><span>Dokumente</span><span>Mehr</span></div>
+      </div>
+      <div class="ph">
+        <div class="ph-t"><span>Was erfassen?</span><span class="sm">✕</span></div>
+        <div class="ph-b">
+          <div class="btn btn-p">📷 Beleg scannen</div>
+          <div class="btn">Buchung erfassen</div>
+          <div class="btn">Arztrechnung / PKV</div>
+          <div class="btn">Rechnung</div>
+          <div class="btn">Dokument verknüpfen</div>
+          <div class="btn">Aufgabe / Frist</div>
+          <div class="sm">Ein Sheet über allem — der Weg von „Papier in der Hand" zu „erfasst" ist immer gleich lang.</div>
+        </div>
+      </div>
+    </div>
+    <p class="note" style="max-width:none;margin:14px 0 0">Für den Scan-zuerst-Wunsch: die Mitte der Leiste ist die Erfassung, nicht ein Screen. Kostet einen Tab-Platz — Konten und Budgets wandern nach „Mehr".</p>
+  </div>
+</div>
+
+<div class="dv-opt" id="1d">
+  <div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>Kernflow — PKV: Rechnung scannen bis Erstattung verbucht</div>
+  <div class="dv-card">
+    <div class="row">
+      <div class="ph">
+        <div class="ph-t"><span>Scannen</span><span class="sm">✕</span></div>
+        <div class="ph-b">
+          <div class="bx bx-g" style="height:150px;align-items:center;justify-content:center">Kamerabild<br><span class="sm">Rechnung im Rahmen halten</span></div>
+          <div class="chips"><span class="chip chip-a">Arztrechnung</span><span class="chip">Rechnung</span><span class="chip">Dokument</span></div>
+          <div class="btn btn-p">Auslösen</div>
+          <div class="sm">Datei landet im Dokumentordner, die App merkt sich nur den Pfad.</div>
+        </div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="ph">
+        <div class="ph-t"><span>Erkannt — prüfen</span><span class="sm">Sichern</span></div>
+        <div class="ph-b">
+          <div class="bx"><span class="sm">Rechnungssteller</span><b>Dr. Meyer, Zahnarzt</b></div>
+          <div class="bx"><span class="sm">Datum · Nummer</span><b>18.08.2026 · R-2026-114</b></div>
+          <div class="bx"><span class="sm">Betrag</span><b>850,00 €</b></div>
+          <div class="bx bx-a"><span class="sm">Eigenanteil (schätzen)</span><b>170,00 €</b></div>
+          <div class="bx bx-g"><span class="sm">Erwartete Erstattung</span><b>680,00 €</b></div>
+          <div class="sm">Jeder erkannte Wert einzeln korrigierbar. Ohne OCR: dieselbe Maske, leer.</div>
+          <div class="btn btn-p">Vorgang anlegen</div>
+        </div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="ph">
+        <div class="ph-t"><span>Vorgang</span><span class="sm">•••</span></div>
+        <div class="ph-b">
+          <div class="hd">Dr. Meyer · 850,00 €</div>
+          <div class="bx bx-g"><span class="sm">Rechnung 850 · Erstattung 680 · Eigenanteil 170</span><div class="ln"></div></div>
+          <div class="sec">Verlauf</div>
+          <div class="bx">✓ Erfasst 18.08.</div>
+          <div class="bx bx-a">◻ Eingereicht — offen</div>
+          <div class="bx bx-g">◻ Abrechnung erhalten</div>
+          <div class="bx bx-g">◻ Zahlung eingegangen</div>
+          <div class="btn btn-p">Als eingereicht markieren</div>
+          <div class="sm">Eigenanteil zählt als Ausgabe, nicht als offene Forderung.</div>
+        </div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="ph">
+        <div class="ph-t"><span>Vorgang</span><span class="sm red">überfällig</span></div>
+        <div class="ph-b">
+          <div class="bx bx-a"><b>Wartet seit 12 Tagen</b><span class="sm">eingereicht 02.08. · übliche Dauer 14 T</span></div>
+          <div class="sec">Verlauf</div>
+          <div class="bx">✓ Eingereicht 02.08.</div>
+          <div class="bx bx-a">◻ Abrechnung fehlt</div>
+          <div class="btn">Erinnerung setzen</div>
+          <div class="btn">Bei PKV nachfragen</div>
+          <div class="sec">Dokumente</div>
+          <div class="bx">Rechnung.pdf · Einreichung.pdf</div>
+        </div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="ph">
+        <div class="ph-t"><span>Zahlung zuordnen</span><span class="sm">✕</span></div>
+        <div class="ph-b">
+          <div class="bx bx-g"><span class="sm">Erwartet</span><b>680,00 € seit 02.08.</b></div>
+          <div class="sec">Passende Buchungen</div>
+          <div class="bx bx-a"><b>+680,00 € · 21.08.</b><span class="sm">Sparkasse · „Erstattung R-2026-114" · Treffer</span></div>
+          <div class="bx"><b>+612,40 € · 19.08.</b><span class="sm">Sparkasse · Betrag weicht ab</span></div>
+          <div class="btn btn-p">Verknüpfen &amp; abschließen</div>
+          <div class="sm">Vorschlag über Betrag, Datum, Verwendungszweck — bestätigt wird von Hand.</div>
+        </div>
+      </div>
+    </div>
+    <p class="note" style="max-width:none;margin:14px 0 0">Fünf Schritte, jeder für sich abbrechbar. Der Vorgang ist der rote Faden — Dokument, Betragsdreiteilung und Bankbuchung hängen an ihm, nicht umgekehrt.</p>
+  </div>
+</div>
+
+<div class="dv-opt" id="1e">
+  <div class="dv-olabel"><a class="dv-oid" href="#1e">1e</a>Dokumente — Liste, Suche, Detail, fehlende Datei</div>
+  <div class="dv-card">
+    <div class="row">
+      <div class="ph">
+        <div class="ph-t"><span>Dokumente</span><span class="sm">+</span></div>
+        <div class="ph-b">
+          <div class="bx bx-g">🔍 Suchen …</div>
+          <div class="chips"><span class="chip chip-a">Alle</span><span class="chip">Versicherung</span><span class="chip">Gesundheit</span><span class="chip">Wohnen</span><span class="chip">Arbeit</span></div>
+          <div class="bx"><b>Police_2026.pdf</b><span class="sm">Versicherungsschein · Risikoleben · 12.01.2026</span></div>
+          <div class="bx"><b>Rechnung_2026_08.pdf</b><span class="sm">Stromrechnung · Stadtwerke · 01.08.2026</span></div>
+          <div class="bx bx-a"><b>Lohn_07_2026.pdf</b><span class="sm">Datei nicht gefunden</span></div>
+          <div class="bx"><b>R-2026-114.pdf</b><span class="sm">Arztrechnung · Dr. Meyer · 18.08.2026</span></div>
+          <div class="sm">312 Dokumente · sortiert nach Dokumentdatum</div>
+        </div>
+      </div>
+      <div class="ph">
+        <div class="ph-t"><span>Suche</span><span class="sm">✕</span></div>
+        <div class="ph-b">
+          <div class="bx">🔍 „hausrat"</div>
+          <div class="sec">Filter</div>
+          <div class="chips"><span class="chip">Bereich</span><span class="chip chip-a">Typ: Schein</span><span class="chip">Zeitraum</span><span class="chip">Tag</span><span class="chip">Status</span></div>
+          <div class="sec">Treffer 6</div>
+          <div class="bx"><b>Versicherungsschein Hausrat</b><span class="sm">Dokument · 2024</span></div>
+          <div class="bx bx-g"><b>Hausrat HUK</b><span class="sm">Versicherung · Objekt</span></div>
+          <div class="bx bx-g"><b>Beitrag 156 €</b><span class="sm">Buchung · 04.02.2026</span></div>
+          <div class="sm">Sucht auch über Objekte, nicht nur Dateinamen.</div>
+        </div>
+      </div>
+      <div class="ph">
+        <div class="ph-t"><span>‹ Dokument</span><span class="sm">•••</span></div>
+        <div class="ph-b">
+          <div class="hd">Police_2026.pdf</div>
+          <div class="bx bx-g" style="height:96px;align-items:center;justify-content:center"><span class="sm">Vorschau / Datei öffnen</span></div>
+          <div class="bx"><span class="sm">Pfad</span>Versicherungen/Risikoleben/Police_2026.pdf</div>
+          <div class="bx"><span class="sm">Typ · Datum · Gültig</span>Versicherungsschein · 12.01.2026 · ab 01.02.2026</div>
+          <div class="chips"><span class="chip">police</span><span class="chip">2026</span><span class="chip">+ Tag</span></div>
+          <div class="sec">Verknüpft mit</div>
+          <div class="bx">Risikoleben (Versicherung)</div>
+          <div class="bx bx-g">+ Verknüpfung hinzufügen</div>
+        </div>
+      </div>
+      <div class="ph">
+        <div class="ph-t"><span>‹ Dokument</span><span class="sm red">Datei fehlt</span></div>
+        <div class="ph-b">
+          <div class="hd">Lohn_07_2026.pdf</div>
+          <div class="bx bx-a"><b>Datei nicht gefunden</b><span class="sm">Arbeit/Lohn/2026/Lohn_07_2026.pdf</span></div>
+          <div class="btn btn-p">Pfad korrigieren</div>
+          <div class="btn">Im Ordner suchen</div>
+          <div class="btn">Eintrag behalten, Datei später</div>
+          <div class="sm">Metadaten bleiben sichtbar und verknüpft — nur die Datei fehlt.</div>
+          <div class="sec">Verknüpft mit</div>
+          <div class="bx bx-g">Lohnabrechnung 07/2026 · Arbeitgeber EWV</div>
+        </div>
+      </div>
+    </div>
+    <p class="note" style="max-width:none;margin:14px 0 0">Verknüpfen passiert am Objekt (Versicherung, Immobilie, Vorgang); das Dokument zeigt seine Bezüge nur an — mit einem Weg zurück ins Objekt.</p>
+  </div>
+</div>
+
+<div class="dv-opt" id="1f">
+  <div class="dv-olabel"><a class="dv-oid" href="#1f">1f</a>Wohnen — Immobilie als Sammelpunkt, Vertrag, offene Rechnung</div>
+  <div class="dv-card">
+    <div class="row">
+      <div class="ph">
+        <div class="ph-t"><span>‹ Haus Hauptstraße</span><span class="sm">•••</span></div>
+        <div class="ph-b">
+          <div class="bx"><span class="sm">Marktwert · Kauf 2019</span><span class="big">395.000 €</span></div>
+          <div class="bx bx-g"><span class="sm">Darlehen (bestehend)</span><b>−148.300 €</b><span class="sm">Rate 1.180 € · Zinsbindung bis 2031</span></div>
+          <div class="sec">Kosten 12 Monate</div>
+          <div class="bx bx-g">18.420 € <span class="sm">Darlehen · Energie · Versicherung · Wartung</span></div>
+          <div class="sec">Verträge (6)</div>
+          <div class="bx">Strom Stadtwerke <span class="sm">Abschlag 142 €</span></div>
+          <div class="bx">Internet <span class="sm">39,99 €</span></div>
+          <div class="sec">Dokumente (23)</div>
+          <div class="bx bx-g">Kaufvertrag · Grundbuch · Energieausweis …</div>
+        </div>
+      </div>
+      <div class="ph">
+        <div class="ph-t"><span>‹ Strom</span><span class="sm">Bearbeiten</span></div>
+        <div class="ph-b">
+          <div class="bx"><b>Stadtwerke Heidelberg</b><span class="sm">Nr. SW-993 210 · seit 01.04.2019</span></div>
+          <div class="bx bx-g"><span class="sm">Abschlag · Konto</span>142,50 € monatlich · Sparkasse</div>
+          <div class="bx bx-a"><span class="sm">Kündigungsfrist</span>6 Wochen zum 31.03.</div>
+          <div class="sec">Rechnungen</div>
+          <div class="bx bx-a">08/2026 · 142,50 € <span class="sm">offen, fällig 15.09.</span></div>
+          <div class="bx">07/2026 · 142,50 € <span class="sm">bezahlt → Buchung</span></div>
+          <div class="sec">Dokumente (9)</div>
+          <div class="bx bx-g">Vertrag · Jahresabrechnungen</div>
+        </div>
+      </div>
+      <div class="ph">
+        <div class="ph-t"><span>‹ Rechnung</span><span class="sm red">offen</span></div>
+        <div class="ph-b">
+          <div class="hd">Stadtwerke · 142,50 €</div>
+          <div class="bx bx-a"><b>Fällig in 5 Tagen</b><span class="sm">15.09.2026</span></div>
+          <div class="bx"><span class="sm">Gehört zu</span>Strom · Haus Hauptstraße</div>
+          <div class="bx"><span class="sm">Dokument</span>Rechnung_2026_08.pdf</div>
+          <div class="sec">Zahlung</div>
+          <div class="bx bx-g">Noch keine Buchung zugeordnet</div>
+          <div class="btn btn-p">Buchung zuordnen</div>
+          <div class="btn">Als bezahlt markieren</div>
+          <div class="sm">Kette: Dokument → Rechnung → Vertrag → Immobilie → Buchung.</div>
+        </div>
+      </div>
+    </div>
+    <p class="note" style="max-width:none;margin:14px 0 0">Das Darlehen wird nicht dupliziert — die Immobilie verweist auf den bestehenden Darlehensscreen samt Tilgungsplan.</p>
+  </div>
+</div>
+
+<div class="dv-opt" id="1g">
+  <div class="dv-olabel"><a class="dv-oid" href="#1g">1g</a>Liquidität — Einnahmen gegen Ausgaben, Sparpotential</div>
+  <div class="dv-card">
+    <div class="row">
+      <div class="ph">
+        <div class="ph-t"><span>Liquidität</span><span class="sm">August ▾</span></div>
+        <div class="ph-b">
+          <div class="bx"><span class="sm">Bleibt übrig</span><span class="big">+1.628 €</span><span class="sm">Sparquote 31 %</span></div>
+          <div class="bx bx-g"><span class="sm">Einnahmen 5.240 €</span><div class="ln" style="background:#9a9a9a"></div><span class="sm">Ausgaben 3.612 €</span><div class="ln" style="width:69%;background:#c0392b"></div></div>
+          <div class="sec">Noch fällig diesen Monat</div>
+          <div class="bx bx-a">−468 € <span class="sm">Strom 142 · Rate 1.180 gebucht · Arzt 170</span></div>
+          <div class="bx bx-g">+680 € erwartet <span class="sm">PKV-Erstattung</span></div>
+          <div class="sec">Verfügbar nach Fixkosten</div>
+          <div class="bx"><b>1.840 €</b><span class="sm">bis 31.08.</span></div>
+        </div>
+      </div>
+      <div class="ph">
+        <div class="ph-t"><span>Wohin fließt es?</span><span class="sm">6 Monate ▾</span></div>
+        <div class="ph-b">
+          <div class="bx bx-g"><span class="sm">Fix vs. variabel</span><div class="ln" style="width:64%;background:#2b2b2b"></div><div class="ln" style="width:36%"></div></div>
+          <div class="bx">Wohnen 1.480 € <span class="sm">41 % · Darlehen, Energie</span></div>
+          <div class="bx">Lebensmittel 412 € <span class="sm">Budget 500</span></div>
+          <div class="bx bx-a">Freizeit 236 € <span class="sm">36 % über Budget</span></div>
+          <div class="bx">Versicherung 212 €</div>
+          <div class="bx bx-g">Gesundheit 170 € <span class="sm">nur Eigenanteile</span></div>
+          <div class="sm">Eigenanteil zählt hier, die erstatteten 680 € nicht.</div>
+        </div>
+      </div>
+      <div class="ph">
+        <div class="ph-t"><span>Sparpotential</span><span class="sm">•••</span></div>
+        <div class="ph-b">
+          <div class="bx bx-a"><b>Freizeit +36 € /Monat</b><span class="sm">Budget seit 3 Monaten überschritten</span></div>
+          <div class="bx"><b>Strom 142,50 €</b><span class="sm">Vertrag kündbar zum 31.03. · Vergleich prüfen</span></div>
+          <div class="bx"><b>Kfz 618 €/Jahr</b><span class="sm">Wechselfrist 30.11.</span></div>
+          <div class="bx bx-g"><b>Abos 39,99 €</b><span class="sm">2 wiederkehrende Buchungen ohne Vertrag</span></div>
+          <div class="sec">Wenn alles umgesetzt</div>
+          <div class="bx"><b>+94 € /Monat</b></div>
+          <div class="sm">Speist sich aus Budgets und Vertragsfristen — keine neuen Daten nötig.</div>
+        </div>
+      </div>
+    </div>
+    <p class="note" style="max-width:none;margin:14px 0 0">Antwortet auf „was bleibt übrig und wo ist der Hebel" — inklusive noch fälliger und erwarteter Beträge, die im Kontostand noch nicht stehen.</p>
+  </div>
+</div>
+
+</div>
+<p class="dv-next">Weiter: „Navigation <a class="dv-oid" href="#1a">1a</a> festlegen und PKV aus <a class="dv-oid" href="#1d">1d</a> hochauflösend bauen" · „<a class="dv-oid" href="#1g">1g</a> als echten Screen im Modernist-Stil" · „Versicherungen und Arbeit als Wireframes nachziehen"</p>
+</section>
+
+</x-dc>
+</body>
+</html>

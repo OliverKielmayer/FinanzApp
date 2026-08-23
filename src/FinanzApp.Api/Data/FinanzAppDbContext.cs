@@ -38,6 +38,16 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
     public DbSet<PortfolioSnapshot> PortfolioSnapshots => Set<PortfolioSnapshot>();
     public DbSet<SecurityState> SecurityStates => Set<SecurityState>();
 
+    public DbSet<DocumentType> DocumentTypes => Set<DocumentType>();
+    public DbSet<Document> Documents => Set<Document>();
+    public DbSet<DocumentLink> DocumentLinks => Set<DocumentLink>();
+    public DbSet<MedicalBill> MedicalBills => Set<MedicalBill>();
+    public DbSet<Insurance> Insurances => Set<Insurance>();
+    public DbSet<Property> Properties => Set<Property>();
+    public DbSet<Contract> Contracts => Set<Contract>();
+    public DbSet<Invoice> Invoices => Set<Invoice>();
+    public DbSet<TaskItem> TaskItems => Set<TaskItem>();
+
     /// <summary>
     /// Geldbeträge liegen in der Datenbank als ganzzahlige Cent.
     /// </summary>
@@ -57,6 +67,8 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
     {
         ConfigureAuth(b);
         ConfigureFinance(b);
+        ConfigureDocuments(b);
+        ConfigureDomain(b);
         ApplyHouseholdFilter(b);
     }
 
@@ -205,6 +217,112 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
         b.Entity<SecurityState>(e => e.HasIndex(x => x.HouseholdId).IsUnique());
     }
 
+    private static void ConfigureDocuments(ModelBuilder b)
+    {
+        b.Entity<DocumentType>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(120).IsRequired();
+            e.HasIndex(x => new { x.HouseholdId, x.Name }).IsUnique();
+        });
+
+        b.Entity<Document>(e =>
+        {
+            e.Property(x => x.Title).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Description).HasMaxLength(1000);
+            e.Property(x => x.RelativePath).HasMaxLength(500).IsRequired();
+            e.Property(x => x.FileName).HasMaxLength(255).IsRequired();
+            e.Property(x => x.Extension).HasMaxLength(16);
+            e.Property(x => x.Tags).HasMaxLength(400);
+
+            e.HasIndex(x => new { x.HouseholdId, x.DocumentDate });
+
+            // Dieselbe Datei zweimal einzuhängen wäre ein Fehler, kein Merkmal.
+            e.HasIndex(x => new { x.HouseholdId, x.RelativePath }).IsUnique();
+
+            e.HasOne(x => x.DocumentType).WithMany(t => t.Documents)
+                .HasForeignKey(x => x.DocumentTypeId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        b.Entity<DocumentLink>(e =>
+        {
+            e.HasIndex(x => new { x.HouseholdId, x.TargetType, x.TargetId });
+            e.HasIndex(x => new { x.DocumentId, x.TargetType, x.TargetId }).IsUnique();
+            e.HasOne(x => x.Document).WithMany(d => d.Links)
+                .HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
+    private static void ConfigureDomain(ModelBuilder b)
+    {
+        b.Entity<MedicalBill>(e =>
+        {
+            e.Property(x => x.Provider).HasMaxLength(160).IsRequired();
+            e.Property(x => x.BillNumber).HasMaxLength(60);
+            e.Property(x => x.Notes).HasMaxLength(1000);
+            e.Property(x => x.GrossAmount).HasConversion(MoneyConverter);
+            e.Property(x => x.OwnShare).HasConversion(MoneyConverter);
+            e.Property(x => x.ExpectedReimbursement).HasConversion(MoneyConverter);
+            e.Property(x => x.ActualReimbursement).HasConversion(NullableMoneyConverter);
+            e.HasIndex(x => new { x.HouseholdId, x.Status });
+        });
+
+        b.Entity<Insurance>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(120).IsRequired();
+            e.Property(x => x.Insurer).HasMaxLength(120).IsRequired();
+            e.Property(x => x.PolicyNumber).HasMaxLength(60);
+            e.Property(x => x.Notes).HasMaxLength(1000);
+            e.Property(x => x.Premium).HasConversion(MoneyConverter);
+            e.HasOne(x => x.Account).WithMany()
+                .HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        b.Entity<Property>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(120).IsRequired();
+            e.Property(x => x.Address).HasMaxLength(240);
+            e.Property(x => x.PurchasePrice).HasConversion(NullableMoneyConverter);
+            e.Property(x => x.MarketValue).HasConversion(MoneyConverter);
+
+            // Der Verweis auf das bestehende Darlehen — ohne Kopie und ohne Löschwirkung.
+            e.HasOne(x => x.Loan).WithMany()
+                .HasForeignKey(x => x.LoanId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        b.Entity<Contract>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(120).IsRequired();
+            e.Property(x => x.Provider).HasMaxLength(120).IsRequired();
+            e.Property(x => x.ContractNumber).HasMaxLength(60);
+            e.Property(x => x.MonthlyAmount).HasConversion(MoneyConverter);
+            e.HasOne(x => x.Property).WithMany(p => p.Contracts)
+                .HasForeignKey(x => x.PropertyId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Account).WithMany()
+                .HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        b.Entity<Invoice>(e =>
+        {
+            e.Property(x => x.Subject).HasMaxLength(160).IsRequired();
+            e.Property(x => x.Number).HasMaxLength(60);
+            e.Property(x => x.Amount).HasConversion(MoneyConverter);
+            e.HasIndex(x => new { x.HouseholdId, x.Status, x.DueOn });
+            e.HasOne(x => x.Contract).WithMany(c => c.Invoices)
+                .HasForeignKey(x => x.ContractId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        b.Entity<TaskItem>(e =>
+        {
+            e.Property(x => x.Title).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Detail).HasMaxLength(500);
+            e.HasIndex(x => new { x.HouseholdId, x.State, x.DueOn });
+
+            // Eine automatisch erzeugte Aufgabe darf nicht bei jedem Lauf erneut entstehen.
+            e.HasIndex(x => new { x.HouseholdId, x.Source, x.SourceType, x.SourceId }).IsUnique()
+                .HasFilter("\"SourceId\" IS NOT NULL");
+        });
+    }
+
     /// <summary>
     /// Hängt den Mandantenfilter an jede Entität, die <see cref="IHouseholdOwned"/> trägt.
     /// </summary>
@@ -236,17 +354,32 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
     /// </summary>
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        if (CurrentHouseholdId != 0)
+        StampHousehold();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <inheritdoc cref="SaveChangesAsync(CancellationToken)"/>
+    public override int SaveChanges()
+    {
+        // Auch der synchrone Weg muss stempeln — sonst hinge es vom Aufruf ab, ob ein Datensatz
+        // beim richtigen Haushalt landet oder als Waise.
+        StampHousehold();
+        return base.SaveChanges();
+    }
+
+    private void StampHousehold()
+    {
+        if (CurrentHouseholdId == 0)
         {
-            foreach (var entry in ChangeTracker.Entries<IHouseholdOwned>())
-            {
-                if (entry.State == EntityState.Added && entry.Entity.HouseholdId == 0)
-                {
-                    entry.Entity.HouseholdId = CurrentHouseholdId;
-                }
-            }
+            return;
         }
 
-        return base.SaveChangesAsync(cancellationToken);
+        foreach (var entry in ChangeTracker.Entries<IHouseholdOwned>())
+        {
+            if (entry.State == EntityState.Added && entry.Entity.HouseholdId == 0)
+            {
+                entry.Entity.HouseholdId = CurrentHouseholdId;
+            }
+        }
     }
 }

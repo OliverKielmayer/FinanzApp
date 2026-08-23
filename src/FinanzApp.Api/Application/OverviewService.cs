@@ -11,6 +11,7 @@ public sealed class OverviewService(
     CatalogService catalog,
     ImportService imports,
     LoanService loans,
+    DocumentService documents,
     CurrentUser current)
 {
     public async Task<MoreOverviewDto> GetAsync(CancellationToken ct = default)
@@ -44,11 +45,29 @@ public sealed class OverviewService(
             CategoryCount = await catalog.GetCategoryCountAsync(ct),
             RuleCount = await catalog.GetRuleCountAsync(ct),
             HouseholdMemberCount = await db.Users.CountAsync(u => u.HouseholdId == current.HouseholdId, ct),
+            Areas = await BuildAreaCountsAsync(ct),
             Security = new SecuritySummaryDto
             {
                 TwoFactorEnabled = security?.TwoFactorEnabled ?? false,
                 LastBackup = security?.LastBackup ?? DateTime.MinValue,
             },
+        };
+    }
+
+    private async Task<AreaCountsDto> BuildAreaCountsAsync(CancellationToken ct)
+    {
+        var page = await documents.GetPageAsync(ct: ct);
+
+        return new AreaCountsDto
+        {
+            DocumentCount = page.TotalCount,
+            MissingFileCount = page.MissingFileCount,
+            InsuranceCount = await db.Insurances.CountAsync(ct),
+            OpenMedicalBillCount = await db.MedicalBills.CountAsync(
+                b => b.Status != MedicalBillStatus.Completed && b.Status != MedicalBillStatus.Rejected, ct),
+            PropertyCount = await db.Properties.CountAsync(ct),
+            ContractCount = await db.Contracts.CountAsync(ct),
+            OpenTaskCount = await db.TaskItems.CountAsync(t => t.State != TaskState.Done, ct),
         };
     }
 }

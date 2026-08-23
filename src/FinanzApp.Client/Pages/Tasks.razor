@@ -1,0 +1,135 @@
+@page "/vorgaenge"
+@attribute [Authorize]
+@inherits AppPage
+
+<PageTitle>Vorgänge — FinanzApp</PageTitle>
+
+<div class="filter-chips">
+    @foreach (var option in Filters)
+    {
+        <button type="button" class="chip @(filter == option.State ? "active" : null)"
+                @onclick="() => SwitchFilter(option.State)">
+            @option.Label @CountFor(option.State)
+        </button>
+    }
+</div>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (data is { } list)
+    {
+        @if (list.Items.Count == 0)
+        {
+            <div class="empty-area">
+                <span class="empty-area-text">@EmptyText</span>
+                <AuthorizeView Roles="Owner,Member">
+                    <button type="button" class="btn btn-secondary"
+                            @onclick="@(() => Toasts.Show("Aufgabe anlegen folgt"))">Aufgabe anlegen</button>
+                </AuthorizeView>
+            </div>
+        }
+
+        @foreach (var item in list.Items)
+        {
+            <button type="button" class="tap work-row @(item.IsOverdue ? "overdue" : null)"
+                    @onclick="() => Open(item)">
+                <span class="stack">
+                    <span class="work-title">@item.Title</span>
+                    <span class="work-due">@Describe(item)</span>
+                </span>
+                @if (item.Amount is { } amount)
+                {
+                    <span class="work-amount num">@State.Euro0(amount)</span>
+                }
+            </button>
+        }
+
+        <div class="spacer"></div>
+    }
+</AsyncView>
+
+@code {
+    private static readonly (TaskState? State, string Label)[] Filters =
+    [
+        (TaskState.Open, "Offen"),
+        (TaskState.Waiting, "Wartet"),
+        (TaskState.Done, "Erledigt"),
+    ];
+
+    private TaskListDto? data;
+    private TaskState? filter = TaskState.Open;
+
+    protected override async Task LoadAsync() => data = await Api.GetTasksAsync(filter);
+
+    private async Task SwitchFilter(TaskState? next)
+    {
+        if (next == filter)
+        {
+            return;
+        }
+
+        filter = next;
+        await ReloadAsync();
+    }
+
+    private int CountFor(TaskState? state) => (data, state) switch
+    {
+        (null, _) => 0,
+        ({ } list, TaskState.Open) => list.OpenCount,
+        ({ } list, TaskState.Waiting) => list.WaitingCount,
+        ({ } list, TaskState.Done) => list.DoneCount,
+        _ => 0,
+    };
+
+    private string EmptyText => filter switch
+    {
+        TaskState.Open => "Nichts offen. Fristen, Rechnungen und Erstattungen tauchen hier von selbst auf.",
+        TaskState.Waiting => "Nichts, worauf gewartet wird.",
+        _ => "Noch nichts erledigt.",
+    };
+
+    /// <summary>
+    /// Die Zeile erklärt, woher der Eintrag kommt — automatisch erzeugte Aufgaben wären sonst
+    /// nicht nachvollziehbar.
+    /// </summary>
+    private static string Describe(TaskItemDto item)
+    {
+        var parts = new List<string>();
+
+        if (item.Detail is { Length: > 0 } detail)
+        {
+            parts.Add(detail);
+        }
+
+        if (item.IsOverdue)
+        {
+            parts.Add($"überfällig seit {item.DaysOverdue} T");
+        }
+        else if (item.DueOn is { } due)
+        {
+            var days = -item.DaysOverdue;
+            parts.Add(days == 0 ? "heute fällig" : $"fällig in {days} Tagen · {GermanFormat.Date(due)}");
+        }
+
+        return string.Join(" · ", parts);
+    }
+
+    private void Open(TaskItemDto item)
+    {
+        var route = (item.SourceType, item.SourceId) switch
+        {
+            (LinkTargetType.MedicalBill, { } id) => $"/gesundheit/{id}",
+            (LinkTargetType.Invoice, { } id) => $"/rechnungen/{id}",
+            (LinkTargetType.Insurance, { } id) => $"/versicherungen/{id}",
+            (LinkTargetType.Contract, { } id) => $"/vertraege/{id}",
+            _ => null,
+        };
+
+        if (route is null)
+        {
+            Toasts.Show("Zu dieser Aufgabe gibt es keinen eigenen Screen.");
+            return;
+        }
+
+        Navigation.NavigateTo(route);
+    }
+}

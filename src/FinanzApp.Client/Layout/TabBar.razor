@@ -1,11 +1,23 @@
 <nav class="tabbar" aria-label="Hauptbereiche">
     @foreach (var tab in ScreenCatalog.Tabs.Where(t => CanWrite || !t.RequiresWrite))
     {
-        <a href="@tab.Route" class="tabbar-item @(tab == Current ? "active" : null)"
-           aria-current="@(tab == Current ? "page" : null)">
-            <span class="tabbar-mark"></span>
-            <span class="tabbar-label">@tab.TabLabel</span>
-        </a>
+        @if (tab.IsAction)
+        {
+            @* Die Mitte ist eine Aktion: sie öffnet das Erfassen-Sheet, statt zu navigieren. *@
+            <button type="button" class="tabbar-item tabbar-action" @onclick="OnCapture"
+                    aria-haspopup="dialog">
+                <span class="tabbar-mark"></span>
+                <span class="tabbar-label">@tab.TabLabel</span>
+            </button>
+        }
+        else
+        {
+            <a href="@tab.Route" class="tabbar-item @(tab == Current ? "active" : null)"
+               aria-current="@(tab == Current ? "page" : null)">
+                <span class="tabbar-mark"></span>
+                <span class="tabbar-label">@tab.TabLabel</span>
+            </a>
+        }
     }
 </nav>
 
@@ -13,7 +25,10 @@
     [Parameter, EditorRequired]
     public Screen Current { get; set; } = default!;
 
-    /// <summary>Ohne Schreibrecht fehlt der Erfassen-Tab — Lesezugriff bucht nicht.</summary>
+    /// <summary>Ohne Schreibrecht fehlt die Erfassen-Zelle — Lesezugriff bucht nicht.</summary>
     [Parameter]
     public bool CanWrite { get; set; } = true;
+
+    [Parameter]
+    public EventCallback OnCapture { get; set; }
 }

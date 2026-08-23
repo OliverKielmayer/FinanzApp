@@ -1,4 +1,5 @@
 using FinanzApp.Api.Data.Entities;
+using FinanzApp.Api.Infrastructure;
 using FinanzApp.Shared.Contracts;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -50,7 +51,10 @@ public static class SeedData
     public const string DemoPassword = "Demo-Haushalt-2026!";
 
     public static async Task EnsureSeededAsync(
-        FinanzAppDbContext db, IPasswordHasher<User> hasher, CancellationToken ct = default)
+        FinanzAppDbContext db,
+        IPasswordHasher<User> hasher,
+        DocumentPathService paths,
+        CancellationToken ct = default)
     {
         if (await db.Households.AnyAsync(ct))
         {
@@ -88,6 +92,13 @@ public static class SeedData
         });
 
         await db.SaveChangesAsync(ct);
+
+        // Die Erweiterung setzt auf denselben Haushalt auf.
+        await ExtensionSeedData.SeedAsync(db, paths, household.Id, ct);
+
+        // Sie bringt eigene Buchungen mit. Die Anfangsbestände müssen deshalb noch einmal
+        // nachgezogen werden, damit die Salden weiterhin den Demo-Ständen entsprechen.
+        await RealignOpeningBalancesAsync(db, ct);
     }
 
     /// <summary>Die drei Profile des Handoffs: Inhaber, Mitglied und der lesende Zugang
@@ -219,6 +230,27 @@ public static class SeedData
 
         db.Accounts.AddRange(accounts);
         return accounts.ToDictionary(a => a.Name);
+    }
+
+    /// <summary>Richtet die Anfangsbestände am Bestand der Datenbank neu aus.</summary>
+    private static async Task RealignOpeningBalancesAsync(FinanzAppDbContext db, CancellationToken ct)
+    {
+        var accounts = await db.Accounts.ToListAsync(ct);
+        var booked = (await db.Transactions.AsNoTracking()
+                .Select(t => new { t.AccountId, t.Amount })
+                .ToListAsync(ct))
+            .GroupBy(t => t.AccountId)
+            .ToDictionary(g => g.Key, g => g.Sum(t => t.Amount));
+
+        foreach (var account in accounts)
+        {
+            if (TargetBalances.TryGetValue(account.Name, out var target))
+            {
+                account.OpeningBalance = target - booked.GetValueOrDefault(account.Id);
+            }
+        }
+
+        await db.SaveChangesAsync(ct);
     }
 
     private static void AlignOpeningBalances(FinanzAppDbContext db, Dictionary<string, Account> accounts)

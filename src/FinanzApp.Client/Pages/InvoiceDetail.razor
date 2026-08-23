@@ -1,0 +1,187 @@
+@page "/rechnungen/{Id:int}"
+@attribute [Authorize]
+@inherits AppPage
+
+<PageTitle>Rechnung — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (data is { } invoice)
+    {
+        <section class="hero">
+            <span class="label-muted">@(invoice.ContractName ?? "Rechnung")</span>
+            <span class="hero-value medium num">@State.Euro(invoice.Amount)</span>
+            <span class="loan-sub num">
+                @invoice.Subject
+                @(invoice.Number is { Length: > 0 } number ? " · Nr. " + number : string.Empty)
+            </span>
+        </section>
+
+        @if (invoice.Status == InvoiceStatus.Open)
+        {
+            <div class="notice">
+                <span class="notice-title">@DueLabel(invoice)</span>
+                <span class="notice-text num">@GermanFormat.Date(invoice.DueOn)</span>
+            </div>
+        }
+        else
+        {
+            <div class="detail-block">
+                <span class="detail-label">Status</span>
+                <span class="detail-value">
+                    @(invoice.Status == InvoiceStatus.Paid ? "bezahlt" : "storniert")
+                </span>
+            </div>
+        }
+
+        <div class="detail-block">
+            <span class="detail-label">Gehört zu</span>
+            <span class="detail-value">
+                @(invoice.ContractName ?? "kein Vertrag")
+                @(invoice.PropertyName is { Length: > 0 } property ? " · " + property : string.Empty)
+            </span>
+        </div>
+
+        <div class="detail-block">
+            <span class="detail-label">Rechnungsdatum · Fälligkeit</span>
+            <span class="detail-value num">
+                @GermanFormat.Date(invoice.IssuedOn) · @GermanFormat.Date(invoice.DueOn)
+            </span>
+        </div>
+
+        @if (invoice.Documents.Count > 0)
+        {
+            <div class="list-head">
+                <span class="label-strong">Dokument</span>
+                <span class="list-count num">@invoice.Documents.Count</span>
+            </div>
+
+            @foreach (var document in invoice.Documents)
+            {
+                <button type="button" class="tap doc-row @(document.FileExists ? null : "missing")"
+                        @onclick="@(() => Navigation.NavigateTo($"/dokumente/{document.Id}"))">
+                    <span class="stack">
+                        <span class="doc-name">@document.FileName</span>
+                        <span class="doc-meta">@(document.FileExists ? document.TypeName : "Datei nicht gefunden")</span>
+                    </span>
+                </button>
+            }
+        }
+
+        <div class="list-head">
+            <span class="label-strong">Zahlung</span>
+        </div>
+
+        @if (invoice.TransactionId is not null)
+        {
+            <div class="detail-block">
+                <span class="detail-label">Zugeordnete Buchung</span>
+                <span class="detail-value">vorhanden</span>
+            </div>
+        }
+        else
+        {
+            <div class="empty-area">
+                <span class="empty-area-text">Noch keine Buchung zugeordnet.</span>
+            </div>
+        }
+
+        <AuthorizeView Roles="Owner,Member">
+            @if (invoice.Status == InvoiceStatus.Open)
+            {
+                @if (candidates is { Count: > 0 })
+                {
+                    @* Dieselbe Mechanik wie beim PKV-Vorgang: vorschlagen, nicht entscheiden. *@
+                    @foreach (var candidate in candidates)
+                    {
+                        <button type="button" class="tap candidate-row @(candidate.IsBestMatch ? "best" : null)"
+                                disabled="@busy" @onclick="() => PayAsync(candidate.TransactionId)">
+                            <span class="stack">
+                                <span class="work-title num">
+                                    @State.Euro(-candidate.Amount) · @GermanFormat.DateShort(candidate.BookingDate)
+                                </span>
+                                <span class="work-due">@candidate.AccountName · @candidate.Payee · @candidate.Reason</span>
+                            </span>
+                            <span class="candidate-amount num">@candidate.Score</span>
+                        </button>
+                    }
+                }
+
+                <div class="actions">
+                    <button type="button" class="btn btn-primary" disabled="@busy" @onclick="LoadCandidatesAsync">
+                        Buchung zuordnen
+                    </button>
+                    <button type="button" class="btn btn-secondary" disabled="@busy"
+                            @onclick="@(() => PayAsync(null))">Als bezahlt markieren</button>
+                </div>
+            }
+        </AuthorizeView>
+
+        <span class="entry-summary" style="display:block">
+            Kette: Dokument → Rechnung → Vertrag → Immobilie → Buchung.
+        </span>
+
+        <div class="spacer"></div>
+    }
+</AsyncView>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private InvoiceDetailDto? data;
+    private IReadOnlyList<PaymentCandidateDto>? candidates;
+    private bool busy;
+
+    protected override async Task LoadAsync()
+    {
+        data = await Api.GetInvoiceAsync(Id);
+        candidates = null;
+    }
+
+    private static string DueLabel(InvoiceDetailDto invoice) => invoice.DaysUntilDue switch
+    {
+        < 0 => $"Überfällig seit {-invoice.DaysUntilDue} Tagen",
+        0 => "Heute fällig",
+        1 => "Fällig morgen",
+        var days => $"Fällig in {days} Tagen",
+    };
+
+    private async Task LoadCandidatesAsync()
+    {
+        busy = true;
+        try
+        {
+            candidates = await Api.GetInvoicePaymentCandidatesAsync(Id);
+            if (candidates.Count == 0)
+            {
+                Toasts.Show("Keine passende Buchung gefunden");
+            }
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task PayAsync(int? transactionId)
+    {
+        busy = true;
+        try
+        {
+            data = await Api.PayInvoiceAsync(Id, transactionId);
+            candidates = null;
+            Toasts.Show(transactionId is null ? "Als bezahlt markiert" : "Buchung zugeordnet");
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

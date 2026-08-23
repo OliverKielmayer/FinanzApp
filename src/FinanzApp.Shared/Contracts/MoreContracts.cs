@@ -11,7 +11,22 @@ public sealed record MoreOverviewDto
 
     /// <summary>Benutzer im Haushalt — Untertitel der Zeile „Benutzer &amp; Anmeldung“.</summary>
     public required int HouseholdMemberCount { get; init; }
+
+    /// <summary>Kennzahlen der Bereiche, die mit der Erweiterung dazugekommen sind.</summary>
+    public required AreaCountsDto Areas { get; init; }
     public required SecuritySummaryDto Security { get; init; }
+}
+
+/// <summary>Rechte Spalte der Bereichsliste auf „Mehr“.</summary>
+public sealed record AreaCountsDto
+{
+    public required int DocumentCount { get; init; }
+    public required int MissingFileCount { get; init; }
+    public required int InsuranceCount { get; init; }
+    public required int OpenMedicalBillCount { get; init; }
+    public required int PropertyCount { get; init; }
+    public required int ContractCount { get; init; }
+    public required int OpenTaskCount { get; init; }
 }
 
 public sealed record InsuranceSummaryDto

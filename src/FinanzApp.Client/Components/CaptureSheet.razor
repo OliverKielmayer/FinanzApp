@@ -1,0 +1,78 @@
+@implements IDisposable
+@inject NavigationManager Navigation
+@inject ToastService Toasts
+
+@*
+    Die Mitte der Tab-Leiste ist eine Aktion, kein Screen: ein Sheet über allem, damit der Weg von
+    „Papier in der Hand“ zu „erfasst“ immer gleich lang ist. Der bestehende 3-Schritt-Screen für
+    Buchungen bleibt vollständig erhalten und wird von hier aus geöffnet.
+*@
+<button type="button" class="backdrop" aria-label="Schließen" @onclick="OnClose"></button>
+
+<div @ref="sheet" class="sheet capture-sheet" role="dialog" aria-modal="true" aria-label="Was erfassen?"
+     tabindex="-1" @onkeydown="OnKeyDown">
+    <div class="sheet-head">
+        <div class="stack">
+            <span class="kicker">Erfassen</span>
+            <span class="sheet-payee">Was erfassen?</span>
+        </div>
+        <button type="button" class="header-action" @onclick="OnClose">Schließen</button>
+    </div>
+
+    <div class="sheet-body">
+        <div class="capture-list">
+            <button type="button" class="btn btn-primary capture-item" @onclick="@(() => Go("/gesundheit/scannen"))">
+                Beleg scannen
+            </button>
+            <button type="button" class="btn btn-secondary capture-item" @onclick="@(() => Go("/erfassen"))">
+                Buchung erfassen
+            </button>
+            <button type="button" class="btn btn-secondary capture-item"
+                    @onclick="@(() => Go("/gesundheit/scannen?art=arztrechnung"))">
+                Arztrechnung / PKV
+            </button>
+            <button type="button" class="btn btn-secondary capture-item"
+                    @onclick="@(() => Go("/gesundheit/scannen?art=rechnung"))">
+                Rechnung
+            </button>
+            <button type="button" class="btn btn-secondary capture-item" @onclick="@(() => Go("/dokumente?neu=1"))">
+                Dokument verknüpfen
+            </button>
+            <button type="button" class="btn btn-secondary capture-item" @onclick="@(() => Go("/vorgaenge?neu=1"))">
+                Aufgabe / Frist
+            </button>
+        </div>
+
+        <span class="capture-note">
+            Der Beleg landet im Dokumentordner; die Anwendung merkt sich nur den Pfad.
+        </span>
+    </div>
+</div>
+
+@code {
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private ElementReference sheet;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await sheet.FocusAsync();
+        }
+    }
+
+    private Task OnKeyDown(KeyboardEventArgs e)
+        => e.Key == "Escape" ? OnClose.InvokeAsync() : Task.CompletedTask;
+
+    private async Task Go(string route)
+    {
+        await OnClose.InvokeAsync();
+        Navigation.NavigateTo(route);
+    }
+
+    public void Dispose()
+    {
+        // Nichts zu lösen — der Platzhalter hält die Symmetrie zu den übrigen Sheets.
+    }
+}

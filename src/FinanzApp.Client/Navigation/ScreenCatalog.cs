@@ -9,46 +9,98 @@ namespace FinanzApp.Client.Navigation;
 /// <param name="TabLabel">Beschriftung in der Tab-Bar; <c>null</c>, wenn der Screen kein Tab ist.</param>
 /// <param name="IsDetail">Detailscreens bekommen im Kopf einen Zurück-Schalter.</param>
 /// <param name="RequiresWrite">Nur für Benutzer mit Schreibrecht sichtbar.</param>
+/// <param name="IsAction">
+/// Kein Ziel, sondern eine Aktion: die Tab-Zelle öffnet das Erfassen-Sheet, statt zu navigieren.
+/// </param>
+/// <param name="InAreaList">Steht auf „Mehr“ in der Bereichsliste.</param>
+/// <param name="DetailTitle">
+/// Titel für Unterseiten mit Id (<c>/versicherungen/3</c>). Ohne Angabe gilt <paramref name="Title"/>.
+/// </param>
 public sealed record Screen(
     string Route,
     string Kicker,
     string Title,
     string? TabLabel = null,
     bool IsDetail = false,
-    bool RequiresWrite = false);
+    bool RequiresWrite = false,
+    bool IsAction = false,
+    bool InAreaList = false,
+    string? DetailTitle = null);
 
 /// <summary>
 /// Kopfzeilen und Navigationsbeschriftungen an einer Stelle. Die Reihenfolge ist zugleich die
-/// Reihenfolge in Tab-Bar und Seitennavigation.
+/// Reihenfolge in Tab-Bar, Bereichsliste und Seitennavigation.
 /// </summary>
+/// <remarks>
+/// Mit der Erweiterung trägt die Tab-Bar Vermögen · Vorgänge · Erfassen · Dokumente · Mehr.
+/// Konten, Budgets und Depot bleiben unverändert erhalten und wandern in die Bereichsliste —
+/// die Screens selbst wurden dafür nicht angefasst.
+/// </remarks>
 public static class ScreenCatalog
 {
     public static IReadOnlyList<Screen> All { get; } =
     [
+        // Die fünf Zellen der Tab-Bar, in dieser Reihenfolge.
         new("/", "Übersicht", "Vermögen", "Vermögen"),
-        new("/konten", "Finanzen", "Konten & Buchungen", "Konten"),
-        new("/erfassen", "Erfassen", "Neue Buchung", "Erfassen", RequiresWrite: true),
-        new("/budgets", "Planung", "Budgets", "Budgets"),
-        new("/depot", "Investments", "Depot", "Depot"),
-        new("/mehr", "Mehr", "Alle Bereiche", IsDetail: true),
-        new("/benutzer", "Konto", "Benutzer & Anmeldung", IsDetail: true),
-        new("/darlehen", "Finanzierungen", "Darlehen", IsDetail: true),
-        new("/import", "Import", "Import\u00advorschau", IsDetail: true),
+        new("/vorgaenge", "Offen", "Vorgänge", "Vorgänge"),
+        new("/erfassen", "Erfassen", "Neue Buchung", "Erfassen",
+            IsDetail: true, RequiresWrite: true, IsAction: true),
+        new("/dokumente", "Ablage", "Dokumente", "Dokumente", DetailTitle: "Dokument"),
+        new("/mehr", "Mehr", "Alle Bereiche", "Mehr"),
+
+        // Bereiche, die über „Mehr“ und ab Tabletbreite über die Seitennavigation erreichbar sind.
+        new("/konten", "Finanzen", "Konten & Buchungen", IsDetail: true, InAreaList: true),
+        new("/budgets", "Planung", "Budgets", IsDetail: true, InAreaList: true),
+        new("/depot", "Investments", "Depot", IsDetail: true, InAreaList: true),
+        new("/darlehen", "Finanzierungen", "Darlehen", IsDetail: true, InAreaList: true),
+        new("/import", "Import", "Import\u00advorschau", IsDetail: true, InAreaList: true),
+        new("/versicherungen", "Vorsorge", "Versicherungen", IsDetail: true, InAreaList: true,
+            DetailTitle: "Versicherung"),
+        new("/gesundheit", "Gesundheit", "Gesundheit & PKV", IsDetail: true, InAreaList: true,
+            DetailTitle: "PKV-Vorgang"),
+        new("/wohnen", "Wohnen", "Wohnen & Immobilien", IsDetail: true, InAreaList: true,
+            DetailTitle: "Immobilie"),
+        new("/benutzer", "Konto", "Benutzer & Anmeldung", IsDetail: true, InAreaList: true),
+
+        // Detailscreens, die aus einem Bereich heraus geöffnet werden.
+        new("/gesundheit/scannen", "Erfassen", "Beleg scannen", IsDetail: true, RequiresWrite: true),
+        new("/vertraege", "Wohnen", "Vertrag", IsDetail: true, DetailTitle: "Vertrag"),
+        new("/rechnungen", "Wohnen", "Rechnung", IsDetail: true, DetailTitle: "Rechnung"),
+        new("/liquiditaet", "Übersicht", "Liquidität", IsDetail: true),
+        new("/liquiditaet/fluss", "Übersicht", "Wohin fließt es", IsDetail: true),
+        new("/liquiditaet/sparen", "Übersicht", "Sparpotential", IsDetail: true),
     ];
 
     /// <summary>Die fünf Einträge der Tab-Bar.</summary>
     public static IReadOnlyList<Screen> Tabs { get; } = [.. All.Where(s => s.TabLabel is not null)];
 
-    /// <summary>Die übrigen Bereiche, die ab Tabletbreite in der Seitennavigation stehen.</summary>
-    public static IReadOnlyList<Screen> Secondary { get; } = [.. All.Where(s => s.TabLabel is null)];
+    /// <summary>Die Bereichsliste auf „Mehr“ und in der Seitennavigation.</summary>
+    public static IReadOnlyList<Screen> Areas { get; } = [.. All.Where(s => s.InAreaList)];
 
     private static readonly Screen Fallback = All[0];
 
-    /// <summary>Findet den Screen zu einem Pfad. Unbekannte Pfade fallen auf das Dashboard zurück.</summary>
+    /// <summary>
+    /// Findet den Screen zu einem Pfad. Detailseiten mit Id (<c>/versicherungen/3</c>) fallen auf
+    /// ihren Bereich zurück, unbekannte Pfade auf das Dashboard.
+    /// </summary>
     public static Screen Resolve(string relativePath)
     {
         var path = "/" + relativePath.Split('?')[0].Split('#')[0].Trim('/');
-        return All.FirstOrDefault(s => string.Equals(s.Route, path, StringComparison.OrdinalIgnoreCase))
-               ?? Fallback;
+
+        var exact = All.FirstOrDefault(s => string.Equals(s.Route, path, StringComparison.OrdinalIgnoreCase));
+        if (exact is not null)
+        {
+            return exact;
+        }
+
+        // Detailseite eines Bereichs: den längsten passenden Präfix nehmen. Sie bekommt in jedem
+        // Fall den Zurück-Schalter — auch wenn ihr Bereich selbst ein Tab ist.
+        var prefix = All
+            .Where(s => s.Route.Length > 1 && path.StartsWith(s.Route + "/", StringComparison.OrdinalIgnoreCase))
+            .MaxBy(s => s.Route.Length);
+
+        return prefix is null
+            ? Fallback
+            : prefix with { Title = prefix.DetailTitle ?? prefix.Title, IsDetail = true };
     }
 }

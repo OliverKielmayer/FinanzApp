@@ -1,0 +1,91 @@
+@page "/liquiditaet/fluss"
+@attribute [Authorize]
+@inherits AppPage
+
+<PageTitle>Wohin fließt es — FinanzApp</PageTitle>
+
+<div class="segmented bordered">
+    @foreach (var option in Ranges)
+    {
+        <button type="button" class="segmented-opt @(months == option ? "active" : null)"
+                @onclick="() => SwitchRange(option)">@option Monate</button>
+    }
+</div>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (data is { } flow)
+    {
+        @if (flow.Total == 0)
+        {
+            <div class="empty-area">
+                <span class="empty-area-text">Für diesen Zeitraum gibt es noch keine Ausgaben.</span>
+            </div>
+        }
+        else
+        {
+            <section class="section">
+                <div class="section-head">
+                    <span class="label-strong">Fix gegen variabel</span>
+                    <span class="meta num">@State.Euro0(flow.Total) gesamt</span>
+                </div>
+                <ProgressBar Ratio="FixedRatio(flow)" Height="8" Variant="neutral"
+                             Label="Anteil der festen Ausgaben" />
+                <div class="chart-axis">
+                    <span>fix @GermanFormat.Percent(FixedRatio(flow) * 100) · @State.Euro0(flow.FixedShare)</span>
+                    <span>variabel @State.Euro0(flow.VariableShare)</span>
+                </div>
+            </section>
+
+            <div class="list-head">
+                <span class="label-strong">Kategorien</span>
+                <span class="list-count num">@flow.Months Monate</span>
+            </div>
+
+            @foreach (var category in flow.Categories)
+            {
+                <div class="flow-row @(category.OverBudget ? "over" : null)">
+                    <div class="flow-line">
+                        <span class="flow-name">@category.Name</span>
+                        <span class="flow-amount num">@State.Euro0(category.Amount)</span>
+                    </div>
+                    <ProgressBar Ratio="category.SharePercent / 100m" Height="6"
+                                 Variant="@(category.OverBudget ? "over" : "neutral")"
+                                 Label="@($"Anteil {category.Name}")" />
+                    <div class="flow-meta">
+                        <span class="num">@GermanFormat.Percent(category.SharePercent) · @State.Euro0(category.Amount / flow.Months) je Monat</span>
+                        <span>@(category.Note ?? string.Empty)</span>
+                    </div>
+                </div>
+            }
+
+            <span class="entry-summary" style="display:block;padding-top:12px">
+                Eigenanteile zählen hier, erstattete Beträge nicht. Umbuchungen bleiben außen vor.
+            </span>
+        }
+
+        <div class="spacer"></div>
+    }
+</AsyncView>
+
+@code {
+    private static readonly int[] Ranges = [3, 6, 12];
+
+    private CashFlowDto? data;
+    private int months = 6;
+
+    protected override async Task LoadAsync() => data = await Api.GetCashFlowAsync(months);
+
+    private async Task SwitchRange(int next)
+    {
+        if (next == months)
+        {
+            return;
+        }
+
+        months = next;
+        await ReloadAsync();
+    }
+
+    private static decimal FixedRatio(CashFlowDto flow)
+        => flow.Total == 0 ? 0 : flow.FixedShare / flow.Total;
+}

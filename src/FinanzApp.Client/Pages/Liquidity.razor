@@ -1,0 +1,120 @@
+@page "/liquiditaet"
+@attribute [Authorize]
+@inherits AppPage
+
+<PageTitle>Liquidität — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (data is { } liquidity)
+    {
+        <section class="hero">
+            <span class="label-muted">Bleibt übrig · @GermanFormat.MonthName(liquidity.Month) @liquidity.Year</span>
+            <span class="hero-value num">@State.Euro(liquidity.Remaining)</span>
+            <span class="loan-sub num">Sparquote @GermanFormat.Percent(liquidity.SavingsRatePercent)</span>
+        </section>
+
+        <div class="liq-bars">
+            <div class="liq-bar-row">
+                <span class="liq-bar-label">
+                    <span>Einnahmen</span><span class="num">@State.Euro0(liquidity.Income)</span>
+                </span>
+                <ProgressBar Ratio="1" Height="8" Variant="neutral" Label="Einnahmen" />
+            </div>
+            <div class="liq-bar-row">
+                <span class="liq-bar-label">
+                    <span>Ausgaben</span><span class="num">@State.Euro0(liquidity.Expenses)</span>
+                </span>
+                <ProgressBar Ratio="ExpenseRatio(liquidity)" Height="8" Label="Ausgaben im Verhältnis zu den Einnahmen" />
+            </div>
+        </div>
+
+        @if (liquidity.StillDue.Count > 0)
+        {
+            <div class="list-head">
+                <span class="label-strong">Noch fällig diesen Monat</span>
+                <span class="list-count num">@State.Euro0(-liquidity.StillDueTotal)</span>
+            </div>
+
+            @foreach (var item in liquidity.StillDue)
+            {
+                <button type="button" class="tap pending-row" @onclick="() => Open(item)">
+                    <span class="stack">
+                        <span>@item.Label</span>
+                        @if (item.DueOn is { } due)
+                        {
+                            <span class="meta">@GermanFormat.Date(due)</span>
+                        }
+                    </span>
+                    <span class="pending-amount out num">@State.Euro(-item.Amount)</span>
+                </button>
+            }
+        }
+
+        @if (liquidity.Expected.Count > 0)
+        {
+            <div class="list-head">
+                <span class="label-strong">Erwartet</span>
+                <span class="list-count num">@State.Euro0(liquidity.ExpectedTotal)</span>
+            </div>
+
+            @foreach (var item in liquidity.Expected)
+            {
+                <button type="button" class="tap pending-row" @onclick="() => Open(item)">
+                    <span class="stack">
+                        <span>@item.Label</span>
+                        @if (item.DueOn is { } due)
+                        {
+                            <span class="meta">erwartet bis @GermanFormat.Date(due)</span>
+                        }
+                    </span>
+                    <span class="pending-amount num">@State.Euro(item.Amount, withPlusSign: true)</span>
+                </button>
+            }
+        }
+
+        <section class="section">
+            <div class="section-head">
+                <span class="label-strong">Verfügbar nach Fixkosten</span>
+                <span class="meta">bis @GermanFormat.Date(liquidity.PeriodEnd)</span>
+            </div>
+            <span class="hero-value medium num">@State.Euro(liquidity.AvailableAfterFixedCosts)</span>
+            <span class="meta" style="display:block;padding-top:6px">
+                Bereits gebuchte Beträge und die noch fälligen sind abgezogen. Erwartete Eingänge
+                nicht — worauf man noch wartet, kann man nicht ausgeben.
+            </span>
+        </section>
+
+        <div class="actions">
+            <button type="button" class="btn btn-primary"
+                    @onclick="@(() => Navigation.NavigateTo("/liquiditaet/fluss"))">Wohin fließt es</button>
+            <button type="button" class="btn btn-secondary"
+                    @onclick="@(() => Navigation.NavigateTo("/liquiditaet/sparen"))">Sparpotential</button>
+        </div>
+
+        <div class="spacer"></div>
+    }
+</AsyncView>
+
+@code {
+    private LiquidityDto? data;
+
+    protected override async Task LoadAsync() => data = await Api.GetLiquidityAsync();
+
+    private static decimal ExpenseRatio(LiquidityDto liquidity)
+        => liquidity.Income == 0 ? 0 : liquidity.Expenses / liquidity.Income;
+
+    private void Open(PendingAmountDto item)
+    {
+        var route = (item.SourceType, item.SourceId) switch
+        {
+            (LinkTargetType.Invoice, { } id) => $"/rechnungen/{id}",
+            (LinkTargetType.MedicalBill, { } id) => $"/gesundheit/{id}",
+            _ => null,
+        };
+
+        if (route is not null)
+        {
+            Navigation.NavigateTo(route);
+        }
+    }
+}

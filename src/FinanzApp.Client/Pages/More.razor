@@ -5,96 +5,147 @@
 
 <PageTitle>Alle Bereiche — FinanzApp</PageTitle>
 
+@*
+    „Mehr“ ist mit der Erweiterung die Bereichsliste: jede Zeile trägt einen Untertitel und
+    rechts eine Kennzahl. Konten, Budgets und Depot stehen hier, seit die Tab-Bar Vorgänge und
+    Dokumente aufgenommen hat — die Screens selbst sind unverändert.
+*@
 <AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
     @if (data is { } overview)
     {
-        <button type="button" class="tap more-row" @onclick="@(() => Toasts.Show("Vertragsdetail folgt"))">
-            <span class="stack">
-                <span class="more-label">Lebensversicherungen</span>
-                <span class="meta">
-                    @overview.Insurance.Provider · Rückkaufswert @GermanFormat.Date(overview.Insurance.ValuationDate)
+        @foreach (var area in Rows(overview))
+        {
+            <button type="button" class="tap more-row" @onclick="() => Open(area)">
+                <span class="stack">
+                    <span class="more-label">@area.Label</span>
+                    <span class="meta">@area.Subtitle</span>
                 </span>
-            </span>
-            <span class="more-value num">@State.Euro0(overview.Insurance.SurrenderValue)</span>
-        </button>
-
-        <button type="button" class="tap more-row" @onclick="OpenLoan">
-            <span class="stack">
-                <span class="more-label">Darlehen</span>
-                <span class="meta">
-                    @overview.Loan.Lender · Rate @GermanFormat.EuroRounded(overview.Loan.Installment)
-                </span>
-            </span>
-            <span class="more-value num">@State.Euro0(-overview.Loan.RemainingDebt)</span>
-        </button>
-
-        <button type="button" class="tap more-row" @onclick="@(() => Navigation.NavigateTo("/import"))">
-            <span class="stack">
-                <span class="more-label">Datenimport</span>
-                <span class="meta">
-                    @overview.Import.Formats · @overview.Import.ProfileCount
-                    @(overview.Import.ProfileCount == 1 ? "Profil" : "Profile")
-                </span>
-            </span>
-            <span class="more-value">CAMT</span>
-        </button>
-
-        <button type="button" class="tap more-row" @onclick="@(() => Toasts.Show("Report-Ansicht folgt"))">
-            <span class="stack">
-                <span class="more-label">Auswertungen</span>
-                <span class="meta">Monat · Quartal · Jahr</span>
-            </span>
-            <span class="more-value"></span>
-        </button>
-
-        <button type="button" class="tap more-row" @onclick="@(() => Toasts.Show("Verwaltung folgt"))">
-            <span class="stack">
-                <span class="more-label">Kategorien &amp; Regeln</span>
-                <span class="meta">
-                    @overview.CategoryCount Kategorien · @overview.RuleCount
-                    @(overview.RuleCount == 1 ? "Regel" : "Regeln")
-                </span>
-            </span>
-            <span class="more-value"></span>
-        </button>
-
-        <button type="button" class="tap more-row" @onclick="@(() => Navigation.NavigateTo("/benutzer"))">
-            <span class="stack">
-                <span class="more-label">Benutzer &amp; Anmeldung</span>
-                <span class="meta">
-                    @Auth.User?.HouseholdName · @overview.HouseholdMemberCount
-                    @(overview.HouseholdMemberCount == 1 ? "Benutzer" : "Benutzer")
-                </span>
-            </span>
-            <span class="more-value">@Auth.User?.Name</span>
-        </button>
-
-        <button type="button" class="tap more-row"
-                @onclick="@(() => Toasts.Show(overview.Security.TwoFactorEnabled
-                    ? "Alle Backups gültig"
-                    : "2FA folgt in einer späteren Runde"))">
-            <span class="stack">
-                <span class="more-label">Sicherheit</span>
-                <span class="meta">
-                    @(overview.Security.TwoFactorEnabled ? "2FA aktiv" : "2FA noch nicht aktiv") ·
-                    Backup @GermanFormat.DateTime(overview.Security.LastBackup)
-                </span>
-            </span>
-            <span class="more-value">@(overview.Security.TwoFactorEnabled ? "OK" : "Prüfen")</span>
-        </button>
+                <span class="more-value num">@area.Value</span>
+            </button>
+        }
 
         <div class="spacer"></div>
     }
 </AsyncView>
 
 @code {
+    private sealed record AreaRow(string Label, string Subtitle, string Value, string? Route, string? Toast = null);
+
     private MoreOverviewDto? data;
 
     protected override async Task LoadAsync() => data = await Api.GetMoreOverviewAsync();
 
-    private void OpenLoan()
+    private IEnumerable<AreaRow> Rows(MoreOverviewDto overview)
     {
-        var loanId = data?.Loan.LoanId ?? 0;
-        Navigation.NavigateTo(loanId > 0 ? $"/darlehen?id={loanId}" : "/darlehen");
+        var areas = overview.Areas;
+
+        yield return new AreaRow(
+            "Konten & Buchungen",
+            "Girokonten, Tagesgeld, Import",
+            string.Empty,
+            "/konten");
+
+        yield return new AreaRow("Budgets", "Monat · Quartal · Jahr", string.Empty, "/budgets");
+
+        yield return new AreaRow("Depot", "Wertpapiere und Kurse", string.Empty, "/depot");
+
+        yield return new AreaRow(
+            "Darlehen",
+            $"{overview.Loan.Lender} · Rate {GermanFormat.EuroRounded(overview.Loan.Installment)}",
+            State.Euro0(-overview.Loan.RemainingDebt),
+            "/darlehen");
+
+        yield return new AreaRow(
+            "Datenimport",
+            $"{overview.Import.Formats} · {overview.Import.ProfileCount} Profile",
+            "CAMT",
+            "/import");
+
+        yield return new AreaRow(
+            "Versicherungen",
+            "Verträge, Beiträge, Fristen",
+            $"{areas.InsuranceCount} Verträge",
+            "/versicherungen");
+
+        yield return new AreaRow(
+            "Gesundheit / PKV",
+            "Arztrechnungen und Erstattungen",
+            areas.OpenMedicalBillCount == 0 ? "erledigt" : $"{areas.OpenMedicalBillCount} offen",
+            "/gesundheit");
+
+        yield return new AreaRow(
+            "Wohnen & Immobilien",
+            $"{areas.PropertyCount} Objekt · {areas.ContractCount} Verträge",
+            string.Empty,
+            "/wohnen");
+
+        yield return new AreaRow(
+            "Lebensversicherungen",
+            $"{overview.Insurance.Provider} · Rückkaufswert {GermanFormat.Date(overview.Insurance.ValuationDate)}",
+            State.Euro0(overview.Insurance.SurrenderValue),
+            null,
+            "Vertragsdetail folgt");
+
+        yield return new AreaRow(
+            "Auswertungen",
+            "Liquidität, Kategorien, Sparpotential",
+            string.Empty,
+            "/liquiditaet");
+
+        yield return new AreaRow(
+            "Kategorien & Regeln",
+            $"{overview.CategoryCount} Kategorien · {overview.RuleCount} Regeln",
+            string.Empty,
+            null,
+            "Verwaltung folgt");
+
+        // Nicht gestaltet — laut Handoff vor dem Bau anzufragen. Die Zeile führt deshalb nicht
+        // ins Leere, sondern sagt, woran es liegt.
+        yield return new AreaRow(
+            "Arbeit & Beruf",
+            "Arbeitgeber, Verträge, Lohnabrechnungen",
+            "geplant",
+            null,
+            "Arbeit & Beruf ist noch nicht gestaltet");
+
+        yield return new AreaRow(
+            "Benutzer & Anmeldung",
+            $"{Auth.User?.HouseholdName} · {overview.HouseholdMemberCount} Benutzer",
+            Auth.User?.Name ?? string.Empty,
+            "/benutzer");
+
+        yield return new AreaRow(
+            "Administration",
+            "Dokumenttypen, Kategorien, Regeln",
+            "geplant",
+            null,
+            "Administration ist noch nicht gestaltet");
+
+        yield return new AreaRow(
+            "Sicherheit",
+            $"{(overview.Security.TwoFactorEnabled ? "2FA aktiv" : "2FA noch nicht aktiv")} · "
+                + $"Backup {GermanFormat.DateTime(overview.Security.LastBackup)}",
+            overview.Security.TwoFactorEnabled ? "OK" : "Prüfen",
+            null,
+            overview.Security.TwoFactorEnabled ? "Alle Backups gültig" : "2FA folgt in einer späteren Runde");
+
+        yield return new AreaRow(
+            "Dokumente",
+            areas.MissingFileCount == 0
+                ? "Ablage aller Bereiche"
+                : $"Ablage aller Bereiche · {areas.MissingFileCount} ohne Datei",
+            $"{areas.DocumentCount}",
+            "/dokumente");
+    }
+
+    private void Open(AreaRow area)
+    {
+        if (area.Route is { } route)
+        {
+            Navigation.NavigateTo(route);
+            return;
+        }
+
+        Toasts.Show(area.Toast ?? "Folgt");
     }
 }

@@ -1,0 +1,37 @@
+@page "/wohnen"
+@attribute [Authorize]
+@inherits AppPage
+
+<PageTitle>Wohnen &amp; Immobilien — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (properties.Count == 0)
+    {
+        <div class="empty-area">
+            <span class="empty-area-text">Noch keine Immobilie hinterlegt.</span>
+        </div>
+    }
+
+    @foreach (var property in properties)
+    {
+        <button type="button" class="tap contract-row"
+                @onclick="@(() => Navigation.NavigateTo($"/wohnen/{property.Id}"))">
+            <span class="stack">
+                <span class="contract-name">@property.Name</span>
+                <span class="meta">
+                    @(property.Address ?? "ohne Adresse") · @property.ContractCount
+                    @(property.ContractCount == 1 ? "Vertrag" : "Verträge")
+                </span>
+            </span>
+            <span class="contract-amount num">@State.Euro0(property.MarketValue)</span>
+        </button>
+    }
+
+    <div class="spacer"></div>
+</AsyncView>
+
+@code {
+    private IReadOnlyList<PropertyListItemDto> properties = [];
+
+    protected override async Task LoadAsync() => properties = await Api.GetPropertiesAsync();
+}

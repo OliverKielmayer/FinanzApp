@@ -1,12 +1,14 @@
 # FinanzApp
 
-Mobiler Begleit-Client für die persönliche Vermögens- und Haushaltsverwaltung, umgesetzt nach dem
-Design-Handoff *Finanz-App Prototyp Deutsch* (Design-System **Modernist**), einschließlich
-Nachtrag 2 *Login & Mehrbenutzerbetrieb*.
+Mobiler Begleit-Client für die persönliche Vermögens-, Haushalts- und Dokumentenverwaltung,
+umgesetzt nach dem Design-Handoff *Finanz-App Prototyp Deutsch* (Design-System **Modernist**),
+Nachtrag 2 *Login & Mehrbenutzerbetrieb* und der *Erweiterung zum Finanz- und
+Dokumentenmanagement*.
 
-Der Client deckt die fünf täglichen Aufgaben ab — Vermögen prüfen, Ausgaben erfassen, importierte
-Buchungen kategorisieren, Budgets im Blick behalten, Depot verfolgen — dazu Darlehen mit
-Tilgungsplan, Importvorschau, die Sammelseite „Mehr“ sowie Anmeldung, Registrierung und
+Der Client trägt die täglichen Aufgaben — Vermögen und Liquidität prüfen, Ausgaben erfassen,
+importierte Buchungen kategorisieren, Budgets und Depot verfolgen — dazu Vorgänge und Fristen,
+eine Dokumentablage, den PKV-Flow von der Arztrechnung bis zur verbuchten Erstattung,
+Versicherungen, Wohnen mit Verträgen und Rechnungen, Darlehen, Import sowie Anmeldung und
 Benutzerverwaltung eines Haushalts.
 
 ## Stack
@@ -15,9 +17,11 @@ Benutzerverwaltung eines Haushalts.
 | --- | --- |
 | Frontend | Blazor WebAssembly (.NET 10), PWA-fähig |
 | Backend | ASP.NET Core Minimal API (.NET 10) |
-| Persistenz | EF Core 10 mit SQLite |
+| Persistenz | EF Core 10 mit SQLite, Schema über Migrationen |
+| Dokumente | Dateien im Dateisystem unter `DocumentRoot`, nur der relative Pfad in der Datenbank |
 | Anmeldung | Cookie-Authentifizierung, PBKDF2-Hashing, serverseitig widerrufbare Sitzungen |
 | Mailversand | MailKit über SMTP |
+| Tests | xUnit gegen SQLite im Arbeitsspeicher |
 | Verträge | gemeinsames Projekt `FinanzApp.Shared`, von Client und API referenziert |
 
 Die API hostet den WebAssembly-Client mit — es läuft ein Prozess, es gibt keinen zweiten Ursprung
@@ -30,8 +34,14 @@ dotnet run --project src/FinanzApp.Api
 ```
 
 Danach <http://localhost:5011> öffnen. Beim ersten Start legt die Anwendung
-`src/FinanzApp.Api/finanzapp.db` an und füllt sie mit den Beispieldaten des Handoffs. Die Datei ist
-nicht versioniert; sie zu löschen stellt den Ausgangszustand wieder her.
+`src/FinanzApp.Api/finanzapp.db` an, wendet die Migrationen an und füllt sie mit den Beispieldaten.
+Dabei entstehen unter `src/FinanzApp.Api/App_Data/Dokumente` echte Platzhalterdateien — nur so
+lässt sich die Pfadauflösung an etwas prüfen. Weder Datenbank noch Dokumentordner sind versioniert;
+beide zu löschen stellt den Ausgangszustand wieder her.
+
+```bash
+dotnet test
+```
 
 ### Demo-Zugänge
 
@@ -42,7 +52,7 @@ Alle drei Benutzer des Haushalts *Haushalt Kielmayer* teilen das Passwort
 | --- | --- | --- |
 | `oliver@haushalt-kielmayer.de` | Inhaber | alles, inklusive Benutzerverwaltung und Einladungen |
 | `sabine@haushalt-kielmayer.de` | Mitglied | alle Daten ändern, keine Benutzerverwaltung |
-| `kanzlei@haas-stb.de` | Lesezugriff | nur ansehen — kein Erfassen-Tab, keine Kategorieauswahl, kein Import |
+| `kanzlei@haas-stb.de` | Lesezugriff | nur ansehen — kein Erfassen, keine Kategorieauswahl, kein Import |
 
 > Diese Konten und ihr Passwort stehen im Quelltext, damit die Vorführung ohne Einrichtung läuft.
 > **Vor jedem echten Betrieb gehören sie gelöscht.** Der Einladungscode des Demo-Haushalts lautet
@@ -53,20 +63,21 @@ Alle drei Benutzer des Haushalts *Haushalt Kielmayer* teilen das Passwort
 > erst beim `dotnet publish` in das `wwwroot` der API wandern. Im Entwicklungsbetrieb darf das
 > Anmelde-Cookie außerdem über HTTP laufen; in jeder anderen Umgebung verlangt es HTTPS.
 
-### Mailversand einrichten
+### Dokumentordner und Mailversand
 
-Der Passwort-Reset verschickt eine echte Mail, sobald ein Postausgangsserver konfiguriert ist.
-Ohne `Mail:Host` schreibt die Anwendung die Nachricht samt Link ins Protokoll und arbeitet sonst
-unverändert — der Reset lässt sich damit vollständig durchspielen.
+`Documents:Root` in `appsettings.json` bestimmt, wo die Dateien liegen (Vorgabe
+`App_Data/Dokumente`, relativ zum Anwendungsverzeichnis oder absolut). Dazu kommen
+`MaxFileSizeMegabytes` und `AllowedExtensions`.
+
+Der Passwort-Reset verschickt eine echte Mail, sobald `Mail:Host` gesetzt ist. Ohne Postausgang
+schreibt die Anwendung die Nachricht samt Link ins Protokoll und arbeitet sonst unverändert.
 
 ```bash
 dotnet user-secrets --project src/FinanzApp.Api set "Mail:Host" "smtp.example.net"
-dotnet user-secrets --project src/FinanzApp.Api set "Mail:User" "postfach@example.net"
 dotnet user-secrets --project src/FinanzApp.Api set "Mail:Password" "…"
 ```
 
 Das Passwort gehört **nicht** in `appsettings.json` — die Datei liegt im Repository.
-Alternativ per Umgebungsvariable `Mail__Password`.
 
 ## Aufbau
 
@@ -74,19 +85,21 @@ Alternativ per Umgebungsvariable `Mail__Password`.
 src/
   FinanzApp.Shared/        Verträge (DTOs), Passwortregeln, deutsche Formatierung
   FinanzApp.Api/
-    Data/                  EF-Core-Entitäten, DbContext mit Mandantenfilter, Beispieldaten
-    Application/           Fachlogik: Anmeldung, Haushalt, Konten, Buchungen, Budgets,
-                           Depot, Darlehen, Import
+    Data/                  Entitäten, DbContext mit Mandantenfilter, Migrationen, Beispieldaten
+    Application/           Fachlogik je Bereich
     Endpoints/             HTTP-Oberfläche, ohne Fachlogik
-    Infrastructure/        Uhr, aktueller Benutzer, Rollen-Policies, Mailversand
+    Infrastructure/        Uhr, aktueller Benutzer, Rollen, Mail, Dokumentablage, Belegerkennung
   FinanzApp.Client/
     Layout/                Kopfzeile, Tab-Bar, Seitennavigation, Anmelderahmen
-    Pages/                 die zwölf Screens
-    Components/            Sheet, Toast, Diagramm, Balken, Lade-/Fehlerhülle
+    Pages/                 die Screens
+    Components/            Sheets, Toast, Diagramm, Balken, Lade-/Fehlerhülle
     Navigation/            Screen-Katalog, Anmeldepfade, Zurück-Weg
     Services/              API-Zugriff, Anmeldezustand, Geräteprofile, Beträge-Maske, Toasts
-    wwwroot/css/           modernist.css (unverändert) + app.css (Anwendungsschicht)
-docs/design-handoff/       der Handoff, wie geliefert
+tests/FinanzApp.Tests/     Rechenwege, Pfadauflösung, Mandantentrennung, PKV-Regeln
+docs/
+  design-handoff/          Erst-Handoff samt Nachtrag 2, wie geliefert
+  design-handoff-erweiterung/  Erweiterungs-Handoff mit den Wireframes
+  erweiterungsplan.md      der Plan, den der Erweiterungs-Handoff vor dem Bauen verlangt
 ```
 
 Die Geschäftslogik liegt in den Application-Services, nicht in den Komponenten. Die Endpunkte nehmen
@@ -99,29 +112,85 @@ Farben, Ramps, Typografie, Abstände und die Basiskomponenten; eine neue Fassung
 lässt sich darüberkopieren. `app.css` enthält nur Layout und Screens und nimmt jeden Wert aus den
 Variablen — keine eigenen Farben, keine abgerundeten Ecken, keine zentrierten Button-Labels.
 
-Umgesetzt sind die im Handoff festgelegten Varianten: Navigation **Tabs**, Dashboard **Kacheln**,
-Erfassung **3 Schritte**. Drawer, Listen-Dashboard und Ziffernblock-Direkterfassung sind laut Handoff
-nur Referenz und nicht implementiert.
+Die Tab-Bar trägt seit der Erweiterung **Vermögen · Vorgänge · Erfassen · Dokumente · Mehr**
+(freigegeben: Navigation 1a mit der zentralen Scan-Aktion aus 1c). Die Mitte ist eine **Aktion, kein
+Ziel**: sie öffnet ein Sheet über allem. Konten, Budgets und Depot sind unverändert erhalten und
+über die Bereichsliste auf „Mehr“ erreichbar; ab **768 px** listet die Seitennavigation alle
+Bereiche flach auf.
 
-Ab **768 px** wandert die Tab-Bar in eine Seitennavigation und die Vermögenskacheln gehen auf drei,
-ab 1024 px auf vier Spalten — das im Handoff verlangte Web-App-Layout.
+Vier Zustände tragen dasselbe Akzentmuster: **überfällig**, **fällig**, **Datei nicht gefunden**,
+**Frist läuft**. Ein leerer Bereich zeigt nie eine leere Liste, sondern eine Erklärzeile mit der
+Primäraktion.
 
 ### Abweichungen vom Prototyp, und warum
 
 | Punkt | Prototyp | Hier |
 | --- | --- | --- |
-| Tappbare Zeilen und Kacheln | `div` mit `onClick` | `button` — sonst wären sie weder mit der Tastatur erreichbar noch für Screenreader bedienbar. Optisch identisch. |
-| Statusleiste `9:41 / AUG 2026 / 100 %` | vorhanden | entfällt — im Handoff als Attrappe gekennzeichnet. |
-| Gerätrahmen 390 × 844 | vorhanden | entfällt — die reale App ist responsiv. |
-| Zähler „7 von 7“ | 7 Beispielbuchungen | „29 von 29“, siehe Beispieldaten. |
-| „Profile auf diesem Gerät“ | drei feste Profile | nur Benutzer, die sich auf diesem Gerät schon angemeldet haben. Beim ersten Aufruf fehlt der Abschnitt deshalb — so beschreibt es der Nachtrag. |
-| Passwortstärke | hängt an der Länge | Länge, Zeichenvielfalt und offensichtliche Muster; dieselbe Bewertung prüft der Server. |
-| Neues Passwort setzen | nicht entworfen | minimal ergänzt, sonst führte der Link aus der Mail ins Leere. Bausteine von der Registrierung übernommen. |
+| Tappbare Zeilen und Kacheln | `div` mit `onClick` | `button` — sonst weder mit der Tastatur erreichbar noch für Screenreader bedienbar. Optisch identisch. |
+| Statusleiste, Gerätrahmen | vorhanden | entfallen — im Handoff als Attrappe gekennzeichnet, die reale App ist responsiv. |
+| Zähler „7 von 7“ | 7 Beispielbuchungen | mehr, siehe Beispieldaten. |
+| „Profile auf diesem Gerät“ | drei feste Profile | nur Benutzer, die sich auf diesem Gerät schon angemeldet haben. |
+| Neues Passwort setzen | nicht entworfen | minimal ergänzt, sonst führte der Link aus der Mail ins Leere. |
+| Sparpotential | eine Summe für alles | beziffert wird nur, was sich beziffern lässt. Was ein Anbieterwechsel bringt, weiß die Anwendung nicht — dort steht die Gelegenheit ohne Zahl. |
+| Wireframe 1a | Tab-Bar mit „Konten“ | maßgeblich ist die Tabelle in Abschnitt 1 des Handoffs; sie führt 1a mit der Scan-Mitte aus 1c zusammen. |
 
-Drei Entscheidungen aus der ersten Umsetzung hat Nachtrag 2 übernommen und sind damit keine
-Abweichungen mehr: die Depotposition *Allianz SE* mit 46 St. zu 342,55 €, die Rendite des
-*Xtrackers* mit +19,2 % und die Beträge-Maske, die **alle** Geldbeträge verdeckt. Auch der
-Zurück-Schalter auf Detailscreens steht inzwischen im Handoff.
+## Erweiterung: Dokumente, Vorgänge, Gesundheit, Wohnen
+
+### Dokumente
+
+Ein Dokumentmodell für alle Bereiche: `Document`, `DocumentType` (eine **Tabelle**, kein Enum) und
+`DocumentLink` als polymorphe Verknüpfung.
+
+- In der Datenbank steht **nur der relative Pfad**. Ein absoluter würde die Daten an einen Rechner
+  binden. Zusammengesetzt wird erst beim Öffnen, gegen den konfigurierten Wurzelordner.
+- Jede Auflösung prüft, dass das Ergebnis **innerhalb** der Wurzel bleibt. Ein gespeicherter Pfad
+  ist eine Eingabe wie jede andere; ohne diese Prüfung ließe sich mit `../` jede Datei des Servers
+  ausliefern. Der Test dazu steht in `DocumentPathTests`.
+- **Fehlt die Datei, ist das ein Zustand, kein Fehler**: der Eintrag bleibt vollständig sichtbar und
+  verknüpft, zeigt den gesuchten Pfad und bietet drei Auswege.
+- Die Suche trifft **auch Objekte**, nicht nur Dateinamen — wer „hausrat“ tippt, meint meist den
+  Vertrag.
+- Verknüpft wird am Objekt; das Dokument zeigt seine Bezüge nur an. `DocumentLink` verzichtet auf
+  einen Fremdschlüssel je Zieltyp — dafür prüft `ObjectLabelService` vor dem Anlegen, ob das Ziel im
+  eigenen Haushalt existiert.
+
+### Vorgänge
+
+Ein Tab für alles Unerledigte. Die meisten Einträge entstehen von selbst — aus Vertragsende minus
+Kündigungsfrist, aus einer Rechnungsfälligkeit, aus einer Erstattung ohne Zahlungseingang. Erzeugt
+wird beim Lesen der Liste; ein eindeutiger Index auf Quelle und Quell-Id verhindert Dubletten. **Der
+Erzeugungsgrund steht mit in der Aufgabe** und wird in der Zeile erklärt — sonst stünde dort eine
+Zeile, die niemand angelegt hat und deren Herkunft niemand nachvollziehen kann.
+
+### Gesundheit / PKV
+
+Der Kernflow: scannen → prüfen → Vorgang → überfällig → Zahlung zuordnen.
+
+- **Der Eigenanteil ist keine offene Forderung.** Er ist eine gebuchte Ausgabe. Offen ist
+  ausschließlich die erwartete Erstattung. Diese Regel steht als Test, nicht nur als Kommentar.
+- Die Belegerkennung liegt hinter `IBillTextExtractor`. Eingebaut ist eine Umsetzung, die nichts
+  erkennt — die Maske ist dann leer, der Flow läuft trotzdem vollständig.
+- Die Zahlungszuordnung **schlägt vor, sie entscheidet nicht**: bewertet wird über Betrag, Datum und
+  Verwendungszweck, bestätigt wird von Hand. Eine automatische Verknüpfung würde bei jedem
+  Fehltreffer stillschweigend die Buchhaltung verfälschen.
+
+### Liquidität
+
+Rechnet ausschließlich auf dem Bestand — Buchungen, Budgets, Rechnungen, PKV-Vorgänge,
+Vertragsfristen. Keine neue Eingabe, keine neue Tabelle.
+
+- **Fix gegen variabel wird erkannt, nicht gepflegt**: eine Kategorie gilt als fix, wenn sie in fast
+  jedem Monat vorkommt und ihre Monatssummen wenig schwanken.
+- Das Sparpotential findet Budgetüberschreitungen, laufende Kündigungsfristen und wiederkehrende
+  Buchungen ohne Vertrag. Für „Abo“ gelten zwei Schranken — höchstens 100 € im Monat und höchstens
+  5 % Schwankung. Ohne sie landet die Miete in der Liste, und die lässt sich nicht kündigen.
+
+### Versicherungen, Wohnen
+
+Fristen werden **abgeleitet** (Vertragsende minus Kündigungsfrist), nicht gepflegt — ein von Hand
+gesetztes Datum liefe der Verlängerung hinterher. Die Immobilie **verweist** über `LoanId` auf das
+bestehende Darlehen; es gibt weiterhin genau einen Darlehensbereich mit einem Tilgungsplan.
+Zahlungen sind überall Verweise auf echte Buchungen — Geldbewegungen bleiben Buchungen.
 
 ## Anmeldung und Mehrbenutzerbetrieb
 
@@ -129,107 +198,78 @@ Ein **Haushalt** besitzt die Daten. Ein **Benutzer** meldet sich mit eigenen Zug
 gehört genau einem Haushalt. Drei Rollen: Inhaber, Mitglied, Lesezugriff.
 
 **Ohne Sitzung zeigt die Anwendung nur den Anmeldescreen** — keine Kopfzeile, keine Tab-Bar, keine
-Seitennavigation. Wer einen geschützten Pfad aufruft, landet auf `/anmelden` und nach dem Anmelden
-wieder dort, wo er hinwollte.
-
-Die Rollen wirken an drei Stellen:
-
-1. **Im Client**, damit niemand Schaltflächen sieht, die für ihn nicht funktionieren: Lesezugriff
-   bekommt keinen Erfassen-Tab, keine Kategorie-Chips im Sheet, kein Triage-Banner, keine
-   Import-Übernahme und keine Budgetanlage.
-2. **Am Endpunkt**, weil der Client nur eine Oberfläche ist: schreibende Endpunkte verlangen die
-   Rolle Inhaber oder Mitglied, die Benutzerverwaltung verlangt Inhaber. Wer die Rolle im Browser
-   manipuliert, bekommt eine 403.
-3. **In der Datenbank**, durch den Mandantenfilter: jede Abfrage auf Fachdaten trägt automatisch
-   die Bedingung „gehört meinem Haushalt“.
+Seitennavigation. Die Rollen wirken an drei Stellen: im Client (keine Schaltflächen, die nicht
+funktionieren), am Endpunkt (Policy, sonst 403) und in der Datenbank (Mandantenfilter).
 
 ### Mandantentrennung
 
-Jede Entität mit Haushaltsbezug trägt `IHouseholdOwned`. Der `DbContext` hängt daran per Schleife
-einen globalen Abfragefilter — nicht von Hand je Tabelle, denn dabei vergisst man irgendwann eine,
-und genau das wäre das Datenleck, vor dem der Handoff warnt. Eine neue Tabelle bekommt den Filter
-automatisch, sobald sie die Schnittstelle trägt.
+Jede Entität mit Haushaltsbezug trägt `IHouseholdOwned`. Der `DbContext` hängt daran **per Schleife**
+einen globalen Abfragefilter — nicht von Hand je Tabelle, denn dabei vergisst man irgendwann eine.
+Eine neue Tabelle bekommt den Filter automatisch. Neue Datensätze werden beim Speichern auf den
+aktuellen Haushalt gestempelt, im synchronen wie im asynchronen Weg.
 
 Der Haushalt kommt ausschließlich aus dem Anmelde-Cookie. Ist keiner gesetzt, bleibt er 0 und der
 Filter findet **nichts** — der Standardfall ist „nichts sichtbar“, nicht „alles sichtbar“.
-Nachgeprüft: ein zweiter, frisch registrierter Haushalt sieht 0 Konten, 0 Buchungen, 0 Budgets, kein
-Depot und ein Nettovermögen von 0; der Direktaufruf einer fremden Id antwortet mit 404, nicht mit
-fremden Daten.
-
-Die Anmeldedaten selbst — Benutzer, Sitzungen, Einladungen, Reset-Token — tragen bewusst keinen
-Filter: sie werden gebraucht, *bevor* ein Haushalt feststeht. Ihre Abfragen führen die
-Haushaltsbedingung ausdrücklich mit.
+`HouseholdIsolationTests` prüft das über alle neuen Entitäten.
 
 ### Was beim Anmelden passiert
 
-- Passwörter liegen als PBKDF2-Hash (`PasswordHasher<User>`, aktuelle Parameter, automatisches
-  Nachhashen bei Formatwechsel). Nie im Klartext, nie umkehrbar.
-- **Eine einzige Meldung** für „Adresse unbekannt“ und „Passwort falsch“. Auch eine unbekannte
-  Adresse durchläuft eine Hash-Berechnung, damit sie sich nicht über die Antwortzeit verrät.
-- Nach fünf Fehlversuchen ist das Konto 15 Minuten gesperrt. Die Sperre wird nur dem genannt, der
-  das richtige Passwort liefert — wer es nicht kennt, erfährt daraus nichts über das Konto.
-  Zusätzlich bremst ein Rate-Limit von 10 Anfragen je Minute und IP die Anmeldeendpunkte.
-- Die Sitzung steht als Datensatz in der Datenbank; das Cookie trägt nur ihre Id. Jede Anfrage
-  prüft, ob sie noch gilt. Damit ist „Angemeldet bleiben“ (30 Tage statt 12 Stunden) überhaupt erst
-  vertretbar: Abmelden wirkt sofort, auch für ein Cookie, das kryptografisch noch gültig wäre.
-- Der Passwort-Reset antwortet **immer** gleich, ob die Adresse existiert oder nicht. Vom Token
-  liegt nur der SHA-256-Hash in der Datenbank, er gilt 30 Minuten und lässt sich einmal einlösen.
-  Ein eingelöster Reset widerruft alle offenen Sitzungen des Benutzers.
-- „Profile auf diesem Gerät“ liegt in `localStorage` und enthält nur Name, Adresse und Rolle —
-  nie ein Passwort und nie ein Token. Ein Tipp darauf füllt bloß das E-Mail-Feld vor.
+- Passwörter liegen als PBKDF2-Hash. **Eine einzige Meldung** für „Adresse unbekannt“ und „Passwort
+  falsch“; auch eine unbekannte Adresse durchläuft eine Hash-Berechnung, damit sie sich nicht über
+  die Antwortzeit verrät.
+- Nach fünf Fehlversuchen 15 Minuten Sperre, dazu ein Rate-Limit von 10 Anfragen je Minute und IP.
+- Die Sitzung steht als Datensatz in der Datenbank, das Cookie trägt nur ihre Id. Abmelden wirkt
+  sofort, auch für ein Cookie, das kryptografisch noch gültig wäre.
+- Der Passwort-Reset antwortet **immer** gleich. Vom Token liegt nur der SHA-256-Hash in der
+  Datenbank; er gilt 30 Minuten, ist einmal einlösbar und widerruft alle offenen Sitzungen.
 
 ## Beispieldaten
 
-Alle Summen der Oberfläche werden **gerechnet**, nicht gespeichert: Kontosalden aus Anfangsbestand
-plus Buchungen, Budgetauslastung aus den Buchungen der Kategorie, Depotwert aus Stück mal Kurs,
-Bruttovermögen aus Konten, Depot und Rückkaufswerten. Die Beispieldaten sind so gewählt, dass dabei
-genau die Zahlen des Handoffs herauskommen: Nettovermögen 125.839,95 €, Bruttovermögen 274.139,95 €,
-Depotwert 132.480,00 €, G/V +18.940,20 €, Einnahmen 5.240 €, Ausgaben 3.612 €, Sparquote 31 %,
-Budgets 892 € von 1.250 €, Kontosalden 4.812,60 € / 1.947,35 € / 50.000,00 €.
+Alle Summen werden **gerechnet**, nicht gespeichert. Die Beispieldaten sind so gewählt, dass dabei
+genau die Zahlen der Handoffs herauskommen: Liquidität **+1.628 €** (Einnahmen 5.240 €, Ausgaben
+3.612 €, Sparquote 31 %), Nettovermögen 125.839,95 €, Bruttovermögen 274.139,95 €, Depotwert
+132.480,00 €, G/V +18.940,20 €, Budgets 892 € von 1.250 €, Kontosalden 4.812,60 € / 1.947,35 € /
+50.000,00 €, Kündigungsfrist Hausrat in **18 Tagen**, PKV-Erstattung **680 €** überfällig,
+Arztrechnung **210 €** noch nicht eingereicht, Stromrechnung **142,50 €** offen.
 
-Damit das aufgeht, enthält der August 2026 **29 Buchungen** statt der sieben aus dem Prototyp. Die
-sieben des Handoffs stehen unverändert oben in der Liste; die übrigen füllen die Kategoriesummen, aus
-denen Budgets und Monats-KPIs entstehen.
+Damit das aufgeht, enthält der August 2026 mehr Buchungen als die sieben des ersten Prototyps, und
+die Erweiterung bringt fünf Monate Vorgeschichte (März bis Juli) mit — ohne Historie könnte „Wohin
+fließt es“ nicht zwischen fix und variabel unterscheiden und das Sparpotential nichts erkennen. Der
+August bleibt davon unberührt; die Anfangsbestände werden danach neu ausgerichtet.
 
-Der Tilgungsplan rechnet auf Cent genau; in zwei Zeilen weicht die gerundete Anzeige deshalb um 1 €
-von der Tabelle des Handoffs ab, die durchgehend mit ganzen Euro rechnet.
+Ein Dokument hat **mit Absicht keine Datei** auf der Platte (`Lohn_07_2026.pdf`), damit der Zustand
+„Datei nicht gefunden“ vorführbar ist. Die Erstattung zum überfälligen PKV-Vorgang ist als Buchung
+vorhanden, aber nicht zugeordnet — genau der Fall, für den es den Screen „Zahlung zuordnen“ gibt.
 
-Der fachliche Stichtag liegt fest auf dem 23.08.2026, 08:24 Uhr (`Demo:Today` in `appsettings.json`).
-Wird der Wert geleert, läuft die Anwendung auf der echten Uhr. **Sitzungen, Sperren und Reset-Token
-hängen nicht daran** — sie laufen über `TimeProvider` auf der echten Uhr, denn der Browser prüft die
-Gültigkeit des Cookies ebenfalls dagegen.
+Der fachliche Stichtag liegt fest auf dem 23.08.2026, 08:24 Uhr (`Demo:Today`). **Sitzungen, Sperren
+und Reset-Token hängen nicht daran** — sie laufen über `TimeProvider` auf der echten Uhr, denn der
+Browser prüft die Gültigkeit des Cookies ebenfalls dagegen.
 
-**Der Import ist echt.** „34 Buchungen importieren“ schreibt tatsächlich 34 Buchungen. Danach stimmen
-Salden, Monatssummen und Budgets nicht mehr mit dem Handoff überein — `finanzapp.db` löschen stellt
-den Ausgangszustand wieder her.
+**Der Import ist echt.** „34 Buchungen importieren“ schreibt tatsächlich 34 Buchungen; danach
+stimmen die Demo-Zahlen nicht mehr. `finanzapp.db` löschen stellt den Ausgangszustand her.
 
 ## API
 
-Alle Endpunkte unter `/api` außerhalb von `/api/auth` verlangen eine Anmeldung.
+Alle Endpunkte außerhalb von `/api/auth` verlangen eine Anmeldung; schreibende zusätzlich die Rolle
+Inhaber oder Mitglied.
 
-| Methode | Pfad | Zweck |
-| --- | --- | --- |
-| POST | `/api/auth/login` | Anmelden, legt die Sitzung an |
-| POST | `/api/auth/register` | Benutzer anlegen, Haushalt beitreten oder neu anlegen |
-| POST | `/api/auth/logout` | Sitzung widerrufen |
-| GET | `/api/auth/me` | angemeldeter Benutzer, oder 401 |
-| POST | `/api/auth/password-reset` | Reset anfordern, antwortet immer 204 |
-| POST | `/api/auth/password-reset/redeem` | Token einlösen, setzt das neue Passwort |
-| GET | `/api/household` | Haushalt, Mitglieder, Einladung, laufende Sitzung |
-| POST | `/api/household/invitations` | neuen Einladungscode erzeugen (nur Inhaber) |
-| GET | `/api/dashboard` | Vermögensaggregat, Zeitreihe, Monats-KPIs, Top-Budgets |
-| GET | `/api/accounts` | Konten mit gerechnetem Saldo |
-| GET | `/api/transactions?search=&skip=&take=` | Buchungsliste mit Suche und Paging |
-| POST | `/api/transactions` | Buchung anlegen, idempotent über `requestKey` (Schreibrecht) |
-| PATCH | `/api/transactions/{id}/category` | Kategorie zuordnen, optional Regel merken (Schreibrecht) |
-| GET | `/api/categories?direction=` | Kategorien je Richtung |
-| GET | `/api/rules` | Kategorisierungsregeln |
-| GET | `/api/budgets?period=Month\|Quarter\|Year` | Budgetauslastung im Zeitraum |
-| GET | `/api/portfolio` | Depotwert, Positionen, Kurszeitstempel |
-| GET | `/api/loans/primary`, `/api/loans/{id}?months=` | Darlehen mit Tilgungsplan |
-| GET | `/api/import/preview` | Vorschau, schreibt nichts |
-| POST | `/api/import/{id}/commit` | Übernahme in einer Transaktion (Schreibrecht) |
-| GET | `/api/overview/more` | Kennzahlen der Sammelseite |
+| Bereich | Endpunkte |
+| --- | --- |
+| Anmeldung | `POST /api/auth/login`, `/register`, `/logout`, `/password-reset`, `/password-reset/redeem` · `GET /api/auth/me` |
+| Haushalt | `GET /api/household` · `POST /api/household/invitations` |
+| Übersicht | `GET /api/dashboard`, `/api/overview/more` |
+| Konten | `GET /api/accounts` · `GET|POST /api/transactions` · `PATCH /api/transactions/{id}/category` |
+| Kataloge | `GET /api/categories`, `/api/rules` |
+| Budgets | `GET /api/budgets?period=Month\|Quarter\|Year` |
+| Depot | `GET /api/portfolio` |
+| Darlehen | `GET /api/loans/primary`, `/api/loans/{id}?months=` |
+| Import | `GET /api/import/preview` · `POST /api/import/{id}/commit` |
+| Dokumente | `GET /api/documents`, `/types`, `/search`, `/{id}`, `/{id}/file`, `/for/{typ}/{id}` · `POST /api/documents` (Upload), `/{id}/links` · `PUT /{id}`, `/{id}/path` · `DELETE /{id}`, `/links/{id}` |
+| Vorgänge | `GET /api/tasks`, `/summary` · `POST /api/tasks` · `PATCH /api/tasks/{id}/state` |
+| Gesundheit | `GET /api/health/bills`, `/{id}`, `/{id}/payment-candidates` · `POST /api/health/bills`, `/{id}/payment`, `/api/health/extract` · `PATCH /{id}/status` |
+| Versicherungen | `GET /api/insurances`, `/{id}` |
+| Wohnen | `GET /api/properties`, `/{id}`, `/api/contracts/{id}`, `/api/invoices/{id}`, `/{id}/payment-candidates` · `POST /api/invoices/{id}/pay` |
+| Liquidität | `GET /api/liquidity`, `/cashflow?months=`, `/savings` |
 
 ## Entscheidungen, die man kennen sollte
 
@@ -237,58 +277,65 @@ Alle Endpunkte unter `/api` außerhalb von `/api/auth` verlangen eine Anmeldung.
   `DbContext`) — sonst legt EF Core `decimal` als TEXT ab, und Summen und Sortierungen in SQL wären
   falsch. Gerundet wird erst in der Anzeige.
 - **Deutsche Formatierung ohne ICU-Abhängigkeit.** `GermanFormat` definiert Zahlen- und Datumsformate
-  explizit, statt sie über `CultureInfo("de-DE")` aufzulösen. Damit liefert der WebAssembly-Client
-  dieselbe Ausgabe wie der Server, unabhängig von Browsersprache und geladenen ICU-Daten. Minus ist
-  das typografische „−“ (U+2212), zwischen Zahl und Einheit steht ein geschütztes Leerzeichen.
-- **Zwei Uhren.** `IClock` trägt die fachliche Zeit und kann für die Vorführung stillstehen;
-  `TimeProvider` trägt die echte und entscheidet über Gültigkeiten. Die beiden zu vermischen hat
-  während der Umsetzung jede Sitzung sofort ablaufen lassen.
-- **Umbuchungen sind eine eigene Buchungsart** und zählen weder als Einnahme noch als Ausgabe.
-- **Anlegen ist idempotent.** Der Client vergibt je Formular einen `requestKey`; ein zweiter
-  Sendeversuch liefert die bereits angelegte Buchung zurück, statt doppelt zu buchen. Eine eindeutige
+  explizit. Minus ist das typografische „−“ (U+2212), zwischen Zahl und Einheit steht ein
+  geschütztes Leerzeichen.
+- **Zwei Uhren.** `IClock` trägt die fachliche Zeit und darf für die Vorführung stillstehen;
+  `TimeProvider` trägt die echte und entscheidet über Gültigkeiten.
+- **Geldbewegungen bleiben Buchungen.** Ein Versicherungsbeitrag, eine Rechnungszahlung, eine
+  PKV-Erstattung sind Verweise auf eine `Transaction`, keine eigenen Finanzsätze.
+- **Umbuchungen** zählen weder als Einnahme noch als Ausgabe.
+- **Anlegen ist idempotent**: der Client vergibt je Formular einen `requestKey`, eine eindeutige
   gefilterte Indexspalte trägt die Zusage bis in die Datenbank.
-- **Duplikaterkennung beim Import** läuft primär über die Importreferenz der Bank. Sätze, die nur nach
-  Tag, Empfänger und Betrag verdächtig sind, werden gezeigt, aber nicht mit übernommen.
-- **Der Kurszeitstempel bleibt sichtbar**, weil die Kurse aus einem austauschbaren Anbieter stammen
-  und veralten können. `PricesStale` im Vertrag ist der Platz für den Hinweis bei Providerausfall;
-  die Anzeige dafür steht bereits.
+- **Der Kurszeitstempel bleibt sichtbar**, weil die Kurse aus einem austauschbaren Anbieter stammen.
+- **Der App-Rahmen hat feste Höhe**, nicht Mindesthöhe: sonst wächst er mit dem Inhalt, das Fenster
+  wird zum Scroller und die Tab-Bar wandert aus dem Bild.
+
+## Tests
+
+`dotnet test` — 45 Tests. Abgedeckt sind die Stellen, an denen ein Fehler teuer wäre:
+
+- **Eigenanteil zählt nicht als offene Forderung**, Teilerstattung, abgelehnter Vorgang,
+  Zahlungsvorschlag mit bestem Treffer.
+- **Pfadauflösung** relativ ↔ absolut, fehlende Datei, Ausbruchsversuch aus `DocumentRoot`,
+  Dateinamen entschärfen, kein Überschreiben bei Namensgleichheit.
+- **Benutzerisolierung** über alle neuen Entitäten, auch der Fall „kein Haushalt gesetzt“.
+- **Rechenwege**: Tilgungsplan, Budgetzeiträume, abgeleitete Kündigungsfristen, Beitragsumrechnung,
+  Regelpräfix, deutsche Formatierung, Passwortbewertung.
+
+Der erste Testlauf hat dabei eine echte Lücke gefunden: der Haushalts-Stempel griff nur im
+asynchronen `SaveChanges`.
 
 ## Offene Punkte
 
-Aus dem Handoff bewusst offen gelassen und noch zu entwerfen:
+Aus den Handoffs bewusst offen und noch zu entwerfen:
 
-- **Zwei-Faktor-Anmeldung.** Ihr Platz ist der Schritt nach „Anmelden“; die Sicherheits-Zeile auf
-  „Mehr“ weist bereits darauf hin. `User.TwoFactorEnabled` steht im Modell.
-- **Rechteverwaltung.** Die Rollenmatrix ist nicht entworfen, deshalb gibt es noch keinen Endpunkt
-  zum Ändern einer Rolle. Der Link „Rechte“ meldet das.
-- **Sperrmeldung, Sitzungsübersicht, Widerruf einzelner Geräte.** Das Modell trägt sie
-  (`UserSession`), die Oberfläche noch nicht.
-- Ladezustände, leere Listen, Offline, Fehlerdialoge — derzeit nur eine Textzeile in der Sprache des
-  Systems (`AsyncView`).
-- Auswertungen, wiederkehrende Buchungen, Split-Buchung, Sondertilgungsdialog, CSV-Spalten-Mapping,
-  Verwaltung von Kategorien und Regeln, Budgetanlage. Die betroffenen Schaltflächen melden das mit
-  einem Toast, statt ins Leere zu führen.
+- **Arbeit & Beruf** und **Administration** — laut Erweiterungs-Handoff nicht gestaltet und vor dem
+  Bau anzufragen. Auf „Mehr“ stehen sie als Zeile mit Hinweis, statt ins Leere zu führen.
+- **Zwei-Faktor-Anmeldung**, **Rechteverwaltung**, Sperrmeldung, Sitzungsübersicht.
+- Ladezustände, Offline, Fehlerdialoge — derzeit eine Textzeile in der Sprache des Systems.
+- Auswertungen, wiederkehrende Buchungen, Split-Buchung, Sondertilgung, CSV-Spalten-Mapping,
+  Verwaltung von Kategorien und Regeln, Budgetanlage. Die Schaltflächen melden das mit einem Toast.
 
 Technisch offen:
 
-- **Kein Datei-Upload und kein CAMT-Parser.** `DemoImportBatch` steht für die Datei; Vorschau,
-  Referenzabgleich und Übernahme arbeiten darauf mit derselben Logik, die später eine echte Datei
-  bekommt.
-- **Umbuchungen legen noch keine Gegenbuchung an.** `Transaction.CounterAccountId` ist vorhanden, die
-  zweite Buchungshälfte fehlt.
-- **Archivo kommt von Google Fonts.** Für den Produktivbetrieb selbst hosten — der Handoff sagt das
-  ausdrücklich.
-- **Keine Migrationen.** Das Schema entsteht über `EnsureCreated`. Vor dem ersten echten Datenbestand
-  auf EF-Core-Migrationen umstellen; die Anmeldetabellen kamen nachträglich dazu, eine bestehende
-  `finanzapp.db` muss dafür gelöscht werden.
-- **Jede Anfrage prüft die Sitzung in der Datenbank.** Das ist der Preis für sofort wirksames
-  Abmelden. Bei Bedarf lässt sich der Sitzungsstatus kurz zwischenspeichern.
-- **Keine Tests.** Für die Rechenwege — Tilgungsplan, Budgetzeiträume, Duplikaterkennung,
-  Formatierung, Passwortbewertung — und für die Mandantentrennung lohnt sich eine Testsuite als
-  Nächstes.
+- **Kein CAMT-Parser und keine Texterkennung.** `DemoImportBatch` steht für die Importdatei,
+  `NoBillTextExtractor` für die Belegerkennung; beide hängen hinter der Schnittstelle, die später
+  eine echte Umsetzung bekommt.
+- **Umbuchungen legen noch keine Gegenbuchung an.**
+- **Archivo kommt von Google Fonts** — für den Produktivbetrieb selbst hosten.
+- **Backups**: die Datenbank wird gesichert, die Dateien unter `DocumentRoot` nicht. Das gehört in
+  ein Dateisystem-Backup. Eine Prüffunktion „sind alle referenzierten Dateien vorhanden?“ ist
+  vorgesehen; der Zustand „Datei nicht gefunden“ ist dafür bereits gestaltet.
+- **Jede Anfrage prüft die Sitzung in der Datenbank** — der Preis für sofort wirksames Abmelden.
+- **Die Buchungssuche filtert im Speicher.** Bei Jahren an Buchungen gehört sie in SQL.
 
-## Design-Handoff
+## Handoffs
 
-Der Handoff liegt unverändert unter [`docs/design-handoff/`](docs/design-handoff/):
-`handoff.md` (die Spezifikation samt Nachtrag 2), `FinanzApp.dc.html` (der Prototyp, im Browser zu
-öffnen) und `_ds/modernist/styles.css` (die Token-Quelle).
+Unverändert abgelegt:
+
+- [`docs/design-handoff/`](docs/design-handoff/) — Erst-Handoff samt Nachtrag 2 (`handoff.md`),
+  Prototyp (`FinanzApp.dc.html`), Token-Quelle (`_ds/modernist/styles.css`).
+- [`docs/design-handoff-erweiterung/`](docs/design-handoff-erweiterung/) — Erweiterungs-Handoff
+  (`handoff.md`) und die 24 Wireframes (`Wireframes Erweiterung.dc.html`).
+- [`docs/erweiterungsplan.md`](docs/erweiterungsplan.md) — der Erweiterungsplan, den der Handoff vor
+  dem Bauen verlangt.

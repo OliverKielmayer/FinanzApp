@@ -1,0 +1,222 @@
+@page "/dokumente"
+@attribute [Authorize]
+@inherits AppPage
+
+<PageTitle>Dokumente — FinanzApp</PageTitle>
+
+<div class="searchbar">
+    <input class="input" type="search" placeholder="Dokumente und Objekte durchsuchen"
+           aria-label="Dokumente und Objekte durchsuchen" value="@search" @oninput="OnSearchInput" />
+    <button type="button" class="btn btn-secondary" @onclick="ClearSearch">Reset</button>
+</div>
+
+<div class="filter-chips">
+    @foreach (var option in Areas)
+    {
+        <button type="button" class="chip @(area == option.Area ? "active" : null)"
+                @onclick="() => SwitchArea(option.Area)">@option.Label</button>
+    }
+</div>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (objects.Count > 0)
+    {
+        @* Die Suche trifft auch Objekte — wer „hausrat“ tippt, meint meist den Vertrag. *@
+        <div class="list-head">
+            <span class="label-strong">Objekte</span>
+            <span class="list-count num">@objects.Count</span>
+        </div>
+
+        @foreach (var hit in objects)
+        {
+            <button type="button" class="tap doc-row" @onclick="() => OpenObject(hit)">
+                <span class="stack">
+                    <span class="doc-name">@hit.Label</span>
+                    <span class="doc-meta">@hit.TargetLabel · @hit.Subtitle</span>
+                </span>
+            </button>
+        }
+    }
+
+    @if (documents.Count > 0 && objects.Count > 0)
+    {
+        <div class="list-head">
+            <span class="label-strong">Dokumente</span>
+            <span class="list-count num">@documents.Count</span>
+        </div>
+    }
+
+    @if (documents.Count == 0)
+    {
+        <div class="empty-area">
+            <span class="empty-area-text">@EmptyText</span>
+            <AuthorizeView Roles="Owner,Member">
+                <button type="button" class="btn btn-secondary"
+                        @onclick="@(() => Navigation.NavigateTo("/gesundheit/scannen"))">Beleg scannen</button>
+            </AuthorizeView>
+        </div>
+    }
+
+    @foreach (var document in documents)
+    {
+        <button type="button" class="tap doc-row @(document.FileExists ? null : "missing")"
+                @onclick="@(() => Navigation.NavigateTo($"/dokumente/{document.Id}"))">
+            <span class="stack">
+                <span class="doc-name">@document.FileName</span>
+                <span class="doc-meta">@Describe(document)</span>
+            </span>
+        </button>
+    }
+
+    @if (total > 0)
+    {
+        <div class="doc-foot">
+            <span class="num">@total Dokumente@MissingSuffix</span>
+            <span>sortiert nach Dokumentdatum</span>
+        </div>
+    }
+</AsyncView>
+
+@code {
+    private static readonly (DocumentArea? Area, string Label)[] Areas =
+    [
+        (null, "Alle"),
+        (DocumentArea.Insurance, "Versicherung"),
+        (DocumentArea.Health, "Gesundheit"),
+        (DocumentArea.Housing, "Wohnen"),
+        (DocumentArea.Work, "Arbeit"),
+        (DocumentArea.Finance, "Finanzen"),
+    ];
+
+    private IReadOnlyList<DocumentListItemDto> documents = [];
+    private IReadOnlyList<ObjectHitDto> objects = [];
+    private int total;
+    private int missing;
+
+    private DocumentArea? area;
+    private string search = string.Empty;
+    private CancellationTokenSource? debounce;
+
+    protected override async Task LoadAsync()
+    {
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            var page = await Api.GetDocumentsAsync(area);
+            documents = page.Items;
+            objects = [];
+            total = page.TotalCount;
+            missing = page.MissingFileCount;
+            return;
+        }
+
+        var result = await Api.SearchDocumentsAsync(search);
+        documents = area is { } value ? [.. result.Documents.Where(d => d.Area == value)] : result.Documents;
+        objects = result.Objects;
+        total = documents.Count;
+        missing = documents.Count(d => !d.FileExists);
+    }
+
+    private async Task SwitchArea(DocumentArea? next)
+    {
+        if (next == area)
+        {
+            return;
+        }
+
+        area = next;
+        await ReloadAsync();
+    }
+
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        search = e.Value?.ToString() ?? string.Empty;
+
+        debounce?.Cancel();
+        debounce?.Dispose();
+        debounce = new CancellationTokenSource();
+
+        try
+        {
+            await Task.Delay(250, debounce.Token);
+            await LoadAsync();
+            StateHasChanged();
+        }
+        catch (OperationCanceledException)
+        {
+            // Ein neuer Tastenanschlag hat diese Anfrage überholt.
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message);
+        }
+    }
+
+    private async Task ClearSearch()
+    {
+        search = string.Empty;
+        debounce?.Cancel();
+        await ReloadAsync();
+    }
+
+    private string EmptyText => string.IsNullOrWhiteSpace(search)
+        ? "In diesem Bereich liegt noch kein Dokument."
+        : "Kein Dokument passt zur Suche.";
+
+    private string MissingSuffix => missing == 0
+        ? string.Empty
+        : missing == 1 ? " · 1 ohne Datei" : $" · {missing} ohne Datei";
+
+    private static string Describe(DocumentListItemDto document)
+    {
+        if (!document.FileExists)
+        {
+            return "Datei nicht gefunden";
+        }
+
+        var parts = new List<string>();
+        if (document.TypeName is { Length: > 0 } type)
+        {
+            parts.Add(type);
+        }
+
+        if (document.LinkedLabel is { Length: > 0 } linked)
+        {
+            parts.Add(linked);
+        }
+
+        if (document.DocumentDate is { } date)
+        {
+            parts.Add(GermanFormat.Date(date));
+        }
+
+        return string.Join(" · ", parts);
+    }
+
+    private void OpenObject(ObjectHitDto hit)
+    {
+        var route = hit.TargetType switch
+        {
+            LinkTargetType.Insurance => $"/versicherungen/{hit.TargetId}",
+            LinkTargetType.Contract => $"/vertraege/{hit.TargetId}",
+            LinkTargetType.Property => $"/wohnen/{hit.TargetId}",
+            LinkTargetType.MedicalBill => $"/gesundheit/{hit.TargetId}",
+            LinkTargetType.Transaction => "/konten",
+            _ => null,
+        };
+
+        if (route is null)
+        {
+            Toasts.Show("Zu diesem Treffer gibt es keinen eigenen Screen.");
+            return;
+        }
+
+        Navigation.NavigateTo(route);
+    }
+
+    public override void Dispose()
+    {
+        debounce?.Cancel();
+        debounce?.Dispose();
+        base.Dispose();
+    }
+}

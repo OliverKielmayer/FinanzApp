@@ -1,0 +1,78 @@
+@page "/gesundheit"
+@attribute [Authorize]
+@inherits AppPage
+
+<PageTitle>Gesundheit &amp; PKV — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (bills.Count == 0)
+    {
+        <div class="empty-area">
+            <span class="empty-area-text">
+                Noch keine Arztrechnung erfasst. Der Weg beginnt beim Scannen des Belegs.
+            </span>
+            <AuthorizeView Roles="Owner,Member">
+                <button type="button" class="btn btn-primary"
+                        @onclick="@(() => Navigation.NavigateTo("/gesundheit/scannen"))">Beleg scannen</button>
+            </AuthorizeView>
+        </div>
+    }
+    else
+    {
+        <section class="hero">
+            <span class="label-muted">Offene Erstattungen</span>
+            <span class="hero-value medium num">@State.Euro(OpenTotal)</span>
+            <span class="loan-sub">
+                @OpenCount von @bills.Count @(bills.Count == 1 ? "Vorgang" : "Vorgängen") offen ·
+                Eigenanteile zählen hier nicht mit
+            </span>
+        </section>
+
+        @foreach (var bill in bills)
+        {
+            <button type="button" class="tap work-row @(IsOverdue(bill) ? "overdue" : null)"
+                    @onclick="@(() => Navigation.NavigateTo($"/gesundheit/{bill.Id}"))">
+                <span class="stack">
+                    <span class="work-title">@bill.Provider</span>
+                    <span class="work-due">@Describe(bill)</span>
+                </span>
+                <span class="work-amount num">@State.Euro0(bill.OpenAmount > 0 ? bill.OpenAmount : bill.GrossAmount)</span>
+            </button>
+        }
+
+        <AuthorizeView Roles="Owner,Member">
+            <div class="actions">
+                <button type="button" class="btn btn-primary"
+                        @onclick="@(() => Navigation.NavigateTo("/gesundheit/scannen"))">Beleg scannen</button>
+            </div>
+        </AuthorizeView>
+
+        <div class="spacer"></div>
+    }
+</AsyncView>
+
+@code {
+    private IReadOnlyList<MedicalBillListItemDto> bills = [];
+
+    protected override async Task LoadAsync() => bills = await Api.GetMedicalBillsAsync();
+
+    private decimal OpenTotal => bills.Sum(b => b.OpenAmount);
+
+    private int OpenCount => bills.Count(b => b.OpenAmount > 0);
+
+    /// <summary>Überfällig heißt: eingereicht und länger als üblich ohne Antwort.</summary>
+    private static bool IsOverdue(MedicalBillListItemDto bill)
+        => bill.DaysWaiting is { } days && days > 14;
+
+    private static string Describe(MedicalBillListItemDto bill) => bill.Status switch
+    {
+        MedicalBillStatus.Recorded => "noch nicht eingereicht · " + GermanFormat.Date(bill.BillDate),
+        MedicalBillStatus.Submitted when bill.DaysWaiting is { } days =>
+            $"eingereicht · wartet seit {days} T",
+        MedicalBillStatus.SettlementReceived => "Abrechnung da, Zahlung fehlt",
+        MedicalBillStatus.PartiallyReimbursed => "teilweise erstattet",
+        MedicalBillStatus.Rejected => "abgelehnt",
+        MedicalBillStatus.Completed => "abgeschlossen · " + GermanFormat.Date(bill.BillDate),
+        _ => GermanFormat.Date(bill.BillDate),
+    };
+}

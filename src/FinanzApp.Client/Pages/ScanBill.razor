@@ -1,0 +1,240 @@
+@page "/gesundheit/scannen"
+@attribute [Authorize(Roles = "Owner,Member")]
+@inherits AppPage
+
+<PageTitle>Beleg scannen — FinanzApp</PageTitle>
+
+@*
+    Zwei Schritte in einem Screen: Datei aufnehmen, dann die erkannten Werte prüfen. Ohne
+    angebundene Texterkennung ist die Maske dieselbe, nur leer — der Weg funktioniert trotzdem.
+*@
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (documentId is null)
+    {
+        <div class="detail-block">
+            <span class="detail-label">Beleg</span>
+            <span class="detail-value">
+                Foto aufnehmen oder Datei wählen. Sie landet im Dokumentordner; die Anwendung
+                merkt sich nur den Pfad.
+            </span>
+        </div>
+
+        <div class="picker">
+            <span class="label-strong">Art</span>
+            <div class="chipcloud">
+                @foreach (var option in Kinds)
+                {
+                    <button type="button" class="chip @(kind == option.Area ? "active" : null)"
+                            @onclick="() => kind = option.Area">@option.Label</button>
+                }
+            </div>
+        </div>
+
+        <div class="picker last">
+            <span class="label-strong">Datei</span>
+            <div class="note-field">
+                @* capture="environment" öffnet auf dem Handy direkt die Kamera. *@
+                <InputFile class="input" accept=".pdf,image/*" capture="environment"
+                           OnChange="OnFileSelected" aria-label="Beleg auswählen" />
+            </div>
+        </div>
+
+        @if (uploading)
+        {
+            <div class="state" aria-busy="true">Beleg wird abgelegt …</div>
+        }
+    }
+    else
+    {
+        <div class="detail-block">
+            <span class="detail-label">Beleg abgelegt</span>
+            <span class="detail-value num">@fileName</span>
+        </div>
+
+        @if (!recognised)
+        {
+            <div class="notice">
+                <span class="notice-title">Nichts erkannt</span>
+                <span class="notice-text">
+                    Es ist keine Texterkennung angebunden. Die Werte bitte von Hand eintragen.
+                </span>
+            </div>
+        }
+
+        <div class="auth-form">
+            <div class="field">
+                <label for="bill-provider">Rechnungssteller</label>
+                <input id="bill-provider" class="input" placeholder="z. B. Dr. Meyer, Zahnarzt"
+                       value="@provider" @oninput="e => provider = e.Value?.ToString() ?? string.Empty" />
+            </div>
+            <div class="field">
+                <label for="bill-date">Datum</label>
+                <input id="bill-date" class="input" type="date" value="@billDate.ToString("yyyy-MM-dd")"
+                       @onchange="OnDateChanged" />
+            </div>
+            <div class="field">
+                <label for="bill-number">Rechnungsnummer</label>
+                <input id="bill-number" class="input" placeholder="z. B. R-2026-114"
+                       value="@billNumber" @oninput="e => billNumber = e.Value?.ToString() ?? string.Empty" />
+            </div>
+            <div class="field">
+                <label for="bill-gross">Betrag (€)</label>
+                <input id="bill-gross" class="input" type="number" step="0.01" min="0"
+                       value="@gross" @oninput="e => gross = Parse(e.Value)" />
+            </div>
+            <div class="field">
+                <label for="bill-own">Eigenanteil (€)</label>
+                <input id="bill-own" class="input" type="number" step="0.01" min="0"
+                       value="@ownShare" @oninput="e => ownShare = Parse(e.Value)" />
+            </div>
+        </div>
+
+        <div class="detail-block">
+            <span class="detail-label">Erwartete Erstattung</span>
+            <span class="detail-value num">@State.Euro(Expected)</span>
+        </div>
+
+        <span class="entry-summary" style="display:block">
+            Der Eigenanteil zählt als Ausgabe, nicht als offene Forderung. Offen bleibt nur die
+            erwartete Erstattung.
+        </span>
+
+        <div class="actions">
+            <button type="button" class="btn btn-primary" disabled="@busy" @onclick="CreateAsync">
+                Vorgang anlegen
+            </button>
+            <button type="button" class="btn btn-secondary" disabled="@busy"
+                    @onclick="@(() => Navigation.NavigateTo("/gesundheit"))">Abbrechen</button>
+        </div>
+    }
+
+    <div class="spacer"></div>
+</AsyncView>
+
+@code {
+    private static readonly (DocumentArea Area, string Label)[] Kinds =
+    [
+        (DocumentArea.Health, "Arztrechnung"),
+        (DocumentArea.Housing, "Rechnung"),
+        (DocumentArea.Other, "Dokument"),
+    ];
+
+    /// <summary>Höchstgröße, die der Server annimmt.</summary>
+    private const long MaxBytes = 25L * 1024 * 1024;
+
+    private DocumentArea kind = DocumentArea.Health;
+    private int? documentId;
+    private string fileName = string.Empty;
+    private bool recognised;
+    private bool uploading;
+    private bool busy;
+
+    private string provider = string.Empty;
+    private string billNumber = string.Empty;
+    private DateOnly billDate = DateOnly.FromDateTime(DateTime.Now);
+    private decimal gross;
+    private decimal ownShare;
+
+    private decimal Expected => Math.Max(0m, gross - ownShare);
+
+    protected override Task LoadAsync() => Task.CompletedTask;
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file.Size > MaxBytes)
+        {
+            Toasts.Show("Die Datei ist größer als 25 MB.");
+            return;
+        }
+
+        uploading = true;
+        try
+        {
+            // Erst erkennen, dann ablegen — beide Male derselbe Datenstrom, deshalb zweimal öffnen.
+            await using (var forExtraction = file.OpenReadStream(MaxBytes))
+            {
+                var extracted = await Api.ExtractBillAsync(forExtraction, file.Name);
+                recognised = extracted.HasContent;
+                provider = extracted.Provider ?? string.Empty;
+                billNumber = extracted.BillNumber ?? string.Empty;
+                billDate = extracted.BillDate ?? DateOnly.FromDateTime(DateTime.Now);
+                gross = extracted.GrossAmount ?? 0m;
+                ownShare = extracted.OwnShare ?? 0m;
+            }
+
+            await using var forUpload = file.OpenReadStream(MaxBytes);
+            var result = await Api.UploadDocumentAsync(forUpload, file.Name, kind, documentDate: billDate);
+
+            documentId = result.DocumentId;
+            fileName = file.Name;
+            Toasts.Show("Beleg abgelegt");
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message);
+        }
+        finally
+        {
+            uploading = false;
+        }
+    }
+
+    private void OnDateChanged(ChangeEventArgs e)
+    {
+        if (DateOnly.TryParse(e.Value?.ToString(), out var parsed))
+        {
+            billDate = parsed;
+        }
+    }
+
+    private static decimal Parse(object? value)
+        => decimal.TryParse(
+            value?.ToString(),
+            System.Globalization.NumberStyles.Any,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var parsed)
+            ? parsed
+            : 0m;
+
+    private async Task CreateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(provider))
+        {
+            Toasts.Show("Rechnungssteller fehlt");
+            return;
+        }
+
+        if (gross <= 0)
+        {
+            Toasts.Show("Betrag fehlt");
+            return;
+        }
+
+        busy = true;
+        try
+        {
+            var bill = await Api.CreateMedicalBillAsync(new CreateMedicalBillRequest
+            {
+                Provider = provider,
+                BillDate = billDate,
+                BillNumber = string.IsNullOrWhiteSpace(billNumber) ? null : billNumber,
+                GrossAmount = gross,
+                OwnShare = ownShare,
+                ExpectedReimbursement = Expected,
+                DocumentId = documentId,
+            });
+
+            Toasts.Show("Vorgang angelegt");
+            Navigation.NavigateTo($"/gesundheit/{bill.Id}");
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

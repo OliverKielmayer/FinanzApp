@@ -127,13 +127,36 @@ builder.Services.AddScoped<CatalogService>();
 builder.Services.AddScoped<OverviewService>();
 builder.Services.AddScoped<DashboardService>();
 
+// ── Erweiterung: Dokumente, Vorgänge, Gesundheit, Versicherungen, Wohnen, Liquidität ───────
+var documentOptions = builder.Configuration.GetSection(DocumentStorageOptions.SectionName)
+                          .Get<DocumentStorageOptions>() ?? new DocumentStorageOptions();
+builder.Services.AddSingleton(documentOptions);
+builder.Services.AddSingleton<DocumentPathService>();
+
+// Ohne angebundene Texterkennung bleibt die Erfassungsmaske leer — der Flow läuft trotzdem.
+builder.Services.AddSingleton<IBillTextExtractor, NoBillTextExtractor>();
+
+builder.Services.AddScoped<ObjectLabelService>();
+builder.Services.AddScoped<DocumentService>();
+builder.Services.AddScoped<TaskService>();
+builder.Services.AddScoped<MedicalBillService>();
+builder.Services.AddScoped<InsuranceService>();
+builder.Services.AddScoped<PropertyService>();
+builder.Services.AddScoped<LiquidityService>();
+
 var app = builder.Build();
 
 await using (var scope = app.Services.CreateAsyncScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<FinanzAppDbContext>();
-    await db.Database.EnsureCreatedAsync();
-    await SeedData.EnsureSeededAsync(db, scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>());
+
+    // Migrationen statt EnsureCreated: das Schema wächst mit den Erweiterungen, und ein
+    // bestehender Datenbestand überlebt eine neue Fassung.
+    await db.Database.MigrateAsync();
+    await SeedData.EnsureSeededAsync(
+        db,
+        scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>(),
+        scope.ServiceProvider.GetRequiredService<DocumentPathService>());
 }
 
 if (app.Environment.IsDevelopment())
@@ -164,6 +187,7 @@ app.UseAuthorization();
 
 app.MapAuth();
 app.MapApi();
+app.MapExtensions();
 app.MapFallbackToFile("index.html");
 
 app.Run();

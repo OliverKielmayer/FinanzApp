@@ -12,7 +12,8 @@
 <AuthorizeView>
     <Authorized>
         <div class="app">
-            <SideNav Current="@screen" CanWrite="@CanWrite" HouseholdName="@Auth.User?.HouseholdName" />
+            <SideNav Current="@screen" CanWrite="@CanWrite" HouseholdName="@Auth.User?.HouseholdName"
+                     OnCapture="OpenCapture" />
 
             <div class="app-body">
                 <header class="app-header">
@@ -36,7 +37,7 @@
                     </div>
                 </main>
 
-                <TabBar Current="@screen" CanWrite="@CanWrite" />
+                <TabBar Current="@screen" CanWrite="@CanWrite" OnCapture="OpenCapture" />
             </div>
         </div>
     </Authorized>
@@ -45,10 +46,16 @@
     </NotAuthorized>
 </AuthorizeView>
 
+@if (captureOpen)
+{
+    <CaptureSheet OnClose="CloseCapture" />
+}
+
 <Toast />
 
 @code {
     private Screen screen = ScreenCatalog.All[0];
+    private bool captureOpen;
 
     private bool CanWrite => Auth.User?.CanWrite ?? false;
 
@@ -66,6 +73,10 @@
     }
 
     private void OnStateChanged() => StateHasChanged();
+
+    private void OpenCapture() => captureOpen = true;
+
+    private void CloseCapture() => captureOpen = false;
 
     private void UpdateScreen() => screen = ScreenCatalog.Resolve(Navigation.ToBaseRelativePath(Navigation.Uri));
 
