@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/modernist-f2a2de5d-ef07-4674-8061-e8aed46977f4/styles.css">
+<script src="_ds/modernist-f2a2de5d-ef07-4674-8061-e8aed46977f4/_ds_bundle.js"></script>
+<style>
+body{margin:0;background:#d7d3d3;font-family:"Archivo",system-ui}
+a{color:#ec3013}a:hover{color:#ae1800}
+.sheet-in{animation:sheetIn .22s cubic-bezier(.2,.8,.2,1)}
+@keyframes sheetIn{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.drw-in{animation:drwIn .2s cubic-bezier(.2,.8,.2,1)}
+@keyframes drwIn{from{transform:translateX(-100%)}to{transform:translateX(0)}}
+.scr{scrollbar-width:none}.scr::-webkit-scrollbar{display:none}
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;gap:14px;padding:40px 20px 56px;background:#d7d3d3">
+
+  <div style="width:390px;display:flex;justify-content:space-between;align-items:baseline">
+    <span style="font-family:Archivo;font-weight:800;font-size:13px;letter-spacing:-.01em">VERMÖGEN — Mobile Client</span>
+    <span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#605d5d">Prototyp</span>
+  </div>
+
+  <div style="width:390px;height:844px;position:relative;overflow:hidden;background:var(--color-bg);border:2px solid var(--color-text);box-shadow:0 24px 60px rgba(45,43,43,.28);display:flex;flex-direction:column">
+
+    <div style="flex:none;display:flex;align-items:center;justify-content:space-between;padding:10px 16px 6px;font-size:10px;letter-spacing:.1em;color:#605d5d">
+      <span>9:41</span><span>AUG 2026</span><span>100 %</span>
+    </div>
+
+    <div style="flex:none;padding:6px 16px 12px;border-bottom:2px solid var(--color-divider);display:flex;align-items:flex-end;gap:12px">
+      <sc-if value="{{ isDrawerNav }}">
+        <div onClick="{{ openDrawer }}" style="flex:none;width:34px;height:34px;border:1px solid var(--color-divider);display:flex;flex-direction:column;justify-content:center;gap:4px;padding:0 8px;cursor:pointer;margin-bottom:3px" style-hover="background:rgba(32,30,29,.07)">
+          <div style="height:2px;background:var(--color-text)"></div>
+          <div style="height:2px;background:var(--color-text)"></div>
+          <div style="height:2px;background:var(--color-text)"></div>
+        </div>
+      </sc-if>
+      <div style="flex:1;display:flex;flex-direction:column;gap:2px;min-width:0">
+        <span style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-accent)">{{ kicker }}</span>
+        <span style="font-family:Archivo;font-weight:800;font-size:25px;line-height:1.04;letter-spacing:-.025em">{{ heading }}</span>
+      </div>
+      <span onClick="{{ toggleHide }}" style="flex:none;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-600);cursor:pointer;padding-bottom:5px">{{ hideLabel }}</span>
+    </div>
+
+    <div class="scr" style="flex:1;overflow-y:auto;overflow-x:hidden">
+
+      <sc-if value="{{ isDash }}" hint-placeholder-val="{{ true }}">
+        <div>
+          <div style="padding:18px 16px 16px;display:flex;flex-direction:column;gap:6px">
+            <span style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">Nettovermögen</span>
+            <span style="font-family:Archivo;font-weight:800;font-size:42px;line-height:1;letter-spacing:-.035em">{{ netWorth }}</span>
+            <div style="display:flex;gap:16px;align-items:baseline;padding-top:4px">
+              <span style="font-size:13px;font-weight:600;color:var(--color-accent-700)">{{ deltaMonth }}</span>
+              <span style="font-size:13px;color:var(--color-neutral-700)">{{ deltaYear }}</span>
+            </div>
+          </div>
+
+          <div style="border-top:2px solid var(--color-divider);padding:14px 16px 10px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
+              <span style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700)">Vermögensentwicklung</span>
+              <span style="font-size:11px;color:var(--color-neutral-600)">12 Monate</span>
+            </div>
+            <svg viewBox="0 0 358 96" style="width:100%;height:96px;display:block" preserveAspectRatio="none">
+              <line x1="0" y1="95" x2="358" y2="95" stroke="#bab6b6" stroke-width="1"></line>
+              <line x1="0" y1="48" x2="358" y2="48" stroke="#d7d3d3" stroke-width="1"></line>
+              <polyline fill="none" stroke="#ec3013" stroke-width="2.5" points="0,88 32,84 65,79 98,72 130,74 163,63 196,55 228,44 261,40 294,29 326,20 358,10"></polyline>
+            </svg>
+            <div style="display:flex;justify-content:space-between;font-size:10px;letter-spacing:.06em;color:var(--color-neutral-600);padding-top:6px">
+              <span>SEP 25</span><span>FEB 26</span><span>AUG 26</span>
+            </div>
+          </div>
+
+          <sc-if value="{{ isStackDash }}">
+            <div style="border-top:2px solid var(--color-divider);padding:14px 16px 8px">
+              <span style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700)">Vermögenswerte</span>
+              <div style="margin-top:10px">
+                <sc-for list="{{ assets }}" as="row" hint-placeholder-count="4">
+                  <div onClick="{{ row.onOpen }}" style="display:flex;flex-direction:column;gap:6px;padding:11px 0;border-bottom:1px solid var(--color-divider);cursor:pointer" style-hover="background:rgba(32,30,29,.04)">
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
+                      <div style="display:flex;flex-direction:column">
+                        <span style="font-size:14px;font-weight:600">{{ row.label }}</span>
+                        <span style="font-size:11px;color:var(--color-neutral-600)">{{ row.sub }}</span>
+                      </div>
+                      <span style="font-family:Archivo;font-weight:600;font-size:15px;font-variant-numeric:tabular-nums">{{ row.value }}</span>
+                    </div>
+                    <div style="height:4px;background:var(--color-neutral-300)">
+                      <div style="height:4px;background:var(--color-accent);width:{{ row.pct }}"></div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isGridDash }}">
+            <div style="border-top:2px solid var(--color-divider);display:grid;grid-template-columns:1fr 1fr">
+              <sc-for list="{{ assets }}" as="row" hint-placeholder-count="4">
+                <div onClick="{{ row.onOpen }}" style="padding:14px 14px 16px;border-right:1px solid var(--color-divider);border-bottom:1px solid var(--color-divider);display:flex;flex-direction:column;gap:8px;cursor:pointer" style-hover="background:rgba(32,30,29,.04)">
+                  <span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-accent)">{{ row.label }}</span>
+                  <span style="font-family:Archivo;font-weight:800;font-size:19px;line-height:1;font-variant-numeric:tabular-nums">{{ row.value }}</span>
+                  <span style="font-size:11px;color:var(--color-neutral-600)">{{ row.sub }}</span>
+                  <div style="height:4px;background:var(--color-neutral-300);margin-top:auto">
+                    <div style="height:4px;background:var(--color-accent);width:{{ row.pct }}"></div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <div style="padding:0 16px">
+            <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--color-divider)">
+              <span style="font-size:14px;font-weight:600">Bruttovermögen</span>
+              <span style="font-family:Archivo;font-weight:800;font-size:15px;font-variant-numeric:tabular-nums">{{ gross }}</span>
+            </div>
+            <div onClick="{{ goLoan }}" style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--color-divider);cursor:pointer" style-hover="background:rgba(32,30,29,.04)">
+              <div style="display:flex;flex-direction:column">
+                <span style="font-size:14px">Verbindlichkeiten</span>
+                <span style="font-size:11px;color:var(--color-neutral-600)">Darlehen · Sparkasse</span>
+              </div>
+              <span style="font-family:Archivo;font-weight:600;font-size:15px;color:var(--color-accent-700);font-variant-numeric:tabular-nums">{{ debt }}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:13px 0 4px">
+              <span style="font-family:Archivo;font-weight:800;font-size:15px">Nettovermögen</span>
+              <span style="font-family:Archivo;font-weight:800;font-size:17px;font-variant-numeric:tabular-nums">{{ netWorth }}</span>
+            </div>
+          </div>
+
+          <div style="margin-top:12px;border-top:2px solid var(--color-divider);display:grid;grid-template-columns:1fr 1fr 1fr">
+            <div style="padding:14px 10px 16px 16px;border-right:1px solid var(--color-divider);display:flex;flex-direction:column;gap:5px">
+              <span style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-600)">Einnahmen</span>
+              <span style="font-family:Archivo;font-weight:800;font-size:16px">{{ incomeMonth }}</span>
+            </div>
+            <div style="padding:14px 10px 16px;border-right:1px solid var(--color-divider);display:flex;flex-direction:column;gap:5px">
+              <span style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-600)">Ausgaben</span>
+              <span style="font-family:Archivo;font-weight:800;font-size:16px">{{ expenseMonth }}</span>
+            </div>
+            <div style="padding:14px 16px 16px 10px;display:flex;flex-direction:column;gap:5px">
+              <span style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-600)">Sparquote</span>
+              <span style="font-family:Archivo;font-weight:800;font-size:16px;color:var(--color-accent)">{{ savingsRate }}</span>
+            </div>
+          </div>
+
+          <div style="border-top:2px solid var(--color-divider);padding:14px 16px 8px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+              <span style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700)">Budgets August</span>
+              <span onClick="{{ goBudgets }}" style="font-size:12px;font-weight:600;color:var(--color-accent);cursor:pointer">Alle ansehen</span>
+            </div>
+            <sc-for list="{{ topBudgets }}" as="b" hint-placeholder-count="3">
+              <div style="display:flex;flex-direction:column;gap:6px;padding:10px 0;border-bottom:1px solid var(--color-divider)">
+                <div style="display:flex;justify-content:space-between;font-size:13px">
+                  <span>{{ b.name }}</span>
+                  <span style="font-variant-numeric:tabular-nums;color:{{ b.color }}">{{ b.text }}</span>
+                </div>
+                <div style="height:6px;background:var(--color-neutral-300)">
+                  <div style="height:6px;width:{{ b.pct }};background:{{ b.color }}"></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="padding:16px;display:flex;gap:10px">
+            <button class="btn btn-primary" onClick="{{ goEntry }}" style="flex:1;min-height:48px;justify-content:flex-start">Buchung erfassen</button>
+            <button class="btn btn-secondary" onClick="{{ goImport }}" style="min-height:48px;justify-content:flex-start">Import</button>
+          </div>
+          <div style="height:8px"></div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isAccounts }}">
+        <div>
+          <div style="padding:12px 16px;border-bottom:2px solid var(--color-divider);display:flex;gap:8px">
+            <input class="input" placeholder="Buchungen durchsuchen" value="{{ query }}" onChange="{{ onQuery }}" style="flex:1;min-height:42px">
+            <button class="btn btn-secondary" onClick="{{ clearQuery }}" style="min-height:42px;padding:0 12px">Reset</button>
+          </div>
+          <sc-for list="{{ accountList }}" as="a" hint-placeholder-count="4">
+            <div style="padding:13px 16px;border-bottom:1px solid var(--color-divider);display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <span style="font-family:Archivo;font-weight:600;font-size:15px">{{ a.name }}</span>
+                <span style="font-size:11px;color:var(--color-neutral-600);letter-spacing:.03em">{{ a.sub }}</span>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+                <span style="font-family:Archivo;font-weight:800;font-size:15px;font-variant-numeric:tabular-nums">{{ a.value }}</span>
+                <span style="font-size:11px;color:var(--color-neutral-600)">{{ a.note }}</span>
+              </div>
+            </div>
+          </sc-for>
+          <div style="padding:14px 16px 8px;border-top:2px solid var(--color-divider);display:flex;justify-content:space-between;align-items:baseline">
+            <span style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700)">Buchungen</span>
+            <span style="font-size:11px;color:var(--color-neutral-600)">{{ txCount }}</span>
+          </div>
+          <sc-if value="{{ hasUncategorized }}">
+            <div onClick="{{ startTriage }}" style="margin:0 16px 10px;padding:12px 14px;background:var(--color-accent-100);border-left:2px solid var(--color-accent);display:flex;justify-content:space-between;align-items:center;cursor:pointer">
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <span style="font-size:13px;font-weight:600;color:var(--color-accent-800)">{{ uncatText }}</span>
+                <span style="font-size:11px;color:var(--color-accent-800)">Jetzt zuordnen</span>
+              </div>
+              <span style="font-family:Archivo;font-weight:800;font-size:18px;color:var(--color-accent)">→</span>
+            </div>
+          </sc-if>
+          <sc-for list="{{ txList }}" as="t" hint-placeholder-count="7">
+            <div onClick="{{ t.onOpen }}" style="padding:11px 16px;border-bottom:1px solid var(--color-divider);display:flex;gap:12px;align-items:flex-start;cursor:pointer" style-hover="background:rgba(32,30,29,.04)">
+              <span style="font-size:11px;color:var(--color-neutral-600);width:36px;flex:none;padding-top:3px;font-variant-numeric:tabular-nums">{{ t.date }}</span>
+              <div style="flex:1;display:flex;flex-direction:column;gap:5px;min-width:0">
+                <span style="font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.payee }}</span>
+                <div style="display:flex;gap:6px;align-items:center">
+                  <span class="{{ t.tagClass }}" style="font-size:10px">{{ t.cat }}</span>
+                  <span style="font-size:10px;color:var(--color-neutral-600);letter-spacing:.04em">{{ t.acct }}</span>
+                </div>
+              </div>
+              <span style="font-family:Archivo;font-weight:600;font-size:14px;font-variant-numeric:tabular-nums;color:{{ t.color }}">{{ t.amount }}</span>
+            </div>
+          </sc-for>
+          <div style="height:20px"></div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isEntry }}">
+        <div>
+          <sc-if value="{{ isStepFlow }}">
+            <div style="display:flex;border-bottom:2px solid var(--color-divider)">
+              <sc-for list="{{ steps }}" as="s" hint-placeholder-count="3">
+                <div style="flex:1;padding:9px 12px;border-right:1px solid var(--color-divider);display:flex;flex-direction:column;gap:3px;background:{{ s.bg }}">
+                  <span style="font-size:9px;letter-spacing:.1em;color:{{ s.fg }}">{{ s.num }}</span>
+                  <span style="font-size:11px;font-weight:600;color:{{ s.fg }}">{{ s.label }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ showKindRow }}">
+            <div style="padding:12px 16px;border-bottom:1px solid var(--color-divider);display:flex">
+              <sc-for list="{{ kinds }}" as="k" hint-placeholder-count="3">
+                <div onClick="{{ k.onPick }}" style="flex:1;padding:10px;font-size:13px;font-weight:600;border:1px solid var(--color-divider);margin-left:-1px;cursor:pointer;background:{{ k.bg }};color:{{ k.fg }}">{{ k.label }}</div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ showAmount }}">
+            <div style="padding:20px 16px 18px;border-bottom:2px solid var(--color-divider);display:flex;flex-direction:column;gap:5px">
+              <span style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">{{ entryKindLabel }}</span>
+              <div style="display:flex;align-items:baseline;gap:8px">
+                <span style="font-family:Archivo;font-weight:800;font-size:46px;line-height:1;letter-spacing:-.035em;color:{{ entryColor }}">{{ entryAmount }}</span>
+                <span style="font-family:Archivo;font-weight:800;font-size:24px;color:var(--color-neutral-500)">EUR</span>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr)">
+              <sc-for list="{{ keys }}" as="k" hint-placeholder-count="12">
+                <div onClick="{{ k.onTap }}" style="min-height:60px;display:flex;align-items:center;justify-content:center;font-family:Archivo;font-weight:600;font-size:22px;border-right:1px solid var(--color-divider);border-bottom:1px solid var(--color-divider);cursor:pointer;user-select:none" style-hover="background:rgba(32,30,29,.05)" style-active="background:var(--color-accent-200)">{{ k.label }}</div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ showCats }}">
+            <div style="padding:14px 16px;border-bottom:1px solid var(--color-divider)">
+              <span style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700)">Kategorie</span>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
+                <sc-for list="{{ catChips }}" as="c" hint-placeholder-count="8">
+                  <div onClick="{{ c.onPick }}" style="padding:10px 12px;font-size:13px;border:1px solid var(--color-divider);cursor:pointer;background:{{ c.bg }};color:{{ c.fg }}">{{ c.name }}</div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ showAcct }}">
+            <div style="padding:14px 16px;border-bottom:2px solid var(--color-divider)">
+              <span style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700)">Konto</span>
+              <div style="display:flex;flex-direction:column;gap:0;margin-top:8px">
+                <sc-for list="{{ acctChips }}" as="c" hint-placeholder-count="3">
+                  <div onClick="{{ c.onPick }}" style="padding:12px 0;border-bottom:1px solid var(--color-divider);display:flex;justify-content:space-between;align-items:center;cursor:pointer">
+                    <span style="font-size:14px;font-weight:600;color:{{ c.fg }}">{{ c.name }}</span>
+                    <span style="font-size:12px;color:{{ c.fg }}">{{ c.mark }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="padding-top:12px">
+                <span style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700)">Notiz</span>
+                <input class="input" placeholder="z. B. Wocheneinkauf" value="{{ note }}" onChange="{{ onNote }}" style="margin-top:6px;min-height:42px">
+              </div>
+            </div>
+          </sc-if>
+
+          <div style="padding:16px;display:flex;gap:10px;align-items:center">
+            <button class="btn btn-primary" onClick="{{ onPrimary }}" style="flex:1;min-height:50px;font-size:15px;justify-content:flex-start">{{ primaryLabel }}</button>
+            <button class="btn btn-secondary" onClick="{{ onReset }}" style="min-height:50px;justify-content:flex-start">{{ secondaryLabel }}</button>
+          </div>
+          <div style="padding:0 16px 20px">
+            <span style="font-size:11px;color:var(--color-neutral-600)">{{ entrySummary }}</span>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isBudgets }}">
+        <div>
+          <div style="padding:12px 16px;border-bottom:2px solid var(--color-divider);display:flex">
+            <sc-for list="{{ periods }}" as="p" hint-placeholder-count="3">
+              <div onClick="{{ p.onPick }}" style="flex:1;padding:10px;font-size:13px;font-weight:600;border:1px solid var(--color-divider);margin-left:-1px;cursor:pointer;background:{{ p.bg }};color:{{ p.fg }}">{{ p.label }}</div>
+            </sc-for>
+          </div>
+          <div style="padding:16px;border-bottom:2px solid var(--color-divider);display:flex;justify-content:space-between;align-items:flex-end">
+            <div style="display:flex;flex-direction:column;gap:5px">
+              <span style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">Verbleibend</span>
+              <span style="font-family:Archivo;font-weight:800;font-size:32px;line-height:1">{{ budgetRemaining }}</span>
+            </div>
+            <span style="font-size:12px;color:var(--color-neutral-700);padding-bottom:4px">{{ budgetSummary }}</span>
+          </div>
+          <sc-for list="{{ budgetList }}" as="b" hint-placeholder-count="4">
+            <div style="padding:14px 16px;border-bottom:1px solid var(--color-divider);display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;justify-content:space-between;align-items:baseline">
+                <span style="font-family:Archivo;font-weight:600;font-size:15px">{{ b.name }}</span>
+                <span style="font-size:13px;font-variant-numeric:tabular-nums;color:{{ b.color }}">{{ b.text }}</span>
+              </div>
+              <div style="height:8px;background:var(--color-neutral-300)">
+                <div style="height:8px;width:{{ b.pct }};background:{{ b.color }}"></div>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--color-neutral-600)">
+                <span>{{ b.left }}</span><span>{{ b.share }}</span>
+              </div>
+            </div>
+          </sc-for>
+          <div style="padding:16px 16px 24px">
+            <button class="btn btn-secondary btn-block" style="min-height:48px">Neues Budget anlegen</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isDepot }}">
+        <div>
+          <div style="padding:18px 16px 16px;display:flex;flex-direction:column;gap:6px">
+            <span style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">Depotwert · finanzen.net ZERO</span>
+            <span style="font-family:Archivo;font-weight:800;font-size:38px;line-height:1;letter-spacing:-.035em">{{ depotValue }}</span>
+            <div style="display:flex;gap:16px;align-items:baseline;padding-top:2px">
+              <span style="font-size:13px;font-weight:600;color:var(--color-accent-700)">{{ depotGain }}</span>
+              <span style="font-size:13px;color:var(--color-neutral-700)">{{ depotGainPct }}</span>
+            </div>
+          </div>
+          <div style="border-top:2px solid var(--color-divider);padding:14px 16px 10px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
+              <span style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700)">Depotentwicklung</span>
+              <span style="font-size:11px;color:var(--color-neutral-600)">Kurse: 22.08.2026, 17:35</span>
+            </div>
+            <svg viewBox="0 0 358 84" style="width:100%;height:84px;display:block" preserveAspectRatio="none">
+              <line x1="0" y1="83" x2="358" y2="83" stroke="#bab6b6" stroke-width="1"></line>
+              <polyline fill="none" stroke="#ec3013" stroke-width="2.5" points="0,70 30,62 60,68 90,52 120,58 150,44 180,48 210,34 240,40 270,26 300,22 330,16 358,12"></polyline>
+            </svg>
+          </div>
+          <div style="border-top:2px solid var(--color-divider);padding:12px 16px 4px">
+            <span style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700)">Positionen</span>
+          </div>
+          <sc-for list="{{ positions }}" as="p" hint-placeholder-count="4">
+            <div style="padding:12px 16px;border-bottom:1px solid var(--color-divider);display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline">
+                <span style="font-size:14px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ p.name }}</span>
+                <span style="font-family:Archivo;font-weight:800;font-size:14px;font-variant-numeric:tabular-nums">{{ p.value }}</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--color-neutral-600)">
+                <span>{{ p.meta }}</span>
+                <span style="color:{{ p.color }};font-weight:600">{{ p.gain }}</span>
+              </div>
+            </div>
+          </sc-for>
+          <div style="height:20px"></div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isMore }}">
+        <div>
+          <sc-for list="{{ moreItems }}" as="m" hint-placeholder-count="6">
+            <div onClick="{{ m.onOpen }}" style="padding:15px 16px;border-bottom:1px solid var(--color-divider);display:flex;justify-content:space-between;align-items:center;cursor:pointer" style-hover="background:rgba(32,30,29,.04)">
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <span style="font-size:15px;font-weight:600">{{ m.label }}</span>
+                <span style="font-size:11px;color:var(--color-neutral-600)">{{ m.sub }}</span>
+              </div>
+              <span style="font-family:Archivo;font-weight:600;font-size:14px;font-variant-numeric:tabular-nums;color:var(--color-neutral-700)">{{ m.value }}</span>
+            </div>
+          </sc-for>
+          <div style="height:20px"></div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isLoan }}">
+        <div>
+          <div style="padding:18px 16px 16px;display:flex;flex-direction:column;gap:6px">
+            <span style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">Restschuld · Sparkasse</span>
+            <span style="font-family:Archivo;font-weight:800;font-size:38px;line-height:1;letter-spacing:-.035em;color:var(--color-accent-700)">{{ debt }}</span>
+            <span style="font-size:13px;color:var(--color-neutral-700)">1,84 % Sollzins · Rate 1.180 € · nächste Zahlung 01.09.2026</span>
+          </div>
+          <div style="border-top:2px solid var(--color-divider);padding:12px 16px 4px">
+            <span style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700)">Tilgungsplan</span>
+          </div>
+          <div style="padding:0 16px 16px">
+            <table class="table">
+              <thead><tr><th>Monat</th><th>Zins</th><th>Tilgung</th><th>Rest</th></tr></thead>
+              <tbody>
+                <sc-for list="{{ schedule }}" as="r" hint-placeholder-count="6">
+                  <tr>
+                    <td style="font-size:12px">{{ r.month }}</td>
+                    <td style="font-size:12px;font-variant-numeric:tabular-nums">{{ r.interest }}</td>
+                    <td style="font-size:12px;font-variant-numeric:tabular-nums">{{ r.principal }}</td>
+                    <td style="font-size:12px;font-variant-numeric:tabular-nums">{{ r.rest }}</td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+            <button class="btn btn-secondary btn-block" style="min-height:46px">Sondertilgung planen</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isImport }}">
+        <div>
+          <div style="padding:14px 16px;border-bottom:2px solid var(--color-divider);display:flex;flex-direction:column;gap:8px">
+            <span style="font-size:13px;color:var(--color-neutral-700)">camt053_2026-08.xml · Sparkasse · 41 Datensätze</span>
+            <div style="display:flex;gap:8px">
+              <span class="tag tag-neutral">CAMT.053</span>
+              <span class="tag tag-outline">Profil: Sparkasse Standard</span>
+            </div>
+          </div>
+          <sc-for list="{{ importStats }}" as="s" hint-placeholder-count="4">
+            <div style="padding:14px 16px;border-bottom:1px solid var(--color-divider);display:flex;justify-content:space-between;align-items:center">
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <span style="font-size:14px;font-weight:600;color:{{ s.color }}">{{ s.label }}</span>
+                <span style="font-size:11px;color:var(--color-neutral-600)">{{ s.sub }}</span>
+              </div>
+              <span style="font-family:Archivo;font-weight:800;font-size:20px;color:{{ s.color }}">{{ s.count }}</span>
+            </div>
+          </sc-for>
+          <div style="padding:16px;display:flex;gap:10px">
+            <button class="btn btn-primary" onClick="{{ runImport }}" style="flex:1;min-height:48px;justify-content:flex-start">34 Buchungen importieren</button>
+            <button class="btn btn-secondary" onClick="{{ goAccounts }}" style="min-height:48px;justify-content:flex-start">Abbrechen</button>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{ isTabNav }}">
+      <div style="flex:none;border-top:2px solid var(--color-divider);display:grid;grid-template-columns:repeat(5,1fr);background:var(--color-bg)">
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+          <div onClick="{{ t.onPick }}" style="padding:11px 4px 16px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;border-right:1px solid var(--color-divider);background:{{ t.bg }}">
+            <div style="height:2px;width:22px;background:{{ t.bar }}"></div>
+            <span style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;color:{{ t.fg }}">{{ t.label }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ drawerOpen }}">
+      <div onClick="{{ closeDrawer }}" style="position:absolute;inset:0;background:rgba(45,43,43,.5);z-index:40"></div>
+      <div class="drw-in" style="position:absolute;top:0;bottom:0;left:0;width:290px;background:var(--color-bg);border-right:2px solid var(--color-text);z-index:41;display:flex;flex-direction:column;overflow:auto">
+        <div style="padding:44px 16px 14px;border-bottom:2px solid var(--color-divider)">
+          <span style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-accent)">Angemeldet</span>
+          <div style="font-family:Archivo;font-weight:800;font-size:20px;margin-top:2px">Oliver W.</div>
+          <span style="font-size:11px;color:var(--color-neutral-600)">2FA aktiv · Sitzung 12 Min</span>
+        </div>
+        <sc-for list="{{ drawerItems }}" as="d" hint-placeholder-count="8">
+          <div onClick="{{ d.onPick }}" style="padding:13px 16px;border-bottom:1px solid var(--color-divider);cursor:pointer;background:{{ d.bg }}" style-hover="background:rgba(32,30,29,.06)">
+            <span style="font-size:14px;font-weight:600;color:{{ d.fg }}">{{ d.label }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ sheetOpen }}">
+      <div onClick="{{ closeSheet }}" style="position:absolute;inset:0;background:rgba(45,43,43,.5);z-index:50"></div>
+      <div class="sheet-in" style="position:absolute;left:0;right:0;bottom:0;z-index:51;background:var(--color-bg);border-top:2px solid var(--color-text);display:flex;flex-direction:column;max-height:82%">
+        <div style="padding:14px 16px;border-bottom:2px solid var(--color-divider);display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+          <div style="display:flex;flex-direction:column;gap:3px;min-width:0">
+            <span style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-accent)">Kategorie zuordnen</span>
+            <span style="font-family:Archivo;font-weight:800;font-size:19px;line-height:1.1">{{ sheetPayee }}</span>
+            <span style="font-size:11px;color:var(--color-neutral-600)">{{ sheetMeta }}</span>
+          </div>
+          <span style="font-family:Archivo;font-weight:800;font-size:19px;font-variant-numeric:tabular-nums">{{ sheetAmount }}</span>
+        </div>
+        <div class="scr" style="padding:14px 16px;overflow-y:auto">
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <sc-for list="{{ sheetCats }}" as="c" hint-placeholder-count="9">
+              <div onClick="{{ c.onPick }}" style="padding:11px 13px;font-size:13px;border:1px solid var(--color-divider);cursor:pointer;background:{{ c.bg }};color:{{ c.fg }}">{{ c.name }}</div>
+            </sc-for>
+          </div>
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--color-divider);display:flex;gap:10px;align-items:center">
+            <span style="font-size:12px;color:var(--color-neutral-700)">Regel für „{{ sheetRuleHint }}" merken</span>
+            <label class="radio" style="margin-left:auto"><input type="checkbox" checked="{{ ruleOn }}" onChange="{{ toggleRule }}"><span class="dot"></span></label>
+          </div>
+        </div>
+        <div style="padding:12px 16px 18px;border-top:2px solid var(--color-divider);display:flex;gap:10px">
+          <button class="btn btn-primary" onClick="{{ closeSheet }}" style="flex:1;min-height:46px;justify-content:flex-start">Fertig</button>
+          <button class="btn btn-secondary" onClick="{{ splitTx }}" style="min-height:46px;justify-content:flex-start">Splitten</button>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ toast }}">
+      <div style="position:absolute;left:16px;right:16px;bottom:96px;z-index:60;background:var(--color-text);color:var(--color-bg);padding:12px 14px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 8px 24px rgba(45,43,43,.35)">
+        <span style="font-size:13px;font-weight:600">{{ toast }}</span>
+        <span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;opacity:.7">Gespeichert</span>
+      </div>
+    </sc-if>
+  </div>
+
+  <div style="width:390px;display:flex;justify-content:space-between;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#605d5d">
+    <span>{{ variantNote }}</span>
+    <span>Beispieldaten</span>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:430,&quot;height&quot;:1000},&quot;navStyle&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Tabs&quot;,&quot;Drawer&quot;],&quot;default&quot;:&quot;Tabs&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Varianten&quot;},&quot;dashLayout&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Kacheln&quot;,&quot;Liste&quot;],&quot;default&quot;:&quot;Kacheln&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Varianten&quot;},&quot;entryFlow&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Schritte&quot;,&quot;Ziffernblock&quot;],&quot;default&quot;:&quot;Schritte&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Varianten&quot;}}">
+const CATS = ['Wohnen','Lebensmittel','Auto','Freizeit','Reisen','Gesundheit','Versicherung','Sonstiges'];
+const INC = ['Gehalt','Dividenden','Zinsen','Miete','Sonstiges'];
+const ACCTS = ['Sparkasse Giro','Raiffeisenbank Giro','Tagesgeld Raiffeisen'];
+
+function eur(n, sign) {
+  const s = Math.abs(n).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const p = sign ? (n < 0 ? '−' : '+') : (n < 0 ? '−' : '');
+  return p + s + ' €';
+}
+function eur0(n) {
+  return (n < 0 ? '−' : '') + Math.abs(n).toLocaleString('de-DE', { maximumFractionDigits: 0 }) + ' €';
+}
+
+class Component extends DCLogic {
+  state = {
+    screen: 'dash', drawerOpen: false, hide: false, query: '', note: '',
+    digits: '', kind: 'Ausgabe', cat: null, acct: 'Sparkasse Giro', step: 1,
+    sheetId: null, ruleOn: true, toast: '', period: 'Monat',
+    tx: [
+      { id: 1, date: '22.08', payee: 'REWE Markt Heidelberg', cat: 'Lebensmittel', acct: 'Sparkasse Giro', amount: -68.42 },
+      { id: 2, date: '21.08', payee: 'Shell Tankstelle', cat: null, acct: 'Sparkasse Giro', amount: -84.10 },
+      { id: 3, date: '20.08', payee: 'Stadtwerke Strom', cat: 'Wohnen', acct: 'Sparkasse Giro', amount: -96.00 },
+      { id: 4, date: '19.08', payee: 'Umbuchung → Tagesgeld', cat: 'Umbuchung', acct: 'Sparkasse Giro', amount: -1500.00 },
+      { id: 5, date: '18.08', payee: 'Heidelberger Leben Beitrag', cat: 'Versicherung', acct: 'Raiffeisenbank Giro', amount: -212.00 },
+      { id: 6, date: '15.08', payee: 'PAYPAL .PAYCOMET SL', cat: null, acct: 'Raiffeisenbank Giro', amount: -39.99 },
+      { id: 7, date: '01.08', payee: 'Gehalt EWV', cat: 'Gehalt', acct: 'Sparkasse Giro', amount: 5240.00 },
+    ],
+  };
+
+  set = (o) => this.setState(o);
+  go = (screen) => this.setState({ screen, drawerOpen: false });
+  flash = (toast) => { this.setState({ toast }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: '' }), 2600); }
+  componentWillUnmount() { clearTimeout(this._t); }
+
+  chip(active) {
+    return active
+      ? { bg: 'var(--color-accent)', fg: 'var(--color-bg)' }
+      : { bg: 'transparent', fg: 'var(--color-text)' };
+  }
+
+  amountValue() { return (parseInt(this.state.digits || '0', 10) / 100); }
+
+  save = () => {
+    const v = this.amountValue();
+    if (!v) { this.flash('Betrag fehlt'); return; }
+    const s = this.state;
+    const signed = s.kind === 'Einnahme' ? v : -v;
+    const id = Math.max(...s.tx.map(t => t.id)) + 1;
+    const d = new Date();
+    const date = String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0');
+    this.setState({
+      tx: [{ id, date: '23.08', payee: s.note || 'Manuelle Buchung', cat: s.kind === 'Umbuchung' ? 'Umbuchung' : s.cat, acct: s.acct, amount: signed }, ...s.tx],
+      digits: '', cat: null, note: '', step: 1, screen: 'accounts',
+    });
+    this.flash(eur(signed, true) + ' erfasst');
+  };
+
+  renderVals() {
+    const s = this.state;
+    const nav = this.props.navStyle || 'Tabs';
+    const dash = this.props.dashLayout || 'Kacheln';
+    const flow = this.props.entryFlow || 'Schritte';
+    const hide = s.hide;
+    const mask = (str) => hide ? '••••••' : str;
+
+    const gross = 274139.95, debt = 148300, net = gross - debt;
+    const assetsRaw = [
+      { label: 'Girokonten', sub: 'Sparkasse · Raiffeisenbank', v: 6759.95, to: 'accounts' },
+      { label: 'Tagesgeld', sub: 'Raiffeisenbank · 2,35 %', v: 50000, to: 'accounts' },
+      { label: 'Depot', sub: 'finanzen.net ZERO', v: 132480, to: 'depot' },
+      { label: 'Lebensvers.', sub: 'Heidelberger Leben', v: 84900, to: 'more' },
+    ];
+
+    const budgetsRaw = [
+      { name: 'Lebensmittel', spent: 412, plan: 500 },
+      { name: 'Freizeit', spent: 236, plan: 200 },
+      { name: 'Auto', spent: 154, plan: 300 },
+      { name: 'Urlaub', spent: 90, plan: 250 },
+    ];
+    const budget = budgetsRaw.map(b => {
+      const r = b.spent / b.plan, over = r > 1;
+      return {
+        name: b.name,
+        text: eur0(b.spent) + ' / ' + eur0(b.plan),
+        pct: Math.min(100, Math.round(r * 100)) + '%',
+        color: over ? 'var(--color-accent)' : 'var(--color-neutral-800)',
+        left: over ? eur0(b.spent - b.plan) + ' über Budget' : eur0(b.plan - b.spent) + ' verbleibend',
+        share: Math.round(r * 100) + ' %',
+      };
+    });
+
+    const titles = {
+      dash: ['Übersicht', 'Vermögen'], accounts: ['Finanzen', 'Konten & Buchungen'],
+      entry: ['Erfassen', 'Neue Buchung'], budgets: ['Planung', 'Budgets'],
+      depot: ['Investments', 'Depot'], more: ['Mehr', 'Alle Bereiche'],
+      loan: ['Finanzierungen', 'Darlehen'], import: ['Import', 'Importvorschau'],
+    };
+    const t = titles[s.screen] || titles.dash;
+
+    const visibleTx = s.tx.filter(x => !s.query || (x.payee + ' ' + (x.cat || '')).toLowerCase().includes(s.query.toLowerCase()));
+    const uncat = s.tx.filter(x => !x.cat);
+
+    const catsFor = (kind) => kind === 'Einnahme' ? INC : CATS;
+    const sheetTx = s.tx.find(x => x.id === s.sheetId);
+
+    const keyDefs = ['1','2','3','4','5','6','7','8','9',',','0','⌫'];
+    const tabDefs = [['dash','Vermögen'],['accounts','Konten'],['entry','Erfassen'],['budgets','Budgets'],['depot','Depot']];
+    const drawerDefs = [
+      ['dash','Dashboard'],['accounts','Girokonten & Buchungen'],['entry','Buchung erfassen'],
+      ['budgets','Budgets'],['depot','Depots & Wertpapiere'],['more','Lebensversicherungen'],
+      ['loan','Darlehen & Tilgungsplan'],['import','Datenimport (CSV / CAMT)'],
+    ];
+
+    const stepOf = flow === 'Schritte' ? s.step : 0;
+    const isStepFlow = flow === 'Schritte';
+
+    return {
+      kicker: t[0], heading: t[1],
+      hideLabel: hide ? 'Beträge zeigen' : 'Beträge verbergen',
+      toggleHide: () => this.set({ hide: !hide }),
+      variantNote: 'Navigation: ' + nav + ' · Dashboard: ' + dash + ' · Erfassung: ' + flow,
+
+      isDash: s.screen === 'dash', isAccounts: s.screen === 'accounts', isEntry: s.screen === 'entry',
+      isBudgets: s.screen === 'budgets', isDepot: s.screen === 'depot', isMore: s.screen === 'more',
+      isLoan: s.screen === 'loan', isImport: s.screen === 'import',
+      isStackDash: dash === 'Liste', isGridDash: dash === 'Kacheln',
+      isTabNav: nav === 'Tabs', isDrawerNav: nav === 'Drawer',
+
+      netWorth: mask(eur(net)), gross: mask(eur(gross)), debt: mask(eur(-debt)),
+      deltaMonth: '+2.140,80 € zum Vormonat', deltaYear: '+11,4 % im Jahr',
+      incomeMonth: mask(eur0(5240)), expenseMonth: mask(eur0(3612)), savingsRate: '31 %',
+      assets: assetsRaw.map(a => ({
+        label: a.label, sub: a.sub, value: mask(eur(a.v)),
+        pct: Math.round(a.v / gross * 100) + '%', onOpen: () => this.go(a.to),
+      })),
+      topBudgets: budget.slice(0, 3), budgetList: budget,
+      goBudgets: () => this.go('budgets'), goLoan: () => this.go('loan'),
+      goEntry: () => this.go('entry'), goImport: () => this.go('import'), goAccounts: () => this.go('accounts'),
+
+      accountList: [
+        { name: 'Sparkasse Giro', sub: 'DE44 6725 0020 0034 8891 02', value: mask(eur(4812.60)), note: 'heute' },
+        { name: 'Raiffeisenbank Giro', sub: 'DE12 6706 2366 0009 1140 07', value: mask(eur(1947.35)), note: 'heute' },
+        { name: 'Tagesgeld Raiffeisen', sub: '2,35 % · Zinsen 98,12 € YTD', value: mask(eur(50000)), note: '19.08.' },
+      ],
+      query: s.query,
+      onQuery: (e) => this.set({ query: e.target.value }),
+      clearQuery: () => this.set({ query: '' }),
+      txCount: visibleTx.length + ' von ' + s.tx.length,
+      hasUncategorized: uncat.length > 0,
+      uncatText: uncat.length + ' Buchungen ohne Kategorie',
+      startTriage: () => this.set({ sheetId: uncat[0] && uncat[0].id }),
+      txList: visibleTx.map(x => ({
+        date: x.date, payee: x.payee, acct: x.acct.replace(' Giro', ''),
+        cat: x.cat || 'Nicht zugeordnet',
+        tagClass: x.cat === 'Umbuchung' ? 'tag tag-outline' : (x.cat ? 'tag tag-neutral' : 'tag tag-accent'),
+        amount: mask(eur(x.amount, true)),
+        color: x.amount > 0 ? 'var(--color-accent-700)' : 'var(--color-text)',
+        onOpen: () => this.set({ sheetId: x.id }),
+      })),
+
+      isStepFlow,
+      steps: ['Betrag', 'Kategorie', 'Konto'].map((l, i) => {
+        const active = stepOf === i + 1;
+        return { num: '0' + (i + 1), label: l, bg: active ? 'var(--color-accent)' : 'transparent', fg: active ? 'var(--color-bg)' : 'var(--color-neutral-600)' };
+      }),
+      showKindRow: !isStepFlow || stepOf === 1,
+      showAmount: !isStepFlow || stepOf === 1,
+      showCats: (!isStepFlow || stepOf === 2) && s.kind !== 'Umbuchung',
+      showAcct: !isStepFlow || stepOf === 3,
+      entryKindLabel: s.kind === 'Einnahme' ? 'Einnahme' : s.kind === 'Umbuchung' ? 'Umbuchung' : 'Ausgabe',
+      entryColor: s.kind === 'Einnahme' ? 'var(--color-accent-700)' : 'var(--color-text)',
+      entryAmount: this.amountValue().toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      kinds: ['Ausgabe', 'Einnahme', 'Umbuchung'].map(k => {
+        const c = this.chip(s.kind === k);
+        return { label: k, bg: c.bg, fg: c.fg, onPick: () => this.set({ kind: k, cat: null }) };
+      }),
+      keys: keyDefs.map(k => ({
+        label: k,
+        onTap: () => {
+          if (k === '⌫') this.set({ digits: s.digits.slice(0, -1) });
+          else if (k === ',') return;
+          else if (s.digits.length < 8) this.set({ digits: (s.digits + k).replace(/^0+/, '') });
+        },
+      })),
+      catChips: catsFor(s.kind).map(c => {
+        const st = this.chip(s.cat === c);
+        return { name: c, bg: st.bg, fg: st.fg, onPick: () => this.set({ cat: c }) };
+      }),
+      acctChips: ACCTS.map(a => ({
+        name: a, mark: s.acct === a ? 'gewählt' : '',
+        fg: s.acct === a ? 'var(--color-accent)' : 'var(--color-text)',
+        onPick: () => this.set({ acct: a }),
+      })),
+      note: s.note, onNote: (e) => this.set({ note: e.target.value }),
+      primaryLabel: isStepFlow && stepOf < 3 ? 'Weiter' : 'Buchung speichern',
+      secondaryLabel: isStepFlow && stepOf > 1 ? 'Zurück' : 'Leeren',
+      onPrimary: () => {
+        if (isStepFlow && stepOf < 3) {
+          if (stepOf === 1 && !this.amountValue()) { this.flash('Betrag fehlt'); return; }
+          this.set({ step: stepOf + (s.kind === 'Umbuchung' && stepOf === 1 ? 2 : 1) });
+        } else this.save();
+      },
+      onReset: () => {
+        if (isStepFlow && stepOf > 1) this.set({ step: stepOf - 1 });
+        else this.set({ digits: '', cat: null, note: '' });
+      },
+      entrySummary: (s.cat ? s.cat : 'Kategorie offen') + ' · ' + s.acct + ' · 23.08.2026',
+
+      periods: ['Monat', 'Quartal', 'Jahr'].map(p => {
+        const c = this.chip(s.period === p);
+        return { label: p, bg: c.bg, fg: c.fg, onPick: () => this.set({ period: p }) };
+      }),
+      budgetRemaining: mask(eur0(1250 - 892)),
+      budgetSummary: '892 € von 1.250 € · 1 Überschreitung',
+
+      depotValue: mask(eur(132480)), depotGain: '+18.940,20 € G/V', depotGainPct: '+16,7 % · TTWROR 9,8 % p. a.',
+      positions: [
+        { name: 'Vanguard FTSE All-World', meta: '412 St. · 118,40 € · IE00BK5BQT80', value: mask(eur(48780.80)), gain: '+21,4 %', color: 'var(--color-accent-700)' },
+        { name: 'iShares Core MSCI World', meta: '386 St. · 102,15 € · IE00B4L5Y983', value: mask(eur(39429.90)), gain: '+18,1 %', color: 'var(--color-accent-700)' },
+        { name: 'Xtrackers MSCI EM', meta: '540 St. · 52,80 € · IE00BTJRMP35', value: mask(eur(28512.00)), gain: '+4,2 %', color: 'var(--color-accent-700)' },
+        { name: 'Allianz SE', meta: '52 St. · 302,26 € · DE0008404005', value: mask(eur(15717.52)), gain: '−1,8 %', color: 'var(--color-neutral-700)' },
+      ],
+
+      moreItems: [
+        { label: 'Lebensversicherungen', sub: 'Heidelberger Leben · Rückkaufswert 01.07.2026', value: mask(eur0(84900)), onOpen: () => this.flash('Vertragsdetail folgt') },
+        { label: 'Darlehen', sub: 'Sparkasse · Rate 1.180 €', value: mask(eur0(-148300)), onOpen: () => this.go('loan') },
+        { label: 'Datenimport', sub: 'CSV & CAMT · 2 Profile', value: 'CAMT', onOpen: () => this.go('import') },
+        { label: 'Auswertungen', sub: 'Monat · Quartal · Jahr', value: '', onOpen: () => this.flash('Report-Ansicht folgt') },
+        { label: 'Kategorien & Regeln', sub: '24 Kategorien · 11 Regeln', value: '', onOpen: () => this.flash('Verwaltung folgt') },
+        { label: 'Sicherheit', sub: '2FA aktiv · Backup 23.08.2026 03:00', value: 'OK', onOpen: () => this.flash('Alle Backups gültig') },
+      ],
+      schedule: [
+        { month: '09/2026', interest: '227 €', principal: '953 €', rest: '147.347 €' },
+        { month: '10/2026', interest: '226 €', principal: '954 €', rest: '146.393 €' },
+        { month: '11/2026', interest: '224 €', principal: '956 €', rest: '145.437 €' },
+        { month: '12/2026', interest: '223 €', principal: '957 €', rest: '144.480 €' },
+        { month: '01/2027', interest: '222 €', principal: '958 €', rest: '143.522 €' },
+      ],
+      importStats: [
+        { label: 'Neue Buchungen', sub: 'werden importiert', count: '34', color: 'var(--color-text)' },
+        { label: 'Bereits vorhanden', sub: 'per Importreferenz erkannt', count: '5', color: 'var(--color-neutral-700)' },
+        { label: 'Mögliche Duplikate', sub: 'Prüfung empfohlen', count: '2', color: 'var(--color-accent)' },
+        { label: 'Fehlerhafte Sätze', sub: 'Betrag nicht lesbar', count: '0', color: 'var(--color-neutral-700)' },
+      ],
+      runImport: () => { this.go('accounts'); this.flash('34 Buchungen importiert'); },
+
+      tabs: tabDefs.map(([k, l]) => ({
+        label: l, onPick: () => this.go(k),
+        bg: s.screen === k ? 'rgba(236,48,19,.07)' : 'transparent',
+        bar: s.screen === k ? 'var(--color-accent)' : 'transparent',
+        fg: s.screen === k ? 'var(--color-accent)' : 'var(--color-neutral-700)',
+      })),
+      drawerOpen: s.drawerOpen,
+      openDrawer: () => this.set({ drawerOpen: true }),
+      closeDrawer: () => this.set({ drawerOpen: false }),
+      drawerItems: drawerDefs.map(([k, l]) => ({
+        label: l, onPick: () => this.go(k),
+        bg: s.screen === k ? 'rgba(236,48,19,.07)' : 'transparent',
+        fg: s.screen === k ? 'var(--color-accent)' : 'var(--color-text)',
+      })),
+
+      sheetOpen: !!sheetTx,
+      sheetPayee: sheetTx ? sheetTx.payee : '',
+      sheetMeta: sheetTx ? sheetTx.date + '.2026 · ' + sheetTx.acct : '',
+      sheetAmount: sheetTx ? mask(eur(sheetTx.amount, true)) : '',
+      sheetRuleHint: sheetTx ? sheetTx.payee.split(' ')[0] : '',
+      sheetCats: (sheetTx && sheetTx.amount > 0 ? INC : CATS).concat(['Umbuchung']).map(c => {
+        const st = this.chip(sheetTx && sheetTx.cat === c);
+        return {
+          name: c, bg: st.bg, fg: st.fg,
+          onPick: () => {
+            this.setState({ tx: s.tx.map(x => x.id === s.sheetId ? Object.assign({}, x, { cat: c }) : x) });
+            this.flash(c + ' zugeordnet');
+          },
+        };
+      }),
+      ruleOn: s.ruleOn, toggleRule: () => this.set({ ruleOn: !s.ruleOn }),
+      closeSheet: () => this.set({ sheetId: null }),
+      splitTx: () => this.flash('Split-Buchung folgt'),
+      toast: s.toast,
+    };
+  }
+}
+
+</script>
+</body>
+</html>

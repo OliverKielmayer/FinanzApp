@@ -1,0 +1,65 @@
+@*
+    Liniendiagramm ohne Achsen, Punkte oder Füllung — die Zeitreihe als eine Linie.
+    Die Werte werden auf die Höhe zwischen Top und Bottom gestreckt, damit die Kurve
+    unabhängig vom absoluten Niveau die Bewegung zeigt.
+*@
+<svg class="chart" viewBox="@($"0 0 {Width} {Height}")" style="height:@(Height)px"
+     preserveAspectRatio="none" role="img" aria-label="@Label" focusable="false">
+    <line x1="0" y1="@(Height - 1)" x2="@Width" y2="@(Height - 1)"
+          stroke="var(--color-neutral-400)" stroke-width="1"></line>
+
+    @if (ShowMidline)
+    {
+        <line x1="0" y1="@(Height / 2)" x2="@Width" y2="@(Height / 2)"
+              stroke="var(--color-neutral-300)" stroke-width="1"></line>
+    }
+
+    @if (points is not null)
+    {
+        <polyline fill="none" stroke="var(--color-accent)" stroke-width="2.5" points="@points"></polyline>
+    }
+</svg>
+
+@code {
+    /// <summary>Breite des Koordinatensystems. Die Grafik selbst skaliert auf die Spaltenbreite.</summary>
+    [Parameter] public int Width { get; set; } = 358;
+
+    [Parameter] public int Height { get; set; } = 96;
+
+    /// <summary>Y-Wert des höchsten Datenpunkts.</summary>
+    [Parameter] public double Top { get; set; } = 10;
+
+    /// <summary>Y-Wert des niedrigsten Datenpunkts.</summary>
+    [Parameter] public double Bottom { get; set; } = 88;
+
+    [Parameter] public bool ShowMidline { get; set; }
+
+    [Parameter] public string Label { get; set; } = "Verlauf";
+
+    [Parameter] public IReadOnlyList<TimeSeriesPointDto>? Values { get; set; }
+
+    private string? points;
+
+    protected override void OnParametersSet() => points = BuildPoints();
+
+    private string? BuildPoints()
+    {
+        if (Values is not { Count: > 1 })
+        {
+            return null;
+        }
+
+        var min = Values.Min(v => v.Value);
+        var max = Values.Max(v => v.Value);
+        var span = max - min;
+
+        return string.Join(' ', Values.Select((point, index) =>
+        {
+            var x = (double)index / (Values.Count - 1) * Width;
+            var ratio = span == 0 ? 0.5 : (double)((point.Value - min) / span);
+            var y = Bottom - ratio * (Bottom - Top);
+            return x.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)
+                   + "," + y.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+        }));
+    }
+}

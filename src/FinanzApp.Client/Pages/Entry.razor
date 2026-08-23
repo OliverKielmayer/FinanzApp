@@ -1,0 +1,263 @@
+@page "/erfassen"
+@inherits AppPage
+
+<PageTitle>Neue Buchung — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    <div class="steps">
+        @foreach (var (label, number) in Steps)
+        {
+            <div class="step @(step == number ? "active" : null)"
+                 aria-current="@(step == number ? "step" : null)">
+                <span class="step-num">@number.ToString("00")</span>
+                <span class="step-label">@label</span>
+            </div>
+        }
+    </div>
+
+    @if (step == 1)
+    {
+        <div class="segmented">
+            @foreach (var option in Kinds)
+            {
+                <button type="button" class="segmented-opt @(kind == option.Kind ? "active" : null)"
+                        @onclick="() => PickKind(option.Kind)">@option.Label</button>
+            }
+        </div>
+
+        <div class="amount-display">
+            <span class="label-muted">@KindLabel</span>
+            <div class="amount-line">
+                <span class="amount-value num @(kind == TransactionKind.Income ? "income" : null)">
+                    @GermanFormat.Decimal2(Amount)
+                </span>
+                <span class="amount-currency">EUR</span>
+            </div>
+        </div>
+
+        <div class="keypad">
+            @foreach (var key in Keys)
+            {
+                <button type="button" class="keypad-key" disabled="@(key == ",")"
+                        aria-label="@KeyLabel(key)" @onclick="() => PressKey(key)">@key</button>
+            }
+        </div>
+    }
+
+    @if (step == 2)
+    {
+        <div class="picker">
+            <span class="label-strong">Kategorie</span>
+            <div class="chipcloud">
+                @foreach (var category in AvailableCategories)
+                {
+                    <button type="button" class="chip @(categoryId == category.Id ? "active" : null)"
+                            @onclick="() => categoryId = category.Id">@category.Name</button>
+                }
+            </div>
+        </div>
+    }
+
+    @if (step == 3)
+    {
+        <div class="picker last">
+            <span class="label-strong">Konto</span>
+            <div class="picker-rows">
+                @foreach (var account in accounts)
+                {
+                    <button type="button" class="picker-row @(accountId == account.Id ? "active" : null)"
+                            @onclick="() => accountId = account.Id">
+                        <span class="picker-row-name">@account.Name</span>
+                        <span class="picker-row-mark">@(accountId == account.Id ? "gewählt" : null)</span>
+                    </button>
+                }
+            </div>
+
+            <div class="note-field">
+                <span class="label-strong">Notiz</span>
+                <input class="input" placeholder="z. B. Wocheneinkauf" aria-label="Notiz"
+                       value="@note" @oninput="e => note = e.Value?.ToString() ?? string.Empty" />
+            </div>
+        </div>
+    }
+
+    <div class="actions entry-actions">
+        <button type="button" class="btn btn-primary" disabled="@saving" @onclick="OnPrimary">@PrimaryLabel</button>
+        <button type="button" class="btn btn-secondary" disabled="@saving" @onclick="OnSecondary">@SecondaryLabel</button>
+    </div>
+
+    <div class="entry-summary">@Summary</div>
+</AsyncView>
+
+@code {
+    private static readonly (string Label, int Number)[] Steps = [("Betrag", 1), ("Kategorie", 2), ("Konto", 3)];
+
+    private static readonly (TransactionKind Kind, string Label)[] Kinds =
+    [
+        (TransactionKind.Expense, "Ausgabe"),
+        (TransactionKind.Income, "Einnahme"),
+        (TransactionKind.Transfer, "Umbuchung"),
+    ];
+
+    private static readonly string[] Keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ",", "0", "⌫"];
+
+    /// <summary>Höchstzahl eingegebener Stellen, entspricht 999.999,99 €.</summary>
+    private const int MaxDigits = 8;
+
+    private IReadOnlyList<AccountDto> accounts = [];
+    private IReadOnlyList<CategoryDto> categories = [];
+
+    private int step = 1;
+    private TransactionKind kind = TransactionKind.Expense;
+    private string digits = string.Empty;
+    private int? categoryId;
+    private int? accountId;
+    private string note = string.Empty;
+    private bool saving;
+
+    /// <summary>Idempotenzschlüssel des laufenden Formulars. Ein zweiter Sendeversuch derselben
+    /// Eingabe legt damit keine zweite Buchung an.</summary>
+    private Guid requestKey = Guid.NewGuid();
+
+    protected override async Task LoadAsync()
+    {
+        accounts = await Api.GetAccountsAsync();
+        categories = await Api.GetCategoriesAsync();
+        accountId ??= accounts.FirstOrDefault()?.Id;
+    }
+
+    private decimal Amount => digits.Length == 0 ? 0m : decimal.Parse(digits) / 100m;
+
+    private string KindLabel => Kinds.First(k => k.Kind == kind).Label;
+
+    private IReadOnlyList<CategoryDto> AvailableCategories
+    {
+        get
+        {
+            var direction = kind == TransactionKind.Income ? CategoryDirection.Income : CategoryDirection.Expense;
+            return [.. categories.Where(c => c.Direction == direction)];
+        }
+    }
+
+    private string PrimaryLabel => step < 3 ? "Weiter" : "Buchung speichern";
+
+    private string SecondaryLabel => step > 1 ? "Zurück" : "Leeren";
+
+    private string Summary
+    {
+        get
+        {
+            var category = categories.FirstOrDefault(c => c.Id == categoryId)?.Name
+                           ?? (kind == TransactionKind.Transfer ? "Umbuchung" : "Kategorie offen");
+            var account = accounts.FirstOrDefault(a => a.Id == accountId)?.Name ?? "kein Konto";
+            return $"{category} · {account} · {GermanFormat.Date(DateOnly.FromDateTime(DateTime.Now))}";
+        }
+    }
+
+    private static string KeyLabel(string key) => key == "⌫" ? "Letzte Stelle löschen" : key;
+
+    private void PickKind(TransactionKind next)
+    {
+        kind = next;
+        categoryId = null;
+    }
+
+    /// <summary>
+    /// Die Ziffern laufen als Cent-Wert auf: eine getippte Ziffer wandert von rechts herein,
+    /// die Nachkommastellen ergeben sich von selbst. Das Komma ist deshalb ohne Funktion.
+    /// </summary>
+    private void PressKey(string key)
+    {
+        if (key == "⌫")
+        {
+            digits = digits.Length > 0 ? digits[..^1] : string.Empty;
+        }
+        else if (key != "," && digits.Length < MaxDigits)
+        {
+            digits = (digits + key).TrimStart('0');
+        }
+    }
+
+    private async Task OnPrimary()
+    {
+        if (step < 3)
+        {
+            if (step == 1 && Amount == 0m)
+            {
+                Toasts.Show("Betrag fehlt");
+                return;
+            }
+
+            // Bei einer Umbuchung gibt es nichts zu kategorisieren — Schritt 2 entfällt.
+            step += step == 1 && kind == TransactionKind.Transfer ? 2 : 1;
+            return;
+        }
+
+        await SaveAsync();
+    }
+
+    private void OnSecondary()
+    {
+        if (step > 1)
+        {
+            step -= step == 3 && kind == TransactionKind.Transfer ? 2 : 1;
+            return;
+        }
+
+        digits = string.Empty;
+        categoryId = null;
+        note = string.Empty;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (Amount == 0m)
+        {
+            Toasts.Show("Betrag fehlt");
+            return;
+        }
+
+        if (accountId is not { } account)
+        {
+            Toasts.Show("Kein Konto gewählt");
+            return;
+        }
+
+        saving = true;
+        try
+        {
+            var request = new CreateTransactionRequest
+            {
+                RequestKey = requestKey,
+                Kind = kind,
+                Amount = Amount,
+                AccountId = account,
+                CategoryId = kind == TransactionKind.Transfer ? null : categoryId,
+                Note = string.IsNullOrWhiteSpace(note) ? null : note,
+            };
+
+            var created = await Api.CreateTransactionAsync(request);
+
+            Reset();
+            Toasts.Show(GermanFormat.Euro(created.Amount, withPlusSign: true) + " erfasst");
+            Navigation.NavigateTo("/konten");
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message);
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private void Reset()
+    {
+        digits = string.Empty;
+        categoryId = null;
+        note = string.Empty;
+        step = 1;
+        requestKey = Guid.NewGuid();
+    }
+}

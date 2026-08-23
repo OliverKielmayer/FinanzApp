@@ -1,0 +1,84 @@
+@page "/mehr"
+@inherits AppPage
+
+<PageTitle>Alle Bereiche — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (data is { } overview)
+    {
+        <button type="button" class="tap more-row" @onclick="@(() => Toasts.Show("Vertragsdetail folgt"))">
+            <span class="stack">
+                <span class="more-label">Lebensversicherungen</span>
+                <span class="meta">
+                    @overview.Insurance.Provider · Rückkaufswert @GermanFormat.Date(overview.Insurance.ValuationDate)
+                </span>
+            </span>
+            <span class="more-value num">@State.Euro0(overview.Insurance.SurrenderValue)</span>
+        </button>
+
+        <button type="button" class="tap more-row" @onclick="OpenLoan">
+            <span class="stack">
+                <span class="more-label">Darlehen</span>
+                <span class="meta">
+                    @overview.Loan.Lender · Rate @GermanFormat.EuroRounded(overview.Loan.Installment)
+                </span>
+            </span>
+            <span class="more-value num">@State.Euro0(-overview.Loan.RemainingDebt)</span>
+        </button>
+
+        <button type="button" class="tap more-row" @onclick="@(() => Navigation.NavigateTo("/import"))">
+            <span class="stack">
+                <span class="more-label">Datenimport</span>
+                <span class="meta">
+                    @overview.Import.Formats · @overview.Import.ProfileCount
+                    @(overview.Import.ProfileCount == 1 ? "Profil" : "Profile")
+                </span>
+            </span>
+            <span class="more-value">CAMT</span>
+        </button>
+
+        <button type="button" class="tap more-row" @onclick="@(() => Toasts.Show("Report-Ansicht folgt"))">
+            <span class="stack">
+                <span class="more-label">Auswertungen</span>
+                <span class="meta">Monat · Quartal · Jahr</span>
+            </span>
+            <span class="more-value"></span>
+        </button>
+
+        <button type="button" class="tap more-row" @onclick="@(() => Toasts.Show("Verwaltung folgt"))">
+            <span class="stack">
+                <span class="more-label">Kategorien &amp; Regeln</span>
+                <span class="meta">
+                    @overview.CategoryCount Kategorien · @overview.RuleCount
+                    @(overview.RuleCount == 1 ? "Regel" : "Regeln")
+                </span>
+            </span>
+            <span class="more-value"></span>
+        </button>
+
+        <button type="button" class="tap more-row" @onclick="@(() => Toasts.Show("Alle Backups gültig"))">
+            <span class="stack">
+                <span class="more-label">Sicherheit</span>
+                <span class="meta">
+                    @(overview.Security.TwoFactorEnabled ? "2FA aktiv" : "2FA inaktiv") ·
+                    Backup @GermanFormat.DateTime(overview.Security.LastBackup)
+                </span>
+            </span>
+            <span class="more-value">@(overview.Security.TwoFactorEnabled ? "OK" : "Prüfen")</span>
+        </button>
+
+        <div class="spacer"></div>
+    }
+</AsyncView>
+
+@code {
+    private MoreOverviewDto? data;
+
+    protected override async Task LoadAsync() => data = await Api.GetMoreOverviewAsync();
+
+    private void OpenLoan()
+    {
+        var loanId = data?.Loan.LoanId ?? 0;
+        Navigation.NavigateTo(loanId > 0 ? $"/darlehen?id={loanId}" : "/darlehen");
+    }
+}

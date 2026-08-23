@@ -1,0 +1,94 @@
+@page "/budgets"
+@inherits AppPage
+
+<PageTitle>Budgets — FinanzApp</PageTitle>
+
+<div class="segmented bordered">
+    @foreach (var option in Periods)
+    {
+        <button type="button" class="segmented-opt @(period == option.Period ? "active" : null)"
+                @onclick="() => SwitchPeriod(option.Period)">@option.Label</button>
+    }
+</div>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (data is { } overview)
+    {
+        <div class="budget-summary">
+            <div class="stack" style="gap:5px">
+                <span class="label-muted">Verbleibend</span>
+                <span class="budget-summary-value num">@State.Euro0(overview.Remaining)</span>
+            </div>
+            <span class="budget-summary-note num">
+                @State.Euro0(overview.Spent) von @State.Euro0(overview.Planned)@OverspentNote(overview)
+            </span>
+        </div>
+
+        @foreach (var budget in overview.Items)
+        {
+            <div class="budget-row">
+                <div class="budget-row-line">
+                    <span class="budget-row-name">@budget.Name</span>
+                    <span class="budget-row-figures num @(budget.IsOverspent ? "over" : null)">
+                        @State.Euro0(budget.Spent) / @State.Euro0(budget.Planned)
+                    </span>
+                </div>
+
+                <ProgressBar Ratio="budget.Ratio" Height="8"
+                             Variant="@(budget.IsOverspent ? "over" : "neutral")"
+                             Label="@($"Auslastung Budget {budget.Name}")" />
+
+                <div class="budget-row-foot">
+                    <span class="num">
+                        @if (budget.IsOverspent)
+                        {
+                            @($"{State.Euro0(-budget.Remaining)} über Budget")
+                        }
+                        else
+                        {
+                            @($"{State.Euro0(budget.Remaining)} verbleibend")
+                        }
+                    </span>
+                    <span class="num">@GermanFormat.Percent(budget.Ratio * 100)</span>
+                </div>
+            </div>
+        }
+
+        <div class="block-action">
+            <button type="button" class="btn btn-secondary btn-block"
+                    @onclick="@(() => Toasts.Show("Budgetanlage folgt"))">Neues Budget anlegen</button>
+        </div>
+    }
+</AsyncView>
+
+@code {
+    private static readonly (BudgetPeriod Period, string Label)[] Periods =
+    [
+        (BudgetPeriod.Month, "Monat"),
+        (BudgetPeriod.Quarter, "Quartal"),
+        (BudgetPeriod.Year, "Jahr"),
+    ];
+
+    private BudgetOverviewDto? data;
+    private BudgetPeriod period = BudgetPeriod.Month;
+
+    protected override async Task LoadAsync() => data = await Api.GetBudgetsAsync(period);
+
+    private async Task SwitchPeriod(BudgetPeriod next)
+    {
+        if (next == period)
+        {
+            return;
+        }
+
+        period = next;
+        await ReloadAsync();
+    }
+
+    private static string OverspentNote(BudgetOverviewDto overview) => overview.OverspentCount switch
+    {
+        0 => string.Empty,
+        1 => " · 1 Überschreitung",
+        var count => $" · {count} Überschreitungen",
+    };
+}

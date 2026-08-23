@@ -1,0 +1,159 @@
+@page "/"
+@inherits AppPage
+
+<PageTitle>Vermögen — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (data is { } dashboard)
+    {
+        <section class="hero">
+            <span class="label-muted">Nettovermögen</span>
+            <span class="hero-value num">@State.Euro(dashboard.NetWorth.Net)</span>
+            <div class="hero-deltas">
+                <span class="hero-delta-primary num">
+                    @State.Euro(dashboard.NetWorth.DeltaPreviousMonth, withPlusSign: true) zum Vormonat
+                </span>
+                <span class="hero-delta-secondary num">
+                    @GermanFormat.Percent(dashboard.NetWorth.DeltaYearPercent, 1, withPlusSign: true) im Jahr
+                </span>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="section-head">
+                <span class="label-strong">Vermögensentwicklung</span>
+                <span class="meta">@MonthSpanLabel(dashboard.History)</span>
+            </div>
+            <Sparkline Values="dashboard.History" Height="96" Top="10" Bottom="88" ShowMidline="true"
+                       Label="Vermögensentwicklung der letzten Monate" />
+            <div class="chart-axis">
+                @foreach (var label in AxisLabels(dashboard.History))
+                {
+                    <span>@label</span>
+                }
+            </div>
+        </section>
+
+        <div class="asset-grid">
+            @foreach (var asset in dashboard.Assets)
+            {
+                <button type="button" class="tap asset-tile" @onclick="() => Navigation.NavigateTo(asset.Route)">
+                    <span class="asset-tile-label">@asset.Label</span>
+                    <span class="asset-tile-value num">@State.Euro(asset.Value)</span>
+                    <span class="meta">@asset.Subtitle</span>
+                    <ProgressBar Ratio="asset.ShareOfGross" Height="4"
+                                 Label="@($"Anteil {asset.Label} am Bruttovermögen")" />
+                </button>
+            }
+        </div>
+
+        <section class="balance">
+            <div class="balance-row">
+                <span class="balance-label">Bruttovermögen</span>
+                <span class="balance-value num">@State.Euro(dashboard.NetWorth.Gross)</span>
+            </div>
+
+            <button type="button" class="tap balance-row" @onclick="OpenLoan">
+                <span class="stack">
+                    <span class="balance-label plain">@dashboard.Liability.Label</span>
+                    <span class="meta">@dashboard.Liability.Subtitle</span>
+                </span>
+                <span class="balance-value debt num">@State.Euro(-dashboard.Liability.Amount)</span>
+            </button>
+
+            <div class="balance-row total">
+                <span class="balance-label">Nettovermögen</span>
+                <span class="balance-value num">@State.Euro(dashboard.NetWorth.Net)</span>
+            </div>
+        </section>
+
+        <section class="kpi">
+            <div class="kpi-cell">
+                <span class="label-muted">Einnahmen</span>
+                <span class="kpi-value num">@State.Euro0(dashboard.Month.Income)</span>
+            </div>
+            <div class="kpi-cell">
+                <span class="label-muted">Ausgaben</span>
+                <span class="kpi-value num">@State.Euro0(dashboard.Month.Expenses)</span>
+            </div>
+            <div class="kpi-cell">
+                <span class="label-muted">Sparquote</span>
+                <span class="kpi-value accent num">@GermanFormat.Percent(dashboard.Month.SavingsRatePercent)</span>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="section-head">
+                <span class="label-strong">Budgets @GermanFormat.MonthName(dashboard.Month.Month)</span>
+                <button type="button" class="section-link" @onclick="@(() => Navigation.NavigateTo("/budgets"))">
+                    Alle ansehen
+                </button>
+            </div>
+
+            @foreach (var budget in dashboard.TopBudgets)
+            {
+                <div class="budget-mini">
+                    <div class="budget-mini-line">
+                        <span>@budget.Name</span>
+                        <span class="num @(budget.IsOverspent ? "budget-row-figures over" : null)">
+                            @State.Euro0(budget.Spent) / @State.Euro0(budget.Planned)
+                        </span>
+                    </div>
+                    <ProgressBar Ratio="budget.Ratio" Height="6"
+                                 Variant="@(budget.IsOverspent ? "over" : "neutral")"
+                                 Label="@($"Auslastung Budget {budget.Name}")" />
+                </div>
+            }
+        </section>
+
+        <div class="actions">
+            <button type="button" class="btn btn-primary"
+                    @onclick="@(() => Navigation.NavigateTo("/erfassen"))">Buchung erfassen</button>
+            <button type="button" class="btn btn-secondary"
+                    @onclick="@(() => Navigation.NavigateTo("/import"))">Import</button>
+        </div>
+
+        <div class="spacer"></div>
+    }
+</AsyncView>
+
+@code {
+    private DashboardDto? data;
+
+    protected override async Task LoadAsync() => data = await Api.GetDashboardAsync();
+
+    private void OpenLoan()
+    {
+        var loanId = data?.Liability.LoanId ?? 0;
+        Navigation.NavigateTo(loanId > 0 ? $"/darlehen?id={loanId}" : "/darlehen");
+    }
+
+    /// <summary>„12 Monate“ — die Länge der Reihe, nicht fest verdrahtet.</summary>
+    private static string MonthSpanLabel(IReadOnlyList<TimeSeriesPointDto> history)
+        => history.Count switch
+        {
+            0 or 1 => "laufender Monat",
+            _ => history.Count + " Monate",
+        };
+
+    /// <summary>Erster, mittlerer und letzter Monat der Reihe.</summary>
+    private static IEnumerable<string> AxisLabels(IReadOnlyList<TimeSeriesPointDto> history)
+    {
+        if (history.Count == 0)
+        {
+            yield break;
+        }
+
+        yield return GermanFormat.MonthAxis(history[0].Month);
+
+        if (history.Count > 2)
+        {
+            yield return GermanFormat.MonthAxis(history[(history.Count - 1) / 2].Month);
+        }
+
+        if (history.Count > 1)
+        {
+            yield return GermanFormat.MonthAxis(history[^1].Month);
+        }
+    }
+}

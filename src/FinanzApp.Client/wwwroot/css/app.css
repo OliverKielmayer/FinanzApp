@@ -1,0 +1,1477 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   FinanzApp — Anwendungsschicht über dem Design-System Modernist.
+
+   modernist.css bringt die Tokens und die Basiskomponenten (Buttons, Inputs,
+   Tags, Tabelle) und bleibt unverändert, damit eine neue Fassung des
+   Design-Systems eingespielt werden kann, ohne diese Datei anzufassen.
+   Hier stehen nur Layout und Screens. Farben, Abstände und Radien kommen
+   ausschließlich aus den Variablen — keine eigenen Farbwerte.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Grundlagen ─────────────────────────────────────────────────────────── */
+
+html {
+  height: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100%;
+  font-size: 15px;
+  overscroll-behavior-y: none;
+}
+
+/* Zahlen stehen überall in gleicher Laufweite untereinander. */
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.heading {
+  font-family: var(--font-heading);
+  font-weight: 800;
+}
+
+/* Kicker- und Label-Zeilen: 10 px, gesperrt, Versalien. */
+.kicker {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+
+.label-strong {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-neutral-700);
+}
+
+.label-muted {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-neutral-600);
+}
+
+/* Anklickbare Zeilen und Kacheln sind echte Schaltflächen — sonst wären sie
+   weder mit der Tastatur erreichbar noch für Screenreader bedienbar. Diese
+   Klasse nimmt der Schaltfläche ihr Aussehen, nicht ihr Verhalten. */
+.tap {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.tap:hover {
+  background: color-mix(in srgb, var(--color-text) 4%, transparent);
+}
+
+/* ── Ladeanzeige vor dem Start der Anwendung ───────────────────────────── */
+
+.boot {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 24px 16px;
+}
+
+.boot-kicker {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+
+.boot-title {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 25px;
+  letter-spacing: -0.025em;
+}
+
+#blazor-error-ui {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  display: none;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--color-bg);
+  background: var(--color-text);
+  box-shadow: var(--shadow-lg);
+}
+
+#blazor-error-ui .reload,
+#blazor-error-ui .dismiss {
+  color: var(--color-bg);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+#blazor-error-ui .dismiss {
+  margin-left: auto;
+}
+
+/* ── App-Rahmen ─────────────────────────────────────────────────────────── */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: var(--color-bg);
+}
+
+.app-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.app-header {
+  flex: none;
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 14px 16px 12px;
+  border-bottom: 2px solid var(--color-divider);
+  background: var(--color-bg);
+}
+
+.app-header-titles {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.app-title {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 25px;
+  line-height: 1.04;
+  letter-spacing: -0.025em;
+  margin: 0;
+
+  /* „Importvorschau“ hat keine natürliche Umbruchstelle. Ohne diese Regel läuft der
+     Titel in den Schalter rechts daneben. */
+  hyphens: auto;
+  overflow-wrap: break-word;
+}
+
+/* Blazor setzt den Fokus nach jeder Navigation auf die Überschrift, damit Screenreader
+   den neuen Screen ansagen. Sichtbar umrandet werden soll sie deswegen nicht — sie ist
+   kein Bedienelement. */
+.app-title:focus,
+.app-title:focus-visible {
+  outline: none;
+}
+
+/* Textschalter rechts und links im Kopf: „Beträge verbergen“, „Zurück“. */
+.header-action {
+  flex: none;
+  padding: 0 0 5px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-neutral-600);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.header-action:hover {
+  color: var(--color-text);
+}
+
+.app-main {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+}
+
+.app-main::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Tab-Bar (mobil) ────────────────────────────────────────────────────── */
+
+.tabbar {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  border-top: 2px solid var(--color-divider);
+  background: var(--color-bg);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.tabbar-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 11px 4px 16px;
+  border: 0;
+  border-right: 1px solid var(--color-divider);
+  background: transparent;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+}
+
+.tabbar-item:last-child {
+  border-right: 0;
+}
+
+.tabbar-mark {
+  height: 2px;
+  width: 22px;
+  background: transparent;
+}
+
+.tabbar-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-neutral-700);
+}
+
+.tabbar-item.active {
+  background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+}
+
+.tabbar-item.active .tabbar-mark {
+  background: var(--color-accent);
+}
+
+.tabbar-item.active .tabbar-label {
+  color: var(--color-accent);
+}
+
+/* ── Seitennavigation (ab Tablet) ───────────────────────────────────────── */
+
+.sidenav {
+  display: none;
+}
+
+/* ── Wiederkehrende Bausteine ───────────────────────────────────────────── */
+
+.section {
+  border-top: 2px solid var(--color-divider);
+  padding: 14px 16px 10px;
+}
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.section-link {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-accent);
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.section-link:hover {
+  color: var(--color-accent-700);
+}
+
+.list-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 14px 16px 8px;
+  border-top: 2px solid var(--color-divider);
+}
+
+.list-count {
+  font-size: 11px;
+  color: var(--color-neutral-600);
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stack-end {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.meta {
+  font-size: 11px;
+  color: var(--color-neutral-600);
+}
+
+.spacer {
+  height: 20px;
+}
+
+/* Fortschrittsbalken. Die Höhe setzt der jeweilige Screen. */
+.bar {
+  background: var(--color-neutral-300);
+}
+
+.bar-fill {
+  height: 100%;
+  background: var(--color-accent);
+}
+
+.bar-fill.neutral {
+  background: var(--color-neutral-800);
+}
+
+.bar-fill.over {
+  background: var(--color-accent);
+}
+
+/* Auswahl aus gleich breiten Zellen — Buchungsart und Budgetzeitraum. */
+.segmented {
+  display: flex;
+  padding: 12px 16px;
+}
+
+.segmented.bordered {
+  border-bottom: 2px solid var(--color-divider);
+}
+
+.segmented-opt {
+  flex: 1;
+  padding: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  background: transparent;
+  border: 1px solid var(--color-divider);
+  margin-left: -1px;
+  cursor: pointer;
+  text-align: center;
+}
+
+.segmented-opt:first-child {
+  margin-left: 0;
+}
+
+.segmented-opt:not(.active):hover {
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+}
+
+.segmented-opt.active {
+  background: var(--color-accent);
+  color: var(--color-bg);
+  position: relative;
+}
+
+/* Kategorie-Chips in Erfassung und Bottom-Sheet. */
+.chipcloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.chip {
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--color-text);
+  background: transparent;
+  border: 1px solid var(--color-divider);
+  cursor: pointer;
+}
+
+.chip:hover {
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
+}
+
+.chip.active {
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+
+.chip.active:hover {
+  background: var(--color-accent-600);
+}
+
+/* Aktionsleiste am Fuß eines Screens. */
+.actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 16px;
+}
+
+.actions .btn {
+  min-height: 48px;
+  justify-content: flex-start;
+}
+
+.actions .btn-primary {
+  flex: 1;
+}
+
+/* ── Vermögen (Dashboard) ───────────────────────────────────────────────── */
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px 16px 16px;
+}
+
+.hero-value {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 42px;
+  line-height: 1;
+  letter-spacing: -0.035em;
+}
+
+.hero-value.medium {
+  font-size: 38px;
+}
+
+.hero-value.debt {
+  color: var(--color-accent-700);
+}
+
+.hero-deltas {
+  display: flex;
+  gap: 16px;
+  align-items: baseline;
+  padding-top: 4px;
+}
+
+.hero-delta-primary {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-accent-700);
+}
+
+.hero-delta-secondary {
+  font-size: 13px;
+  color: var(--color-neutral-700);
+}
+
+.chart {
+  display: block;
+  width: 100%;
+}
+
+.chart-axis {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 6px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--color-neutral-600);
+}
+
+.asset-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-top: 2px solid var(--color-divider);
+
+  /* Die Kacheln tragen ihre Trennlinie rechts. Das eine Pixel Überhang schiebt die
+     Linie der letzten Spalte aus dem sichtbaren Bereich, in jeder Spaltenzahl. */
+  margin-right: -1px;
+}
+
+.asset-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 14px 16px;
+  border-right: 1px solid var(--color-divider);
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.asset-tile-label {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+
+.asset-tile-value {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 19px;
+  line-height: 1;
+}
+
+.asset-tile .bar {
+  height: 4px;
+  margin-top: auto;
+}
+
+.balance {
+  padding: 0 16px;
+}
+
+.balance-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.balance-row.total {
+  padding: 13px 0 4px;
+  border-bottom: 0;
+}
+
+.balance-label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.balance-label.plain {
+  font-weight: 400;
+}
+
+.balance-value {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.balance-value.debt {
+  font-weight: 600;
+  color: var(--color-accent-700);
+}
+
+.balance-row.total .balance-label {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.balance-row.total .balance-value {
+  font-size: 17px;
+}
+
+.kpi {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 12px;
+  border-top: 2px solid var(--color-divider);
+}
+
+.kpi-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 14px 10px 16px;
+  border-right: 1px solid var(--color-divider);
+}
+
+.kpi-cell:first-child {
+  padding-left: 16px;
+}
+
+.kpi-cell:last-child {
+  padding-right: 16px;
+  border-right: 0;
+}
+
+.kpi-value {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.kpi-value.accent {
+  color: var(--color-accent);
+}
+
+.budget-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.budget-mini-line {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.budget-mini .bar {
+  height: 6px;
+}
+
+/* ── Konten & Buchungen ─────────────────────────────────────────────────── */
+
+.searchbar {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 2px solid var(--color-divider);
+}
+
+.searchbar .input {
+  flex: 1;
+  min-height: 42px;
+}
+
+.searchbar .btn {
+  min-height: 42px;
+  padding: 0 12px;
+}
+
+.account-name {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.account-sub {
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  color: var(--color-neutral-600);
+}
+
+.account-balance {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.triage {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: 0 0 10px;
+  padding: 12px 14px;
+  background: var(--color-accent-100);
+  border: 0;
+  border-left: 2px solid var(--color-accent);
+  cursor: pointer;
+  text-align: left;
+}
+
+.triage-wrap {
+  padding: 0 16px;
+}
+
+.triage:hover {
+  background: var(--color-accent-200);
+}
+
+.triage-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-accent-800);
+}
+
+.triage-sub {
+  font-size: 11px;
+  color: var(--color-accent-800);
+}
+
+.triage-arrow {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--color-accent);
+}
+
+.tx-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.tx-date {
+  flex: none;
+  width: 36px;
+  padding-top: 3px;
+  font-size: 11px;
+  color: var(--color-neutral-600);
+}
+
+.tx-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.tx-payee {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tx-tags {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.tx-tags .tag {
+  font-size: 10px;
+}
+
+.tx-account {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--color-neutral-600);
+}
+
+.tx-amount {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.tx-amount.income {
+  color: var(--color-accent-700);
+}
+
+.empty {
+  padding: 24px 16px;
+  font-size: 13px;
+  color: var(--color-neutral-700);
+}
+
+/* ── Buchung erfassen ───────────────────────────────────────────────────── */
+
+.steps {
+  display: flex;
+  border-bottom: 2px solid var(--color-divider);
+}
+
+.step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 12px;
+  border-right: 1px solid var(--color-divider);
+}
+
+.step:last-child {
+  border-right: 0;
+}
+
+.step-num {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--color-neutral-600);
+}
+
+.step-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-neutral-600);
+}
+
+.step.active {
+  background: var(--color-accent);
+}
+
+.step.active .step-num,
+.step.active .step-label {
+  color: var(--color-bg);
+}
+
+.amount-display {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 20px 16px 18px;
+  border-bottom: 2px solid var(--color-divider);
+}
+
+.amount-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.amount-value {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 46px;
+  line-height: 1;
+  letter-spacing: -0.035em;
+}
+
+.amount-value.income {
+  color: var(--color-accent-700);
+}
+
+.amount-currency {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 24px;
+  color: var(--color-neutral-500);
+}
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.keypad-key {
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 22px;
+  color: var(--color-text);
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--color-divider);
+  border-bottom: 1px solid var(--color-divider);
+  cursor: pointer;
+  user-select: none;
+}
+
+.keypad-key:nth-child(3n) {
+  border-right: 0;
+}
+
+.keypad-key:hover {
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
+}
+
+.keypad-key:active {
+  background: var(--color-accent-200);
+}
+
+.keypad-key:disabled {
+  cursor: default;
+  color: var(--color-neutral-500);
+}
+
+.keypad-key:disabled:hover {
+  background: transparent;
+}
+
+.picker {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.picker.last {
+  border-bottom-width: 2px;
+}
+
+.picker-rows {
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+}
+
+.picker-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 0;
+  border: 0;
+  border-bottom: 1px solid var(--color-divider);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.picker-row:hover {
+  background: color-mix(in srgb, var(--color-text) 4%, transparent);
+}
+
+.picker-row-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.picker-row-mark {
+  font-size: 12px;
+}
+
+.picker-row.active .picker-row-name,
+.picker-row.active .picker-row-mark {
+  color: var(--color-accent);
+}
+
+.note-field {
+  padding-top: 12px;
+}
+
+.note-field .input {
+  margin-top: 6px;
+  min-height: 42px;
+}
+
+.entry-actions .btn {
+  min-height: 50px;
+  font-size: 15px;
+}
+
+.entry-summary {
+  padding: 0 16px 20px;
+  font-size: 11px;
+  color: var(--color-neutral-600);
+}
+
+/* ── Budgets ────────────────────────────────────────────────────────────── */
+
+.budget-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 2px solid var(--color-divider);
+}
+
+.budget-summary-value {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 32px;
+  line-height: 1;
+}
+
+.budget-summary-note {
+  font-size: 12px;
+  color: var(--color-neutral-700);
+  padding-bottom: 4px;
+  text-align: right;
+}
+
+.budget-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.budget-row-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.budget-row-name {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.budget-row-figures {
+  font-size: 13px;
+}
+
+.budget-row-figures.over {
+  color: var(--color-accent);
+}
+
+.budget-row .bar {
+  height: 8px;
+}
+
+.budget-row-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--color-neutral-600);
+}
+
+.block-action {
+  padding: 16px 16px 24px;
+}
+
+.block-action .btn {
+  min-height: 48px;
+}
+
+/* ── Depot ──────────────────────────────────────────────────────────────── */
+
+.position-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.position-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.position-name {
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.position-value {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.position-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--color-neutral-600);
+}
+
+.position-gain {
+  font-weight: 600;
+  color: var(--color-accent-700);
+}
+
+.position-gain.negative {
+  color: var(--color-neutral-700);
+}
+
+/* Hinweis, wenn die Kurse aus dem Zwischenspeicher stammen. */
+.stale-note {
+  margin: 0 16px 12px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--color-accent-800);
+  background: var(--color-accent-100);
+  border-left: 2px solid var(--color-accent);
+}
+
+/* ── Mehr ───────────────────────────────────────────────────────────────── */
+
+.more-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 16px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.more-label {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.more-value {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--color-neutral-700);
+}
+
+/* ── Darlehen ───────────────────────────────────────────────────────────── */
+
+.loan-sub {
+  font-size: 13px;
+  color: var(--color-neutral-700);
+}
+
+.table-wrap {
+  padding: 0 16px 16px;
+  overflow-x: auto;
+}
+
+.table-wrap .table td {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.table-wrap .table td:not(:first-child),
+.table-wrap .table th:not(:first-child) {
+  text-align: right;
+}
+
+.table-wrap .btn-block {
+  min-height: 46px;
+}
+
+/* ── Importvorschau ─────────────────────────────────────────────────────── */
+
+.import-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 2px solid var(--color-divider);
+}
+
+.import-file {
+  font-size: 13px;
+  color: var(--color-neutral-700);
+}
+
+.import-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.import-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.import-label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.import-count {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 20px;
+}
+
+.import-label.muted,
+.import-count.muted {
+  color: var(--color-neutral-700);
+}
+
+.import-label.accent,
+.import-count.accent {
+  color: var(--color-accent);
+}
+
+/* ── Kategorie-Sheet ────────────────────────────────────────────────────── */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  border: 0;
+  padding: 0;
+  background: color-mix(in srgb, var(--color-neutral-900) 50%, transparent);
+  cursor: pointer;
+}
+
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 51;
+  display: flex;
+  flex-direction: column;
+  max-height: 82dvh;
+  background: var(--color-bg);
+  border-top: 2px solid var(--color-text);
+  box-shadow: var(--shadow-lg);
+  animation: sheet-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet {
+    animation: none;
+  }
+}
+
+/* Das Sheet bekommt beim Öffnen den Fokus, damit die Tastatur darin landet. Ein Rahmen
+   um die ganze Fläche wäre dabei nur Lärm — die Bedienelemente darin zeigen ihren eigenen. */
+.sheet:focus,
+.sheet:focus-visible {
+  outline: none;
+}
+
+.sheet-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 2px solid var(--color-divider);
+}
+
+.sheet-head .stack {
+  gap: 3px;
+}
+
+.sheet-payee {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 19px;
+  line-height: 1.1;
+}
+
+.sheet-amount {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 19px;
+}
+
+.sheet-body {
+  padding: 14px 16px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.sheet-body::-webkit-scrollbar {
+  display: none;
+}
+
+.sheet-body .chipcloud {
+  margin-top: 0;
+}
+
+.sheet-body .chip {
+  padding: 11px 13px;
+}
+
+.sheet-rule {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-divider);
+}
+
+.sheet-rule-text {
+  font-size: 12px;
+  color: var(--color-neutral-700);
+}
+
+.sheet-rule .radio {
+  margin-left: auto;
+}
+
+.sheet-foot {
+  display: flex;
+  gap: 10px;
+  padding: 12px 16px 18px;
+  border-top: 2px solid var(--color-divider);
+}
+
+.sheet-foot .btn {
+  min-height: 46px;
+  justify-content: flex-start;
+}
+
+.sheet-foot .btn-primary {
+  flex: 1;
+}
+
+/* ── Toast ──────────────────────────────────────────────────────────────── */
+
+.toast {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: 96px;
+  z-index: 60;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  max-width: 560px;
+  padding: 12px 14px;
+  color: var(--color-bg);
+  background: var(--color-text);
+  box-shadow: var(--shadow-lg);
+}
+
+.toast-message {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.toast-mark {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Ab Tablet: die Tab-Bar wird zur Seitennavigation, die Kacheln bekommen
+   mehr Spalten. Ab hier ist es eine Web-App, keine Handy-Ansicht mehr.
+   ══════════════════════════════════════════════════════════════════════ */
+
+@media (min-width: 768px) {
+  .app {
+    flex-direction: row;
+    height: 100dvh;
+  }
+
+  .tabbar {
+    display: none;
+  }
+
+  .sidenav {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    width: 240px;
+    border-right: 2px solid var(--color-divider);
+    overflow-y: auto;
+  }
+
+  .sidenav-brand {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 14px 16px 12px;
+    border-bottom: 2px solid var(--color-divider);
+  }
+
+  .sidenav-brand-name {
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 20px;
+    letter-spacing: -0.02em;
+  }
+
+  .sidenav-group {
+    padding: 14px 16px 6px;
+  }
+
+  .sidenav-item {
+    display: block;
+    width: 100%;
+    padding: 11px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text);
+    text-align: left;
+    text-decoration: none;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--color-divider);
+    cursor: pointer;
+  }
+
+  .sidenav-item:hover {
+    background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  }
+
+  .sidenav-item.active {
+    color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+  }
+
+  .app-content {
+    max-width: 1100px;
+  }
+
+  .asset-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .toast {
+    bottom: 24px;
+    left: 264px;
+    right: auto;
+    width: min(560px, calc(100vw - 288px));
+  }
+
+  .sheet {
+    left: 240px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .asset-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* ── Lade- und Fehlerzustände ───────────────────────────────────────────── */
+
+/* Vorläufig: der Handoff nennt Lade-, Leer- und Fehlerzustände ausdrücklich als
+   noch nicht entworfen. Bis dahin nur Text in der Sprache des Systems. */
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 24px 16px;
+  font-size: 13px;
+  color: var(--color-neutral-700);
+}
+
+.state-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}

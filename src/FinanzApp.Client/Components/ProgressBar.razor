@@ -1,0 +1,21 @@
+@* Fortschrittsbalken: Spur in Neutral, Füllung in Akzent oder Neutral-800.
+   Die Füllung wird bei über 100 % gekappt — die Überschreitung zeigt die Farbe. *@
+<div class="bar" style="height:@(Height)px" role="progressbar"
+     aria-valuenow="@Math.Round(Ratio * 100)" aria-valuemin="0" aria-valuemax="100" aria-label="@Label">
+    <div class="bar-fill @Variant" style="width:@Width"></div>
+</div>
+
+@code {
+    /// <summary>Auslastung 0…n. Werte über 1 werden für die Breite gekappt.</summary>
+    [Parameter, EditorRequired] public decimal Ratio { get; set; }
+
+    [Parameter] public int Height { get; set; } = 4;
+
+    /// <summary><c>neutral</c> für Budgets im Rahmen, sonst Akzent.</summary>
+    [Parameter] public string? Variant { get; set; }
+
+    [Parameter] public string Label { get; set; } = "Auslastung";
+
+    private string Width => Math.Clamp(Math.Round(Ratio * 100, 1), 0, 100)
+        .ToString(System.Globalization.CultureInfo.InvariantCulture) + "%";
+}

@@ -1,0 +1,257 @@
+@page "/konten"
+@inherits AppPage
+
+<PageTitle>Konten &amp; Buchungen — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    <div class="searchbar">
+        <input class="input" type="search" placeholder="Buchungen durchsuchen" aria-label="Buchungen durchsuchen"
+               value="@search" @oninput="OnSearchInput" />
+        <button type="button" class="btn btn-secondary" @onclick="ClearSearch">Reset</button>
+    </div>
+
+    @foreach (var account in accounts)
+    {
+        <div class="row">
+            <div class="stack">
+                <span class="account-name">@account.Name</span>
+                <span class="account-sub">@AccountSubtitle(account)</span>
+            </div>
+            <div class="stack-end">
+                <span class="account-balance num">@State.Euro(account.Balance)</span>
+                <span class="meta">@AsOfLabel(account.BalanceAsOf)</span>
+            </div>
+        </div>
+    }
+
+    <div class="list-head">
+        <span class="label-strong">Buchungen</span>
+        <span class="list-count num">@list.FilteredCount von @list.TotalCount</span>
+    </div>
+
+    @if (list.UncategorizedCount > 0)
+    {
+        <div class="triage-wrap">
+            <button type="button" class="triage" @onclick="StartTriage">
+                <span class="stack">
+                    <span class="triage-title">@list.UncategorizedCount @(list.UncategorizedCount == 1 ? "Buchung" : "Buchungen") ohne Kategorie</span>
+                    <span class="triage-sub">Jetzt zuordnen</span>
+                </span>
+                <span class="triage-arrow" aria-hidden="true">→</span>
+            </button>
+        </div>
+    }
+
+    @if (list.Items.Count == 0)
+    {
+        <div class="state">Keine Buchung passt zur Suche.</div>
+    }
+
+    @foreach (var transaction in list.Items)
+    {
+        <button type="button" class="tap tx-row" @onclick="() => OpenSheet(transaction)">
+            <span class="tx-date num">@GermanFormat.DateShort(transaction.BookingDate)</span>
+            <span class="tx-main">
+                <span class="tx-payee">@transaction.Payee</span>
+                <span class="tx-tags">
+                    <span class="tag @TagClass(transaction)">@TagLabel(transaction)</span>
+                    <span class="tx-account">@transaction.AccountShortName</span>
+                </span>
+            </span>
+            <span class="tx-amount num @(transaction.Amount > 0 ? "income" : null)">
+                @State.Euro(transaction.Amount, withPlusSign: true)
+            </span>
+        </button>
+    }
+
+    <div class="spacer"></div>
+</AsyncView>
+
+@if (sheetTransaction is { } sheet)
+{
+    <CategorySheet Transaction="sheet"
+                   Categories="SheetCategories(sheet)"
+                   OnPickCategory="PickCategory"
+                   OnPickTransfer="PickTransfer"
+                   OnConfirm="ConfirmSheet"
+                   OnClose="CloseSheet"
+                   OnSplit="@(() => Toasts.Show("Split-Buchung folgt"))" />
+}
+
+@code {
+    private static readonly TransactionPageDto Empty = new()
+    {
+        Items = [], FilteredCount = 0, TotalCount = 0, UncategorizedCount = 0,
+    };
+
+    private TransactionPageDto list = Empty;
+    private IReadOnlyList<AccountDto> accounts = [];
+    private IReadOnlyList<CategoryDto> categories = [];
+    private TransactionDto? sheetTransaction;
+
+    private string search = string.Empty;
+    private CancellationTokenSource? searchDebounce;
+
+    protected override async Task LoadAsync()
+    {
+        accounts = await Api.GetAccountsAsync();
+        categories = await Api.GetCategoriesAsync();
+        list = await Api.GetTransactionsAsync(search);
+    }
+
+    /// <summary>
+    /// Die Suche läuft auf dem Server. Ein kurzer Aufschub bündelt die Tastenanschläge zu
+    /// einer Anfrage, statt bei jedem Zeichen eine zu stellen.
+    /// </summary>
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        search = e.Value?.ToString() ?? string.Empty;
+
+        searchDebounce?.Cancel();
+        searchDebounce?.Dispose();
+        searchDebounce = new CancellationTokenSource();
+        var token = searchDebounce.Token;
+
+        try
+        {
+            await Task.Delay(250, token);
+            list = await Api.GetTransactionsAsync(search, token);
+            StateHasChanged();
+        }
+        catch (OperationCanceledException)
+        {
+            // Ein neuer Tastenanschlag hat diese Anfrage überholt.
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message);
+        }
+    }
+
+    private async Task ClearSearch()
+    {
+        search = string.Empty;
+        searchDebounce?.Cancel();
+        await RunAsync(async () => list = await Api.GetTransactionsAsync());
+    }
+
+    private void OpenSheet(TransactionDto transaction) => sheetTransaction = transaction;
+
+    private void CloseSheet() => sheetTransaction = null;
+
+    private void StartTriage()
+        => sheetTransaction = list.Items.FirstOrDefault(t => t.IsUncategorized)
+                              ?? list.Items.FirstOrDefault();
+
+    /// <summary>Kategorien passend zum Vorzeichen der Buchung.</summary>
+    private IReadOnlyList<CategoryDto> SheetCategories(TransactionDto transaction)
+    {
+        var direction = transaction.Amount > 0 ? CategoryDirection.Income : CategoryDirection.Expense;
+        return [.. categories.Where(c => c.Direction == direction)];
+    }
+
+    private Task PickCategory(CategoryDto category) => RunAsync(async () =>
+    {
+        var updated = await Api.AssignCategoryAsync(
+            sheetTransaction!.Id, new AssignCategoryRequest { CategoryId = category.Id });
+
+        Apply(updated);
+        Toasts.Show(category.Name + " zugeordnet");
+    });
+
+    private Task PickTransfer() => RunAsync(async () =>
+    {
+        var updated = await Api.AssignCategoryAsync(
+            sheetTransaction!.Id, new AssignCategoryRequest { MarkAsTransfer = true });
+
+        Apply(updated);
+        Toasts.Show("Als Umbuchung markiert");
+    });
+
+    /// <summary>„Fertig“ — legt bei Bedarf noch die Regel an und schließt das Sheet.</summary>
+    private async Task ConfirmSheet(bool rememberRule)
+    {
+        var transaction = sheetTransaction;
+        if (rememberRule && transaction?.CategoryId is { } categoryId)
+        {
+            await RunAsync(async () =>
+            {
+                var updated = await Api.AssignCategoryAsync(
+                    transaction.Id, new AssignCategoryRequest { CategoryId = categoryId, CreateRule = true });
+
+                Apply(updated);
+                Toasts.Show("Regel für „" + Categorization.RulePatternFor(transaction.Payee) + "“ gemerkt");
+            });
+        }
+
+        CloseSheet();
+    }
+
+    /// <summary>Übernimmt die geänderte Buchung in Liste und Sheet, ohne alles neu zu laden.</summary>
+    private void Apply(TransactionDto updated)
+    {
+        // Der Zähler gilt für alle Buchungen, nicht nur für die gerade sichtbaren. Er wird
+        // deshalb um die Änderung fortgeschrieben statt aus der gefilterten Liste gezählt.
+        var before = list.Items.FirstOrDefault(t => t.Id == updated.Id)?.IsUncategorized ?? false;
+        var delta = (updated.IsUncategorized ? 1 : 0) - (before ? 1 : 0);
+
+        list = list with
+        {
+            Items = [.. list.Items.Select(t => t.Id == updated.Id ? updated : t)],
+            UncategorizedCount = Math.Max(0, list.UncategorizedCount + delta),
+        };
+
+        sheetTransaction = updated;
+    }
+
+    private static string AccountSubtitle(AccountDto account)
+    {
+        if (account.Iban is { Length: > 0 } iban)
+        {
+            return iban;
+        }
+
+        var parts = new List<string>();
+        if (account.InterestRatePercent is { } rate)
+        {
+            parts.Add(GermanFormat.Percent(rate, 2));
+        }
+
+        if (account.InterestYearToDate is { } interest)
+        {
+            parts.Add("Zinsen " + GermanFormat.Euro(interest) + " YTD");
+        }
+
+        return string.Join(" · ", parts);
+    }
+
+    /// <summary>„heute“, „gestern“ oder das Datum — die Aktualität des Saldos.</summary>
+    private static string AsOfLabel(DateOnly asOf)
+    {
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        return asOf == today ? "heute"
+            : asOf == today.AddDays(-1) ? "gestern"
+            : GermanFormat.DateShort(asOf) + ".";
+    }
+
+    private static string TagClass(TransactionDto transaction) => transaction switch
+    {
+        { Kind: TransactionKind.Transfer } => "tag-outline",
+        { CategoryId: not null } => "tag-neutral",
+        _ => "tag-accent",
+    };
+
+    private static string TagLabel(TransactionDto transaction) => transaction switch
+    {
+        { Kind: TransactionKind.Transfer } => "Umbuchung",
+        { CategoryName: { Length: > 0 } name } => name,
+        _ => "Nicht zugeordnet",
+    };
+
+    public override void Dispose()
+    {
+        searchDebounce?.Cancel();
+        searchDebounce?.Dispose();
+        base.Dispose();
+    }
+}

@@ -1,0 +1,29 @@
+@* Ab Tabletbreite ersetzt diese Spalte die Tab-Bar. Unterhalb davon blendet
+   app.css sie aus — der Handoff verlangt für schmale Geräte ausdrücklich Tabs. *@
+<nav class="sidenav" aria-label="Bereiche">
+    <div class="sidenav-brand">
+        <span class="kicker">Vermögen &amp; Haushalt</span>
+        <span class="sidenav-brand-name">FinanzApp</span>
+    </div>
+
+    @foreach (var screen in ScreenCatalog.Tabs)
+    {
+        <a href="@screen.Route" class="sidenav-item @(screen == Current ? "active" : null)"
+           aria-current="@(screen == Current ? "page" : null)">@screen.Title</a>
+    }
+
+    <div class="sidenav-group">
+        <span class="label-strong">Weitere Bereiche</span>
+    </div>
+
+    @foreach (var screen in ScreenCatalog.Secondary)
+    {
+        <a href="@screen.Route" class="sidenav-item @(screen == Current ? "active" : null)"
+           aria-current="@(screen == Current ? "page" : null)">@screen.Title</a>
+    }
+</nav>
+
+@code {
+    [Parameter, EditorRequired]
+    public Screen Current { get; set; } = default!;
+}

@@ -1,0 +1,92 @@
+@page "/import"
+@inherits AppPage
+
+<PageTitle>Importvorschau — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (data is { } preview)
+    {
+        <div class="import-head">
+            <span class="import-file num">
+                @preview.FileName · @preview.BankName · @preview.RecordCount Datensätze
+            </span>
+            <div class="import-tags">
+                <span class="tag tag-neutral">@preview.Format</span>
+                <span class="tag tag-outline">Profil: @preview.ProfileName</span>
+            </div>
+        </div>
+
+        <div class="import-row">
+            <div class="stack">
+                <span class="import-label">Neue Buchungen</span>
+                <span class="meta">werden importiert</span>
+            </div>
+            <span class="import-count num">@preview.NewCount</span>
+        </div>
+
+        <div class="import-row">
+            <div class="stack">
+                <span class="import-label muted">Bereits vorhanden</span>
+                <span class="meta">per Importreferenz erkannt</span>
+            </div>
+            <span class="import-count muted num">@preview.ExistingCount</span>
+        </div>
+
+        <div class="import-row">
+            <div class="stack">
+                <span class="import-label accent">Mögliche Duplikate</span>
+                <span class="meta">Prüfung empfohlen, werden nicht übernommen</span>
+            </div>
+            <span class="import-count accent num">@preview.DuplicateCount</span>
+        </div>
+
+        <div class="import-row">
+            <div class="stack">
+                <span class="import-label muted">Fehlerhafte Sätze</span>
+                <span class="meta">Betrag nicht lesbar</span>
+            </div>
+            <span class="import-count muted num">@preview.ErrorCount</span>
+        </div>
+
+        <div class="actions">
+            <button type="button" class="btn btn-primary" disabled="@(running || preview.NewCount == 0)"
+                    @onclick="RunImport">
+                @preview.NewCount @(preview.NewCount == 1 ? "Buchung" : "Buchungen") importieren
+            </button>
+            <button type="button" class="btn btn-secondary"
+                    @onclick="@(() => Navigation.NavigateTo("/konten"))">Abbrechen</button>
+        </div>
+    }
+</AsyncView>
+
+@code {
+    private ImportPreviewDto? data;
+    private bool running;
+
+    protected override async Task LoadAsync() => data = await Api.GetImportPreviewAsync();
+
+    private async Task RunImport()
+    {
+        if (data is not { } preview)
+        {
+            return;
+        }
+
+        running = true;
+        try
+        {
+            var result = await Api.CommitImportAsync(preview.Id);
+            Toasts.Show(result.ImportedCount
+                        + (result.ImportedCount == 1 ? " Buchung importiert" : " Buchungen importiert"));
+            Navigation.NavigateTo("/konten");
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message);
+        }
+        finally
+        {
+            running = false;
+        }
+    }
+}

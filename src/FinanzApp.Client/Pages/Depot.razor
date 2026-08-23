@@ -1,0 +1,72 @@
+@page "/depot"
+@inherits AppPage
+
+<PageTitle>Depot — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (data is { } portfolio)
+    {
+        <section class="hero">
+            <span class="label-muted">Depotwert · @portfolio.DepotName</span>
+            <span class="hero-value medium num">@State.Euro(portfolio.TotalValue)</span>
+            <div class="hero-deltas">
+                <span class="hero-delta-primary num">
+                    @State.Euro(portfolio.Gain, withPlusSign: true) G/V
+                </span>
+                <span class="hero-delta-secondary num">
+                    @GermanFormat.Percent(portfolio.GainPercent, 1, withPlusSign: true) ·
+                    TTWROR @GermanFormat.Percent(portfolio.TwrorPercent, 1) p. a.
+                </span>
+            </div>
+        </section>
+
+        @if (portfolio.PricesStale)
+        {
+            <p class="stale-note">
+                Der Kursanbieter ist nicht erreichbar. Angezeigt sind die zuletzt bekannten Kurse.
+            </p>
+        }
+
+        <section class="section">
+            <div class="section-head">
+                <span class="label-strong">Depotentwicklung</span>
+                @* Der Kursstand bleibt sichtbar: die Kurse kommen aus einem austauschbaren
+                   Anbieter und können veralten. *@
+                <span class="meta num">Kurse: @GermanFormat.DateTime(portfolio.PricesAsOf)</span>
+            </div>
+            <Sparkline Values="portfolio.History" Height="84" Top="12" Bottom="70"
+                       Label="Depotentwicklung der letzten Monate" />
+        </section>
+
+        <div class="section" style="padding-bottom:4px">
+            <span class="label-strong">Positionen</span>
+        </div>
+
+        @foreach (var position in portfolio.Positions)
+        {
+            <div class="position-row">
+                <div class="position-line">
+                    <span class="position-name">@position.Name</span>
+                    <span class="position-value num">@State.Euro(position.Value)</span>
+                </div>
+                <div class="position-meta">
+                    <span class="num">
+                        @GermanFormat.Quantity(position.Quantity) St. ·
+                        @State.Euro(position.Price) · @position.Isin
+                    </span>
+                    <span class="position-gain num @(position.GainPercent < 0 ? "negative" : null)">
+                        @GermanFormat.Percent(position.GainPercent, 1, withPlusSign: true)
+                    </span>
+                </div>
+            </div>
+        }
+
+        <div class="spacer"></div>
+    }
+</AsyncView>
+
+@code {
+    private PortfolioDto? data;
+
+    protected override async Task LoadAsync() => data = await Api.GetPortfolioAsync();
+}

@@ -1,0 +1,89 @@
+@*
+    Bottom-Sheet zum Zuordnen einer Kategorie. Ein Tipp auf einen Chip ordnet sofort zu und
+    lässt das Sheet offen — beim Aufräumen mehrerer Buchungen ist das der schnellere Weg.
+    Die Regel auf dem Empfänger-Präfix entsteht erst mit „Fertig“.
+*@
+<button type="button" class="backdrop" aria-label="Schließen" @onclick="OnClose"></button>
+
+<div @ref="sheet" class="sheet" role="dialog" aria-modal="true" aria-label="Kategorie zuordnen"
+     tabindex="-1" @onkeydown="OnKeyDown">
+    <div class="sheet-head">
+        <div class="stack">
+            <span class="kicker">Kategorie zuordnen</span>
+            <span class="sheet-payee">@Transaction.Payee</span>
+            <span class="meta">@GermanFormat.Date(Transaction.BookingDate) · @Transaction.AccountName</span>
+        </div>
+        <span class="sheet-amount num">@State.Euro(Transaction.Amount, withPlusSign: true)</span>
+    </div>
+
+    <div class="sheet-body">
+        <div class="chipcloud">
+            @foreach (var category in Categories)
+            {
+                <button type="button"
+                        class="chip @(Transaction.CategoryId == category.Id ? "active" : null)"
+                        @onclick="() => OnPickCategory.InvokeAsync(category)">@category.Name</button>
+            }
+
+            <button type="button"
+                    class="chip @(Transaction.Kind == TransactionKind.Transfer ? "active" : null)"
+                    @onclick="OnPickTransfer">Umbuchung</button>
+        </div>
+
+        <div class="sheet-rule">
+            <span class="sheet-rule-text">Regel für „@rulePattern“ merken</span>
+            <label class="radio">
+                <input type="checkbox" checked="@rememberRule" @onchange="ToggleRule" />
+                <span class="dot"></span>
+            </label>
+        </div>
+    </div>
+
+    <div class="sheet-foot">
+        <button type="button" class="btn btn-primary" @onclick="Confirm">Fertig</button>
+        <button type="button" class="btn btn-secondary" @onclick="OnSplit">Splitten</button>
+    </div>
+</div>
+
+@code {
+    [Inject] private AppState State { get; set; } = default!;
+
+    [Parameter, EditorRequired] public TransactionDto Transaction { get; set; } = default!;
+
+    [Parameter, EditorRequired] public IReadOnlyList<CategoryDto> Categories { get; set; } = [];
+
+    [Parameter] public EventCallback<CategoryDto> OnPickCategory { get; set; }
+
+    [Parameter] public EventCallback OnPickTransfer { get; set; }
+
+    /// <summary>Wird mit „Fertig“ ausgelöst; der Wert sagt, ob eine Regel angelegt werden soll.</summary>
+    [Parameter] public EventCallback<bool> OnConfirm { get; set; }
+
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    [Parameter] public EventCallback OnSplit { get; set; }
+
+    private bool rememberRule = true;
+    private string rulePattern = string.Empty;
+    private ElementReference sheet;
+
+    protected override void OnParametersSet()
+        => rulePattern = Categorization.RulePatternFor(Transaction.Payee);
+
+    /// <summary>Beim Öffnen wandert der Fokus in das Sheet — sonst bliebe er auf der Zeile
+    /// dahinter, und die Tastatur führte an der Auswahl vorbei.</summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await sheet.FocusAsync();
+        }
+    }
+
+    private Task OnKeyDown(KeyboardEventArgs e)
+        => e.Key == "Escape" ? OnClose.InvokeAsync() : Task.CompletedTask;
+
+    private void ToggleRule(ChangeEventArgs e) => rememberRule = e.Value is true;
+
+    private Task Confirm() => OnConfirm.InvokeAsync(rememberRule);
+}

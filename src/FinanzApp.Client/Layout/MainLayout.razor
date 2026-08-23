@@ -1,0 +1,62 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject NavigationManager Navigation
+@inject NavigationHistory History
+@inject AppState State
+
+<div class="app">
+    <SideNav Current="@screen" />
+
+    <div class="app-body">
+        <header class="app-header">
+            @if (screen.IsDetail)
+            {
+                <button type="button" class="header-action" @onclick="History.GoBack">Zurück</button>
+            }
+
+            <div class="app-header-titles">
+                <span class="kicker">@screen.Kicker</span>
+                <h1 class="app-title">@screen.Title</h1>
+            </div>
+
+            <button type="button" class="header-action" @onclick="State.ToggleAmounts">@State.ToggleLabel</button>
+        </header>
+
+        <main class="app-main">
+            <div class="app-content">
+                @Body
+            </div>
+        </main>
+
+        <TabBar Current="@screen" />
+    </div>
+</div>
+
+<Toast />
+
+@code {
+    private Screen screen = ScreenCatalog.All[0];
+
+    protected override void OnInitialized()
+    {
+        UpdateScreen();
+        Navigation.LocationChanged += OnLocationChanged;
+        State.Changed += OnStateChanged;
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        UpdateScreen();
+        StateHasChanged();
+    }
+
+    private void OnStateChanged() => StateHasChanged();
+
+    private void UpdateScreen() => screen = ScreenCatalog.Resolve(Navigation.ToBaseRelativePath(Navigation.Uri));
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+        State.Changed -= OnStateChanged;
+    }
+}

@@ -1,0 +1,35 @@
+@*
+    Hülle für Lade- und Fehlerzustand einer Seite.
+
+    Der Handoff nennt Ladezustände, leere Listen und Fehlerdialoge ausdrücklich als noch nicht
+    entworfen. Bis dahin bleibt es bei einer Textzeile in der Sprache des Systems, statt hier
+    etwas zu erfinden, das später wieder weichen muss.
+*@
+@if (Error is not null)
+{
+    <div class="state" role="alert">
+        <span class="state-title">@Error</span>
+        @if (Retry.HasDelegate)
+        {
+            <button type="button" class="btn btn-secondary" @onclick="Retry">Erneut versuchen</button>
+        }
+    </div>
+}
+else if (Loading)
+{
+    <div class="state" aria-busy="true">Wird geladen …</div>
+}
+else
+{
+    @ChildContent
+}
+
+@code {
+    [Parameter] public bool Loading { get; set; }
+
+    [Parameter] public string? Error { get; set; }
+
+    [Parameter] public EventCallback Retry { get; set; }
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

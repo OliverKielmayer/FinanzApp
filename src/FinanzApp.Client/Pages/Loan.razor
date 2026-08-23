@@ -1,0 +1,61 @@
+@page "/darlehen"
+@inherits AppPage
+
+<PageTitle>Darlehen — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (data is { } loan)
+    {
+        <section class="hero">
+            <span class="label-muted">Restschuld · @loan.Lender</span>
+            <span class="hero-value medium debt num">@State.Euro(loan.RemainingDebt)</span>
+            <span class="loan-sub num">
+                @GermanFormat.Percent(loan.InterestRatePercent, 2) Sollzins ·
+                Rate @State.Euro0(loan.Installment) ·
+                nächste Zahlung @GermanFormat.Date(loan.NextPaymentDate)
+            </span>
+        </section>
+
+        <div class="section" style="padding-bottom:4px">
+            <span class="label-strong">Tilgungsplan</span>
+        </div>
+
+        <div class="table-wrap">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">Monat</th>
+                        <th scope="col">Zins</th>
+                        <th scope="col">Tilgung</th>
+                        <th scope="col">Rest</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var entry in data.Schedule)
+                    {
+                        <tr>
+                            <td>@GermanFormat.MonthYear(entry.Month)</td>
+                            <td>@State.Euro0(entry.Interest)</td>
+                            <td>@State.Euro0(entry.Principal)</td>
+                            <td>@State.Euro0(entry.RemainingDebt)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            <button type="button" class="btn btn-secondary btn-block"
+                    @onclick="@(() => Toasts.Show("Sondertilgung folgt"))">Sondertilgung planen</button>
+        </div>
+    }
+</AsyncView>
+
+@code {
+    /// <summary>Optional. Ohne Angabe wird das erste Darlehen gezeigt.</summary>
+    [SupplyParameterFromQuery(Name = "id")]
+    public int? LoanId { get; set; }
+
+    private LoanDto? data;
+
+    protected override async Task LoadAsync()
+        => data = LoanId is { } id ? await Api.GetLoanAsync(id) : await Api.GetPrimaryLoanAsync();
+}

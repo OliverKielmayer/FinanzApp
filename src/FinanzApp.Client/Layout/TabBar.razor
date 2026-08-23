@@ -1,0 +1,15 @@
+<nav class="tabbar" aria-label="Hauptbereiche">
+    @foreach (var tab in ScreenCatalog.Tabs)
+    {
+        <a href="@tab.Route" class="tabbar-item @(tab == Current ? "active" : null)"
+           aria-current="@(tab == Current ? "page" : null)">
+            <span class="tabbar-mark"></span>
+            <span class="tabbar-label">@tab.TabLabel</span>
+        </a>
+    }
+</nav>
+
+@code {
+    [Parameter, EditorRequired]
+    public Screen Current { get; set; } = default!;
+}
