@@ -149,10 +149,11 @@ var app = builder.Build();
 await using (var scope = app.Services.CreateAsyncScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<FinanzAppDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Schema");
 
     // Migrationen statt EnsureCreated: das Schema wächst mit den Erweiterungen, und ein
     // bestehender Datenbestand überlebt eine neue Fassung.
-    await db.Database.MigrateAsync();
+    await SchemaStartup.MigrateAsync(db, logger);
     await SeedData.EnsureSeededAsync(
         db,
         scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>(),

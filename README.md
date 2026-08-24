@@ -39,6 +39,11 @@ Dabei entstehen unter `src/FinanzApp.Api/App_Data/Dokumente` echte Platzhalterda
 lässt sich die Pfadauflösung an etwas prüfen. Weder Datenbank noch Dokumentordner sind versioniert;
 beide zu löschen stellt den Ausgangszustand wieder her.
 
+> **Datenbank aus einer älteren Fassung?** Frühere Stände haben das Schema mit `EnsureCreated`
+> angelegt; solche Dateien haben alle Tabellen, aber keine Migrationshistorie. Die Anwendung
+> erkennt das beim Start und nennt die Datei, die zu löschen ist. Übernehmen lässt sich so eine
+> Datenbank nicht — je nach Alter fehlen ihr ganze Tabellen.
+
 ```bash
 dotnet test
 ```
@@ -292,7 +297,7 @@ Inhaber oder Mitglied.
 
 ## Tests
 
-`dotnet test` — 45 Tests. Abgedeckt sind die Stellen, an denen ein Fehler teuer wäre:
+`dotnet test` — 48 Tests. Abgedeckt sind die Stellen, an denen ein Fehler teuer wäre:
 
 - **Eigenanteil zählt nicht als offene Forderung**, Teilerstattung, abgelehnter Vorgang,
   Zahlungsvorschlag mit bestem Treffer.
@@ -301,6 +306,8 @@ Inhaber oder Mitglied.
 - **Benutzerisolierung** über alle neuen Entitäten, auch der Fall „kein Haushalt gesetzt“.
 - **Rechenwege**: Tilgungsplan, Budgetzeiträume, abgeleitete Kündigungsfristen, Beitragsumrechnung,
   Regelpräfix, deutsche Formatierung, Passwortbewertung.
+- **Start gegen eine Datenbank ohne Migrationshistorie** — der Fall, der sonst in einer
+  unverständlichen SQLite-Meldung endet.
 
 Der erste Testlauf hat dabei eine echte Lücke gefunden: der Haushalts-Stempel griff nur im
 asynchronen `SaveChanges`.
@@ -327,6 +334,9 @@ Technisch offen:
   ein Dateisystem-Backup. Eine Prüffunktion „sind alle referenzierten Dateien vorhanden?“ ist
   vorgesehen; der Zustand „Datei nicht gefunden“ ist dafür bereits gestaltet.
 - **Jede Anfrage prüft die Sitzung in der Datenbank** — der Preis für sofort wirksames Abmelden.
+- **Der Start prüft das Schema, bevor er migriert.** Eine Datenbank ohne Migrationshistorie wird
+  nicht stillschweigend übernommen und auch nicht gelöscht — die Anwendung sagt, was zu tun ist,
+  und überlässt die Entscheidung dem Menschen.
 - **Die Buchungssuche filtert im Speicher.** Bei Jahren an Buchungen gehört sie in SQL.
 
 ## Handoffs
