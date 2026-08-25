@@ -3,7 +3,7 @@
 Der Reihe nach: anmelden, sich zurechtfinden, die täglichen Handgriffe. Alles Technische —
 Einrichtung, Aufbau, Konfiguration — steht in der [README](../README.md).
 
-Die App läuft unter <http://localhost:5011>.
+Die App läuft unter <http://localhost:5111>.
 
 ## 1. Anmelden
 

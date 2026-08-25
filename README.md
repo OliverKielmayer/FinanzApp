@@ -35,7 +35,7 @@ und damit weder CORS noch ein Token im Browserspeicher.
 dotnet run --project src/FinanzApp.Api
 ```
 
-Danach <http://localhost:5011> öffnen. Beim ersten Start legt die Anwendung
+Danach <http://localhost:5111> öffnen. Beim ersten Start legt die Anwendung
 `src/FinanzApp.Api/finanzapp.db` an, wendet die Migrationen an und füllt sie mit den Beispieldaten.
 Dabei entstehen unter `src/FinanzApp.Api/App_Data/Dokumente` echte Platzhalterdateien — nur so
 lässt sich die Pfadauflösung an etwas prüfen. Weder Datenbank noch Dokumentordner sind versioniert;
