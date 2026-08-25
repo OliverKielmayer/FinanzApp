@@ -1380,6 +1380,18 @@ body {
   }
 }
 
+/* ── Dokumente: Master und Detail ───────────────────────────────────────── */
+
+/* Auf dem Telefon ist immer nur eine der beiden Spalten da — welche, sagt die Route. */
+.doc-split.list-only .doc-detail,
+.doc-split.detail-open .doc-master {
+  display: none;
+}
+
+.doc-row.open {
+  background: var(--color-accent-100);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sheet {
     animation: none;
@@ -1745,6 +1757,34 @@ body {
     overflow-x: visible;
   }
 
+  /* Ab Tablet steht die Vorschau neben der Liste, statt sie zu ersetzen. */
+  .doc-split {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    align-items: start;
+  }
+
+  .doc-split.list-only .doc-detail,
+  .doc-split.detail-open .doc-master {
+    display: block;
+  }
+
+  .doc-detail {
+    border-left: 1px solid var(--color-text);
+    min-height: 100%;
+  }
+
+  /* Zweispaltig: Beleg links, Inhalt rechts (Handoff v4, Abschnitt 2). */
+  .scan-split {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) 1.4fr;
+    align-items: start;
+  }
+
+  .scan-split > .scan-source {
+    border-right: 1px solid var(--color-text);
+  }
+
   /* Chart und Bilanz nebeneinander statt untereinander. */
   .chart-balance {
     display: grid;
@@ -1780,6 +1820,10 @@ body {
 
   .asset-grid {
     grid-template-columns: repeat(4, 1fr);
+  }
+
+  .doc-split {
+    grid-template-columns: 1fr 380px;
   }
 
   .sheet {

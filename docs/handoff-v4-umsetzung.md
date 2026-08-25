@@ -4,7 +4,7 @@ Arbeitsliste zu [`docs/design-handoff-v4/handoff.md`](design-handoff-v4/handoff.
 aus Abschnitt 11 des Handoffs — sie ist nicht beliebig: Schritt 1 verschiebt jede Maßzahl, alles
 danach würde sonst zweimal gebaut.
 
-Stand 25.08.2026: **Schritte 1 bis 5 umgesetzt**, Rest offen.
+Stand 25.08.2026: **Schritte 1 bis 6 umgesetzt**, Rest offen.
 
 Entschieden: beim Umbau des Datenmodells in Schritt 3 wird **nicht migriert**, sondern neu
 aufgesetzt — bestehende `finanzapp.db` löschen. Damit muss die Schema-Prüfung beim Start
@@ -26,7 +26,7 @@ weiter. Die beiden Ordner bleiben deshalb liegen.
 | ~~3~~ | ~~Vorsorge / Absicherung trennen~~ | **erledigt** | mittel |
 | ~~4~~ | ~~Anlege-Flows~~ | **erledigt** für 7 Typen; Fahrzeug kommt mit Schritt 8 | groß |
 | ~~5~~ | ~~Buchungstabelle, Filter, Summen, Leerzustände~~ | **erledigt** | mittel |
-| 6 | Dokumente Master/Detail, Scan & PKV zweispaltig | `Documents`, `DocumentDetail`, `ScanBill`, `MedicalBillDetail` | mittel |
+| ~~6~~ | ~~Dokumente Master/Detail, Scan & PKV zweispaltig~~ | **erledigt** | mittel |
 | 7 | Police-Import hinter der Analyse-Schnittstelle | `IBillTextExtractor` erweitern, Import-Panel, Herkunft je Feld | mittel |
 | 8 | Fahrzeuge, Scaneingang | 2 neue Entitäten + Bereiche | mittel |
 
@@ -275,3 +275,24 @@ Abschnitt 10 verlangt „Bleibt übrig“ zuoberst und das Nettovermögen darunt
 bereits so, seit der Erweiterung. Kein Handgriff nötig.
 
 79 Tests, davon 9 neue zur Stapelvergabe, den Summen und den Filtern.
+
+## Was Schritt 6 gebracht hat
+
+**Dokumente als Master und Detail, ohne zwei Navigationen.** Aus der Detailseite wurde die
+Komponente `DocumentPane`; die Route `/dokumente/{id}` liegt jetzt auf derselben Seite wie die
+Liste. Auf dem Telefon zeigt die CSS je nach Route nur eine Spalte, ab Tablet beide nebeneinander
+— 620 px Liste plus 300 px Vorschau, ab Desktop 380 px. Die offene Zeile ist markiert, und die
+leere Vorschau sagt, was zu tun ist, statt eine unerklärte Fläche zu sein.
+
+Nachgemessen bei 1280 px: Liste 620, Vorschau 380, beide sichtbar; bei 390 px nur eine von beiden.
+
+**Scan und PKV zweispaltig.** Links der Beleg mit seinen Zahlen und Dokumenten, rechts der
+Vorgang — Verlauf, nächster Schritt, Zahlungszuordnung. Der Blick springt damit nicht mehr
+zwischen zwei Bildschirmen hin und her.
+
+### Ein Fehler, der beinahe durchgegangen wäre
+
+Die Vorschauspalte blieb zunächst leer, obwohl das Raster stimmte: der Grundzustand
+(`display: none` für die jeweils andere Spalte) stand in `app.css` **hinter** der Media Query und
+gewann deshalb bei gleicher Spezifität. Behoben durch Umsortieren, nicht durch
+`!important` — die Reihenfolge war das Problem, nicht die Regel.

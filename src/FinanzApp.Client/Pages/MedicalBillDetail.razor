@@ -13,6 +13,11 @@
             <span class="loan-sub">@bill.Provider · @GermanFormat.Date(bill.BillDate)</span>
         </section>
 
+        @* Ab Tablet zweispaltig: links die Rechnung mit ihren Belegen, rechts der Vorgang —
+           Verlauf, nächster Schritt, Zahlungszuordnung (Handoff v4, Abschnitt 2). *@
+        <div class="scan-split">
+        <div class="scan-source">
+
         @* Die Dreiteilung ist der Kern: Rechnung, Erstattung, Eigenanteil. *@
         <div class="bill-split">
             <div class="bill-split-cell">
@@ -45,6 +50,29 @@
                 </div>
             </AuthorizeView>
         }
+
+
+        @if (bill.Documents.Count > 0)
+        {
+            <div class="list-head">
+                <span class="label-strong">Dokumente</span>
+                <span class="list-count num">@bill.Documents.Count</span>
+            </div>
+
+            @foreach (var document in bill.Documents)
+            {
+                <button type="button" class="tap doc-row @(document.FileExists ? null : "missing")"
+                        @onclick="@(() => Navigation.NavigateTo($"/dokumente/{document.Id}"))">
+                    <span class="stack">
+                        <span class="doc-name">@document.FileName</span>
+                        <span class="doc-meta">@(document.FileExists ? document.TypeName : "Datei nicht gefunden")</span>
+                    </span>
+                </button>
+            }
+        }
+        </div>
+
+        <div class="scan-fields">
 
         <div class="section" style="padding-bottom:4px">
             <span class="label-strong">Verlauf</span>
@@ -116,24 +144,8 @@
             </div>
         }
 
-        @if (bill.Documents.Count > 0)
-        {
-            <div class="list-head">
-                <span class="label-strong">Dokumente</span>
-                <span class="list-count num">@bill.Documents.Count</span>
-            </div>
-
-            @foreach (var document in bill.Documents)
-            {
-                <button type="button" class="tap doc-row @(document.FileExists ? null : "missing")"
-                        @onclick="@(() => Navigation.NavigateTo($"/dokumente/{document.Id}"))">
-                    <span class="stack">
-                        <span class="doc-name">@document.FileName</span>
-                        <span class="doc-meta">@(document.FileExists ? document.TypeName : "Datei nicht gefunden")</span>
-                    </span>
-                </button>
-            }
-        }
+        </div>
+        </div>
 
         <div class="spacer"></div>
     }

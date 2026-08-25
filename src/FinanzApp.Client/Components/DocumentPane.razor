@@ -1,9 +1,9 @@
-@page "/dokumente/{Id:int}"
-@attribute [Authorize]
 @inherits AppPage
 
-<PageTitle>Dokument — FinanzApp</PageTitle>
-
+@*
+    Die Dokumentseite als Baustein. Auf dem Telefon füllt sie den Screen, ab Tablet steht sie
+    als Vorschauspalte neben der Liste — dieselbe Komponente, nur ein anderer Platz.
+*@
 <AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
     @if (data is { } document)
     {
@@ -120,7 +120,26 @@
     private bool busy;
     private string newPath = string.Empty;
 
-    protected override async Task LoadAsync() => data = await Api.GetDocumentAsync(Id);
+    private int loadedId;
+
+    protected override async Task LoadAsync()
+    {
+        loadedId = Id;
+        fixing = false;
+        data = await Api.GetDocumentAsync(Id);
+    }
+
+    /// <summary>
+    /// Ab Tablet bleibt die Komponente stehen und bekommt nur eine andere Id — dann muss sie
+    /// selbst nachladen, sonst zeigte die Vorschau weiter das vorige Dokument.
+    /// </summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        if (data is not null && loadedId != Id)
+        {
+            await ReloadAsync();
+        }
+    }
 
     private void StartFix()
     {

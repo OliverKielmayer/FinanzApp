@@ -1,9 +1,17 @@
 @page "/dokumente"
+@page "/dokumente/{Id:int}"
 @attribute [Authorize]
 @inherits AppPage
 
 <PageTitle>Dokumente — FinanzApp</PageTitle>
 
+@*
+    Master und Detail auf einer Seite. Auf dem Telefon zeigt die CSS je nach Route nur eine
+    der beiden Spalten, ab Tablet beide nebeneinander — so bleibt es eine Navigation und nicht
+    zwei, die sich widersprechen können.
+*@
+<div class="doc-split @(Id is null ? "list-only" : "detail-open")">
+<div class="doc-master">
 <div class="searchbar">
     <input class="input" type="search" placeholder="Dokumente und Objekte durchsuchen"
            aria-label="Dokumente und Objekte durchsuchen" value="@search" @oninput="OnSearchInput" />
@@ -59,7 +67,8 @@
 
     @foreach (var document in documents)
     {
-        <button type="button" class="tap doc-row @(document.FileExists ? null : "missing")"
+        <button type="button"
+                class="tap doc-row @(document.FileExists ? null : "missing") @(Id == document.Id ? "open" : null)"
                 @onclick="@(() => Navigation.NavigateTo($"/dokumente/{document.Id}"))">
             <span class="stack">
                 <span class="doc-name">@document.FileName</span>
@@ -76,8 +85,27 @@
         </div>
     }
 </AsyncView>
+</div>
+
+<div class="doc-detail">
+    @if (Id is { } open)
+    {
+        <DocumentPane Id="open" />
+    }
+    else
+    {
+        @* Ab Tablet steht die Spalte immer da — leer wäre sie eine unerklärte Fläche. *@
+        <div class="empty-area">
+            <span class="empty-area-text">Ein Dokument wählen, um es hier zu sehen.</span>
+        </div>
+    }
+</div>
+</div>
 
 @code {
+    /// <summary>Das geöffnete Dokument. <c>null</c> heißt: nur die Liste.</summary>
+    [Parameter] public int? Id { get; set; }
+
     private static readonly (DocumentArea? Area, string Label)[] Areas =
     [
         (null, "Alle"),

@@ -46,21 +46,27 @@
     }
     else
     {
-        <div class="detail-block">
-            <span class="detail-label">Beleg abgelegt</span>
-            <span class="detail-value num">@fileName</span>
+        @* Ab Tablet steht der Beleg links und die Eingabe rechts — der Blick springt dann nicht
+           mehr zwischen zwei Bildschirmen hin und her (Handoff v4, Abschnitt 2). *@
+        <div class="scan-split">
+        <div class="scan-source">
+            <div class="detail-block">
+                <span class="detail-label">Beleg abgelegt</span>
+                <span class="detail-value num">@fileName</span>
+            </div>
+
+            @if (!recognised)
+            {
+                <div class="notice">
+                    <span class="notice-title">Nichts erkannt</span>
+                    <span class="notice-text">
+                        Es ist keine Texterkennung angebunden. Die Werte bitte von Hand eintragen.
+                    </span>
+                </div>
+            }
         </div>
 
-        @if (!recognised)
-        {
-            <div class="notice">
-                <span class="notice-title">Nichts erkannt</span>
-                <span class="notice-text">
-                    Es ist keine Texterkennung angebunden. Die Werte bitte von Hand eintragen.
-                </span>
-            </div>
-        }
-
+        <div class="scan-fields">
         <div class="auth-form">
             <div class="field">
                 <label for="bill-provider">Rechnungssteller</label>
@@ -105,6 +111,8 @@
             </button>
             <button type="button" class="btn btn-secondary" disabled="@busy"
                     @onclick="@(() => Navigation.NavigateTo("/gesundheit"))">Abbrechen</button>
+        </div>
+        </div>
         </div>
     }
 
