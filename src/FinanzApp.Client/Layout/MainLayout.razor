@@ -4,6 +4,7 @@
 @inject NavigationHistory History
 @inject AppState State
 @inject FinanzAppAuthStateProvider Auth
+@inject FinanzAppApi Api
 
 @*
     Das Auth-Gate: ohne Sitzung bleiben Kopfzeile, Tab-Bar und Seitennavigation weg. Der Rumpf
@@ -12,7 +13,10 @@
 <AuthorizeView>
     <Authorized>
         <div class="app">
-            <SideNav Current="@screen" CanWrite="@CanWrite" HouseholdName="@Auth.User?.HouseholdName"
+            <SideNav Current="@screen" CanWrite="@CanWrite"
+                     UserName="@Auth.User?.Name" HouseholdName="@Auth.User?.HouseholdName"
+                     SignedInAt="@Auth.User?.SignedInAt"
+                     Counts="@counts" MemberCount="@memberCount"
                      OnCapture="OpenCapture" />
 
             <div class="app-body">
@@ -57,6 +61,10 @@
     private Screen screen = ScreenCatalog.All[0];
     private bool captureOpen;
 
+    /// <summary>Kennzahlen der Seitennavigation. Dieselbe Quelle wie die Bereichsliste auf „Mehr“.</summary>
+    private AreaCountsDto? counts;
+    private int? memberCount;
+
     private bool CanWrite => Auth.User?.CanWrite ?? false;
 
     protected override void OnInitialized()
@@ -64,6 +72,31 @@
         UpdateScreen();
         Navigation.LocationChanged += OnLocationChanged;
         State.Changed += OnStateChanged;
+    }
+
+    /// <summary>
+    /// Die Kennzahlen kommen nach dem ersten Rendern nach. Scheitert der Aufruf, bleibt die
+    /// Navigation ohne Zahlen stehen — sie ist deshalb nicht weniger benutzbar, und ein
+    /// Fehlerbanner über der ganzen Anwendung wäre die schlechtere Antwort.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || Auth.User is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var overview = await Api.GetMoreOverviewAsync();
+            counts = overview.Areas;
+            memberCount = overview.HouseholdMemberCount;
+            StateHasChanged();
+        }
+        catch (Exception)
+        {
+            // bewusst still: siehe oben
+        }
     }
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)

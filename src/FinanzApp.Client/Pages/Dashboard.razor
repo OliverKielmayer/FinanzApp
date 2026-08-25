@@ -55,20 +55,44 @@
             </div>
         </section>
 
-        <section class="section">
-            <div class="section-head">
-                <span class="label-strong">Vermögensentwicklung</span>
-                <span class="meta">@MonthSpanLabel(dashboard.History)</span>
-            </div>
-            <Sparkline Values="dashboard.History" Height="96" Top="10" Bottom="88" ShowMidline="true"
-                       Label="Vermögensentwicklung der letzten Monate" />
-            <div class="chart-axis">
-                @foreach (var label in AxisLabels(dashboard.History))
-                {
-                    <span>@label</span>
-                }
-            </div>
-        </section>
+        @* Chart und Bilanz stehen ab Tablet nebeneinander (Handoff v4, Abschnitt 2).
+           Dafür müssen sie Geschwister sein — die Kacheln rücken darunter. *@
+        <div class="chart-balance">
+            <section class="section">
+                <div class="section-head">
+                    <span class="label-strong">Vermögensentwicklung</span>
+                    <span class="meta">@MonthSpanLabel(dashboard.History)</span>
+                </div>
+                <Sparkline Values="dashboard.History" Height="96" Top="10" Bottom="88" ShowMidline="true"
+                           Label="Vermögensentwicklung der letzten Monate" />
+                <div class="chart-axis">
+                    @foreach (var label in AxisLabels(dashboard.History))
+                    {
+                        <span>@label</span>
+                    }
+                </div>
+            </section>
+
+            <section class="balance">
+                <div class="balance-row">
+                    <span class="balance-label">Bruttovermögen</span>
+                    <span class="balance-value num">@State.Euro(dashboard.NetWorth.Gross)</span>
+                </div>
+
+                <button type="button" class="tap balance-row" @onclick="OpenLoan">
+                    <span class="stack">
+                        <span class="balance-label plain">@dashboard.Liability.Label</span>
+                        <span class="meta">@dashboard.Liability.Subtitle</span>
+                    </span>
+                    <span class="balance-value debt num">@State.Euro(-dashboard.Liability.Amount)</span>
+                </button>
+
+                <div class="balance-row total">
+                    <span class="balance-label">Nettovermögen</span>
+                    <span class="balance-value num">@State.Euro(dashboard.NetWorth.Net)</span>
+                </div>
+            </section>
+        </div>
 
         <div class="asset-grid">
             @foreach (var asset in dashboard.Assets)
@@ -82,26 +106,6 @@
                 </button>
             }
         </div>
-
-        <section class="balance">
-            <div class="balance-row">
-                <span class="balance-label">Bruttovermögen</span>
-                <span class="balance-value num">@State.Euro(dashboard.NetWorth.Gross)</span>
-            </div>
-
-            <button type="button" class="tap balance-row" @onclick="OpenLoan">
-                <span class="stack">
-                    <span class="balance-label plain">@dashboard.Liability.Label</span>
-                    <span class="meta">@dashboard.Liability.Subtitle</span>
-                </span>
-                <span class="balance-value debt num">@State.Euro(-dashboard.Liability.Amount)</span>
-            </button>
-
-            <div class="balance-row total">
-                <span class="balance-label">Nettovermögen</span>
-                <span class="balance-value num">@State.Euro(dashboard.NetWorth.Net)</span>
-            </div>
-        </section>
 
         <section class="kpi">
             <div class="kpi-cell">

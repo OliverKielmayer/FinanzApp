@@ -33,7 +33,20 @@ Die Mitte ist eine **Aktion, kein Ziel**: *Erfassen* legt ein Fenster über die 
 fragt, was erfasst werden soll (siehe Punkt 5). `Esc` oder ein Tipp daneben schließt es wieder.
 
 **Mehr** führt die übrigen Bereiche auf — Konten, Budgets, Depot, Darlehen, Import, Versicherungen,
-Gesundheit, Wohnen, Benutzer. Ab Tabletbreite (768 px) stehen sie zusätzlich dauerhaft links.
+Gesundheit, Wohnen, Benutzer.
+
+Am großen Bildschirm sieht die App anders aus. Sie schaltet nach Fensterbreite:
+
+| | Telefon (< 768 px) | Tablet (bis 1200 px) | Desktop (darüber) |
+| --- | --- | --- | --- |
+| Navigation | Tab-Leiste unten | Seitenspalte links | Seitenspalte, breiter |
+| Kacheln | 2 Spalten | 3 | 4 |
+| Erfassen | Fenster von unten | Panel rechts | Panel rechts, breiter |
+| Vermögen | Chart über Bilanz | nebeneinander | nebeneinander |
+
+In der **Seitenspalte** steht oben, wer angemeldet ist und seit wann, darunter die Bereiche mit
+ihrer Kennzahl — offene Vorgänge, Anzahl Dokumente und so fort. Ganz unten bleibt **Erfassen**
+stehen, egal wie weit die Liste gescrollt ist.
 
 Detailseiten tragen oben links einen Zurück-Schalter. Rechts in der Kopfzeile steht
 **Beträge verbergen** — praktisch, wenn jemand mitschaut; derselbe Schalter holt sie zurück.
@@ -43,10 +56,12 @@ Vier Zustände tragen überall dieselbe Kennzeichnung: **überfällig**, **fäll
 
 ## 3. Vermögen — die Startseite
 
-Von oben nach unten: Nettovermögen mit der Vermögensentwicklung, darunter das Bruttovermögen
-aufgeteilt in Kacheln — Girokonto, Tagesgeld, Depot, Lebensversicherung. Jede Kachel führt in ihren
-Bereich. Es folgen der laufende Monat mit Einnahmen, Ausgaben und Sparquote, die Budgets des Monats
-und die Verbindlichkeiten. Zwei Schalter führen direkt zu **Buchung erfassen** und **Import**.
+Von oben nach unten: das Nettovermögen, darunter die Vermögensentwicklung und die Bilanz
+(Brutto, Verbindlichkeiten, Netto) — am großen Bildschirm nebeneinander, auf dem Telefon
+untereinander. Es folgen die Kacheln der einzelnen Posten — Girokonto, Tagesgeld, Depot,
+Lebensversicherung —, jede führt in ihren Bereich, dann der laufende Monat mit Einnahmen,
+Ausgaben und Sparquote und die Budgets. Zwei Schalter führen direkt zu **Buchung erfassen**
+und **Import**.
 
 **Liquidität** öffnet zwei Auswertungen:
 

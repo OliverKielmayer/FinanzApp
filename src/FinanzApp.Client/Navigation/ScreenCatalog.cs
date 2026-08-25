@@ -77,6 +77,26 @@ public static class ScreenCatalog
     /// <summary>Die Bereichsliste auf „Mehr“ und in der Seitennavigation.</summary>
     public static IReadOnlyList<Screen> Areas { get; } = [.. All.Where(s => s.InAreaList)];
 
+    /// <summary>
+    /// Die Seitennavigation ab Tabletbreite: eine flache Liste in der Reihenfolge aus Handoff v4,
+    /// Abschnitt 3 — nicht die Reihenfolge der Tab-Bar.
+    /// </summary>
+    /// <remarks>
+    /// Der Handoff nennt fünfzehn Bereiche. Vier davon gibt es noch nicht: <em>Vorsorge &amp;
+    /// Kapital</em> und <em>Absicherung</em> entstehen mit Schritt 3, <em>Scaneingang</em> und
+    /// <em>Fahrzeuge</em> mit Schritt 8. Sie fehlen hier bewusst — ein Navigationseintrag, der
+    /// ins Leere führt, ist schlechter als einer, der noch nicht da ist.
+    /// </remarks>
+    public static IReadOnlyList<Screen> SideNav { get; } =
+    [
+        .. new[]
+        {
+            "/", "/vorgaenge", "/konten", "/budgets", "/depot",
+            "/dokumente", "/gesundheit", "/wohnen", "/darlehen", "/import", "/benutzer",
+        }
+        .Select(route => All.First(s => s.Route == route)),
+    ];
+
     private static readonly Screen Fallback = All[0];
 
     /// <summary>

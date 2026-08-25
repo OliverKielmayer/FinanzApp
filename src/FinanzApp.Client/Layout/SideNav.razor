@@ -1,32 +1,34 @@
 @* Ab Tabletbreite ersetzt diese Spalte die Tab-Bar. Dort ist Platz, also stehen alle Bereiche
-   flach untereinander — kein Umweg über „Mehr“. *@
+   flach untereinander — kein Umweg über „Mehr“. Oben der angemeldete Benutzer samt Haushalt,
+   unten fest der Erfassen-Knopf (Handoff v4, Abschnitt 2). *@
 <nav class="sidenav" aria-label="Bereiche">
-    <div class="sidenav-brand">
-        <span class="kicker">@(HouseholdName ?? "Vermögen & Haushalt")</span>
-        <span class="sidenav-brand-name">FinanzApp</span>
+    <div class="sidenav-user">
+        <span class="kicker">Angemeldet</span>
+        <span class="sidenav-user-name">@(UserName ?? "FinanzApp")</span>
+        <span class="meta">
+            @HouseholdName@(SignedInAt is { } at ? $" · Sitzung seit {at:HH:mm}" : null)
+        </span>
     </div>
 
-    @foreach (var screen in ScreenCatalog.Tabs.Where(s => (CanWrite || !s.RequiresWrite) && !s.IsAction))
-    {
-        <a href="@screen.Route" class="sidenav-item @(screen == Current ? "active" : null)"
-           aria-current="@(screen == Current ? "page" : null)">@screen.Title</a>
-    }
+    <div class="sidenav-list">
+        @foreach (var screen in ScreenCatalog.SideNav)
+        {
+            <a href="@screen.Route" class="sidenav-item @(screen == Current ? "active" : null)"
+               aria-current="@(screen == Current ? "page" : null)">
+                <span class="sidenav-item-name">@screen.Title</span>
+                @if (Badge(screen) is { } badge)
+                {
+                    <span class="sidenav-item-badge num">@badge</span>
+                }
+            </a>
+        }
+    </div>
 
     @if (CanWrite)
     {
-        <button type="button" class="sidenav-item sidenav-action" @onclick="OnCapture" aria-haspopup="dialog">
+        <button type="button" class="sidenav-action" @onclick="OnCapture" aria-haspopup="dialog">
             Erfassen …
         </button>
-    }
-
-    <div class="sidenav-group">
-        <span class="label-strong">Bereiche</span>
-    </div>
-
-    @foreach (var screen in ScreenCatalog.Areas)
-    {
-        <a href="@screen.Route" class="sidenav-item @(screen == Current ? "active" : null)"
-           aria-current="@(screen == Current ? "page" : null)">@screen.Title</a>
     }
 </nav>
 
@@ -37,10 +39,49 @@
     [Parameter]
     public bool CanWrite { get; set; } = true;
 
-    /// <summary>Name des Haushalts als Kicker über der Wortmarke.</summary>
+    /// <summary>Name des angemeldeten Benutzers.</summary>
+    [Parameter]
+    public string? UserName { get; set; }
+
+    /// <summary>Haushalt, dem der Benutzer angehört.</summary>
     [Parameter]
     public string? HouseholdName { get; set; }
 
+    /// <summary>Beginn der laufenden Sitzung — echte Uhr, nicht der fachliche Stichtag.</summary>
+    [Parameter]
+    public DateTime? SignedInAt { get; set; }
+
+    /// <summary>Kennzahlen der Bereiche; <c>null</c>, solange sie nicht geladen sind.</summary>
+    [Parameter]
+    public AreaCountsDto? Counts { get; set; }
+
+    /// <summary>Benutzer im Haushalt — Kennzahl der Zeile „Benutzer“.</summary>
+    [Parameter]
+    public int? MemberCount { get; set; }
+
     [Parameter]
     public EventCallback OnCapture { get; set; }
+
+    /// <summary>
+    /// Die Kennzahl rechts in der Zeile. Der Handoff will sie an jedem Bereich; verfügbar sind
+    /// bislang die, die die Bereichsliste auf „Mehr“ ohnehin schon lädt. Wo keine Zahl vorliegt,
+    /// steht keine — eine erfundene wäre schlimmer als keine.
+    /// </summary>
+    private string? Badge(Screen screen)
+    {
+        if (Counts is not { } c)
+        {
+            return null;
+        }
+
+        return screen.Route switch
+        {
+            "/vorgaenge" => c.OpenTaskCount > 0 ? $"{c.OpenTaskCount} offen" : null,
+            "/dokumente" => c.DocumentCount > 0 ? c.DocumentCount.ToString() : null,
+            "/gesundheit" => c.OpenMedicalBillCount > 0 ? $"{c.OpenMedicalBillCount} offen" : null,
+            "/wohnen" => c.PropertyCount > 0 ? c.PropertyCount.ToString() : null,
+            "/benutzer" => MemberCount > 0 ? MemberCount.ToString() : null,
+            _ => null,
+        };
+    }
 }

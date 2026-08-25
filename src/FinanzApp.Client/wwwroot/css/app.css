@@ -28,7 +28,7 @@ body {
 
 .heading {
   font-family: var(--font-heading);
-  font-weight: 800;
+  font-weight: var(--font-heading-weight);
 }
 
 /* Kicker- und Label-Zeilen: 10 px, gesperrt, Versalien. */
@@ -52,6 +52,22 @@ body {
   text-transform: uppercase;
   color: var(--color-neutral-600);
 }
+
+/* ── Ausgleich zum Design-System Industry ───────────────────────────────── */
+
+/* Der Handoff führt linksbündige Button-Labels als weiter gültig, Industrys
+   .btn-block hat justify-content/text-align gegenüber Modernist aber verloren.
+   Also kommt die Ausrichtung von hier. */
+.btn-block {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+/* Fließtext im Akzent gehört auf --color-accent-700 (Kontrast, Handoff v4
+   Abschnitt 1). Kicker, Labels, Links und Werte bleiben auf --color-accent --
+   so hält es auch der Prototyp. Derzeit gibt es hier keinen Akzent-Fließtext;
+   die Regel gilt fuer den Fall, dass welcher dazukommt. */
+
 
 /* Anklickbare Zeilen und Kacheln sind echte Schaltflächen — sonst wären sie
    weder mit der Tastatur erreichbar noch für Screenreader bedienbar. Diese
@@ -94,7 +110,7 @@ body {
 
 .boot-title {
   font-family: var(--font-heading);
-  font-weight: 800;
+  font-weight: var(--font-heading-weight);
   font-size: 25px;
   letter-spacing: -0.025em;
 }
@@ -156,7 +172,7 @@ body {
   align-items: flex-end;
   gap: 12px;
   padding: 14px 16px 12px;
-  border-bottom: 2px solid var(--color-divider);
+  border-bottom: 1px solid var(--color-text);
   background: var(--color-bg);
 }
 
@@ -170,7 +186,7 @@ body {
 
 .app-title {
   font-family: var(--font-heading);
-  font-weight: 800;
+  font-weight: var(--font-heading-weight);
   font-size: 25px;
   line-height: 1.04;
   letter-spacing: -0.025em;
@@ -230,7 +246,7 @@ body {
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
 
-  border-top: 2px solid var(--color-divider);
+  border-top: 1px solid var(--color-text);
   background: var(--color-bg);
   padding-bottom: env(safe-area-inset-bottom);
 }
@@ -288,7 +304,7 @@ body {
 /* ── Wiederkehrende Bausteine ───────────────────────────────────────────── */
 
 .section {
-  border-top: 2px solid var(--color-divider);
+  border-top: 1px solid var(--color-text);
   padding: 14px 16px 10px;
 }
 
@@ -319,7 +335,7 @@ body {
   justify-content: space-between;
   align-items: baseline;
   padding: 14px 16px 8px;
-  border-top: 2px solid var(--color-divider);
+  border-top: 1px solid var(--color-text);
 }
 
 .list-count {
@@ -384,7 +400,7 @@ body {
 }
 
 .segmented.bordered {
-  border-bottom: 2px solid var(--color-divider);
+  border-bottom: 1px solid var(--color-divider);
 }
 
 .segmented-opt {
@@ -472,14 +488,14 @@ body {
 
 .hero-value {
   font-family: var(--font-heading);
-  font-weight: 800;
-  font-size: 42px;
+  font-weight: var(--font-heading-weight);
+  font-size: 52px;
   line-height: 1;
   letter-spacing: -0.035em;
 }
 
 .hero-value.medium {
-  font-size: 38px;
+  font-size: 46px;
 }
 
 .hero-value.debt {
@@ -521,7 +537,7 @@ body {
 .asset-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  border-top: 2px solid var(--color-divider);
+  border-top: 1px solid var(--color-text);
 
   /* Die Kacheln tragen ihre Trennlinie rechts. Das eine Pixel Überhang schiebt die
      Linie der letzten Spalte aus dem sichtbaren Bereich, in jeder Spaltenzahl. */
@@ -546,7 +562,7 @@ body {
 
 .asset-tile-value {
   font-family: var(--font-heading);
-  font-weight: 800;
+  font-weight: var(--font-heading-weight);
   font-size: 19px;
   line-height: 1;
 }
@@ -585,7 +601,7 @@ body {
 
 .balance-value {
   font-family: var(--font-heading);
-  font-weight: 800;
+  font-weight: var(--font-heading-weight);
   font-size: 15px;
 }
 
@@ -596,7 +612,7 @@ body {
 
 .balance-row.total .balance-label {
   font-family: var(--font-heading);
-  font-weight: 800;
+  font-weight: var(--font-heading-weight);
   font-size: 15px;
 }
 
@@ -608,7 +624,7 @@ body {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   margin-top: 12px;
-  border-top: 2px solid var(--color-divider);
+  border-top: 1px solid var(--color-text);
 }
 
 .kpi-cell {
@@ -630,8 +646,8 @@ body {
 
 .kpi-value {
   font-family: var(--font-heading);
-  font-weight: 800;
-  font-size: 16px;
+  font-weight: var(--font-heading-weight);
+  font-size: 19px;
 }
 
 .kpi-value.accent {
@@ -662,7 +678,7 @@ body {
   display: flex;
   gap: 8px;
   padding: 12px 16px;
-  border-bottom: 2px solid var(--color-divider);
+  border-bottom: 1px solid var(--color-divider);
 }
 
 .searchbar .input {
@@ -689,7 +705,7 @@ body {
 
 .account-balance {
   font-family: var(--font-heading);
-  font-weight: 800;
+  font-weight: var(--font-heading-weight);
   font-size: 15px;
 }
 
@@ -729,7 +745,7 @@ body {
 
 .triage-arrow {
   font-family: var(--font-heading);
-  font-weight: 800;
+  font-weight: var(--font-heading-weight);
   font-size: 18px;
   color: var(--color-accent);
 }
@@ -802,7 +818,7 @@ body {
 
 .steps {
   display: flex;
-  border-bottom: 2px solid var(--color-divider);
+  border-bottom: 1px solid var(--color-text);
 }
 
 .step {
@@ -819,7 +835,7 @@ body {
 }
 
 .step-num {
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.1em;
   color: var(--color-neutral-600);
 }
@@ -844,7 +860,7 @@ body {
   flex-direction: column;
   gap: 5px;
   padding: 20px 16px 18px;
-  border-bottom: 2px solid var(--color-divider);
+  border-bottom: 1px solid var(--color-text);
 }
 
 .amount-line {
@@ -855,8 +871,8 @@ body {
 
 .amount-value {
   font-family: var(--font-heading);
-  font-weight: 800;
-  font-size: 46px;
+  font-weight: var(--font-heading-weight);
+  font-size: 52px;
   line-height: 1;
   letter-spacing: -0.035em;
 }
@@ -867,7 +883,7 @@ body {
 
 .amount-currency {
   font-family: var(--font-heading);
-  font-weight: 800;
+  font-weight: var(--font-heading-weight);
   font-size: 24px;
   color: var(--color-neutral-500);
 }
@@ -990,13 +1006,13 @@ body {
   align-items: flex-end;
   gap: 12px;
   padding: 16px;
-  border-bottom: 2px solid var(--color-divider);
+  border-bottom: 1px solid var(--color-text);
 }
 
 .budget-summary-value {
   font-family: var(--font-heading);
-  font-weight: 800;
-  font-size: 32px;
+  font-weight: var(--font-heading-weight);
+  font-size: 38px;
   line-height: 1;
 }
 
@@ -1084,7 +1100,7 @@ body {
 
 .position-value {
   font-family: var(--font-heading);
-  font-weight: 800;
+  font-weight: var(--font-heading-weight);
   font-size: 14px;
 }
 
@@ -1171,7 +1187,7 @@ body {
   flex-direction: column;
   gap: 8px;
   padding: 14px 16px;
-  border-bottom: 2px solid var(--color-divider);
+  border-bottom: 1px solid var(--color-text);
 }
 
 .import-file {
@@ -1201,7 +1217,7 @@ body {
 
 .import-count {
   font-family: var(--font-heading);
-  font-weight: 800;
+  font-weight: var(--font-heading-weight);
   font-size: 20px;
 }
 
@@ -1237,7 +1253,7 @@ body {
   flex-direction: column;
   max-height: 82dvh;
   background: var(--color-bg);
-  border-top: 2px solid var(--color-text);
+  border-top: 1px solid var(--color-text);
   box-shadow: var(--shadow-lg);
   animation: sheet-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -1270,7 +1286,7 @@ body {
   align-items: flex-start;
   gap: 12px;
   padding: 14px 16px;
-  border-bottom: 2px solid var(--color-divider);
+  border-bottom: 1px solid var(--color-text);
 }
 
 .sheet-head .stack {
@@ -1279,14 +1295,14 @@ body {
 
 .sheet-payee {
   font-family: var(--font-heading);
-  font-weight: 800;
+  font-weight: var(--font-heading-weight);
   font-size: 19px;
   line-height: 1.1;
 }
 
 .sheet-amount {
   font-family: var(--font-heading);
-  font-weight: 800;
+  font-weight: var(--font-heading-weight);
   font-size: 19px;
 }
 
@@ -1330,7 +1346,7 @@ body {
   display: flex;
   gap: 10px;
   padding: 12px 16px 18px;
-  border-top: 2px solid var(--color-divider);
+  border-top: 1px solid var(--color-text);
 }
 
 .sheet-foot .btn {
@@ -1389,34 +1405,42 @@ body {
 
   .sidenav {
     flex: none;
+
+    /* Spalte statt Liste: der Benutzerblock steht oben, die Bereiche scrollen dazwischen,
+       der Erfassen-Knopf bleibt unten stehen. */
     display: flex;
     flex-direction: column;
     width: 240px;
-    border-right: 2px solid var(--color-divider);
-    overflow-y: auto;
+    border-right: 1px solid var(--color-text);
   }
 
-  .sidenav-brand {
+  .sidenav-user {
+    flex: none;
     display: flex;
     flex-direction: column;
     gap: 2px;
     padding: 14px 16px 12px;
-    border-bottom: 2px solid var(--color-divider);
+    border-bottom: 1px solid var(--color-text);
   }
 
-  .sidenav-brand-name {
+  .sidenav-user-name {
     font-family: var(--font-heading);
-    font-weight: 800;
+    font-weight: var(--font-heading-weight);
     font-size: 20px;
     letter-spacing: -0.02em;
   }
 
-  .sidenav-group {
-    padding: 14px 16px 6px;
+  .sidenav-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
   }
 
   .sidenav-item {
-    display: block;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
     width: 100%;
     padding: 11px 16px;
     font-size: 14px;
@@ -1430,6 +1454,37 @@ body {
     cursor: pointer;
   }
 
+  .sidenav-item-badge {
+    flex: none;
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--color-neutral-600);
+  }
+
+  .sidenav-item.active .sidenav-item-badge {
+    color: var(--color-accent);
+  }
+
+  /* Fest am Fuß: der Weg von „Papier in der Hand“ zu „erfasst“ soll überall gleich kurz sein. */
+  .sidenav-action {
+    flex: none;
+    width: 100%;
+    padding: 13px 16px;
+    font-family: var(--font-heading);
+    font-weight: var(--font-heading-weight);
+    font-size: 14px;
+    text-align: left;
+    color: var(--color-accent);
+    background: transparent;
+    border: 0;
+    border-top: 1px solid var(--color-text);
+    cursor: pointer;
+  }
+
+  .sidenav-action:hover {
+    background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  }
+
   .sidenav-item:hover {
     background: color-mix(in srgb, var(--color-text) 6%, transparent);
   }
@@ -1440,7 +1495,7 @@ body {
   }
 
   .app-content {
-    max-width: 1100px;
+    max-width: 860px;
   }
 
   .asset-grid {
@@ -1454,14 +1509,79 @@ body {
     width: min(560px, calc(100vw - 288px));
   }
 
+  /* Barlow Condensed braucht Größe: der Hero wächst mit dem Rahmen mit. */
+  .hero-value {
+    font-size: 64px;
+  }
+
+  .hero-value.medium {
+    font-size: 56px;
+  }
+
+  /* Der Handoff blendet die Schrittleisten ab Tablet aus — aber nur, weil das Formular dort
+     am Stück steht. Beides gehört zusammen: allein ausgeblendet bliebe ein Assistent ohne
+     Fortschrittsanzeige zurück. Kommt mit Schritt 4, wo die gemeinsame Formularkomponente
+     für alle acht Anlege-Typen entsteht und dieselbe Frage ohnehin beantwortet werden muss. */
+
+  /* Aus dem Bottom-Sheet wird ein Panel an der rechten Kante: volle Höhe, 420 px,
+     Bewegung in X statt in Y. */
   .sheet {
-    left: 240px;
+    top: 0;
+    left: auto;
+    right: 0;
+    bottom: 0;
+    width: 420px;
+    max-height: none;
+    border-top: 0;
+    border-left: 1px solid var(--color-text);
+    animation: panel-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  @keyframes panel-in {
+    from {
+      transform: translateX(100%);
+    }
+  }
+
+  /* Chart und Bilanz nebeneinander statt untereinander. */
+  .chart-balance {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .chart-balance > .section {
+    border-top: 0;
+  }
+
+  .chart-balance > .balance {
+    border-left: 1px solid var(--color-text);
   }
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1200px) {
+  /* Desktop: volle Breite, kein gedeckelter Lesestreifen mehr. */
+  .app-content {
+    max-width: none;
+  }
+
+  .sidenav {
+    width: 280px;
+  }
+
+  .hero-value {
+    font-size: 76px;
+  }
+
+  .hero-value.medium {
+    font-size: 66px;
+  }
+
   .asset-grid {
     grid-template-columns: repeat(4, 1fr);
+  }
+
+  .sheet {
+    width: 480px;
   }
 }
 
@@ -1524,7 +1644,7 @@ body {
   flex-direction: column;
   gap: 6px;
   padding: 34px 20px 20px;
-  border-bottom: 2px solid var(--color-divider);
+  border-bottom: 1px solid var(--color-text);
 }
 
 .auth-kicker {
@@ -1536,8 +1656,8 @@ body {
 
 .auth-wordmark {
   font-family: var(--font-heading);
-  font-weight: 800;
-  font-size: 34px;
+  font-weight: var(--font-heading-weight);
+  font-size: 40px;
   line-height: 1;
   letter-spacing: -0.035em;
   margin: 0;
@@ -1637,7 +1757,7 @@ body {
   gap: 16px;
   margin-top: auto;
   padding: 14px 20px 18px;
-  border-top: 2px solid var(--color-divider);
+  border-top: 1px solid var(--color-text);
   font-size: 10px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1705,7 +1825,7 @@ body {
   width: 100%;
   padding: 13px 20px;
   border: 0;
-  border-bottom: 2px solid var(--color-divider);
+  border-bottom: 1px solid var(--color-divider);
   background: transparent;
   cursor: pointer;
   text-align: left;
@@ -1723,7 +1843,7 @@ body {
 
 .profile-add-plus {
   font-family: var(--font-heading);
-  font-weight: 800;
+  font-weight: var(--font-heading-weight);
   font-size: 16px;
   color: var(--color-accent);
 }
@@ -1785,12 +1905,12 @@ body {
   flex-direction: column;
   gap: 4px;
   padding: 16px;
-  border-bottom: 2px solid var(--color-divider);
+  border-bottom: 1px solid var(--color-text);
 }
 
 .household-name {
   font-family: var(--font-heading);
-  font-weight: 800;
+  font-weight: var(--font-heading-weight);
   font-size: 26px;
   line-height: 1;
   letter-spacing: -0.03em;
@@ -1853,7 +1973,7 @@ body {
   flex-direction: column;
   gap: 10px;
   padding: 16px;
-  border-bottom: 2px solid var(--color-divider);
+  border-bottom: 1px solid var(--color-divider);
 }
 
 .invite-line {
@@ -1864,7 +1984,7 @@ body {
 
 .invite-code {
   font-family: var(--font-heading);
-  font-weight: 800;
+  font-weight: var(--font-heading-weight);
   font-size: 19px;
   letter-spacing: 0.06em;
 }
@@ -2005,7 +2125,7 @@ body {
   flex-wrap: wrap;
   gap: 8px;
   padding: 12px 16px;
-  border-bottom: 2px solid var(--color-divider);
+  border-bottom: 1px solid var(--color-divider);
 }
 
 .work-row {
@@ -2035,7 +2155,7 @@ body {
 .work-amount {
   flex: none;
   font-family: var(--font-heading);
-  font-weight: 800;
+  font-weight: var(--font-heading-weight);
   font-size: 15px;
 }
 
@@ -2138,8 +2258,8 @@ body {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   margin-right: -1px;
-  border-top: 2px solid var(--color-divider);
-  border-bottom: 2px solid var(--color-divider);
+  border-top: 1px solid var(--color-text);
+  border-bottom: 1px solid var(--color-text);
 }
 
 .bill-split-cell {
@@ -2152,8 +2272,8 @@ body {
 
 .bill-split-value {
   font-family: var(--font-heading);
-  font-weight: 800;
-  font-size: 16px;
+  font-weight: var(--font-heading-weight);
+  font-size: 19px;
 }
 
 .bill-split-value.own {
@@ -2190,7 +2310,7 @@ body {
   flex: none;
   width: 14px;
   font-family: var(--font-heading);
-  font-weight: 800;
+  font-weight: var(--font-heading-weight);
 }
 
 .chain-date {
@@ -2217,7 +2337,7 @@ body {
 .candidate-amount {
   flex: none;
   font-family: var(--font-heading);
-  font-weight: 800;
+  font-weight: var(--font-heading-weight);
   font-size: 15px;
 }
 
@@ -2289,7 +2409,7 @@ body {
 
 .flow-amount {
   font-family: var(--font-heading);
-  font-weight: 800;
+  font-weight: var(--font-heading-weight);
   font-size: 14px;
 }
 
@@ -2324,7 +2444,7 @@ body {
 .saving-amount {
   flex: none;
   font-family: var(--font-heading);
-  font-weight: 800;
+  font-weight: var(--font-heading-weight);
   font-size: 15px;
   text-align: right;
 }
@@ -2386,7 +2506,7 @@ body {
 .ref-value {
   flex: none;
   font-family: var(--font-heading);
-  font-weight: 800;
+  font-weight: var(--font-heading-weight);
   font-size: 15px;
 }
 

@@ -1,9 +1,9 @@
 # FinanzApp
 
 Mobiler Begleit-Client für die persönliche Vermögens-, Haushalts- und Dokumentenverwaltung,
-umgesetzt nach dem Design-Handoff *Finanz-App Prototyp Deutsch* (Design-System **Modernist**),
-Nachtrag 2 *Login & Mehrbenutzerbetrieb* und der *Erweiterung zum Finanz- und
-Dokumentenmanagement*.
+umgesetzt nach den Design-Handoffs *Finanz-App Prototyp Deutsch* — zuletzt **Handoff v4**
+(Design-System **Industry**, responsiver Client, neue Bereiche), davor Nachtrag 2
+*Login & Mehrbenutzerbetrieb* und die *Erweiterung zum Finanz- und Dokumentenmanagement*.
 
 Der Client trägt die täglichen Aufgaben — Vermögen und Liquidität prüfen, Ausgaben erfassen,
 importierte Buchungen kategorisieren, Budgets und Depot verfolgen — dazu Vorgänge und Fristen,
@@ -107,6 +107,8 @@ docs/
   design-handoff/          Erst-Handoff samt Nachtrag 2, wie geliefert
   design-handoff-erweiterung/  Erweiterungs-Handoff mit den Wireframes
   erweiterungsplan.md      der Plan, den der Erweiterungs-Handoff vor dem Bauen verlangt
+  design-handoff-v4/       Handoff v4 — Industry, responsiv, neue Bereiche (maßgeblich)
+  handoff-v4-umsetzung.md  Arbeitsliste zu v4, Stand je Schritt
   bedienung.md             Bedieneranleitung für den täglichen Gebrauch
 ```
 
@@ -115,16 +117,28 @@ Parameter entgegen, rufen einen Service und geben dessen Ergebnis zurück.
 
 ## Umsetzung des Designs
 
-**`wwwroot/css/modernist.css` ist unverändert die Datei aus dem Handoff.** Sie bleibt die Quelle für
+**`wwwroot/css/industry.css` ist unverändert die Datei aus Handoff v4.** Sie bleibt die Quelle für
 Farben, Ramps, Typografie, Abstände und die Basiskomponenten; eine neue Fassung des Design-Systems
 lässt sich darüberkopieren. `app.css` enthält nur Layout und Screens und nimmt jeden Wert aus den
-Variablen — keine eigenen Farben, keine abgerundeten Ecken, keine zentrierten Button-Labels.
+Variablen — **keine einzige hartkodierte Farbe**, keine eigenen Radien, keine zentrierten
+Button-Labels.
+
+Dass diese Disziplin sich auszahlt, hat der Wechsel von *Modernist* auf *Industry* gezeigt: der
+gesamte Farbumstieg fiel allein durch den Dateitausch an. Nachzuziehen waren nur die Dinge, die
+nicht in Tokens stehen — Linienstärken, das Überschriftengewicht und die Schriftgrade, weil
+Barlow Condensed schmaler läuft als Archivo.
 
 Die Tab-Bar trägt seit der Erweiterung **Vermögen · Vorgänge · Erfassen · Dokumente · Mehr**
 (freigegeben: Navigation 1a mit der zentralen Scan-Aktion aus 1c). Die Mitte ist eine **Aktion, kein
 Ziel**: sie öffnet ein Sheet über allem. Konten, Budgets und Depot sind unverändert erhalten und
-über die Bereichsliste auf „Mehr“ erreichbar; ab **768 px** listet die Seitennavigation alle
-Bereiche flach auf.
+über die Bereichsliste auf „Mehr“ erreichbar.
+
+Seit Handoff v4 schaltet der Client in **drei Modi**: Telefon unter 768 px, Tablet bis 1200 px,
+Desktop darüber. Ab Tablet ersetzt eine Seitennavigation die Tab-Bar — mit dem angemeldeten
+Benutzer oben, den Bereichen samt Kennzahl in der Mitte und dem Erfassen-Knopf fest am Fuß.
+Die Kacheln laufen über zwei, drei und vier Spalten, das Erfassen-Sheet wird ab Tablet zu einem
+Panel an der rechten Kante, und Chart und Bilanz stehen dort nebeneinander statt untereinander.
+Die Logik der Screens ändert sich dabei nicht, nur ihre Anordnung.
 
 Vier Zustände tragen dasselbe Akzentmuster: **überfällig**, **fällig**, **Datei nicht gefunden**,
 **Frist läuft**. Ein leerer Bereich zeigt nie eine leere Liste, sondern eine Erklärzeile mit der
@@ -332,7 +346,7 @@ Technisch offen:
   `NoBillTextExtractor` für die Belegerkennung; beide hängen hinter der Schnittstelle, die später
   eine echte Umsetzung bekommt.
 - **Umbuchungen legen noch keine Gegenbuchung an.**
-- **Archivo kommt von Google Fonts** — für den Produktivbetrieb selbst hosten.
+- **Barlow und Barlow Condensed kommen von Google Fonts** — für den Produktivbetrieb selbst hosten.
 - **Backups**: die Datenbank wird gesichert, die Dateien unter `DocumentRoot` nicht. Das gehört in
   ein Dateisystem-Backup. Eine Prüffunktion „sind alle referenzierten Dateien vorhanden?“ ist
   vorgesehen; der Zustand „Datei nicht gefunden“ ist dafür bereits gestaltet.
@@ -347,8 +361,14 @@ Technisch offen:
 Unverändert abgelegt:
 
 - [`docs/design-handoff/`](docs/design-handoff/) — Erst-Handoff samt Nachtrag 2 (`handoff.md`),
-  Prototyp (`FinanzApp.dc.html`), Token-Quelle (`_ds/modernist/styles.css`).
+  Prototyp (`FinanzApp.dc.html`), Token-Quelle (`_ds/modernist/styles.css`). Gestalterisch überholt
+  durch v4, fachlich weiter gültig.
 - [`docs/design-handoff-erweiterung/`](docs/design-handoff-erweiterung/) — Erweiterungs-Handoff
   (`handoff.md`) und die 24 Wireframes (`Wireframes Erweiterung.dc.html`).
 - [`docs/erweiterungsplan.md`](docs/erweiterungsplan.md) — der Erweiterungsplan, den der Handoff vor
   dem Bauen verlangt.
+- [`docs/design-handoff-v4/`](docs/design-handoff-v4/) — **der maßgebliche Handoff**: Prototyp
+  (`FinanzApp v4 Responsive.dc.html`), Token-Quelle (`_ds/industry/styles.css`). `HINWEIS.md`
+  erklärt, was am Export ergänzt werden musste und wie sich der Prototyp öffnen lässt.
+- [`docs/handoff-v4-umsetzung.md`](docs/handoff-v4-umsetzung.md) — die Arbeitsliste dazu, mit
+  Stand je Schritt.
