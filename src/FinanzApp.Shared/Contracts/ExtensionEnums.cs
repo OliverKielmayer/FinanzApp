@@ -33,7 +33,12 @@ public enum LinkTargetType
     Account = 0,
     Transaction = 1,
     Portfolio = 2,
-    Insurance = 3,
+    /// <summary>Vorsorge- oder Absicherungsvertrag — beide liegen im selben Modell.</summary>
+    Policy = 3,
+
+    /// <summary>Frei. Trug früher die Kapitallebensversicherung, die jetzt eine
+    /// <see cref="Policy"/> mit gesetztem Flag ist.</summary>
+    [Obsolete("Ging in Policy auf.")]
     LifeInsurance = 4,
     Loan = 5,
     Property = 6,
@@ -86,6 +91,32 @@ public enum InvoiceStatus
     Open = 0,
     Paid = 1,
     Cancelled = 2,
+}
+
+/// <summary>
+/// Vertragsart einer <c>Policy</c>. Die ersten fünf sind kapitalbildend, der Rest nicht —
+/// maßgeblich für die Vermögensrechnung bleibt aber das Flag am Vertrag, nicht diese Liste.
+/// </summary>
+public enum PolicyKind
+{
+    // Vorsorge & Kapital
+    CapitalLife = 0,
+    Pension = 1,
+    Riester = 2,
+    BuildingSociety = 3,
+    OccupationalPension = 4,
+
+    // Absicherung
+    TermLife = 20,
+    DisabilityInsurance = 21,
+    Liability = 22,
+    HouseholdContents = 23,
+    Building = 24,
+    Vehicle = 25,
+    Accident = 26,
+    LegalExpenses = 27,
+    Health = 28,
+    Other = 99,
 }
 
 public enum PremiumInterval

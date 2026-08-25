@@ -64,25 +64,25 @@ public sealed class CalculationTests
     [Fact]
     public void Kuendigungsfrist_ergibt_sich_aus_Vertragsende_minus_Frist()
     {
-        var insurance = new Insurance
+        var policy = new Policy
         {
             Name = "Hausrat",
-            Insurer = "HUK",
+            Provider = "HUK",
             Premium = 156m,
             PremiumInterval = PremiumInterval.Yearly,
             EndsOn = new DateOnly(2026, 12, 10),
             NoticePeriodMonths = 3,
         };
 
-        Assert.Equal(new DateOnly(2026, 9, 10), insurance.NoticeDeadline);
+        Assert.Equal(new DateOnly(2026, 9, 10), policy.NoticeDeadline);
     }
 
     [Fact]
     public void Ohne_Vertragsende_gibt_es_keine_Frist()
     {
-        var insurance = new Insurance { Name = "Risikoleben", Insurer = "HL", Premium = 42m };
+        var policy = new Policy { Name = "Risikoleben", Provider = "HL", Premium = 42m };
 
-        Assert.Null(insurance.NoticeDeadline);
+        Assert.Null(policy.NoticeDeadline);
     }
 
     [Theory]
@@ -92,15 +92,15 @@ public sealed class CalculationTests
     [InlineData(PremiumInterval.Yearly, 1200, 100)]
     public void Beitrag_wird_auf_den_Monat_gerechnet(PremiumInterval interval, decimal premium, decimal monthly)
     {
-        var insurance = new Insurance
+        var policy = new Policy
         {
             Name = "Test",
-            Insurer = "Test",
+            Provider = "Test",
             Premium = premium,
             PremiumInterval = interval,
         };
 
-        Assert.Equal(monthly, insurance.MonthlyPremium);
+        Assert.Equal(monthly, policy.MonthlyPremium);
     }
 
     [Fact]

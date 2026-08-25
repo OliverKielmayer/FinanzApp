@@ -22,10 +22,18 @@ public sealed class DashboardService(
         var checking = cash[AccountKind.Checking];
         var savings = cash[AccountKind.Savings];
         var depotValue = await portfolio.GetTotalValueAsync(ct);
-        var insurance = (await db.InsurancePolicies.AsNoTracking().Select(i => i.SurrenderValue).ToListAsync(ct)).Sum();
+
+        // Nur kapitalbildende Verträge zählen ins Vermögen. Ein Risikoleben-Vertrag zahlt im
+        // Todesfall - er ist kein Guthaben und darf hier nie auftauchen.
+        var pensionRows = await db.Policies.AsNoTracking()
+            .Where(p => p.IsCapitalForming)
+            .Select(p => new { p.CurrentValue, p.ValuationDate })
+            .ToListAsync(ct);
+        var pension = pensionRows.Sum(r => r.CurrentValue ?? 0m);
+        var pensionAsOf = pensionRows.Select(r => r.ValuationDate).Where(d => d is not null).Min();
         var debt = await loans.GetTotalDebtAsync(ct);
 
-        var gross = checking + savings + depotValue + insurance;
+        var gross = checking + savings + depotValue + pension;
         var history = await db.NetWorthSnapshots.AsNoTracking()
             .OrderBy(s => s.Month)
             .Select(s => new TimeSeriesPointDto { Month = s.Month, Value = s.Value })
@@ -40,7 +48,7 @@ public sealed class DashboardService(
                 DeltaPreviousMonth = DeltaPreviousMonth(history),
                 DeltaYearPercent = DeltaYearPercent(history),
             },
-            Assets = await BuildAssetsAsync(checking, savings, depotValue, insurance, gross, ct),
+            Assets = await BuildAssetsAsync(checking, savings, depotValue, pension, pensionAsOf, gross, ct),
             History = history,
             Month = await BuildMonthKpiAsync(ct),
             Liability = await BuildLiabilityAsync(debt, ct),
@@ -49,15 +57,19 @@ public sealed class DashboardService(
     }
 
     private async Task<IReadOnlyList<AssetSliceDto>> BuildAssetsAsync(
-        decimal checking, decimal savings, decimal depotValue, decimal insurance, decimal gross, CancellationToken ct)
+        decimal checking, decimal savings, decimal depotValue, decimal pension, DateOnly? pensionAsOf,
+        decimal gross, CancellationToken ct)
     {
         var accountRows = await db.Accounts.AsNoTracking()
             .Select(a => new { a.Kind, a.BankName, a.InterestRatePercent })
             .ToListAsync(ct);
 
         var depotName = await db.Depots.AsNoTracking().Select(d => d.Name).FirstOrDefaultAsync(ct) ?? "Depot";
-        var insurer = await db.InsurancePolicies.AsNoTracking().Select(i => i.Provider).FirstOrDefaultAsync(ct)
-                      ?? "Lebensversicherung";
+        // Der Stichtag gehört an die Kachel: ein Jahresstand ist kein Tageskurs.
+        var pensionCount = await db.Policies.CountAsync(p => p.IsCapitalForming, ct);
+        var pensionSubtitle = pensionAsOf is { } asOf
+            ? $"{pensionCount} Verträge · Stand {asOf:MM}/{asOf:yyyy}"
+            : $"{pensionCount} Verträge";
 
         var checkingBanks = Banks(accountRows.Where(a => a.Kind == AccountKind.Checking).Select(a => a.BankName));
         var savingsRows = accountRows.Where(a => a.Kind == AccountKind.Savings).ToList();
@@ -72,7 +84,7 @@ public sealed class DashboardService(
             Slice("Girokonten", checkingBanks, checking, gross, "/konten"),
             Slice("Tagesgeld", savingsSubtitle, savings, gross, "/konten"),
             Slice("Depot", depotName, depotValue, gross, "/depot"),
-            Slice("Lebensvers.", insurer, insurance, gross, "/mehr"),
+            Slice("Vorsorge", pensionSubtitle, pension, gross, "/vorsorge"),
         ];
     }
 

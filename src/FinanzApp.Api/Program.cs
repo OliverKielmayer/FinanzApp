@@ -140,7 +140,7 @@ builder.Services.AddScoped<ObjectLabelService>();
 builder.Services.AddScoped<DocumentService>();
 builder.Services.AddScoped<TaskService>();
 builder.Services.AddScoped<MedicalBillService>();
-builder.Services.AddScoped<InsuranceService>();
+builder.Services.AddScoped<PolicyService>();
 builder.Services.AddScoped<PropertyService>();
 builder.Services.AddScoped<LiquidityService>();
 

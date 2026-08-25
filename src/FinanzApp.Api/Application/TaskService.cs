@@ -191,20 +191,36 @@ public sealed class TaskService(FinanzAppDbContext db, IClock clock)
             }
         }
 
-        // Kündigungsfristen aus Versicherungsverträgen.
-        foreach (var insurance in await db.Insurances.AsNoTracking().ToListAsync(ct))
+        // Kündigungsfristen aus Absicherungsverträgen. Vorsorge bleibt draußen: dort ist das
+        // Vertragsende der Ablauf, kein Kündigungstermin.
+        foreach (var policy in await db.Policies.AsNoTracking()
+                     .Where(p => !p.IsCapitalForming).ToListAsync(ct))
         {
-            if (insurance.NoticeDeadline is not { } deadline)
+            if (policy.NoticeDeadline is not { } deadline)
             {
                 continue;
             }
 
-            if (deadline.DayNumber - today.DayNumber <= NoticeLeadDays && deadline >= today.AddDays(-30))
+            // Auf den Tisch kommt die Frist, wenn der Termin nah ist — oder wenn die gesetzte
+            // Erinnerung in Sicht ist. Sonst verschwände ein Vertrag, dessen Vergleich jetzt
+            // ansteht, nur weil sein Termin noch ein Jahr entfernt liegt.
+            var reminderDays = policy.NoticeReminderOn is { } remind
+                ? remind.DayNumber - today.DayNumber
+                : int.MaxValue;
+
+            var inSight = deadline.DayNumber - today.DayNumber <= NoticeLeadDays
+                          || reminderDays <= NoticeLeadDays;
+
+            if (inSight && deadline >= today.AddDays(-30))
             {
+                var reason = reminderDays is > 0 and <= NoticeLeadDays
+                    ? $"{policy.Provider} · Kündigung bis {Format(deadline)} · in {reminderDays} Tagen erinnern"
+                    : $"{policy.Provider} · Vertragsende {Format(policy.EndsOn)}";
+
                 Upsert(
-                    TaskSource.ContractNotice, LinkTargetType.Insurance, insurance.Id,
-                    $"Kündigungsfrist {insurance.Name}",
-                    $"{insurance.Insurer} · Vertragsende {Format(insurance.EndsOn)}",
+                    TaskSource.ContractNotice, LinkTargetType.Policy, policy.Id,
+                    $"Kündigungsfrist {policy.Name}",
+                    reason,
                     deadline);
             }
         }
@@ -288,7 +304,7 @@ public sealed class TaskService(FinanzAppDbContext db, IClock clock)
     {
         var bills = await db.MedicalBills.AsNoTracking().ToDictionaryAsync(b => b.Id, ct);
         var invoices = await db.Invoices.AsNoTracking().ToDictionaryAsync(i => i.Id, ct);
-        var insurances = await db.Insurances.AsNoTracking().ToDictionaryAsync(i => i.Id, ct);
+        var policies = await db.Policies.AsNoTracking().ToDictionaryAsync(p => p.Id, ct);
         var contracts = await db.Contracts.AsNoTracking().ToDictionaryAsync(c => c.Id, ct);
 
         return items.ToDictionary(item => item.Id, item => (item.SourceType, item.SourceId) switch
@@ -297,8 +313,8 @@ public sealed class TaskService(FinanzAppDbContext db, IClock clock)
                 => (decimal?)(bill.Status == MedicalBillStatus.Recorded ? bill.GrossAmount : bill.OpenAmount),
             (LinkTargetType.Invoice, { } id) when invoices.TryGetValue(id, out var invoice)
                 => invoice.Amount,
-            (LinkTargetType.Insurance, { } id) when insurances.TryGetValue(id, out var insurance)
-                => insurance.Premium,
+            (LinkTargetType.Policy, { } id) when policies.TryGetValue(id, out var policy)
+                => policy.Premium,
             (LinkTargetType.Contract, { } id) when contracts.TryGetValue(id, out var contract)
                 => contract.MonthlyAmount,
             _ => null,

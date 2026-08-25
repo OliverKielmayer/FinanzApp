@@ -32,7 +32,6 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
     public DbSet<Depot> Depots => Set<Depot>();
     public DbSet<PortfolioPosition> PortfolioPositions => Set<PortfolioPosition>();
     public DbSet<Loan> Loans => Set<Loan>();
-    public DbSet<InsurancePolicy> InsurancePolicies => Set<InsurancePolicy>();
     public DbSet<ImportProfile> ImportProfiles => Set<ImportProfile>();
     public DbSet<NetWorthSnapshot> NetWorthSnapshots => Set<NetWorthSnapshot>();
     public DbSet<PortfolioSnapshot> PortfolioSnapshots => Set<PortfolioSnapshot>();
@@ -42,7 +41,8 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
     public DbSet<Document> Documents => Set<Document>();
     public DbSet<DocumentLink> DocumentLinks => Set<DocumentLink>();
     public DbSet<MedicalBill> MedicalBills => Set<MedicalBill>();
-    public DbSet<Insurance> Insurances => Set<Insurance>();
+    /// <summary>Vorsorge und Absicherung in einer Tabelle, getrennt durch das Flag.</summary>
+    public DbSet<Policy> Policies => Set<Policy>();
     public DbSet<Property> Properties => Set<Property>();
     public DbSet<Contract> Contracts => Set<Contract>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
@@ -188,13 +188,6 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
             e.Property(x => x.Installment).HasConversion(MoneyConverter);
         });
 
-        b.Entity<InsurancePolicy>(e =>
-        {
-            e.Property(x => x.Provider).HasMaxLength(120).IsRequired();
-            e.Property(x => x.Name).HasMaxLength(160).IsRequired();
-            e.Property(x => x.SurrenderValue).HasConversion(MoneyConverter);
-        });
-
         b.Entity<ImportProfile>(e =>
         {
             e.Property(x => x.Name).HasMaxLength(120).IsRequired();
@@ -266,15 +259,22 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
             e.HasIndex(x => new { x.HouseholdId, x.Status });
         });
 
-        b.Entity<Insurance>(e =>
+        b.Entity<Policy>(e =>
         {
             e.Property(x => x.Name).HasMaxLength(120).IsRequired();
-            e.Property(x => x.Insurer).HasMaxLength(120).IsRequired();
+            e.Property(x => x.Provider).HasMaxLength(120).IsRequired();
             e.Property(x => x.PolicyNumber).HasMaxLength(60);
             e.Property(x => x.Notes).HasMaxLength(1000);
             e.Property(x => x.Premium).HasConversion(MoneyConverter);
+            e.Property(x => x.CurrentValue).HasConversion(NullableMoneyConverter);
+            e.Property(x => x.MaturityValue).HasConversion(NullableMoneyConverter);
+            e.Property(x => x.SumInsured).HasConversion(NullableMoneyConverter);
+            e.Property(x => x.Deductible).HasConversion(NullableMoneyConverter);
             e.HasOne(x => x.Account).WithMany()
                 .HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.SetNull);
+
+            // Die beiden Bereiche fragen immer nur ihre Hälfte ab.
+            e.HasIndex(x => x.IsCapitalForming);
         });
 
         b.Entity<Property>(e =>

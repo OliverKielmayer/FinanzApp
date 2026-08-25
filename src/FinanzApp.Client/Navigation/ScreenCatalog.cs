@@ -54,8 +54,8 @@ public static class ScreenCatalog
         new("/depot", "Investments", "Depot", IsDetail: true, InAreaList: true),
         new("/darlehen", "Finanzierungen", "Darlehen", IsDetail: true, InAreaList: true),
         new("/import", "Import", "Import\u00advorschau", IsDetail: true, InAreaList: true),
-        new("/versicherungen", "Vorsorge", "Versicherungen", IsDetail: true, InAreaList: true,
-            DetailTitle: "Versicherung"),
+        new("/vorsorge", "Finanzen", "Vorsorge & Kapital", IsDetail: true, InAreaList: true),
+        new("/absicherung", "Absicherung", "Versicherungen", IsDetail: true, InAreaList: true),
         new("/gesundheit", "Gesundheit", "Gesundheit & PKV", IsDetail: true, InAreaList: true,
             DetailTitle: "PKV-Vorgang"),
         new("/wohnen", "Wohnen", "Wohnen & Immobilien", IsDetail: true, InAreaList: true,
@@ -64,6 +64,7 @@ public static class ScreenCatalog
 
         // Detailscreens, die aus einem Bereich heraus geöffnet werden.
         new("/gesundheit/scannen", "Erfassen", "Beleg scannen", IsDetail: true, RequiresWrite: true),
+        new("/police", "Vertrag", "Vertrag", IsDetail: true, DetailTitle: "Vertrag"),
         new("/vertraege", "Wohnen", "Vertrag", IsDetail: true, DetailTitle: "Vertrag"),
         new("/rechnungen", "Wohnen", "Rechnung", IsDetail: true, DetailTitle: "Rechnung"),
         new("/liquiditaet", "Übersicht", "Liquidität", IsDetail: true),
@@ -82,16 +83,16 @@ public static class ScreenCatalog
     /// Abschnitt 3 — nicht die Reihenfolge der Tab-Bar.
     /// </summary>
     /// <remarks>
-    /// Der Handoff nennt fünfzehn Bereiche. Vier davon gibt es noch nicht: <em>Vorsorge &amp;
-    /// Kapital</em> und <em>Absicherung</em> entstehen mit Schritt 3, <em>Scaneingang</em> und
-    /// <em>Fahrzeuge</em> mit Schritt 8. Sie fehlen hier bewusst — ein Navigationseintrag, der
-    /// ins Leere führt, ist schlechter als einer, der noch nicht da ist.
+    /// Der Handoff nennt fünfzehn Bereiche. Zwei davon gibt es noch nicht: <em>Scaneingang</em>
+    /// und <em>Fahrzeuge</em> entstehen mit Schritt 8. Sie fehlen hier bewusst — ein
+    /// Navigationseintrag, der ins Leere führt, ist schlechter als einer, der noch nicht da ist.
     /// </remarks>
     public static IReadOnlyList<Screen> SideNav { get; } =
     [
         .. new[]
         {
             "/", "/vorgaenge", "/konten", "/budgets", "/depot",
+            "/vorsorge", "/absicherung",
             "/dokumente", "/gesundheit", "/wohnen", "/darlehen", "/import", "/benutzer",
         }
         .Select(route => All.First(s => s.Route == route)),

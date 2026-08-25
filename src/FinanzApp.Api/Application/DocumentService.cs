@@ -67,10 +67,10 @@ public sealed class DocumentService(
             }
         }
 
-        foreach (var row in await db.Insurances.AsNoTracking()
-                     .Select(x => new { x.Id, x.Name, x.Insurer }).ToListAsync(ct))
+        foreach (var row in await db.Policies.AsNoTracking()
+                     .Select(x => new { x.Id, x.Name, x.Provider }).ToListAsync(ct))
         {
-            Add(LinkTargetType.Insurance, row.Id, row.Name, row.Insurer);
+            Add(LinkTargetType.Policy, row.Id, row.Name, row.Provider);
         }
 
         foreach (var row in await db.Contracts.AsNoTracking()

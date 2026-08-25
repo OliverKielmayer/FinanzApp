@@ -21,8 +21,7 @@ public sealed class ObjectLabelService(FinanzAppDbContext db)
         LinkTargetType.Account => "Konto",
         LinkTargetType.Transaction => "Buchung",
         LinkTargetType.Portfolio => "Depot",
-        LinkTargetType.Insurance => "Versicherung",
-        LinkTargetType.LifeInsurance => "Lebensversicherung",
+        LinkTargetType.Policy => "Vertrag",
         LinkTargetType.Loan => "Darlehen",
         LinkTargetType.Property => "Immobilie",
         LinkTargetType.Contract => "Vertrag",
@@ -39,8 +38,8 @@ public sealed class ObjectLabelService(FinanzAppDbContext db)
     {
         LinkTargetType.Account or LinkTargetType.Transaction => "/konten",
         LinkTargetType.Portfolio => "/depot",
-        LinkTargetType.Insurance => $"/versicherungen/{id}",
-        LinkTargetType.LifeInsurance => "/mehr",
+        // Eine Detailseite für beide Bereiche - welcher es ist, steht am Vertrag.
+        LinkTargetType.Policy => $"/police/{id}",
         LinkTargetType.Loan => $"/darlehen?id={id}",
         LinkTargetType.Property => $"/wohnen/{id}",
         LinkTargetType.Contract => $"/vertraege/{id}",
@@ -62,10 +61,7 @@ public sealed class ObjectLabelService(FinanzAppDbContext db)
             LinkTargetType.Portfolio => await db.Depots.AsNoTracking()
                 .Where(x => x.Id == id).Select(x => x.Name).FirstOrDefaultAsync(ct),
 
-            LinkTargetType.Insurance => await db.Insurances.AsNoTracking()
-                .Where(x => x.Id == id).Select(x => x.Name).FirstOrDefaultAsync(ct),
-
-            LinkTargetType.LifeInsurance => await db.InsurancePolicies.AsNoTracking()
+            LinkTargetType.Policy => await db.Policies.AsNoTracking()
                 .Where(x => x.Id == id).Select(x => x.Name).FirstOrDefaultAsync(ct),
 
             LinkTargetType.Loan => await db.Loans.AsNoTracking()

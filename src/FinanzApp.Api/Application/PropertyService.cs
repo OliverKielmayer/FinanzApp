@@ -287,12 +287,12 @@ public sealed class PropertyService(FinanzAppDbContext db, DocumentService docum
             parts.Add("Verträge");
         }
 
-        // Gebäude- und Hausratversicherungen zählen mit, wenn es sie gibt.
-        var housingInsurance = (await db.Insurances.AsNoTracking().ToListAsync(ct))
-            .Where(i => i.Name.Contains("Hausrat", StringComparison.OrdinalIgnoreCase)
-                        || i.Name.Contains("Gebäude", StringComparison.OrdinalIgnoreCase)
-                        || i.Name.Contains("Wohn", StringComparison.OrdinalIgnoreCase))
-            .Sum(i => i.MonthlyPremium * 12m);
+        // Gebäude- und Hausratversicherungen zählen mit, wenn es sie gibt — nach Vertragsart,
+        // nicht mehr nach dem Namen geraten.
+        var housingInsurance = (await db.Policies.AsNoTracking()
+                .Where(p => p.Kind == PolicyKind.Building || p.Kind == PolicyKind.HouseholdContents)
+                .ToListAsync(ct))
+            .Sum(p => p.MonthlyPremium * 12m);
 
         if (housingInsurance > 0)
         {

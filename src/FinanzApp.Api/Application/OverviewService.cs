@@ -16,19 +16,25 @@ public sealed class OverviewService(
 {
     public async Task<MoreOverviewDto> GetAsync(CancellationToken ct = default)
     {
-        var policies = await db.InsurancePolicies.AsNoTracking().ToListAsync(ct);
+        var pensions = await db.Policies.AsNoTracking().Where(p => p.IsCapitalForming).ToListAsync(ct);
         var loan = await db.Loans.AsNoTracking().OrderBy(l => l.Id).FirstOrDefaultAsync(ct);
         var security = await db.SecurityStates.AsNoTracking().OrderBy(s => s.Id).FirstOrDefaultAsync(ct);
 
         return new MoreOverviewDto
         {
-            Insurance = new InsuranceSummaryDto
+            Pension = new PensionSummaryDto
             {
-                Provider = policies.FirstOrDefault()?.Provider ?? "—",
-                SurrenderValue = policies.Sum(p => p.SurrenderValue),
-                ValuationDate = policies.Count == 0
-                    ? DateOnly.MinValue
-                    : policies.Max(p => p.ValuationDate),
+                Provider = pensions.Count == 1
+                    ? pensions[0].Provider
+                    : $"{pensions.Count} Verträge",
+                TotalValue = pensions.Sum(p => p.AssetValue ?? 0m),
+
+                // Der älteste Stichtag, nicht der jüngste: die Summe ist nur so frisch wie
+                // ihr ältester Bestandteil.
+                ValuationDate = pensions
+                    .Select(p => p.ValuationDate)
+                    .Where(d => d is not null)
+                    .Min() ?? DateOnly.MinValue,
             },
             Loan = new LoanSummaryDto
             {
@@ -62,7 +68,8 @@ public sealed class OverviewService(
         {
             DocumentCount = page.TotalCount,
             MissingFileCount = page.MissingFileCount,
-            InsuranceCount = await db.Insurances.CountAsync(ct),
+            PensionCount = await db.Policies.CountAsync(p => p.IsCapitalForming, ct),
+            ProtectionCount = await db.Policies.CountAsync(p => !p.IsCapitalForming, ct),
             OpenMedicalBillCount = await db.MedicalBills.CountAsync(
                 b => b.Status != MedicalBillStatus.Completed && b.Status != MedicalBillStatus.Rejected, ct),
             PropertyCount = await db.Properties.CountAsync(ct),

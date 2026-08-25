@@ -32,8 +32,8 @@ Unten fünf Zellen: **Vermögen · Vorgänge · Erfassen · Dokumente · Mehr**.
 Die Mitte ist eine **Aktion, kein Ziel**: *Erfassen* legt ein Fenster über die laufende Seite und
 fragt, was erfasst werden soll (siehe Punkt 5). `Esc` oder ein Tipp daneben schließt es wieder.
 
-**Mehr** führt die übrigen Bereiche auf — Konten, Budgets, Depot, Darlehen, Import, Versicherungen,
-Gesundheit, Wohnen, Benutzer.
+**Mehr** führt die übrigen Bereiche auf — Konten, Budgets, Depot, Vorsorge & Kapital,
+Absicherung, Darlehen, Import, Gesundheit, Wohnen, Benutzer.
 
 Am großen Bildschirm sieht die App anders aus. Sie schaltet nach Fensterbreite:
 
@@ -59,7 +59,7 @@ Vier Zustände tragen überall dieselbe Kennzeichnung: **überfällig**, **fäll
 Von oben nach unten: das Nettovermögen, darunter die Vermögensentwicklung und die Bilanz
 (Brutto, Verbindlichkeiten, Netto) — am großen Bildschirm nebeneinander, auf dem Telefon
 untereinander. Es folgen die Kacheln der einzelnen Posten — Girokonto, Tagesgeld, Depot,
-Lebensversicherung —, jede führt in ihren Bereich, dann der laufende Monat mit Einnahmen,
+Vorsorge —, jede führt in ihren Bereich, dann der laufende Monat mit Einnahmen,
 Ausgaben und Sparquote und die Budgets. Zwei Schalter führen direkt zu **Buchung erfassen**
 und **Import**.
 
@@ -144,10 +144,25 @@ Zwei Dinge, die regelmäßig für Verwirrung sorgen:
   die erwartete Erstattung — deshalb steht in der Liste nicht der Rechnungsbetrag.
 - **Überfällig** heißt: eingereicht und länger als 14 Tage ohne Antwort.
 
-## 8. Versicherungen · Wohnen
+## 8. Vorsorge · Absicherung · Wohnen
+
+Verträge stehen in **zwei** Bereichen, und die Grenze ist einfach: hat der Vertrag einen Wert,
+der zum Vermögen zählt?
+
+- **Vorsorge & Kapital** — Kapital-Lebensversicherung, Riester, Bausparen. Oben steht der
+  erreichte Wert, immer mit dem **Stichtag** dazu. Ein Jahresstand ist kein Tageskurs, und die
+  App tut auch nicht so.
+- **Absicherung** — Risikoleben, Berufsunfähigkeit, Hausrat, Haftpflicht, Kfz, Rechtsschutz,
+  Krankenversicherung. Oben steht der **Jahresbeitrag**, kein Wert. Diese Verträge leisten im
+  Schadensfall; sie tauchen nie im Vermögen auf.
+
+Ein Tipp auf eine Zeile führt in beiden Fällen auf dieselbe Vertragsseite.
 
 Kündigungsfristen werden **gerechnet**, nicht gepflegt: Vertragsende minus Frist. Ein von Hand
 gesetztes Datum liefe der stillen Verlängerung hinterher, deshalb gibt es dieses Feld nicht.
+Davon getrennt ist die **Erinnerung**: sie darf lange vor dem Termin liegen, weil ein Vergleich
+Vorlauf braucht. Die Zeile sagt dann, worauf sich die Tage beziehen — auf den Termin oder auf
+die Erinnerung.
 
 Unter *Wohnen* hängen an der Immobilie ihre Verträge und Rechnungen; das Darlehen ist ein Verweis
 auf den Darlehensbereich, wo auch der Tilgungsplan steht. Zahlungen sind überall Verweise auf echte

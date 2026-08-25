@@ -39,7 +39,7 @@ public sealed class HouseholdIsolationTests : IDisposable
         using var context = database.Context(mine);
 
         Assert.Empty(context.MedicalBills);
-        Assert.Empty(context.Insurances);
+        Assert.Empty(context.Policies);
         Assert.Empty(context.Properties);
         Assert.Empty(context.Contracts);
         Assert.Empty(context.Invoices);
@@ -51,7 +51,7 @@ public sealed class HouseholdIsolationTests : IDisposable
     {
         using var context = database.Context(theirs);
 
-        Assert.Single(context.Insurances);
+        Assert.Single(context.Policies);
         Assert.Single(context.MedicalBills);
         Assert.Single(context.Documents);
     }
@@ -63,7 +63,7 @@ public sealed class HouseholdIsolationTests : IDisposable
         using var context = database.Context(0);
 
         Assert.Empty(context.Documents);
-        Assert.Empty(context.Insurances);
+        Assert.Empty(context.Policies);
         Assert.Empty(context.MedicalBills);
     }
 
@@ -71,13 +71,13 @@ public sealed class HouseholdIsolationTests : IDisposable
     public async Task Fremdes_Objekt_laesst_sich_nicht_verknuepfen()
     {
         using var foreignContext = database.Context(theirs);
-        var foreignInsuranceId = foreignContext.Insurances.Select(i => i.Id).Single();
+        var foreignPolicyId = foreignContext.Policies.Select(i => i.Id).Single();
 
         using var context = database.Context(mine);
         var labels = new ObjectLabelService(context);
 
         // Aus dem eigenen Haushalt heraus ist das fremde Ziel schlicht nicht auffindbar.
-        Assert.False(await labels.ExistsAsync(LinkTargetType.Insurance, foreignInsuranceId));
+        Assert.False(await labels.ExistsAsync(LinkTargetType.Policy, foreignPolicyId));
     }
 
     [Fact]
@@ -89,14 +89,14 @@ public sealed class HouseholdIsolationTests : IDisposable
         var documents = new DocumentService(
             context, paths, labels, TestDatabase.ClockAt(2026, 8, 23), NullLogger<DocumentService>.Instance);
 
-        context.Insurances.Add(new Insurance { Name = "Neu", Insurer = "Test", Premium = 10m });
+        context.Policies.Add(new Policy { Name = "Neu", Provider = "Test", Premium = 10m });
         await context.SaveChangesAsync();
 
         using var check = database.Context(mine);
-        Assert.Single(check.Insurances);
+        Assert.Single(check.Policies);
 
         using var other = database.Context(theirs);
-        Assert.DoesNotContain(other.Insurances, i => i.Name == "Neu");
+        Assert.DoesNotContain(other.Policies, i => i.Name == "Neu");
 
         _ = documents;
     }
@@ -108,14 +108,14 @@ public sealed class HouseholdIsolationTests : IDisposable
         var type = new DocumentType { Name = "Versicherungsschein", Area = DocumentArea.Insurance };
         context.DocumentTypes.Add(type);
 
-        var insurance = new Insurance
+        var policy = new Policy
         {
             Name = "Hausrat",
-            Insurer = "HUK",
+            Provider = "HUK",
             Premium = 156m,
             PremiumInterval = PremiumInterval.Yearly,
         };
-        context.Insurances.Add(insurance);
+        context.Policies.Add(policy);
         context.SaveChanges();
 
         var document = new Document
@@ -134,8 +134,8 @@ public sealed class HouseholdIsolationTests : IDisposable
         context.DocumentLinks.Add(new DocumentLink
         {
             DocumentId = document.Id,
-            TargetType = LinkTargetType.Insurance,
-            TargetId = insurance.Id,
+            TargetType = LinkTargetType.Policy,
+            TargetId = policy.Id,
             CreatedAt = new DateTime(2026, 1, 1),
         });
 

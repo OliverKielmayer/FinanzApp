@@ -177,7 +177,7 @@
     {
         var route = link.TargetType switch
         {
-            LinkTargetType.Insurance => $"/versicherungen/{link.TargetId}",
+            LinkTargetType.Policy => $"/police/{link.TargetId}",
             LinkTargetType.Contract => $"/vertraege/{link.TargetId}",
             LinkTargetType.Property => $"/wohnen/{link.TargetId}",
             LinkTargetType.Invoice => $"/rechnungen/{link.TargetId}",

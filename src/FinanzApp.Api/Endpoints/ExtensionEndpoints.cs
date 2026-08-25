@@ -20,7 +20,7 @@ public static class ExtensionEndpoints
         MapDocuments(app);
         MapTasks(app);
         MapHealth(app);
-        MapInsurances(app);
+        MapPolicies(app);
         MapHousing(app);
         MapLiquidity(app);
     }
@@ -230,17 +230,24 @@ public static class ExtensionEndpoints
         }).RequireAuthorization(AuthPolicies.Write).DisableAntiforgery();
     }
 
-    private static void MapInsurances(IEndpointRouteBuilder app)
+    /// <summary>
+    /// Zwei Einstiege, ein Modell: die Bereiche unterscheiden sich nur im Flag, das die Abfrage
+    /// mitgibt. Die Detailseite ist für beide dieselbe.
+    /// </summary>
+    private static void MapPolicies(IEndpointRouteBuilder app)
     {
-        var api = app.MapGroup("/api/insurances").WithTags("Versicherungen").RequireAuthorization();
+        var api = app.MapGroup("/api/policies").WithTags("Vorsorge & Absicherung").RequireAuthorization();
 
-        api.MapGet("/", async (InsuranceService service, CancellationToken ct)
-            => Results.Ok(await service.GetListAsync(ct)));
+        api.MapGet("/vorsorge", async (PolicyService service, CancellationToken ct)
+            => Results.Ok(await service.GetOverviewAsync(capitalForming: true, ct)));
 
-        api.MapGet("/{id:int}", async (int id, InsuranceService service, CancellationToken ct) =>
+        api.MapGet("/absicherung", async (PolicyService service, CancellationToken ct)
+            => Results.Ok(await service.GetOverviewAsync(capitalForming: false, ct)));
+
+        api.MapGet("/{id:int}", async (int id, PolicyService service, CancellationToken ct) =>
         {
-            var insurance = await service.GetAsync(id, ct);
-            return insurance is null ? Results.NotFound() : Results.Ok(insurance);
+            var policy = await service.GetAsync(id, ct);
+            return policy is null ? Results.NotFound() : Results.Ok(policy);
         });
     }
 

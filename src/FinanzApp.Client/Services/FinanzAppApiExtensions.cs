@@ -164,15 +164,17 @@ public static class FinanzAppApiExtensions
         return await api.PostFormAsync<ExtractedBillDto>("api/health/extract", form, ct);
     }
 
-    // ── Versicherungen ─────────────────────────────────────────────────────────────────────
+    // ── Vorsorge & Absicherung ────────────────────────────────────────
 
-    public static Task<IReadOnlyList<InsuranceListItemDto>> GetInsurancesAsync(
-        this FinanzAppApi api, CancellationToken ct = default)
-        => api.GetAsync<IReadOnlyList<InsuranceListItemDto>>("api/insurances", ct);
+    /// <summary>Einer der beiden Bereiche — dasselbe Modell, andere Kopfzahl.</summary>
+    public static Task<PolicyOverviewDto> GetPoliciesAsync(
+        this FinanzAppApi api, bool capitalForming, CancellationToken ct = default)
+        => api.GetAsync<PolicyOverviewDto>(
+            capitalForming ? "api/policies/vorsorge" : "api/policies/absicherung", ct);
 
-    public static Task<InsuranceDetailDto> GetInsuranceAsync(
+    public static Task<PolicyDetailDto> GetPolicyAsync(
         this FinanzAppApi api, int id, CancellationToken ct = default)
-        => api.GetAsync<InsuranceDetailDto>($"api/insurances/{id}", ct);
+        => api.GetAsync<PolicyDetailDto>($"api/policies/{id}", ct);
 
     // ── Wohnen ─────────────────────────────────────────────────────────────────────────────
 

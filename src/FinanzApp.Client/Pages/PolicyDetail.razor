@@ -1,0 +1,222 @@
+@page "/police/{Id:int}"
+@attribute [Authorize]
+@inherits AppPage
+
+@*
+    Eine Detailseite für beide Bereiche. Was sie zeigt, entscheidet das Flag am Vertrag: eine
+    Vorsorge trägt Wert und Stichtag, eine Absicherung Versicherungssumme und Frist. Zwei Seiten
+    wären zwei Stellen, an denen dieselbe Regel gepflegt werden müsste.
+*@
+
+<PageTitle>@(data?.Name ?? "Vertrag") — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (data is { } policy)
+    {
+        <section class="hero">
+            <span class="label-muted">@policy.KindLabel</span>
+
+            @if (policy.IsCapitalForming)
+            {
+                <span class="hero-value medium num">@State.Euro(policy.CurrentValue ?? 0m)</span>
+                <span class="hero-delta">
+                    @* Ohne Stichtag wird der Wert nicht gezeigt — er wäre sonst ein Tageskurs. *@
+                    @(policy.ValuationDate is { } asOf
+                        ? "Stand " + GermanFormat.Date(asOf)
+                        : "Ohne Stichtag — Wert nicht belastbar")
+                    · @policy.Provider
+                </span>
+            }
+            else
+            {
+                <span class="hero-value medium">@policy.Provider</span>
+                <span class="loan-sub num">
+                    @(policy.PolicyNumber is { Length: > 0 } number ? "Nr. " + number + " · " : string.Empty)
+                    @State.Euro0(policy.Premium) @IntervalLabel(policy.PremiumInterval) ·
+                    @State.Euro0(policy.AnnualPremium) im Jahr
+                </span>
+            }
+        </section>
+
+        @if (policy.IsCapitalForming)
+        {
+            <div class="section" style="padding-bottom:4px">
+                <span class="label-strong">Vertrag</span>
+            </div>
+
+            @if (policy.MaturityValue is { } maturity)
+            {
+                <div class="detail-block">
+                    <span class="detail-label">Ablaufleistung</span>
+                    <span class="detail-value num">
+                        @State.Euro(maturity)@(policy.MaturesOn is { } on ? " · fällig " + GermanFormat.Date(on) : null)
+                    </span>
+                </div>
+            }
+            else if (policy.MaturesOn is { } matures)
+            {
+                <div class="detail-block">
+                    <span class="detail-label">Ablauf</span>
+                    <span class="detail-value num">@GermanFormat.Date(matures)</span>
+                </div>
+            }
+
+            @if (policy.Premium > 0)
+            {
+                <div class="detail-block">
+                    <span class="detail-label">Beitrag</span>
+                    <span class="detail-value num">
+                        @State.Euro0(policy.Premium) @IntervalLabel(policy.PremiumInterval) ·
+                        @State.Euro(policy.MonthlyPremium) je Monat
+                    </span>
+                </div>
+            }
+
+            <div class="detail-block">
+                <span class="detail-label">Zählt zum Vermögen</span>
+                <span class="detail-value">
+                    Ja — der Vertrag hat einen erreichten Wert. Er steht im Bruttovermögen
+                    mit dem Stand seines Stichtags, nicht mit einem Tageswert.
+                </span>
+            </div>
+        }
+        else
+        {
+            @* Die Frist wird nicht gepflegt, sondern gerechnet: Vertragsende minus Kündigungsfrist. *@
+            <div class="section" style="padding-bottom:4px">
+                <span class="label-strong">Fristen</span>
+            </div>
+
+            @if (policy.NoticeDeadline is { } deadline)
+            {
+                @if (policy.NoticeIsDue)
+                {
+                    <div class="notice">
+                        <span class="notice-title">Kündigung bis @GermanFormat.Date(deadline)</span>
+                        <span class="notice-text">
+                            noch @policy.DaysUntilNotice Tage ·
+                            @policy.NoticePeriodMonths Monate vor Ablauf
+                        </span>
+                    </div>
+                }
+                else
+                {
+                    <div class="detail-block">
+                        <span class="detail-label">Kündigung möglich bis</span>
+                        <span class="detail-value num">
+                            @GermanFormat.Date(deadline) · @policy.NoticePeriodMonths Monate vor Ablauf
+                        </span>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="detail-block">
+                    <span class="detail-label">Kündigung</span>
+                    <span class="detail-value">Kein Vertragsende hinterlegt — daraus lässt sich keine Frist ableiten.</span>
+                </div>
+            }
+
+            @if (policy.SumInsured is { } sum)
+            {
+                <div class="detail-block">
+                    <span class="detail-label">Versicherungssumme</span>
+                    <span class="detail-value num">@State.Euro0(sum)</span>
+                </div>
+            }
+
+            @if (policy.Deductible is { } deductible)
+            {
+                <div class="detail-block">
+                    <span class="detail-label">Selbstbeteiligung</span>
+                    <span class="detail-value num">@State.Euro0(deductible)</span>
+                </div>
+            }
+
+            <div class="detail-block">
+                <span class="detail-label">Zählt zum Vermögen</span>
+                <span class="detail-value">
+                    Nein — der Vertrag leistet im Schadensfall. Ein Beitrag ist kein Guthaben,
+                    deshalb erscheint hier nie ein Wert.
+                </span>
+            </div>
+        }
+
+        <div class="detail-block">
+            <span class="detail-label">Laufzeit · Konto</span>
+            <span class="detail-value num">
+                @(policy.StartsOn is { } from ? "seit " + GermanFormat.Date(from) : "Beginn offen")
+                @(policy.EndsOn is { } to ? " · bis " + GermanFormat.Date(to) : string.Empty)
+                @(policy.AccountName is { Length: > 0 } account ? " · " + account : string.Empty)
+            </span>
+        </div>
+
+        <div class="list-head">
+            <span class="label-strong">Dokumente</span>
+            <span class="list-count num">@policy.Documents.Count</span>
+        </div>
+
+        @if (policy.Documents.Count == 0)
+        {
+            <div class="empty-area">
+                <span class="empty-area-text">Kein Dokument hinterlegt.</span>
+            </div>
+        }
+
+        @foreach (var document in policy.Documents)
+        {
+            <button type="button" class="tap doc-row @(document.FileExists ? null : "missing")"
+                    @onclick="@(() => Navigation.NavigateTo($"/dokumente/{document.Id}"))">
+                <span class="stack">
+                    <span class="doc-name">@document.Title</span>
+                    <span class="doc-meta">
+                        @(document.FileExists
+                            ? $"{document.TypeName} · {(document.DocumentDate is { } d ? GermanFormat.Date(d) : "ohne Datum")}"
+                            : "Datei nicht gefunden")
+                    </span>
+                </span>
+            </button>
+        }
+
+        <div class="list-head">
+            <span class="label-strong">Zahlungen</span>
+            <span class="list-count num">@policy.Payments.Count</span>
+        </div>
+
+        @if (policy.Payments.Count == 0)
+        {
+            <div class="empty-area">
+                <span class="empty-area-text">Noch keine Buchung gefunden, die zu diesem Vertrag passt.</span>
+            </div>
+        }
+
+        @foreach (var payment in policy.Payments)
+        {
+            <div class="row">
+                <div class="stack">
+                    <span class="balance-label plain">@payment.Payee</span>
+                    <span class="meta num">@GermanFormat.Date(payment.BookingDate) · @payment.AccountName</span>
+                </div>
+                <span class="balance-value num">@State.Euro(payment.Amount)</span>
+            </div>
+        }
+
+        <div class="spacer"></div>
+    }
+</AsyncView>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private PolicyDetailDto? data;
+
+    protected override async Task LoadAsync() => data = await Api.GetPolicyAsync(Id);
+
+    private static string IntervalLabel(PremiumInterval interval) => interval switch
+    {
+        PremiumInterval.Monthly => "monatlich",
+        PremiumInterval.Quarterly => "vierteljährlich",
+        PremiumInterval.HalfYearly => "halbjährlich",
+        _ => "jährlich",
+    };
+}

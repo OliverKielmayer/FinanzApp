@@ -110,23 +110,6 @@ namespace FinanzApp.Api.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "InsurancePolicies",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "INTEGER", nullable: false)
-                        .Annotation("Sqlite:Autoincrement", true),
-                    HouseholdId = table.Column<int>(type: "INTEGER", nullable: false),
-                    Provider = table.Column<string>(type: "TEXT", maxLength: 120, nullable: false),
-                    Name = table.Column<string>(type: "TEXT", maxLength: 160, nullable: false),
-                    SurrenderValue = table.Column<long>(type: "INTEGER", nullable: false),
-                    ValuationDate = table.Column<DateOnly>(type: "TEXT", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_InsurancePolicies", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "Loans",
                 columns: table => new
                 {
@@ -241,28 +224,37 @@ namespace FinanzApp.Api.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Insurances",
+                name: "Policies",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "INTEGER", nullable: false)
                         .Annotation("Sqlite:Autoincrement", true),
                     HouseholdId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Kind = table.Column<int>(type: "INTEGER", nullable: false),
+                    IsCapitalForming = table.Column<bool>(type: "INTEGER", nullable: false),
                     Name = table.Column<string>(type: "TEXT", maxLength: 120, nullable: false),
-                    Insurer = table.Column<string>(type: "TEXT", maxLength: 120, nullable: false),
+                    Provider = table.Column<string>(type: "TEXT", maxLength: 120, nullable: false),
                     PolicyNumber = table.Column<string>(type: "TEXT", maxLength: 60, nullable: true),
                     Premium = table.Column<long>(type: "INTEGER", nullable: false),
                     PremiumInterval = table.Column<int>(type: "INTEGER", nullable: false),
                     StartsOn = table.Column<DateOnly>(type: "TEXT", nullable: true),
                     EndsOn = table.Column<DateOnly>(type: "TEXT", nullable: true),
                     NoticePeriodMonths = table.Column<int>(type: "INTEGER", nullable: false),
+                    NoticeReminderOn = table.Column<DateOnly>(type: "TEXT", nullable: true),
                     AccountId = table.Column<int>(type: "INTEGER", nullable: true),
+                    CurrentValue = table.Column<long>(type: "INTEGER", nullable: true),
+                    ValuationDate = table.Column<DateOnly>(type: "TEXT", nullable: true),
+                    MaturityValue = table.Column<long>(type: "INTEGER", nullable: true),
+                    MaturesOn = table.Column<DateOnly>(type: "TEXT", nullable: true),
+                    SumInsured = table.Column<long>(type: "INTEGER", nullable: true),
+                    Deductible = table.Column<long>(type: "INTEGER", nullable: true),
                     Notes = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Insurances", x => x.Id);
+                    table.PrimaryKey("PK_Policies", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_Insurances_Accounts_AccountId",
+                        name: "FK_Policies_Accounts_AccountId",
                         column: x => x.AccountId,
                         principalTable: "Accounts",
                         principalColumn: "Id",
@@ -689,11 +681,6 @@ namespace FinanzApp.Api.Data.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_Insurances_AccountId",
-                table: "Insurances",
-                column: "AccountId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_Invitations_Code",
                 table: "Invitations",
                 column: "Code",
@@ -735,6 +722,16 @@ namespace FinanzApp.Api.Data.Migrations
                 name: "IX_PasswordResetTokens_UserId",
                 table: "PasswordResetTokens",
                 column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Policies_AccountId",
+                table: "Policies",
+                column: "AccountId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Policies_IsCapitalForming",
+                table: "Policies",
+                column: "IsCapitalForming");
 
             migrationBuilder.CreateIndex(
                 name: "IX_PortfolioPositions_DepotId",
@@ -830,12 +827,6 @@ namespace FinanzApp.Api.Data.Migrations
                 name: "ImportProfiles");
 
             migrationBuilder.DropTable(
-                name: "InsurancePolicies");
-
-            migrationBuilder.DropTable(
-                name: "Insurances");
-
-            migrationBuilder.DropTable(
                 name: "Invitations");
 
             migrationBuilder.DropTable(
@@ -849,6 +840,9 @@ namespace FinanzApp.Api.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "PasswordResetTokens");
+
+            migrationBuilder.DropTable(
+                name: "Policies");
 
             migrationBuilder.DropTable(
                 name: "PortfolioPositions");

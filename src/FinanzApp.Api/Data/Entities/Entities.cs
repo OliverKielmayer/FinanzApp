@@ -160,19 +160,6 @@ public class Loan : IHouseholdOwned
     public DateOnly NextPaymentDate { get; set; }
 }
 
-public class InsurancePolicy : IHouseholdOwned
-{
-    public int Id { get; set; }
-    public int HouseholdId { get; set; }
-    public required string Provider { get; set; }
-    public required string Name { get; set; }
-
-    /// <summary>Rückkaufswert zum Stichtag.</summary>
-    public decimal SurrenderValue { get; set; }
-
-    public DateOnly ValuationDate { get; set; }
-}
-
 public class ImportProfile : IHouseholdOwned
 {
     public int Id { get; set; }

@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FinanzApp.Api.Data.Migrations
 {
     [DbContext(typeof(FinanzAppDbContext))]
-    [Migration("20260823222646_InitialCreate")]
+    [Migration("20260825161346_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -409,88 +409,6 @@ namespace FinanzApp.Api.Data.Migrations
                     b.ToTable("ImportProfiles");
                 });
 
-            modelBuilder.Entity("FinanzApp.Api.Data.Entities.Insurance", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int?>("AccountId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateOnly?>("EndsOn")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("HouseholdId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Insurer")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(1000)
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("NoticePeriodMonths")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("PolicyNumber")
-                        .HasMaxLength(60)
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("Premium")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("PremiumInterval")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateOnly?>("StartsOn")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AccountId");
-
-                    b.ToTable("Insurances");
-                });
-
-            modelBuilder.Entity("FinanzApp.Api.Data.Entities.InsurancePolicy", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("HouseholdId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(160)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Provider")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("SurrenderValue")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateOnly>("ValuationDate")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("InsurancePolicies");
-                });
-
             modelBuilder.Entity("FinanzApp.Api.Data.Entities.Invitation", b =>
                 {
                     b.Property<int>("Id")
@@ -730,6 +648,87 @@ namespace FinanzApp.Api.Data.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("PasswordResetTokens");
+                });
+
+            modelBuilder.Entity("FinanzApp.Api.Data.Entities.Policy", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("AccountId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("CurrentValue")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("Deductible")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateOnly?>("EndsOn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("HouseholdId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsCapitalForming")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateOnly?>("MaturesOn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("MaturityValue")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("NoticePeriodMonths")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateOnly?>("NoticeReminderOn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PolicyNumber")
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("Premium")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("PremiumInterval")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly?>("StartsOn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("SumInsured")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateOnly?>("ValuationDate")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("IsCapitalForming");
+
+                    b.ToTable("Policies");
                 });
 
             modelBuilder.Entity("FinanzApp.Api.Data.Entities.PortfolioPosition", b =>
@@ -1113,16 +1112,6 @@ namespace FinanzApp.Api.Data.Migrations
                     b.Navigation("Document");
                 });
 
-            modelBuilder.Entity("FinanzApp.Api.Data.Entities.Insurance", b =>
-                {
-                    b.HasOne("FinanzApp.Api.Data.Entities.Account", "Account")
-                        .WithMany()
-                        .HasForeignKey("AccountId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Account");
-                });
-
             modelBuilder.Entity("FinanzApp.Api.Data.Entities.Invitation", b =>
                 {
                     b.HasOne("FinanzApp.Api.Data.Entities.Household", "Household")
@@ -1153,6 +1142,16 @@ namespace FinanzApp.Api.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("FinanzApp.Api.Data.Entities.Policy", b =>
+                {
+                    b.HasOne("FinanzApp.Api.Data.Entities.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Account");
                 });
 
             modelBuilder.Entity("FinanzApp.Api.Data.Entities.PortfolioPosition", b =>

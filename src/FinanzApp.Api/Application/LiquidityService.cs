@@ -255,19 +255,22 @@ public sealed class LiquidityService(FinanzAppDbContext db, IClock clock)
             }
         }
 
-        foreach (var insurance in await db.Insurances.AsNoTracking().ToListAsync(ct))
+        // Nur Absicherung: eine Kapital-LV zu kündigen ist kein Sparpotential, sondern ein
+        // Verlust - der Rückkaufswert liegt fast immer unter dem Eingezahlten.
+        foreach (var policy in await db.Policies.AsNoTracking()
+                     .Where(p => !p.IsCapitalForming).ToListAsync(ct))
         {
-            if (insurance.NoticeDeadline is { } deadline && deadline >= today)
+            if (policy.NoticeDeadline is { } deadline && deadline >= today)
             {
                 items.Add(new SavingsItemDto
                 {
-                    Title = insurance.Name,
+                    Title = policy.Name,
                     Detail = $"Wechselfrist {Format(deadline)}",
                     AmountPerMonth = null,
-                    CurrentCostPerMonth = Math.Round(insurance.MonthlyPremium, 2, MidpointRounding.AwayFromZero),
+                    CurrentCostPerMonth = Math.Round(policy.MonthlyPremium, 2, MidpointRounding.AwayFromZero),
                     IsUrgent = deadline.DayNumber - today.DayNumber <= 30,
-                    SourceType = LinkTargetType.Insurance,
-                    SourceId = insurance.Id,
+                    SourceType = LinkTargetType.Policy,
+                    SourceId = policy.Id,
                 });
             }
         }
@@ -310,7 +313,7 @@ public sealed class LiquidityService(FinanzAppDbContext db, IClock clock)
             .ToListAsync(ct);
 
         var known = (await db.Contracts.AsNoTracking().Select(c => c.Provider).ToListAsync(ct))
-            .Concat(await db.Insurances.AsNoTracking().Select(i => i.Insurer).ToListAsync(ct))
+            .Concat(await db.Policies.AsNoTracking().Select(p => p.Provider).ToListAsync(ct))
             .Select(name => name.Split(' ', '-')[0])
             .Where(name => name.Length > 2)
             .ToList();

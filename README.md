@@ -8,7 +8,7 @@ umgesetzt nach den Design-Handoffs *Finanz-App Prototyp Deutsch* — zuletzt **H
 Der Client trägt die täglichen Aufgaben — Vermögen und Liquidität prüfen, Ausgaben erfassen,
 importierte Buchungen kategorisieren, Budgets und Depot verfolgen — dazu Vorgänge und Fristen,
 eine Dokumentablage, den PKV-Flow von der Arztrechnung bis zur verbuchten Erstattung,
-Versicherungen, Wohnen mit Verträgen und Rechnungen, Darlehen, Import sowie Anmeldung und
+Vorsorge und Absicherung, Wohnen mit Verträgen und Rechnungen, Darlehen, Import sowie Anmeldung und
 Benutzerverwaltung eines Haushalts.
 
 Wie die Anwendung bedient wird, steht in der [Bedieneranleitung](docs/bedienung.md).
@@ -207,10 +207,28 @@ Vertragsfristen. Keine neue Eingabe, keine neue Tabelle.
   Buchungen ohne Vertrag. Für „Abo“ gelten zwei Schranken — höchstens 100 € im Monat und höchstens
   5 % Schwankung. Ohne sie landet die Miete in der Liste, und die lässt sich nicht kündigen.
 
-### Versicherungen, Wohnen
+### Vorsorge & Kapital, Absicherung
+
+Seit Handoff v4 sind die früheren „Versicherungen“ **zwei Bereiche mit einem Modell**. Das
+Entscheidungsmerkmal ist, ob ein Vertrag einen Wert hat, der ins Vermögen zählt: Kapital-LV,
+Riester und Bausparen haben einen (**Vorsorge**), Risikoleben, BU, Hausrat und Kfz haben keinen
+(**Absicherung**). Technisch ist es **eine** Tabelle mit dem Flag `IsCapitalForming`, und die
+Regel steht an einer einzigen Stelle:
+
+```csharp
+public decimal? AssetValue => IsCapitalForming ? CurrentValue : null;
+```
+
+So kann ein Risikoleben-Vertrag nicht ins Nettovermögen geraten, selbst wenn versehentlich ein
+Wert eingetragen wäre — er zahlt im Todesfall, er ist kein Guthaben. Genau daran ist die alte
+Sammelkategorie gescheitert. Jeder Vorsorgewert trägt seinen **Stichtag**; ein Jahresstand ist
+kein Tageskurs und wird auch nicht wie einer gezeigt.
+
+### Fristen, Wohnen
 
 Fristen werden **abgeleitet** (Vertragsende minus Kündigungsfrist), nicht gepflegt — ein von Hand
-gesetztes Datum liefe der Verlängerung hinterher. Die Immobilie **verweist** über `LoanId` auf das
+gesetztes Datum liefe der Verlängerung hinterher. Davon getrennt ist die **Erinnerung**: ein
+Vertrag kann ein Jahr vor dem Termin auf den Tisch gehören, weil ein Vergleich Vorlauf braucht. Die Immobilie **verweist** über `LoanId` auf das
 bestehende Darlehen; es gibt weiterhin genau einen Darlehensbereich mit einem Tilgungsplan.
 Zahlungen sind überall Verweise auf echte Buchungen — Geldbewegungen bleiben Buchungen.
 
@@ -249,9 +267,11 @@ Filter findet **nichts** — der Standardfall ist „nichts sichtbar“, nicht �
 
 Alle Summen werden **gerechnet**, nicht gespeichert. Die Beispieldaten sind so gewählt, dass dabei
 genau die Zahlen der Handoffs herauskommen: Liquidität **+1.628 €** (Einnahmen 5.240 €, Ausgaben
-3.612 €, Sparquote 31 %), Nettovermögen 125.839,95 €, Bruttovermögen 274.139,95 €, Depotwert
-132.480,00 €, G/V +18.940,20 €, Budgets 892 € von 1.250 €, Kontosalden 4.812,60 € / 1.947,35 € /
-50.000,00 €, Kündigungsfrist Hausrat in **18 Tagen**, PKV-Erstattung **680 €** überfällig,
+3.612 €, Sparquote 31 %), Nettovermögen **99.879,95 €**, Bruttovermögen **248.179,95 €**,
+Depotwert 132.480,00 €, Vorsorge **58.940,00 €** aus vier Verträgen, Absicherung
+**12.330 €/Jahr** aus acht, G/V +18.940,20 €, Budgets 892 € von 1.250 €, Kontosalden
+4.812,60 € / 1.947,35 € / 50.000,00 €, Erinnerung Kündigung Hausrat in **18 Tagen**,
+PKV-Erstattung **680 €** überfällig,
 Arztrechnung **210 €** noch nicht eingereicht, Stromrechnung **142,50 €** offen.
 
 Damit das aufgeht, enthält der August 2026 mehr Buchungen als die sieben des ersten Prototyps, und

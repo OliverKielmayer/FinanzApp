@@ -60,19 +60,45 @@ public class MedicalBill : IHouseholdOwned
             : ExpectedReimbursement - (ActualReimbursement ?? 0m);
 }
 
-/// <summary>Ein Versicherungsvertrag — Hausrat, Haftpflicht, Kfz, Risikoleben.</summary>
+/// <summary>
+/// Ein Vorsorge- oder Absicherungsvertrag. <b>Ein</b> Modell für beide Bereiche, unterschieden
+/// allein durch <see cref="IsCapitalForming"/>.
+/// </summary>
 /// <remarks>
-/// Nicht zu verwechseln mit <see cref="InsurancePolicy"/>: das ist die Kapitallebensversicherung
-/// als <em>Vermögenswert</em> mit Rückkaufswert und speist die Dashboard-Kachel. Hier geht es um
-/// den Vertrag mit Beitrag, Frist und Dokumenten.
+/// <para>Das Entscheidungsmerkmal ist, <em>ob der Vertrag einen Wert hat, der ins Vermögen
+/// zählt</em> (Handoff v4, Abschnitt 4):</para>
+/// <list type="bullet">
+///   <item><b>Vorsorge &amp; Kapital</b> (<c>IsCapitalForming = true</c>) — Kapital-LV,
+///     Rentenversicherung, Riester, Bausparen, bAV. Sie tragen einen Rückkaufswert oder ein
+///     Ansammlungsguthaben und erscheinen im Bruttovermögen, <b>immer mit Stichtag</b>.</item>
+///   <item><b>Absicherung</b> (<c>false</c>) — Risikoleben, BU, Haftpflicht, Hausrat,
+///     Wohngebäude, Kfz, Unfall, Rechtsschutz, Kranken. Sie haben Beitrag, Versicherungssumme
+///     und Frist, aber <b>keinen</b> Vermögenswert.</item>
+/// </list>
+/// <para>Ein Risikoleben-Vertrag darf deshalb nie im Nettovermögen auftauchen — er zahlt im
+/// Todesfall, er ist kein Guthaben. Genau daran ist die alte Sammelkategorie
+/// „Versicherungen“ gescheitert.</para>
 /// </remarks>
-public class Insurance : IHouseholdOwned
+public class Policy : IHouseholdOwned
 {
     public int Id { get; set; }
     public int HouseholdId { get; set; }
 
+    /// <summary>Vertragsart. Bestimmt zusammen mit ihr, unter welchem Bereich der Vertrag steht.</summary>
+    public PolicyKind Kind { get; set; }
+
+    /// <summary>
+    /// Kapitalbildend — der Vertrag hat einen Wert, der ins Vermögen zählt. Redundant zu
+    /// <see cref="Kind"/>, aber bewusst eigenständig: die Zuordnung einer Art kann sich ändern,
+    /// die Vermögensrechnung soll davon nicht abhängen.
+    /// </summary>
+    public bool IsCapitalForming { get; set; }
+
     public required string Name { get; set; }
-    public required string Insurer { get; set; }
+
+    /// <summary>Versicherer, Bank oder Kasse.</summary>
+    public required string Provider { get; set; }
+
     public string? PolicyNumber { get; set; }
 
     public decimal Premium { get; set; }
@@ -86,9 +112,43 @@ public class Insurance : IHouseholdOwned
     /// <summary>Kündigungsfrist in Monaten vor Vertragsende.</summary>
     public int NoticePeriodMonths { get; set; }
 
+    /// <summary>
+    /// Tag, ab dem an die Kündigung erinnert werden soll — unabhängig vom Termin selbst.
+    /// </summary>
+    /// <remarks>
+    /// Termin und Erinnerung sind zweierlei: eine Frist kann ein Jahr entfernt liegen und trotzdem
+    /// jetzt auf den Tisch gehören, weil ein Vergleich Zeit braucht. Ohne dieses Feld müsste man
+    /// den Vertrag künstlich früher enden lassen, um ihn sichtbar zu machen.
+    /// </remarks>
+    public DateOnly? NoticeReminderOn { get; set; }
+
     /// <summary>Konto, von dem der Beitrag abgeht.</summary>
     public int? AccountId { get; set; }
     public Account? Account { get; set; }
+
+    // ── nur kapitalbildend ────────────────────────────────────────────────────────────────
+
+    /// <summary>Erreichter Wert: Rückkaufswert, Ansammlungsguthaben, Bausparguthaben.</summary>
+    public decimal? CurrentValue { get; set; }
+
+    /// <summary>
+    /// Stichtag des erreichten Werts. <b>Pflicht, sobald ein Wert steht</b> — ein Jahresstand ist
+    /// kein Tageskurs und darf nicht wie einer aussehen.
+    /// </summary>
+    public DateOnly? ValuationDate { get; set; }
+
+    /// <summary>Ablaufleistung, falls der Vertrag eine ausweist.</summary>
+    public decimal? MaturityValue { get; set; }
+
+    public DateOnly? MaturesOn { get; set; }
+
+    // ── nur Absicherung ───────────────────────────────────────────────────────────────────
+
+    /// <summary>Versicherungssumme.</summary>
+    public decimal? SumInsured { get; set; }
+
+    /// <summary>Selbstbeteiligung.</summary>
+    public decimal? Deductible { get; set; }
 
     public string? Notes { get; set; }
 
@@ -101,6 +161,22 @@ public class Insurance : IHouseholdOwned
         PremiumInterval.Yearly => Premium / 12m,
         _ => Premium,
     };
+
+    /// <summary>Beitrag auf ein Jahr gerechnet — die Kopfzahl der Absicherung.</summary>
+    public decimal AnnualPremium => PremiumInterval switch
+    {
+        PremiumInterval.Monthly => Premium * 12m,
+        PremiumInterval.Quarterly => Premium * 4m,
+        PremiumInterval.HalfYearly => Premium * 2m,
+        PremiumInterval.Yearly => Premium,
+        _ => Premium,
+    };
+
+    /// <summary>
+    /// Was dieser Vertrag zum Vermögen beiträgt. Für Absicherung <b>immer null</b>, auch wenn
+    /// versehentlich ein Wert eingetragen wäre — die Regel steht hier und nicht in jeder Auswertung.
+    /// </summary>
+    public decimal? AssetValue => IsCapitalForming ? CurrentValue : null;
 
     /// <summary>Letzter Tag, an dem noch gekündigt werden kann.</summary>
     public DateOnly? NoticeDeadline

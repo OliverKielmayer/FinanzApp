@@ -62,10 +62,16 @@
             "/import");
 
         yield return new AreaRow(
-            "Versicherungen",
-            "Verträge, Beiträge, Fristen",
-            $"{areas.InsuranceCount} Verträge",
-            "/versicherungen");
+            "Vorsorge & Kapital",
+            $"Kapital-LV, Riester, Bausparen · Stand {GermanFormat.Date(overview.Pension.ValuationDate)}",
+            State.Euro0(overview.Pension.TotalValue),
+            "/vorsorge");
+
+        yield return new AreaRow(
+            "Absicherung",
+            "Verträge, Beiträge, Fristen — ohne Vermögenswert",
+            $"{areas.ProtectionCount} Verträge",
+            "/absicherung");
 
         yield return new AreaRow(
             "Gesundheit / PKV",
@@ -78,13 +84,6 @@
             $"{areas.PropertyCount} Objekt · {areas.ContractCount} Verträge",
             string.Empty,
             "/wohnen");
-
-        yield return new AreaRow(
-            "Lebensversicherungen",
-            $"{overview.Insurance.Provider} · Rückkaufswert {GermanFormat.Date(overview.Insurance.ValuationDate)}",
-            State.Euro0(overview.Insurance.SurrenderValue),
-            null,
-            "Vertragsdetail folgt");
 
         yield return new AreaRow(
             "Auswertungen",

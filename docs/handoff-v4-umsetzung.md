@@ -4,7 +4,7 @@ Arbeitsliste zu [`docs/design-handoff-v4/handoff.md`](design-handoff-v4/handoff.
 aus Abschnitt 11 des Handoffs — sie ist nicht beliebig: Schritt 1 verschiebt jede Maßzahl, alles
 danach würde sonst zweimal gebaut.
 
-Stand 25.08.2026: **Schritte 1 und 2 umgesetzt**, Rest offen.
+Stand 25.08.2026: **Schritte 1 bis 3 umgesetzt**, Rest offen.
 
 Entschieden: beim Umbau des Datenmodells in Schritt 3 wird **nicht migriert**, sondern neu
 aufgesetzt — bestehende `finanzapp.db` löschen. Damit muss die Schema-Prüfung beim Start
@@ -23,7 +23,7 @@ weiter. Die beiden Ordner bleiben deshalb liegen.
 | --- | --- | --- | --- |
 | ~~1~~ | ~~Stylesheet Industry + Typo-Skala~~ | **erledigt** | groß |
 | ~~2~~ | ~~Responsiver Rahmen~~ | **erledigt** bis auf das Formular am Stück (siehe unten) | mittel |
-| 3 | Vorsorge / Absicherung trennen | Entitäten, Vermögensrechnung, Beispieldaten, 2 neue Bereiche | mittel |
+| ~~3~~ | ~~Vorsorge / Absicherung trennen~~ | **erledigt** | mittel |
 | 4 | Anlege-Flows | eine Formularkomponente + Feldliste je Typ (8 Typen), Endpunkte | groß |
 | 5 | Buchungstabelle, Filter, Summen, Leerzustände | `Accounts.razor`, `TransactionService`, Kategorie-Panel | mittel |
 | 6 | Dokumente Master/Detail, Scan & PKV zweispaltig | `Documents`, `DocumentDetail`, `ScanBill`, `MedicalBillDetail` | mittel |
@@ -129,3 +129,62 @@ Panel-Geometrie und die feste Position des Erfassen-Knopfes stimmen.
   Fahrzeuge (Schritt 8). Ein Eintrag, der ins Leere führt, wäre schlechter als keiner.
 - **Dashboard-Reihenfolge** aus Abschnitt 10 („Bleibt übrig" zuoberst, Nettovermögen darunter)
   gehört in keinen der acht Schritte. Vorschlag: zusammen mit Schritt 5.
+
+## Was Schritt 3 geändert hat
+
+**Ein Modell statt zwei halber.** `Insurance` und `InsurancePolicy` sind zu **`Policy`**
+zusammengeführt, unterschieden allein durch `IsCapitalForming`. Die Regel, an der die alte
+Sammelkategorie gescheitert ist, steht jetzt an einer einzigen Stelle:
+
+```csharp
+public decimal? AssetValue => IsCapitalForming ? CurrentValue : null;
+```
+
+Damit kann ein Risikoleben-Vertrag nicht mehr ins Nettovermögen geraten, auch wenn versehentlich
+ein Wert eingetragen wäre. `PolicyTests` hält das fest.
+
+**Zwei Einstiege, eine Seite.** `/vorsorge` und `/absicherung` sind dieselbe Komponente; was sie
+unterscheidet, ist die Kopfzahl — Wert mit Stichtag gegen Jahresbeitrag. Die Detailseite
+`/police/{id}` gilt für beide. Aus `LinkTargetType.Insurance` und `LifeInsurance` wurde ein
+`Policy`.
+
+**Wo die Trennung sonst noch wirkt:** Vorsorgebeiträge zählen nicht mehr als Kosten (sie sind
+Sparen, Abschnitt 10), Vorsorgeverträge tauchen nicht mehr im Sparpotential auf (eine Kapital-LV
+zu kündigen ist ein Verlust, kein Potential), und die Immobilienkosten ziehen Gebäude- und
+Hausratbeitrag jetzt über die Vertragsart statt über den Namen zu raten.
+
+### Termin und Erinnerung sind zweierlei
+
+Der Prototyp führt bei Hausrat „Kündigung bis 30.09.2027“ **und** „in 18 Tagen erinnern“ und
+markiert den Vertrag trotzdem als laufende Frist. Beides zugleich geht nur, wenn Termin und
+Erinnerung getrennt sind — mit dem abgeleiteten Termin allein wäre der Vertrag 403 Tage entfernt
+und damit unauffällig, und die Demo hätte kein einziges Beispiel für den Zustand „Frist läuft“.
+Deshalb trägt `Policy` ein `NoticeReminderOn`. Es zählt, sobald es in Sicht ist, nicht erst am Tag
+selbst — ein Vergleich braucht Vorlauf.
+
+### Die Zahlen
+
+Gegengeprüft über die laufende API, nicht geschätzt:
+
+| | Soll (Prototyp) | Ist |
+| --- | --- | --- |
+| Vorsorge, 4 Verträge | 58.940,00 € | 58.940,00 € |
+| Absicherung, 8 Verträge | 12.330 €/Jahr | 12.330 €/Jahr |
+| Bruttovermögen | 248.179,95 € | 248.179,95 € |
+| Nettovermögen | 99.879,95 € | 99.879,95 € |
+| zum Vormonat | +2.140,80 € | +2.140,80 € |
+
+Die Verlaufsreihe ist um 25.960 € nach unten **verschoben**, nicht skaliert: der Unterschied
+steckte schon immer darin, er war nur falsch zugeordnet. Dadurch bleibt der Monatszuwachs
+erhalten. Die Jahresangabe wandert damit von +11,4 % auf **+14,8 %** — der Prototyp zeigt zwar
+weiter „+11,4 %“, aber das ist eine aus der Vorfassung übernommene feste Zeichenkette, die
+schon zu seiner eigenen Kopfzahl nicht mehr passt.
+
+### Datenbank
+
+Wie entschieden **nicht migriert, sondern neu aufgesetzt**: die Migrationen sind neu erzeugt.
+`SchemaStartup` erkennt jetzt zwei Fälle statt einem — eine Datenbank ohne Migrationshistorie
+(wie bisher) und eine aus einer älteren Migrationslinie (neu). Beide bekommen dieselbe klare
+Ansage samt Dateipfad; löschen darf die Anwendung sie weiterhin nicht.
+
+59 Tests, davon 11 neue zu den Vorsorge-/Absicherungsregeln.

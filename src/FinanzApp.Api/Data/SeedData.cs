@@ -77,7 +77,7 @@ public static class SeedData
         SeedTransactions(db, accounts, categories);
         SeedBudgets(db, categories);
         SeedRules(db, categories);
-        SeedLoanAndInsurance(db);
+        SeedLoanAndPensions(db);
         SeedImportProfiles(db);
 
         // Anfangsbestände so setzen, dass die gerechneten Salden den Demo-Ständen entsprechen.
@@ -405,7 +405,7 @@ public static class SeedData
         return depot;
     }
 
-    private static void SeedLoanAndInsurance(FinanzAppDbContext db)
+    private static void SeedLoanAndPensions(FinanzAppDbContext db)
     {
         db.Loans.Add(new Loan
         {
@@ -417,13 +417,51 @@ public static class SeedData
             NextPaymentDate = new DateOnly(2026, 9, 1),
         });
 
-        db.InsurancePolicies.Add(new InsurancePolicy
-        {
-            Provider = "Heidelberger Leben",
-            Name = "Klassische Lebensversicherung",
-            SurrenderValue = 84900m,
-            ValuationDate = new DateOnly(2026, 7, 1),
-        });
+        // Vorsorge & Kapital — die vier Verträge aus Handoff v4, Abschnitt 4. Ihre Summe ist
+        // 58.940,00 € und damit genau der Betrag, der im Prototyp im Bruttovermögen steht.
+        // Jeder trägt seinen eigenen Stichtag; das älteste Datum bestimmt, wie alt die Summe ist.
+        db.Policies.AddRange(
+            new Policy
+            {
+                Kind = PolicyKind.CapitalLife,
+                IsCapitalForming = true,
+                Name = "Heidelberger Leben",
+                Provider = "Heidelberger Leben",
+                Notes = "MLP bestpartner classic",
+                CurrentValue = 20481.52m,
+                ValuationDate = new DateOnly(2025, 7, 31),
+            },
+            new Policy
+            {
+                Kind = PolicyKind.CapitalLife,
+                IsCapitalForming = true,
+                Name = "Raiffeisenbank LV",
+                Provider = "Raiffeisenbank",
+                Notes = "Ablauf 2034",
+                CurrentValue = 14208m,
+                ValuationDate = new DateOnly(2025, 12, 31),
+                MaturesOn = new DateOnly(2034, 12, 1),
+            },
+            new Policy
+            {
+                Kind = PolicyKind.Riester,
+                IsCapitalForming = true,
+                Name = "Riester Debeka",
+                Provider = "Debeka",
+                Notes = "Zulagen 2025 gebucht",
+                CurrentValue = 11930.40m,
+                ValuationDate = new DateOnly(2025, 12, 31),
+            },
+            new Policy
+            {
+                Kind = PolicyKind.BuildingSociety,
+                IsCapitalForming = true,
+                Name = "Bausparen BSK SHA",
+                Provider = "Bausparkasse Schwäbisch Hall",
+                Notes = "Zuteilung möglich",
+                CurrentValue = 12320.08m,
+                ValuationDate = new DateOnly(2025, 12, 31),
+            });
     }
 
     private static void SeedImportProfiles(FinanzAppDbContext db)
@@ -436,17 +474,22 @@ public static class SeedData
     private static void SeedSnapshots(FinanzAppDbContext db, Dictionary<string, Account> accounts, Depot depot)
     {
         // Elf historische Monatswerte. Der laufende Monat fällt aus den echten Beständen.
+        // Elf historische Monatswerte, gegenüber der Fassung vor Handoff v4 um 25.960 € nach
+        // unten verschoben — so viel weniger trägt die Vorsorge zum Vermögen bei, seit die
+        // Risikoverträge nicht mehr mitzählen. Verschoben und nicht skaliert: der Unterschied
+        // steckte schon immer in der Reihe, er war nur falsch zugeordnet. Der Monatszuwachs von
+        // +2.140,80 € bleibt dadurch erhalten.
         decimal[] netWorth =
         [
-            112962.25m, 113622.85m, 114448.35m, 115603.55m, 115273.75m, 117089.55m,
-            118410.85m, 120226.55m, 120887.15m, 122702.95m, 123699.15m,
+            87002.25m, 87662.85m, 88488.35m, 89643.55m, 89313.75m, 91129.55m,
+            92450.85m, 94266.55m, 94927.15m, 96742.95m, 97739.15m,
         ];
 
         var cash = accounts.Values.Sum(a => a.OpeningBalance) + db.Transactions.Local.Sum(t => t.Amount);
         var portfolioValue = depot.Positions.Sum(p => p.Quantity * p.Price);
-        var insurance = db.InsurancePolicies.Local.Sum(i => i.SurrenderValue);
+        var pension = db.Policies.Local.Sum(p => p.AssetValue ?? 0m);
         var debt = db.Loans.Local.Sum(l => l.RemainingDebt);
-        var currentNetWorth = cash + portfolioValue + insurance - debt;
+        var currentNetWorth = cash + portfolioValue + pension - debt;
 
         var month = new DateOnly(2026, 8, 1).AddMonths(-netWorth.Length);
         foreach (var value in netWorth)

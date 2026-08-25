@@ -196,7 +196,7 @@
     {
         var route = hit.TargetType switch
         {
-            LinkTargetType.Insurance => $"/versicherungen/{hit.TargetId}",
+            LinkTargetType.Policy => $"/police/{hit.TargetId}",
             LinkTargetType.Contract => $"/vertraege/{hit.TargetId}",
             LinkTargetType.Property => $"/wohnen/{hit.TargetId}",
             LinkTargetType.MedicalBill => $"/gesundheit/{hit.TargetId}",

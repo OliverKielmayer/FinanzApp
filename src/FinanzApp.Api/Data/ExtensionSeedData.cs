@@ -33,15 +33,15 @@ public static class ExtensionSeedData
         db.CurrentHouseholdId = householdId;
 
         var types = SeedDocumentTypes(db);
-        var insurances = SeedInsurances(db);
+        var policies = SeedProtection(db);
         await db.SaveChangesAsync(ct);
 
-        var property = await SeedPropertyAsync(db, insurances, ct);
+        var property = await SeedPropertyAsync(db, policies, ct);
         var bills = await SeedMedicalBillsAsync(db, ct);
         await SeedHistoryAsync(db, ct);
         await db.SaveChangesAsync(ct);
 
-        await SeedDocumentsAsync(db, paths, types, insurances, property, bills, ct);
+        await SeedDocumentsAsync(db, paths, types, policies, property, bills, ct);
         await db.SaveChangesAsync(ct);
     }
 
@@ -76,47 +76,74 @@ public static class ExtensionSeedData
         return map;
     }
 
-    private static Dictionary<string, Insurance> SeedInsurances(FinanzAppDbContext db)
+    /// <summary>
+    /// Die acht Absicherungsverträge aus Handoff v4, Abschnitt 4. Ihre Jahresbeiträge summieren
+    /// sich auf 12.330,00 € — die Kopfzahl des Bereichs.
+    /// </summary>
+    /// <remarks>
+    /// Keiner von ihnen trägt einen Vermögenswert; <c>IsCapitalForming</c> bleibt überall falsch.
+    /// Das Risikoleben ist der Grund für die ganze Trennung: es zahlt im Todesfall und gehört
+    /// deshalb nie ins Nettovermögen, obwohl es eine Lebensversicherung ist.
+    /// </remarks>
+    private static Dictionary<string, Policy> SeedProtection(FinanzAppDbContext db)
     {
-        // „Hausrat“ trägt bewusst eine laufende Kündigungsfrist: der Akzentzustand aus den
-        // Wireframes soll sich am Stichtag 23.08.2026 auch wirklich zeigen.
-        (string Name, string Insurer, string? Number, decimal Premium, PremiumInterval Interval,
-            DateOnly? Starts, DateOnly? Ends, int NoticeMonths)[] rows =
+        (string Key, string Name, string Provider, PolicyKind Kind, string Notes,
+            decimal Premium, PremiumInterval Interval, DateOnly? Starts, DateOnly? Ends,
+            int NoticeMonths, decimal? SumInsured)[] rows =
         [
-            ("Hausrat", "HUK-Coburg", "HR-88 421", 156m, PremiumInterval.Yearly,
-                new DateOnly(2019, 4, 1), new DateOnly(2026, 12, 10), 3),
-            ("Privathaftpflicht", "HUK-Coburg", "PH-41 220", 89m, PremiumInterval.Yearly,
-                new DateOnly(2018, 1, 1), new DateOnly(2027, 12, 31), 3),
-            ("Risikoleben", "Heidelberger Leben", "RL-77 903", 42m, PremiumInterval.Monthly,
-                new DateOnly(2020, 7, 1), null, 1),
-            ("Kfz", "Allianz", "KFZ-55 108", 618m, PremiumInterval.Yearly,
-                new DateOnly(2021, 1, 1), new DateOnly(2026, 12, 31), 1),
-            ("Rechtsschutz", "ARAG", "RS-31 664", 245m, PremiumInterval.Yearly,
-                new DateOnly(2022, 5, 1), new DateOnly(2028, 4, 30), 3),
-            ("Berufsunfähigkeit", "Alte Leipziger", "BU-90 552", 78m, PremiumInterval.Monthly,
-                new DateOnly(2017, 9, 1), null, 1),
-            ("Wohngebäude", "HUK-Coburg", "WG-12 470", 384m, PremiumInterval.Yearly,
-                new DateOnly(2019, 4, 1), new DateOnly(2027, 3, 31), 3),
+            ("Krankenversicherung", "Krankenversicherung Debeka", "Debeka", PolicyKind.Health,
+                "PKV · Erstattungen unter Gesundheit", 742m, PremiumInterval.Monthly,
+                new DateOnly(2016, 1, 1), null, 3, null),
+            ("Kfz", "Kfz WGV", "WGV", PolicyKind.Vehicle,
+                "L-2905 · Wechselfrist 30.11.2026", 618m, PremiumInterval.Yearly,
+                new DateOnly(2021, 1, 1), new DateOnly(2026, 12, 31), 1, null),
+            ("Berufsunfähigkeit", "Berufsunfähigkeit", "Alte Leipziger",
+                PolicyKind.DisabilityInsurance, "BU-Rente 3.871,36 € monatlich", 118m,
+                PremiumInterval.Monthly, new DateOnly(2017, 9, 1), null, 1, null),
+            ("Risikoleben", "Risikoleben", "Heidelberger Leben", PolicyKind.TermLife,
+                "kein Rückkaufswert", 42m, PremiumInterval.Monthly,
+                new DateOnly(2020, 7, 1), null, 1, 250000m),
+            ("Wohngebäude", "Wohngebäude", "HUK-Coburg", PolicyKind.Building,
+                "Haus Kammerstatter Straße 10", 412m, PremiumInterval.Yearly,
+                new DateOnly(2019, 4, 1), new DateOnly(2027, 3, 31), 3, null),
+            ("Rechtsschutz", "Rechtsschutz", "ARAG", PolicyKind.LegalExpenses,
+                "bis 31.05.2027", 231m, PremiumInterval.Yearly,
+                new DateOnly(2022, 5, 1), new DateOnly(2027, 8, 31), 3, null),
+            ("Hausrat", "Hausrat HUK", "HUK-Coburg", PolicyKind.HouseholdContents,
+                "Wohnfläche 142 m²", 156m, PremiumInterval.Yearly,
+                new DateOnly(2019, 4, 1), new DateOnly(2027, 12, 31), 3, null),
+            ("Privathaftpflicht", "Privathaftpflicht", "Adam Riese", PolicyKind.Liability,
+                "bis 31.12.2027", 89m, PremiumInterval.Yearly,
+                new DateOnly(2018, 1, 1), new DateOnly(2027, 12, 31), 0, null),
         ];
 
-        var map = new Dictionary<string, Insurance>();
+        var map = new Dictionary<string, Policy>();
         foreach (var row in rows)
         {
-            var insurance = new Insurance
+            var policy = new Policy
             {
+                Kind = row.Kind,
+                IsCapitalForming = false,
                 Name = row.Name,
-                Insurer = row.Insurer,
-                PolicyNumber = row.Number,
+                Provider = row.Provider,
+                Notes = row.Notes,
                 Premium = row.Premium,
                 PremiumInterval = row.Interval,
                 StartsOn = row.Starts,
                 EndsOn = row.Ends,
                 NoticePeriodMonths = row.NoticeMonths,
+                SumInsured = row.SumInsured,
             };
 
-            db.Insurances.Add(insurance);
-            map[row.Name] = insurance;
+            db.Policies.Add(policy);
+            map[row.Key] = policy;
         }
+
+        // Hausrat läuft erst zum 30.09.2027 aus — der Vergleich braucht aber Vorlauf, deshalb
+        // steht die Erinnerung schon auf dem 10.09.2026, also 18 Tage nach dem Stichtag. So
+        // zeigt die Demo den Zustand „Frist läuft“, ohne den Vertrag künstlich früher
+        // enden zu lassen.
+        map["Hausrat"].NoticeReminderOn = new DateOnly(2026, 9, 10);
 
         return map;
     }
@@ -189,7 +216,7 @@ public static class ExtensionSeedData
     }
 
     private static async Task<Property> SeedPropertyAsync(
-        FinanzAppDbContext db, Dictionary<string, Insurance> insurances, CancellationToken ct)
+        FinanzAppDbContext db, Dictionary<string, Policy> policies, CancellationToken ct)
     {
         var loan = await db.Loans.OrderBy(l => l.Id).FirstOrDefaultAsync(ct);
         var account = await db.Accounts.FirstOrDefaultAsync(a => a.Name == "Sparkasse Giro", ct);
@@ -266,7 +293,7 @@ public static class ExtensionSeedData
             });
 
         // Die Wohngebäude- und Hausratversicherung gehören zur Immobilie.
-        _ = insurances;
+        _ = policies;
         return property;
     }
 
@@ -354,7 +381,7 @@ public static class ExtensionSeedData
         FinanzAppDbContext db,
         DocumentPathService paths,
         Dictionary<string, DocumentType> types,
-        Dictionary<string, Insurance> insurances,
+        Dictionary<string, Policy> policies,
         Property property,
         List<MedicalBill> bills,
         CancellationToken ct)
@@ -366,19 +393,19 @@ public static class ExtensionSeedData
         [
             ("Versicherungsschein Risikoleben", "Versicherungsschein", DocumentArea.Insurance,
                 "Versicherungen/Risikoleben/Police_2026.pdf", new DateOnly(2026, 1, 12), "police,2026",
-                LinkTargetType.Insurance, insurances["Risikoleben"].Id, true),
+                LinkTargetType.Policy, policies["Risikoleben"].Id, true),
 
             ("Versicherungsschein Hausrat", "Versicherungsschein", DocumentArea.Insurance,
                 "Versicherungen/Hausrat/Schein_2024.pdf", new DateOnly(2024, 1, 12), "police,hausrat",
-                LinkTargetType.Insurance, insurances["Hausrat"].Id, true),
+                LinkTargetType.Policy, policies["Hausrat"].Id, true),
 
             ("Beitragsanpassung Hausrat 2026", "Beitragsanpassung", DocumentArea.Insurance,
                 "Versicherungen/Hausrat/Beitragsanpassung_2026.pdf", new DateOnly(2026, 2, 4), "hausrat",
-                LinkTargetType.Insurance, insurances["Hausrat"].Id, true),
+                LinkTargetType.Policy, policies["Hausrat"].Id, true),
 
             ("Versicherungsschein Kfz", "Versicherungsschein", DocumentArea.Insurance,
                 "Versicherungen/Kfz/Schein_2026.pdf", new DateOnly(2026, 1, 5), "police,kfz",
-                LinkTargetType.Insurance, insurances["Kfz"].Id, true),
+                LinkTargetType.Policy, policies["Kfz"].Id, true),
 
             ("Arztrechnung Dr. Meyer", "Arztrechnung", DocumentArea.Health,
                 "Gesundheit/2026/R-2026-098.pdf", new DateOnly(2026, 7, 18), "pkv,zahnarzt",

@@ -1,39 +1,92 @@
 namespace FinanzApp.Shared.Contracts;
 
-// ── Versicherungen ─────────────────────────────────────────────────────────────────────────
+// ── Vorsorge & Kapital, Absicherung ────────────────────────────────────────
 
-public sealed record InsuranceListItemDto
+/// <summary>
+/// Kopfzahlen eines der beiden Bereiche. Welche Zahl oben steht, hängt am Bereich: Vorsorge
+/// zeigt einen <em>Wert</em>, Absicherung einen <em>Jahresbeitrag</em>. Eine Absicherung hat
+/// keinen Wert — dort eine Summe zu zeigen, wäre schlicht falsch.
+/// </summary>
+public sealed record PolicyOverviewDto
+{
+    public required bool CapitalForming { get; init; }
+    public required string Title { get; init; }
+
+    /// <summary>Summe der erreichten Werte. Nur bei Vorsorge gesetzt.</summary>
+    public decimal? TotalValue { get; init; }
+
+    /// <summary>Ältester Stichtag der Werte — so alt ist die Summe mindestens.</summary>
+    public DateOnly? OldestValuationDate { get; init; }
+
+    /// <summary>Summe der Jahresbeiträge. Nur bei Absicherung gesetzt.</summary>
+    public decimal? TotalAnnualPremium { get; init; }
+
+    public required IReadOnlyList<PolicyListItemDto> Items { get; init; }
+}
+
+public sealed record PolicyListItemDto
 {
     public required int Id { get; init; }
     public required string Name { get; init; }
-    public required string Insurer { get; init; }
+    public required string Provider { get; init; }
+    public required PolicyKind Kind { get; init; }
+    public required bool IsCapitalForming { get; init; }
+
+    /// <summary>Zweite Zeile: Vertragsart plus das, was den Vertrag ausmacht.</summary>
+    public required string Meta { get; init; }
+
     public required decimal Premium { get; init; }
     public required PremiumInterval PremiumInterval { get; init; }
+    public required decimal AnnualPremium { get; init; }
+
+    /// <summary>Erreichter Wert — nur kapitalbildend, sonst <c>null</c>.</summary>
+    public decimal? Value { get; init; }
+
+    /// <summary>Stichtag dazu. Ohne ihn wird der Wert nicht gezeigt.</summary>
+    public DateOnly? ValuationDate { get; init; }
+
     public DateOnly? EndsOn { get; init; }
     public DateOnly? NoticeDeadline { get; init; }
 
     /// <summary>Tage bis zum letzten Kündigungstag. Negativ heißt: Frist ist verstrichen.</summary>
     public int? DaysUntilNotice { get; init; }
 
+    /// <summary>Tage bis zur gesetzten Erinnerung. <c>null</c>, wenn keine gesetzt ist.</summary>
+    public int? DaysUntilReminder { get; init; }
+
     /// <summary>Frist läuft und ist noch erreichbar — Zeile im Akzentmuster.</summary>
     public required bool NoticeIsDue { get; init; }
 }
 
-public sealed record InsuranceDetailDto
+public sealed record PolicyDetailDto
 {
     public required int Id { get; init; }
     public required string Name { get; init; }
-    public required string Insurer { get; init; }
+    public required string Provider { get; init; }
+    public required PolicyKind Kind { get; init; }
+    public required string KindLabel { get; init; }
+    public required bool IsCapitalForming { get; init; }
     public string? PolicyNumber { get; init; }
     public required decimal Premium { get; init; }
     public required PremiumInterval PremiumInterval { get; init; }
     public required decimal MonthlyPremium { get; init; }
+    public required decimal AnnualPremium { get; init; }
     public DateOnly? StartsOn { get; init; }
     public DateOnly? EndsOn { get; init; }
     public required int NoticePeriodMonths { get; init; }
     public DateOnly? NoticeDeadline { get; init; }
     public int? DaysUntilNotice { get; init; }
+    public DateOnly? NoticeReminderOn { get; init; }
+    public int? DaysUntilReminder { get; init; }
     public required bool NoticeIsDue { get; init; }
+
+    public decimal? CurrentValue { get; init; }
+    public DateOnly? ValuationDate { get; init; }
+    public decimal? MaturityValue { get; init; }
+    public DateOnly? MaturesOn { get; init; }
+    public decimal? SumInsured { get; init; }
+    public decimal? Deductible { get; init; }
+
     public string? AccountName { get; init; }
     public string? Notes { get; init; }
     public required IReadOnlyList<DocumentListItemDto> Documents { get; init; }

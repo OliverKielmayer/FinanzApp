@@ -24,22 +24,30 @@ public static class SchemaStartup
     public static async Task MigrateAsync(
         FinanzAppDbContext db, ILogger logger, CancellationToken ct = default)
     {
-        var applied = await db.Database.GetAppliedMigrationsAsync(ct);
+        var applied = (await db.Database.GetAppliedMigrationsAsync(ct)).ToList();
+        var known = db.Database.GetMigrations().ToHashSet(StringComparer.Ordinal);
+
         if (!applied.Any() && await HasLegacySchemaAsync(db, ct))
         {
-            var path = DescribeDataSource(db);
-
-            throw new InvalidOperationException(
-                $"""
+            throw Unusable(
+                db,
+                """
                  Die Datenbank stammt aus einer Fassung vor dem Umstieg auf EF-Core-Migrationen:
-                 sie hat bereits Tabellen, aber keine Migrationshistorie. Anwenden lässt sie sich
-                 deshalb nicht.
+                 sie hat bereits Tabellen, aber keine Migrationshistorie.
+                 """);
+        }
 
-                 Sie enthält nur Beispieldaten, solange nichts Eigenes erfasst wurde. Der Weg:
-
-                     {path} löschen und die Anwendung neu starten.
-
-                 Steht Eigenes darin, vorher eine Kopie der Datei sichern.
+        // Zweiter Fall, entstanden mit Handoff v4: die Migrationen wurden neu aufgesetzt, weil
+        // Vorsorge und Absicherung in einem Modell zusammengeführt wurden. Eine Datenbank aus
+        // der alten Linie trägt eine Historie, die diese Fassung nicht kennt. Würde man sie
+        // durchlassen, scheiterte die erste Migration am ersten CREATE TABLE.
+        if (applied.Any() && !applied.Any(known.Contains))
+        {
+            throw Unusable(
+                db,
+                $"""
+                 Die Datenbank stammt aus einer älteren Migrationslinie: ihre Historie
+                 ({string.Join(", ", applied)}) kommt in dieser Fassung nicht mehr vor.
                  """);
         }
 
@@ -88,6 +96,22 @@ public static class SchemaStartup
             }
         }
     }
+
+    /// <summary>
+    /// Die Meldung für eine Datenbank, die sich nicht übernehmen lässt. Sie nennt das Problem,
+    /// den Dateipfad und den Ausweg — und überlässt die Entscheidung dem Menschen: löschen darf
+    /// die Anwendung sie nicht, es könnten echte Buchungen darin stehen.
+    /// </summary>
+    private static InvalidOperationException Unusable(FinanzAppDbContext db, string reason)
+        => new($"""
+                {reason}
+
+                Sie enthält nur Beispieldaten, solange nichts Eigenes erfasst wurde. Der Weg:
+
+                    {DescribeDataSource(db)} löschen und die Anwendung neu starten.
+
+                Steht Eigenes darin, vorher eine Kopie der Datei sichern.
+                """);
 
     /// <summary>Der Dateiname aus der Verbindungszeichenfolge, für die Meldung.</summary>
     private static string DescribeDataSource(FinanzAppDbContext db)

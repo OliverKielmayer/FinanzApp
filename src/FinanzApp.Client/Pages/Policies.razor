@@ -1,0 +1,145 @@
+@page "/vorsorge"
+@page "/absicherung"
+@attribute [Authorize]
+@inherits AppPage
+@implements IDisposable
+
+@*
+    Zwei Einstiege, eine Seite — so wie es dahinter ein Modell mit einem Flag ist. Was sich
+    unterscheidet, ist die Kopfzahl: Vorsorge zeigt einen Wert mit Stichtag, Absicherung einen
+    Jahresbeitrag. Eine Absicherung hat keinen Wert; dort eine Summe zu zeigen wäre falsch.
+*@
+
+<PageTitle>@(CapitalForming ? "Vorsorge & Kapital" : "Absicherung") — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (data is { } view)
+    {
+        <section class="hero">
+            <span class="label-muted">@(CapitalForming ? "Erreichter Wert" : "Beitrag im Jahr")</span>
+            <span class="hero-value medium num">
+                @State.Euro(CapitalForming ? view.TotalValue ?? 0m : view.TotalAnnualPremium ?? 0m)
+            </span>
+
+            <span class="hero-delta">
+                @if (CapitalForming)
+                {
+                    @* Der Stichtag gehört an jede Vorsorgesumme: ein Jahresstand ist kein Tageskurs. *@
+                    <span>
+                        @view.Items.Count @(view.Items.Count == 1 ? "Vertrag" : "Verträge")@(view.OldestValuationDate is { } asOf ? $" · Stand {asOf:MM}/{asOf:yyyy}" : null)
+                    </span>
+                }
+                else
+                {
+                    <span>@view.Items.Count Verträge · kein Vermögenswert</span>
+                }
+            </span>
+        </section>
+
+        @if (view.Items.Count == 0)
+        {
+            <div class="empty-area">
+                <span class="empty-area-text">@EmptyText</span>
+            </div>
+        }
+
+        @foreach (var policy in view.Items)
+        {
+            <button type="button" class="tap contract-row @(policy.NoticeIsDue ? "deadline" : null)"
+                    @onclick="@(() => Navigation.NavigateTo($"/police/{policy.Id}"))">
+                <span class="stack">
+                    <span class="contract-name">@policy.Name</span>
+                    <span class="meta">@Describe(policy)</span>
+                </span>
+                <span class="contract-amount num">@Figure(policy)</span>
+            </button>
+        }
+
+        <div class="spacer"></div>
+    }
+</AsyncView>
+
+@code {
+    private PolicyOverviewDto? data;
+
+    /// <summary>Welcher der beiden Bereiche gemeint ist, steht im Pfad.</summary>
+    private bool CapitalForming =>
+        Navigation.ToBaseRelativePath(Navigation.Uri).StartsWith("vorsorge", StringComparison.OrdinalIgnoreCase);
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    protected override async Task LoadAsync() => data = await Api.GetPoliciesAsync(CapitalForming);
+
+    /// <summary>
+    /// Beide Routen führen auf dieselbe Komponente — Blazor legt sie beim Wechsel nicht neu an,
+    /// also muss der Wechsel selbst neu laden.
+    /// </summary>
+    private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+        => await ReloadAsync();
+
+    private string Figure(PolicyListItemDto policy)
+        => CapitalForming
+            ? State.Euro(policy.Value ?? 0m)
+            : State.Euro0(policy.AnnualPremium);
+
+    private string EmptyText => CapitalForming
+        ? "Noch kein Vorsorgevertrag hinterlegt."
+        : "Noch kein Absicherungsvertrag hinterlegt.";
+
+    private string Describe(PolicyListItemDto policy)
+    {
+        var parts = new List<string> { policy.Meta };
+
+        if (CapitalForming)
+        {
+            if (policy.ValuationDate is { } asOf)
+            {
+                parts.Add($"Stand {GermanFormat.Date(asOf)}");
+            }
+        }
+        else
+        {
+            parts.Add(Interval(policy));
+        }
+
+        if (policy.NoticeIsDue && policy.NoticeDeadline is { } deadline)
+        {
+            // Termin und Erinnerung sind zweierlei: liegt der Termin noch weit weg und nur die
+            // Erinnerung ist nah, dann sagt die Zeile genau das — sonst wäre die Zahl irreführend.
+            var driver = policy.DaysUntilReminder is { } remind
+                         && policy.DaysUntilNotice is { } notice
+                         && remind < notice
+                ? remind switch
+                {
+                    <= 0 => $"Kündigung bis {GermanFormat.Date(deadline)} · erinnert",
+                    1 => $"Kündigung bis {GermanFormat.Date(deadline)} · morgen erinnern",
+                    _ => $"Kündigung bis {GermanFormat.Date(deadline)} · in {remind} Tagen erinnern",
+                }
+                : policy.DaysUntilNotice == 0
+                    ? "Kündigung heute letzter Tag"
+                    : $"Kündigung bis {GermanFormat.Date(deadline)} — {policy.DaysUntilNotice} Tage";
+
+            parts.Add(driver);
+        }
+        else if (!CapitalForming && policy.EndsOn is { } ends)
+        {
+            parts.Add("bis " + GermanFormat.Date(ends));
+        }
+
+        return string.Join(" · ", parts);
+    }
+
+    private static string Interval(PolicyListItemDto policy) => policy.PremiumInterval switch
+    {
+        PremiumInterval.Monthly => GermanFormat.EuroRounded(policy.Premium) + "/Monat",
+        PremiumInterval.Quarterly => GermanFormat.EuroRounded(policy.Premium) + "/Quartal",
+        PremiumInterval.HalfYearly => GermanFormat.EuroRounded(policy.Premium) + "/Halbjahr",
+        _ => GermanFormat.EuroRounded(policy.Premium) + "/Jahr",
+    };
+
+    public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
+}

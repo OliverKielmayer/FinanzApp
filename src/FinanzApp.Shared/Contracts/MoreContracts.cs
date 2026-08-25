@@ -3,7 +3,7 @@ namespace FinanzApp.Shared.Contracts;
 /// <summary>Kennzahlen für die Sammelseite „Mehr“.</summary>
 public sealed record MoreOverviewDto
 {
-    public required InsuranceSummaryDto Insurance { get; init; }
+    public required PensionSummaryDto Pension { get; init; }
     public required LoanSummaryDto Loan { get; init; }
     public required ImportSummaryDto Import { get; init; }
     public required int CategoryCount { get; init; }
@@ -22,20 +22,26 @@ public sealed record AreaCountsDto
 {
     public required int DocumentCount { get; init; }
     public required int MissingFileCount { get; init; }
-    public required int InsuranceCount { get; init; }
+    /// <summary>Kapitalbildende Verträge — Bereich „Vorsorge &amp; Kapital“.</summary>
+    public required int PensionCount { get; init; }
+
+    /// <summary>Verträge ohne Vermögenswert — Bereich „Absicherung“.</summary>
+    public required int ProtectionCount { get; init; }
     public required int OpenMedicalBillCount { get; init; }
     public required int PropertyCount { get; init; }
     public required int ContractCount { get; init; }
     public required int OpenTaskCount { get; init; }
 }
 
-public sealed record InsuranceSummaryDto
+/// <summary>Kopfzahl der Vorsorge: Summe der erreichten Werte, immer mit Stichtag.</summary>
+public sealed record PensionSummaryDto
 {
     public required string Provider { get; init; }
 
-    /// <summary>Summe der Rückkaufswerte.</summary>
-    public required decimal SurrenderValue { get; init; }
+    /// <summary>Summe der erreichten Werte — Rückkaufswert, Guthaben, Ansammlung.</summary>
+    public required decimal TotalValue { get; init; }
 
+    /// <summary>Ältester Stichtag. So alt ist die Summe mindestens.</summary>
     public required DateOnly ValuationDate { get; init; }
 }
 
