@@ -11,6 +11,8 @@ eine Dokumentablage, den PKV-Flow von der Arztrechnung bis zur verbuchten Erstat
 Versicherungen, Wohnen mit Verträgen und Rechnungen, Darlehen, Import sowie Anmeldung und
 Benutzerverwaltung eines Haushalts.
 
+Wie die Anwendung bedient wird, steht in der [Bedieneranleitung](docs/bedienung.md).
+
 ## Stack
 
 | Schicht | Technologie |
@@ -105,6 +107,7 @@ docs/
   design-handoff/          Erst-Handoff samt Nachtrag 2, wie geliefert
   design-handoff-erweiterung/  Erweiterungs-Handoff mit den Wireframes
   erweiterungsplan.md      der Plan, den der Erweiterungs-Handoff vor dem Bauen verlangt
+  bedienung.md             Bedieneranleitung für den täglichen Gebrauch
 ```
 
 Die Geschäftslogik liegt in den Application-Services, nicht in den Komponenten. Die Endpunkte nehmen
