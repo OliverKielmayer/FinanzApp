@@ -113,6 +113,15 @@ public class Budget : IHouseholdOwned
     /// <summary>Reihenfolge in der Liste. Das Dashboard zeigt die ersten drei.</summary>
     public int SortOrder { get; set; }
 
+    /// <summary>Bezugszeitraum. Der Plan wird intern immer je Monat geführt und hochgerechnet.</summary>
+    public BudgetPeriod Period { get; set; } = BudgetPeriod.Month;
+
+    /// <summary>Ab wann das Budget gilt. Vorher zählt es nicht mit.</summary>
+    public DateOnly? ValidFrom { get; set; }
+
+    /// <summary>Ab welchem Anteil gewarnt wird — 80, 90 oder 100 Prozent.</summary>
+    public int WarnThresholdPercent { get; set; } = 90;
+
     public int CategoryId { get; set; }
     public Category? Category { get; set; }
 }
@@ -123,10 +132,40 @@ public class Depot : IHouseholdOwned
     public int HouseholdId { get; set; }
     public required string Name { get; set; }
 
+    /// <summary>Broker oder Bank, bei der das Depot liegt.</summary>
+    public string? Broker { get; set; }
+
+    public string? Number { get; set; }
+
+    /// <summary>Depotart — Einzeldepot, Gemeinschaftsdepot, Kinderdepot.</summary>
+    public string? DepotKind { get; set; }
+
+    /// <summary>
+    /// Angegebener Depotwert mit Stichtag. Greift nur, solange keine Positionen erfasst sind —
+    /// sobald welche da sind, rechnet der Bestand und nicht mehr die Angabe.
+    /// </summary>
+    public decimal? StatedValue { get; set; }
+
+    public DateOnly? ValuationDate { get; set; }
+
+    /// <summary>Verrechnungskonto.</summary>
+    public int? AccountId { get; set; }
+    public Account? Account { get; set; }
+
+    /// <summary>Woher die Kurse kommen sollen.</summary>
+    public string? QuoteSource { get; set; }
+
     /// <summary>Zeitgewichtete Rendite p. a. Wird vom Depotanbieter geliefert.</summary>
     public decimal TwrorPercent { get; set; }
 
     public List<PortfolioPosition> Positions { get; set; } = [];
+
+    /// <summary>
+    /// Der Wert, der zählt: die Positionen, wenn es welche gibt, sonst die Angabe aus der Anlage.
+    /// </summary>
+    public decimal Value => Positions.Count > 0
+        ? Positions.Sum(p => p.Quantity * p.Price)
+        : StatedValue ?? 0m;
 }
 
 public class PortfolioPosition : IHouseholdOwned

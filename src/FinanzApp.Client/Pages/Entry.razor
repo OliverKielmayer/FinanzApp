@@ -16,8 +16,10 @@
         }
     </div>
 
-    @if (step == 1)
-    {
+    @* Alle drei Schritte stehen im Dokument. Auf dem Telefon zeigt die CSS nur den aktiven,
+       ab Tablet alle nebeneinander — so muss die Komponente die Fensterbreite nicht kennen und
+       es gibt den Ablauf nicht zweimal. *@
+    <div class="entry-step @(step == 1 ? "active" : null)">
         <div class="segmented">
             @foreach (var option in Kinds)
             {
@@ -43,10 +45,11 @@
                         aria-label="@KeyLabel(key)" @onclick="() => PressKey(key)">@key</button>
             }
         </div>
-    }
+    </div>
 
-    @if (step == 2)
-    {
+    @* Bei einer Umbuchung gibt es nichts zu kategorisieren — dann fällt der Block ganz weg,
+       auch dort, wo sonst alle Schritte zugleich stehen. *@
+    <div class="entry-step @(step == 2 ? "active" : null) @(kind == TransactionKind.Transfer ? "gone" : null)">
         <div class="picker">
             <span class="label-strong">Kategorie</span>
             <div class="chipcloud">
@@ -57,10 +60,9 @@
                 }
             </div>
         </div>
-    }
+    </div>
 
-    @if (step == 3)
-    {
+    <div class="entry-step @(step == 3 ? "active" : null)">
         <div class="picker last">
             <span class="label-strong">Konto</span>
             <div class="picker-rows">
@@ -80,11 +82,18 @@
                        value="@note" @oninput="e => note = e.Value?.ToString() ?? string.Empty" />
             </div>
         </div>
-    }
+    </div>
 
-    <div class="actions entry-actions">
+    @* Zwei Aktionsleisten, von denen die CSS je nach Breite eine zeigt: der Assistent führt
+       durch die Schritte, am großen Bildschirm steht alles da und wird in einem Zug gespeichert. *@
+    <div class="actions entry-actions entry-actions-steps">
         <button type="button" class="btn btn-primary" disabled="@saving" @onclick="OnPrimary">@PrimaryLabel</button>
         <button type="button" class="btn btn-secondary" disabled="@saving" @onclick="OnSecondary">@SecondaryLabel</button>
+    </div>
+
+    <div class="actions entry-actions entry-actions-whole">
+        <button type="button" class="btn btn-primary" disabled="@saving" @onclick="SaveAsync">Buchung speichern</button>
+        <button type="button" class="btn btn-secondary" disabled="@saving" @onclick="Clear">Leeren</button>
     </div>
 
     <div class="entry-summary">@Summary</div>
@@ -205,6 +214,12 @@
             return;
         }
 
+        Clear();
+    }
+
+    /// <summary>Setzt die Eingabe zurück, ohne den Schritt zu verlassen.</summary>
+    private void Clear()
+    {
         digits = string.Empty;
         categoryId = null;
         note = string.Empty;

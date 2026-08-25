@@ -176,6 +176,23 @@ public static class FinanzAppApiExtensions
         this FinanzAppApi api, int id, CancellationToken ct = default)
         => api.GetAsync<PolicyDetailDto>($"api/policies/{id}", ct);
 
+    // ── Anlegen ───────────────────────────────────────────────────────────
+
+    /// <summary>Die Feldliste eines Objekttyps, samt Auswahlwerten aus dem Bestand.</summary>
+    public static Task<CreateFormDto> GetCreateFormAsync(
+        this FinanzAppApi api, CreateObjectType type, CancellationToken ct = default)
+        => api.GetAsync<CreateFormDto>($"api/create/{type}", ct);
+
+    /// <summary>
+    /// Legt an. Ein Fehlschlag kommt als Ergebnis zurück, nicht als Ausnahme — die Oberfläche
+    /// braucht das bemängelte Feld, nicht einen Statuscode.
+    /// </summary>
+    public static Task<CreateResultDto> CreateObjectAsync(
+        this FinanzAppApi api, CreateObjectType type, Dictionary<string, string?> values,
+        CancellationToken ct = default)
+        => api.PostAsync<CreateRequest, CreateResultDto>(
+            $"api/create/{type}", new CreateRequest { Values = values }, ct);
+
     // ── Wohnen ─────────────────────────────────────────────────────────────────────────────
 
     public static Task<IReadOnlyList<PropertyListItemDto>> GetPropertiesAsync(

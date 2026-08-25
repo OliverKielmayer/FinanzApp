@@ -1,0 +1,20 @@
+@*
+    Die „+“-Zeile am Ende einer Liste. Der Handoff will den Einstieg dort, wo das Objekt
+    hingehört — nicht versteckt unter „Mehr“. Mit Lesezugriff erscheint sie gar nicht.
+*@
+<AuthorizeView Roles="Owner,Member">
+    <a href="@Route" class="add-row">
+        <span class="add-row-plus" aria-hidden="true">+</span>
+        <span class="add-row-label">@Label</span>
+    </a>
+</AuthorizeView>
+
+@code {
+    /// <summary>Wohin die Zeile führt, z. B. <c>/neu/account</c>.</summary>
+    [Parameter, EditorRequired]
+    public string Route { get; set; } = default!;
+
+    /// <summary>Beschriftung, z. B. „Konto anlegen“.</summary>
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = default!;
+}

@@ -17,6 +17,15 @@ public enum CategoryDirection
 }
 
 /// <summary>Zeitraum eines Budgets.</summary>
+/// <summary>Art einer Immobilie. Steht in der Zeile unter dem Namen.</summary>
+public enum PropertyKind
+{
+    House = 0,
+    Apartment = 1,
+    Land = 2,
+    Other = 9,
+}
+
 public enum BudgetPeriod
 {
     Month = 0,

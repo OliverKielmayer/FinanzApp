@@ -192,6 +192,9 @@ public class Property : IHouseholdOwned
     public required string Name { get; set; }
     public string? Address { get; set; }
 
+    /// <summary>Haus, Wohnung, Grundstück — steht in der Zeile unter dem Namen.</summary>
+    public PropertyKind Kind { get; set; } = PropertyKind.House;
+
     public DateOnly? PurchaseDate { get; set; }
     public decimal? PurchasePrice { get; set; }
     public decimal MarketValue { get; set; }

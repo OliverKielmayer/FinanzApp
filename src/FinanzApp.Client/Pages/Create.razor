@@ -1,0 +1,234 @@
+@page "/neu"
+@page "/neu/{Type}"
+@attribute [Authorize(Roles = "Owner,Member")]
+@inherits AppPage
+@inject NavigationHistory History
+
+@*
+    Ein Formularscreen für alle Objekttypen. Was er zeigt, beschreibt der Server — dieselbe
+    Feldliste, gegen die er auch prüft. Deshalb kann eine Meldung das fehlende Feld bei dem
+    Namen nennen, den hier steht, und ein neuer Objekttyp braucht keine neue Seite.
+*@
+
+<PageTitle>@(form?.Title ?? "Anlegen") — FinanzApp</PageTitle>
+
+@if (string.IsNullOrWhiteSpace(Type))
+{
+    @* Der Sammeleintrag aus dem Erfassen-Sheet: erst fragen, was angelegt werden soll. *@
+    <div class="section-head">
+        <span class="label-strong">Was anlegen?</span>
+    </div>
+
+    @foreach (var (route, label, hint) in Kinds)
+    {
+        <button type="button" class="tap contract-row"
+                @onclick="@(() => Navigation.NavigateTo(route))">
+            <span class="stack">
+                <span class="contract-name">@label</span>
+                <span class="meta">@hint</span>
+            </span>
+        </button>
+    }
+
+    <div class="spacer"></div>
+}
+else
+{
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (form is { } definition)
+    {
+        @if (definition.Hint is { Length: > 0 } hint)
+        {
+            <div class="create-hint">@hint</div>
+        }
+
+        <div class="create-fields">
+            @foreach (var field in definition.Fields)
+            {
+                <div class="field create-field @(problemKey == field.Key ? "invalid" : null)">
+                    <label for="@("f-" + field.Key)">
+                        @field.Label@(field.Required ? null : (MarkupString)" <span class=\"create-optional\">optional</span>")
+                    </label>
+
+                    @switch (field.Kind)
+                    {
+                        case CreateFieldKind.Choice:
+                        case CreateFieldKind.Reference:
+                            @if (field.Options is { Count: 0 })
+                            {
+                                <span class="meta">Nichts zur Auswahl vorhanden.</span>
+                            }
+                            else
+                            {
+                                <div class="chipcloud" id="@("f-" + field.Key)">
+                                    @foreach (var option in field.Options ?? [])
+                                    {
+                                        <button type="button"
+                                                class="chip @(Get(field.Key) == option.Value ? "active" : null)"
+                                                @onclick="() => Pick(field, option)">
+                                            @option.Label
+                                            @if (option.Hint is { Length: > 0 } optionHint)
+                                            {
+                                                <span class="chip-hint">@optionHint</span>
+                                            }
+                                        </button>
+                                    }
+                                </div>
+                            }
+                            break;
+
+                        case CreateFieldKind.Date:
+                            <input id="@("f-" + field.Key)" class="input" type="date"
+                                   value="@Get(field.Key)"
+                                   @oninput="e => Set(field.Key, e.Value?.ToString())" />
+                            break;
+
+                        case CreateFieldKind.Money:
+                            <input id="@("f-" + field.Key)" class="input num" type="text" inputmode="decimal"
+                                   placeholder="@field.Placeholder" value="@Get(field.Key)"
+                                   @oninput="e => Set(field.Key, e.Value?.ToString())" />
+                            break;
+
+                        case CreateFieldKind.Number:
+                            <input id="@("f-" + field.Key)" class="input num" type="number" min="0"
+                                   placeholder="@field.Placeholder" value="@Get(field.Key)"
+                                   @oninput="e => Set(field.Key, e.Value?.ToString())" />
+                            break;
+
+                        default:
+                            <input id="@("f-" + field.Key)" class="input" type="text"
+                                   placeholder="@field.Placeholder" value="@Get(field.Key)"
+                                   @oninput="e => Set(field.Key, e.Value?.ToString())" />
+                            break;
+                    }
+
+                    @if (problemKey == field.Key && problem is { Length: > 0 })
+                    {
+                        <span class="create-problem">@problem</span>
+                    }
+                    else if (field.Help is { Length: > 0 } help)
+                    {
+                        <span class="create-help">@help</span>
+                    }
+                </div>
+            }
+        </div>
+
+        @* Eine Meldung ohne zugehöriges Feld gehört trotzdem gezeigt. *@
+        @if (problem is { Length: > 0 } && problemKey is null)
+        {
+            <div class="notice">
+                <span class="notice-title">Noch nicht angelegt</span>
+                <span class="notice-text">@problem</span>
+            </div>
+        }
+
+        <div class="actions entry-actions">
+            <button type="button" class="btn btn-primary" disabled="@saving"
+                    @onclick="SubmitAsync">@definition.SubmitLabel</button>
+            <button type="button" class="btn btn-secondary" disabled="@saving"
+                    @onclick="History.GoBack">Abbrechen</button>
+        </div>
+
+        <div class="spacer"></div>
+    }
+</AsyncView>
+}
+
+@code {
+    /// <summary>
+    /// Die Typen, die es gibt. <em>Fahrzeug</em> fehlt bewusst — es entsteht mit Schritt 8;
+    /// ein Eintrag, der ins Leere führt, wäre schlechter als keiner.
+    /// </summary>
+    private static readonly (string Route, string Label, string Hint)[] Kinds =
+    [
+        ("/neu/account", "Konto", "Giro oder Tagesgeld, mit Startsaldo und Stichtag"),
+        ("/neu/depot", "Depot", "Broker, Depotwert, Verrechnungskonto"),
+        ("/neu/pension", "Vorsorgevertrag", "Kapital-LV, Riester, Bausparen — zählt zum Vermögen"),
+        ("/neu/protection", "Versicherung", "Hausrat, Kfz, Haftpflicht — ohne Vermögenswert"),
+        ("/neu/property", "Immobilie", "mit Kaufdatum und bestehendem Darlehen"),
+        ("/neu/contract", "Vertrag", "Strom, Internet, Wartung — mit Abschlag"),
+        ("/neu/budget", "Budget", "Kategorie, Betrag, Warnschwelle"),
+    ];
+
+    [Parameter] public string Type { get; set; } = string.Empty;
+
+    private CreateFormDto? form;
+    private readonly Dictionary<string, string?> values = [];
+    private string? problem;
+    private string? problemKey;
+    private bool saving;
+
+    private CreateObjectType Parsed =>
+        Enum.TryParse<CreateObjectType>(Type, ignoreCase: true, out var type) ? type : CreateObjectType.Account;
+
+    protected override async Task LoadAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Type))
+        {
+            return;
+        }
+
+        form = await Api.GetCreateFormAsync(Parsed);
+        values.Clear();
+        problem = null;
+        problemKey = null;
+
+        foreach (var field in form.Fields.Where(f => f.DefaultValue is { Length: > 0 }))
+        {
+            values[field.Key] = field.DefaultValue;
+        }
+    }
+
+    private string? Get(string key) => values.TryGetValue(key, out var value) ? value : null;
+
+    private void Set(string key, string? value)
+    {
+        values[key] = value;
+
+        // Sobald das bemängelte Feld angefasst wird, verschwindet die Meldung — sie hat ihren
+        // Zweck erfüllt und stünde sonst noch da, wenn längst etwas drinsteht.
+        if (problemKey == key)
+        {
+            problem = null;
+            problemKey = null;
+        }
+    }
+
+    /// <summary>
+    /// Eine Auswahl kann aus dem Formular herausführen: „Depot“ im Konto-Formular ist kein Konto.
+    /// </summary>
+    private void Pick(CreateFieldDto field, CreateOptionDto option)
+    {
+        if (option.RedirectTo is { Length: > 0 } route)
+        {
+            Navigation.NavigateTo(route);
+            return;
+        }
+
+        Set(field.Key, option.Value);
+    }
+
+    private Task SubmitAsync() => RunAsync(async () =>
+    {
+        saving = true;
+        try
+        {
+            var result = await Api.CreateObjectAsync(Parsed, values);
+
+            if (!result.Ok)
+            {
+                problem = result.Message;
+                problemKey = result.FieldKey;
+                return;
+            }
+
+            Toasts.Show($"{form!.Title.Replace(" anlegen", string.Empty)} angelegt");
+            Navigation.NavigateTo(result.Route ?? "/");
+        }
+        finally
+        {
+            saving = false;
+        }
+    });
+}

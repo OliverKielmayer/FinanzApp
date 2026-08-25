@@ -141,6 +141,7 @@ builder.Services.AddScoped<DocumentService>();
 builder.Services.AddScoped<TaskService>();
 builder.Services.AddScoped<MedicalBillService>();
 builder.Services.AddScoped<PolicyService>();
+builder.Services.AddScoped<CreateFormService>();
 builder.Services.AddScoped<PropertyService>();
 builder.Services.AddScoped<LiquidityService>();
 

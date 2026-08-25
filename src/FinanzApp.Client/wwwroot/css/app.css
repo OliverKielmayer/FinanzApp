@@ -816,6 +816,20 @@ body {
 
 /* ── Buchung erfassen ───────────────────────────────────────────────────── */
 
+/* Der Assistent auf dem Telefon: nur der aktive Schritt steht da. */
+.entry-step:not(.active) {
+  display: none;
+}
+
+.entry-step.gone {
+  display: none;
+}
+
+.entry-actions-whole {
+  display: none;
+}
+
+
 .steps {
   display: flex;
   border-bottom: 1px solid var(--color-text);
@@ -1518,10 +1532,24 @@ body {
     font-size: 56px;
   }
 
-  /* Der Handoff blendet die Schrittleisten ab Tablet aus — aber nur, weil das Formular dort
-     am Stück steht. Beides gehört zusammen: allein ausgeblendet bliebe ein Assistent ohne
-     Fortschrittsanzeige zurück. Kommt mit Schritt 4, wo die gemeinsame Formularkomponente
-     für alle acht Anlege-Typen entsteht und dieselbe Frage ohnehin beantwortet werden muss. */
+  /* Ab Tablet steht das Formular am Stück — und erst deshalb darf die Schrittleiste weg.
+     Beides gehört zusammen (Handoff v4, Abschnitt 2). */
+  .steps {
+    display: none;
+  }
+
+  .entry-step:not(.gone) {
+    display: block;
+    border-bottom: 1px solid var(--color-divider);
+  }
+
+  .entry-actions-steps {
+    display: none;
+  }
+
+  .entry-actions-whole {
+    display: flex;
+  }
 
   /* Aus dem Bottom-Sheet wird ein Panel an der rechten Kante: volle Höhe, 420 px,
      Bewegung in X statt in Y. */
@@ -2078,6 +2106,105 @@ body {
 .empty-area-text {
   font-size: 13px;
   color: var(--color-neutral-700);
+}
+
+/* ── Anlegen ──────────────────────────────────────────────────────── */
+
+/* Die „+“-Zeile am Ende einer Liste. Sie sieht aus wie eine Zeile, nicht wie ein Knopf —
+   sie steht ja auch in der Liste. */
+.add-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 16px;
+  color: var(--color-accent);
+  text-decoration: none;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.add-row:hover {
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+}
+
+.add-row-plus {
+  flex: none;
+  width: 18px;
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 17px;
+  line-height: 1;
+}
+
+.add-row-label {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 14px;
+}
+
+.create-hint {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-text);
+  font-size: 12px;
+  color: var(--color-neutral-700);
+}
+
+.create-fields {
+  display: flex;
+  flex-direction: column;
+}
+
+.create-field {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.create-field > label {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-neutral-700);
+  margin-bottom: 6px;
+}
+
+.create-optional {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--color-neutral-500);
+}
+
+/* Das bemängelte Feld trägt denselben Akzentbalken wie jeder andere Zustand, der Aufmerksamkeit
+   verlangt — keine eigene Fehlerfarbe. */
+.create-field.invalid {
+  border-left: 2px solid var(--color-accent);
+  background: var(--color-accent-100);
+}
+
+.create-problem {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--color-accent-800);
+}
+
+.create-help {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--color-neutral-600);
+}
+
+.chip-hint {
+  margin-left: 6px;
+  font-size: 10px;
+  color: var(--color-neutral-600);
+}
+
+.chip.active .chip-hint {
+  color: color-mix(in srgb, var(--color-bg) 80%, transparent);
 }
 
 /* ── Erfassen-Sheet ─────────────────────────────────────────────────────── */

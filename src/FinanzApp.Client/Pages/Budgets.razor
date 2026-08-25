@@ -55,12 +55,7 @@
             </div>
         }
 
-        <AuthorizeView Roles="Owner,Member">
-            <div class="block-action">
-                <button type="button" class="btn btn-secondary btn-block"
-                        @onclick="@(() => Toasts.Show("Budgetanlage folgt"))">Neues Budget anlegen</button>
-            </div>
-        </AuthorizeView>
+        <AddRow Route="/neu/budget" Label="Budget anlegen" />
     }
 </AsyncView>
 

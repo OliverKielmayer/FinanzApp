@@ -87,12 +87,11 @@ Der Schalter in der Mitte fragt zuerst, worum es geht — der Weg von „Papier 
 „erfasst“ ist dadurch immer gleich lang:
 
 **Beleg scannen** · **Buchung erfassen** · **Arztrechnung / PKV** · **Rechnung** ·
-**Dokument verknüpfen** · **Aufgabe / Frist**
+**Dokument verknüpfen** · **Aufgabe / Frist** · **Konto / Vertrag / Objekt anlegen**
 
-Vollständig führen davon bislang die ersten beiden: *Buchung erfassen* öffnet die Maske unten,
-*Beleg scannen* die Belegerfassung. *Arztrechnung / PKV* und *Rechnung* landen auf derselben
-Belegerfassung, ohne die Art vorzubelegen; *Dokument verknüpfen* und *Aufgabe / Frist* öffnen nur
-den jeweiligen Bereich.
+Vollständig führen *Buchung erfassen*, *Beleg scannen* und *Konto / Vertrag / Objekt anlegen*.
+*Arztrechnung / PKV* und *Rechnung* landen auf derselben Belegerfassung, ohne die Art
+vorzubelegen; *Dokument verknüpfen* und *Aufgabe / Frist* öffnen nur den jeweiligen Bereich.
 
 ### Buchung erfassen
 
@@ -108,6 +107,23 @@ Drei Schritte, oben mitgezählt:
 *Weiter* führt durch die Schritte, *Zurück* wieder heraus; im dritten Schritt heißt der Schalter
 **Buchung speichern**. Danach steht man auf *Konten & Buchungen* und sieht die neue Buchung in der
 Liste.
+
+**Am großen Bildschirm entfällt die Schrittführung**: ab Tabletbreite stehen Betrag, Kategorie
+und Konto untereinander auf einer Seite, und gespeichert wird in einem Zug.
+
+### Etwas anlegen
+
+Konto, Depot, Vorsorgevertrag, Versicherung, Immobilie, Vertrag und Budget haben denselben
+Formularaufbau: Auswahlwerte als Kacheln, alles übrige als Feld, Pflichtfelder ohne den Zusatz
+*optional*. Fehlt eines, sagt die App **welches** — „Versicherer fehlt“ — und hebt die Zeile
+hervor. Der Einstieg steht jeweils **am Ende der zugehörigen Liste** als „+“-Zeile; über das
+Erfassen-Fenster geht es auch.
+
+Zwei Dinge, die auffallen können:
+
+- **Depot** und **Darlehen** im Konto-Formular legen kein Konto an, sondern führen dorthin, wo
+  sie hingehören. Ein Depot ist kein Konto, ein Darlehen erst recht nicht.
+- Was es schon gibt, wird nicht doppelt angelegt: „Budget für Lebensmittel besteht bereits“.
 
 Mit Lesezugriff fehlt die Zelle in der Tab-Bar; erfassen kann nur, wer Schreibrecht hat.
 
@@ -202,11 +218,11 @@ ausschließlich dessen Bestand.
 
 Diese Schalter sind vorhanden, aber noch nicht hinterlegt — sie melden es beim Antippen:
 
-Split-Buchung · Neues Budget anlegen · Sondertilgung planen · Aufgabe anlegen ·
-Erinnerung setzen · Bei PKV nachfragen · Im Ordner suchen · Rechteverwaltung
+Split-Buchung · Sondertilgung planen · Aufgabe anlegen · Erinnerung setzen ·
+Bei PKV nachfragen · Im Ordner suchen · Rechteverwaltung
 
-Dazu die vier Einträge des Erfassen-Fensters, die nur in ihren Bereich führen (siehe Punkt 5), und
-die Belegerkennung, die nichts erkennt.
+Dazu die Einträge des Erfassen-Fensters, die nur in ihren Bereich führen (siehe Punkt 5), die
+Belegerkennung, die nichts erkennt, und **Fahrzeuge**, die es als Bereich noch nicht gibt.
 
 Ganz fehlen bislang die Bereiche **Arbeit & Beruf** und **Administration** sowie die
 Zwei-Faktor-Anmeldung.

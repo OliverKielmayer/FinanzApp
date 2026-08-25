@@ -21,6 +21,7 @@ public static class ExtensionEndpoints
         MapTasks(app);
         MapHealth(app);
         MapPolicies(app);
+        MapCreate(app);
         MapHousing(app);
         MapLiquidity(app);
     }
@@ -234,6 +235,32 @@ public static class ExtensionEndpoints
     /// Zwei Einstiege, ein Modell: die Bereiche unterscheiden sich nur im Flag, das die Abfrage
     /// mitgibt. Die Detailseite ist für beide dieselbe.
     /// </summary>
+    /// <summary>
+    /// Die Anlege-Flows. Ein Paar Endpunkte für alle Objekttypen: das Formular beschreiben,
+    /// das Formular annehmen. Welche Felder es gibt, sagt der Dienst — nicht die Route.
+    /// </summary>
+    private static void MapCreate(IEndpointRouteBuilder app)
+    {
+        var api = app.MapGroup("/api/create").WithTags("Anlegen").RequireAuthorization();
+
+        api.MapGet("/{type}", async (
+            CreateObjectType type, CreateFormService service, CancellationToken ct) =>
+        {
+            var form = await service.GetFormAsync(type, ct);
+            return form is null ? Results.NotFound() : Results.Ok(form);
+        });
+
+        api.MapPost("/{type}", async (
+            CreateObjectType type, CreateRequest request, CreateFormService service, CancellationToken ct) =>
+        {
+            var result = await service.CreateAsync(type, request.Values, ct);
+
+            // Auch das Scheitern ist eine gültige Antwort: die Oberfläche braucht das Feld,
+            // nicht nur einen Statuscode.
+            return Results.Ok(result);
+        }).RequireAuthorization(AuthPolicies.Write);
+    }
+
     private static void MapPolicies(IEndpointRouteBuilder app)
     {
         var api = app.MapGroup("/api/policies").WithTags("Vorsorge & Absicherung").RequireAuthorization();

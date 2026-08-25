@@ -232,6 +232,19 @@ Vertrag kann ein Jahr vor dem Termin auf den Tisch gehören, weil ein Vergleich 
 bestehende Darlehen; es gibt weiterhin genau einen Darlehensbereich mit einem Tilgungsplan.
 Zahlungen sind überall Verweise auf echte Buchungen — Geldbewegungen bleiben Buchungen.
 
+### Anlegen
+
+Alle Objekttypen teilen sich **einen** Formularscreen, gesteuert über eine Feldliste, die der
+Server liefert — und gegen die er auch prüft. Deshalb kann eine Meldung das fehlende Feld bei
+dem Namen nennen, den der Benutzer gesehen hat („Versicherer fehlt“), und ein neuer Objekttyp
+kostet einen Listeneintrag statt einer neuen Seite. Der Einstieg steht jeweils am Ende der
+zugehörigen Liste, nicht unter „Mehr“.
+
+Jeder Flow schreibt wirklich und rechnet durch: ein neues Konto ist sofort in der Vertragsanlage
+wählbar, ein neues Budget verändert Plan und Verbleibend. Doppelte Anlage wird abgelehnt.
+„Depot“ und „Darlehen“ im Konto-Formular legen kein Konto an, sondern führen dorthin, wo sie
+hingehören.
+
 ## Anmeldung und Mehrbenutzerbetrieb
 
 Ein **Haushalt** besitzt die Daten. Ein **Benutzer** meldet sich mit eigenen Zugangsdaten an und

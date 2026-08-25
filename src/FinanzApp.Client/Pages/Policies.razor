@@ -55,6 +55,9 @@
             </button>
         }
 
+        <AddRow Route="@(CapitalForming ? "/neu/pension" : "/neu/protection")"
+                Label="@(CapitalForming ? "Vorsorgevertrag anlegen" : "Versicherung anlegen")" />
+
         <div class="spacer"></div>
     }
 </AsyncView>

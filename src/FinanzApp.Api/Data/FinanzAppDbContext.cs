@@ -168,7 +168,20 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
                 .HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.Cascade);
         });
 
-        b.Entity<Depot>(e => e.Property(x => x.Name).HasMaxLength(120).IsRequired());
+        b.Entity<Depot>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(120).IsRequired();
+            e.Property(x => x.Broker).HasMaxLength(120);
+            e.Property(x => x.Number).HasMaxLength(60);
+            e.Property(x => x.DepotKind).HasMaxLength(60);
+            e.Property(x => x.QuoteSource).HasMaxLength(120);
+
+            // Geld liegt in dieser Datenbank überall als Cent-Ganzzahl, auch hier.
+            e.Property(x => x.StatedValue).HasConversion(NullableMoneyConverter);
+
+            e.HasOne(x => x.Account).WithMany()
+                .HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.SetNull);
+        });
 
         b.Entity<PortfolioPosition>(e =>
         {

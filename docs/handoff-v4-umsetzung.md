@@ -4,7 +4,7 @@ Arbeitsliste zu [`docs/design-handoff-v4/handoff.md`](design-handoff-v4/handoff.
 aus Abschnitt 11 des Handoffs — sie ist nicht beliebig: Schritt 1 verschiebt jede Maßzahl, alles
 danach würde sonst zweimal gebaut.
 
-Stand 25.08.2026: **Schritte 1 bis 3 umgesetzt**, Rest offen.
+Stand 25.08.2026: **Schritte 1 bis 4 umgesetzt**, Rest offen.
 
 Entschieden: beim Umbau des Datenmodells in Schritt 3 wird **nicht migriert**, sondern neu
 aufgesetzt — bestehende `finanzapp.db` löschen. Damit muss die Schema-Prüfung beim Start
@@ -24,7 +24,7 @@ weiter. Die beiden Ordner bleiben deshalb liegen.
 | ~~1~~ | ~~Stylesheet Industry + Typo-Skala~~ | **erledigt** | groß |
 | ~~2~~ | ~~Responsiver Rahmen~~ | **erledigt** bis auf das Formular am Stück (siehe unten) | mittel |
 | ~~3~~ | ~~Vorsorge / Absicherung trennen~~ | **erledigt** | mittel |
-| 4 | Anlege-Flows | eine Formularkomponente + Feldliste je Typ (8 Typen), Endpunkte | groß |
+| ~~4~~ | ~~Anlege-Flows~~ | **erledigt** für 7 Typen; Fahrzeug kommt mit Schritt 8 | groß |
 | 5 | Buchungstabelle, Filter, Summen, Leerzustände | `Accounts.razor`, `TransactionService`, Kategorie-Panel | mittel |
 | 6 | Dokumente Master/Detail, Scan & PKV zweispaltig | `Documents`, `DocumentDetail`, `ScanBill`, `MedicalBillDetail` | mittel |
 | 7 | Police-Import hinter der Analyse-Schnittstelle | `IBillTextExtractor` erweitern, Import-Panel, Herkunft je Feld | mittel |
@@ -118,10 +118,7 @@ Panel-Geometrie und die feste Position des Erfassen-Knopfes stimmen.
 
 ## Bewusst offen geblieben
 
-- **Formular am Stück ab Tablet** (Erfassen, Scan). Der Handoff blendet dort die Schrittleisten
-  aus, weil das Formular in einem Zug passt. Das ist keine Layout-, sondern eine Ablaufänderung:
-  die Komponente müsste die Fensterbreite kennen, und dieselbe Frage stellt sich in Schritt 4 für
-  alle acht Anlege-Typen. Deshalb dort, nicht hier — die Schrittleiste bleibt solange sichtbar.
+- ~~**Formular am Stück ab Tablet**~~ — mit Schritt 4 erledigt, siehe unten.
 - **Kennzahlen an allen Bereichen.** Geliefert werden die, die `AreaCountsDto` schon führt
   (Dokumente, Vorgänge, PKV, Objekte, Benutzer). Konten, Budgets, Depot, Darlehen und Import
   bekommen ihre, wenn die zugehörigen Zahlen bereitstehen. Lieber keine Zahl als eine erfundene.
@@ -188,3 +185,59 @@ Wie entschieden **nicht migriert, sondern neu aufgesetzt**: die Migrationen sind
 Ansage samt Dateipfad; löschen darf die Anwendung sie weiterhin nicht.
 
 59 Tests, davon 11 neue zu den Vorsorge-/Absicherungsregeln.
+
+## Was Schritt 4 gebracht hat
+
+**Ein Formular für alle Typen, vom Server beschrieben.** `CreateFormService` liefert die Feldliste
+— Schlüssel, Beschriftung, Art, Pflicht, Auswahlwerte — und prüft die Eingabe gegen *dieselbe*
+Liste. Der Client rendert sie generisch. Daraus folgt zweierlei: die Meldung nennt das fehlende
+Feld bei dem Namen, den der Benutzer gesehen hat („Versicherer fehlt“), und ein neuer Objekttyp
+kostet einen Listeneintrag statt einer neuen Seite.
+
+Umgesetzt sind sieben Typen: Konto, Depot, Vorsorgevertrag, Versicherung, Immobilie, Vertrag,
+Budget. **Fahrzeug fehlt bewusst** — die Entität entsteht erst mit Schritt 8; bis dahin liefert
+der Dienst für diesen Typ `null` und die Auswahl führt ihn gar nicht auf.
+
+**Einstieg dort, wo das Objekt hingehört.** Jede Liste endet auf einer „+“-Zeile
+(`AddRow`-Komponente, mit Lesezugriff unsichtbar); dazu der Sammeleintrag im Erfassen-Fenster, der
+auf `/neu` führt und fragt, was es sein soll. Aus dem Platzhalter „Neues Budget anlegen“ ist
+damit ein echter Weg geworden.
+
+**Es wird wirklich geschrieben.** Gegen die laufende API geprüft: ein angelegtes Konto steht
+danach in der Kontoliste **und** ist in der Vertragsanlage wählbar; ein Budget über 360 € im
+Quartal landet als 120 € je Monat im Plan; ein zweites Budget auf dieselbe Kategorie wird mit
+„Budget für Auto besteht bereits“ abgelehnt.
+
+**„Depot“ im Konto-Formular legt kein Konto an**, sondern führt in den Depot-Flow — so verlangt
+es der Handoff. Dasselbe gilt für „Darlehen“: es ist eine Verbindlichkeit mit Tilgungsplan, kein
+Konto, und `AccountKind` kennt dafür auch keinen Wert. Der Handoff nennt nur das Depot; die
+Weiterleitung des Darlehens ist die einzige Möglichkeit, an dieser Stelle nichts Falsches
+anzulegen.
+
+### Neue Felder
+
+Für drei Typen verlangt der Handoff Felder, die es im Modell noch nicht gab. Ergänzt sind genau
+diese, per additiver Migration `AnlegeFelder`:
+
+- **Budget**: `Period`, `ValidFrom`, `WarnThresholdPercent`. Intern wird weiter je Monat geführt;
+  Quartal und Jahr rechnen beim Anlegen herunter.
+- **Depot**: `Broker`, `Number`, `DepotKind`, `StatedValue` + `ValuationDate`, `AccountId`,
+  `QuoteSource`. Der angegebene Wert zählt nur, solange keine Positionen erfasst sind — danach
+  rechnet der Bestand.
+- **Immobilie**: `Kind` (Haus, Wohnung, Grundstück).
+
+### Das Formular am Stück — der offene Punkt aus Schritt 2
+
+Jetzt eingelöst, und ohne dass die Komponente die Fensterbreite kennen muss: alle drei Schritte
+der Erfassung stehen im Dokument, die CSS zeigt auf dem Telefon nur den aktiven und ab Tablet
+alle. Dazu zwei Aktionsleisten, von denen je eine sichtbar ist — der Assistent führt durch die
+Schritte, am großen Bildschirm wird in einem Zug gespeichert. Erst dadurch darf die Schrittleiste
+ab Tablet verschwinden, wie der Handoff es will.
+
+Nachgemessen: bei 390 px eine Schrittleiste, ein sichtbarer Schritt, Knopf „Weiter“; bei 1280 px
+keine Schrittleiste, drei sichtbare Schritte, Knopf „Buchung speichern“.
+
+Der Scan-Flow behält seine Schritte vorerst — er wird in Schritt 6 ohnehin zweispaltig umgebaut,
+und zweimal umbauen wäre verschwendet.
+
+70 Tests, davon 11 neue zu den Anlege-Flows.
