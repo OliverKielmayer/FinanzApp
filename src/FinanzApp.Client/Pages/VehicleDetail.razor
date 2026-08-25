@@ -1,0 +1,112 @@
+@page "/fahrzeuge/{Id:int}"
+@attribute [Authorize]
+@inherits AppPage
+
+<PageTitle>@(data?.Name ?? "Fahrzeug") — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (data is { } vehicle)
+    {
+        <section class="hero">
+            <span class="label-muted">Kosten 12 Monate</span>
+            <span class="hero-value medium num">@State.Euro0(vehicle.CostsLastTwelveMonths)</span>
+            <span class="loan-sub">
+                @vehicle.Name · @vehicle.Plate@(vehicle.CostParts.Count > 0 ? " · " + string.Join(", ", vehicle.CostParts) : null)
+            </span>
+        </section>
+
+        <div class="detail-block">
+            <span class="detail-label">Fahrzeug</span>
+            <span class="detail-value num">@Describe(vehicle)</span>
+        </div>
+
+        <div class="list-head">
+            <span class="label-strong">Versicherung</span>
+        </div>
+
+        @if (vehicle.Policy is { } policy)
+        {
+            @* Verwiesen, nicht kopiert: der Vertrag steht weiter unter Absicherung. *@
+            <button type="button" class="tap contract-row @(policy.NoticeIsDue ? "deadline" : null)"
+                    @onclick="@(() => Navigation.NavigateTo($"/police/{policy.PolicyId}"))">
+                <span class="stack">
+                    <span class="contract-name">@policy.Name</span>
+                    <span class="meta">
+                        @policy.Provider@(policy.NoticeDeadline is { } deadline
+                            ? " · Wechselfrist " + GermanFormat.Date(deadline)
+                            : null)
+                    </span>
+                </span>
+                <span class="contract-amount num">@State.Euro0(policy.AnnualPremium)</span>
+            </button>
+        }
+        else
+        {
+            <div class="empty-area">
+                <span class="empty-area-text">
+                    Keine Versicherung verknüpft. Sie wird unter Absicherung geführt und hier nur
+                    verwiesen — angelegt wird sie dort.
+                </span>
+                <AuthorizeView Roles="Owner,Member">
+                    <button type="button" class="btn btn-secondary"
+                            @onclick="@(() => Navigation.NavigateTo("/neu/protection"))">Versicherung anlegen</button>
+                </AuthorizeView>
+            </div>
+        }
+
+        <div class="list-head">
+            <span class="label-strong">Dokumente</span>
+            <span class="list-count num">@vehicle.Documents.Count</span>
+        </div>
+
+        @if (vehicle.Documents.Count == 0)
+        {
+            <div class="empty-area">
+                <span class="empty-area-text">Kein Dokument hinterlegt.</span>
+            </div>
+        }
+
+        @foreach (var document in vehicle.Documents)
+        {
+            <button type="button" class="tap doc-row @(document.FileExists ? null : "missing")"
+                    @onclick="@(() => Navigation.NavigateTo($"/dokumente/{document.Id}"))">
+                <span class="stack">
+                    <span class="doc-name">@document.FileName</span>
+                    <span class="doc-meta">@(document.FileExists ? document.TypeName : "Datei nicht gefunden")</span>
+                </span>
+            </button>
+        }
+
+        <div class="spacer"></div>
+    }
+</AsyncView>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private VehicleDetailDto? data;
+
+    protected override async Task LoadAsync() => data = await Api.GetVehicleAsync(Id);
+
+    private static string Describe(VehicleDetailDto vehicle)
+    {
+        var parts = new List<string> { vehicle.Plate };
+
+        if (vehicle.Usage is { Length: > 0 } usage)
+        {
+            parts.Add(usage);
+        }
+
+        if (vehicle.FirstRegistration is { } first)
+        {
+            parts.Add("Erstzulassung " + GermanFormat.Date(first));
+        }
+
+        if (vehicle.Mileage is { } mileage)
+        {
+            parts.Add($"{mileage:N0} km");
+        }
+
+        return string.Join(" · ", parts);
+    }
+}

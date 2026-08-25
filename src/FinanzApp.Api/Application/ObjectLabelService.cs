@@ -30,6 +30,7 @@ public sealed class ObjectLabelService(FinanzAppDbContext db)
         LinkTargetType.EmploymentContract => "Arbeitsvertrag",
         LinkTargetType.Payslip => "Lohnabrechnung",
         LinkTargetType.MedicalBill => "Arztrechnung",
+        LinkTargetType.Vehicle => "Fahrzeug",
         _ => "Objekt",
     };
 
@@ -45,6 +46,7 @@ public sealed class ObjectLabelService(FinanzAppDbContext db)
         LinkTargetType.Contract => $"/vertraege/{id}",
         LinkTargetType.Invoice => $"/rechnungen/{id}",
         LinkTargetType.MedicalBill => $"/gesundheit/{id}",
+        LinkTargetType.Vehicle => $"/fahrzeuge/{id}",
         _ => null,
     };
 
@@ -78,6 +80,9 @@ public sealed class ObjectLabelService(FinanzAppDbContext db)
 
             LinkTargetType.MedicalBill => await db.MedicalBills.AsNoTracking()
                 .Where(x => x.Id == id).Select(x => x.Provider).FirstOrDefaultAsync(ct),
+
+            LinkTargetType.Vehicle => await db.Vehicles.AsNoTracking()
+                .Where(x => x.Id == id).Select(x => x.Name).FirstOrDefaultAsync(ct),
 
             _ => null,
         };

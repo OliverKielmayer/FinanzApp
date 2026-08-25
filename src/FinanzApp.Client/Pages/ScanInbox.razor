@@ -1,0 +1,79 @@
+@page "/scaneingang"
+@attribute [Authorize]
+@inherits AppPage
+
+@*
+    Posteingang statt Einzelbeleg: gescannt wird stapelweise, eingeordnet wird später. Ein Beleg
+    bleibt hier stehen, bis Typ und Objekt bestätigt sind — sonst verschwände er in der Ablage,
+    ohne dass jemand entschieden hätte, wozu er gehört.
+*@
+
+<PageTitle>Scaneingang — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (data is { } inbox)
+    {
+        <section class="hero">
+            <span class="label-muted">Wartet auf Zuordnung</span>
+            <span class="hero-value medium num">@inbox.WaitingCount</span>
+            <span class="hero-delta">
+                @(inbox.WaitingCount == 1 ? "Beleg" : "Belege") · Typ und Objekt fehlen noch
+            </span>
+        </section>
+
+        @if (inbox.Items.Count == 0)
+        {
+            <div class="empty-area">
+                <span class="empty-area-title">Der Eingang ist leer</span>
+                <span class="empty-area-text">
+                    Alles Eingescannte ist eingeordnet. Neue Belege landen hier, bis Typ und
+                    Objekt feststehen.
+                </span>
+                <AuthorizeView Roles="Owner,Member">
+                    <button type="button" class="btn btn-primary"
+                            @onclick="@(() => Navigation.NavigateTo("/gesundheit/scannen"))">Beleg scannen</button>
+                </AuthorizeView>
+            </div>
+        }
+
+        @foreach (var item in inbox.Items)
+        {
+            <button type="button" class="tap doc-row @(item.Recognised ? null : "missing")"
+                    @onclick="@(() => Navigation.NavigateTo($"/dokumente/{item.DocumentId}"))">
+                <span class="stack">
+                    <span class="doc-name">@item.FileName</span>
+                    <span class="doc-meta">@Describe(item)</span>
+                </span>
+                <span class="tag @(item.Recognised ? "tag-neutral" : "tag-accent")">
+                    @(item.Recognised ? "erkannt" : "prüfen")
+                </span>
+            </button>
+        }
+
+        <div class="spacer"></div>
+    }
+</AsyncView>
+
+@code {
+    private ScanInboxDto? data;
+
+    protected override async Task LoadAsync() => data = await Api.GetScanInboxAsync();
+
+    private static string Describe(ScanInboxItemDto item)
+    {
+        var parts = new List<string>();
+
+        if (item.Sender is { Length: > 0 } sender)
+        {
+            parts.Add(sender);
+        }
+
+        if (item.PageCount is { } pages)
+        {
+            parts.Add($"{pages} {(pages == 1 ? "Seite" : "Seiten")}");
+        }
+
+        parts.Add("eingegangen " + GermanFormat.Date(item.ArrivedOn));
+        return string.Join(" · ", parts);
+    }
+}

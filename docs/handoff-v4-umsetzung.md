@@ -4,7 +4,7 @@ Arbeitsliste zu [`docs/design-handoff-v4/handoff.md`](design-handoff-v4/handoff.
 aus Abschnitt 11 des Handoffs — sie ist nicht beliebig: Schritt 1 verschiebt jede Maßzahl, alles
 danach würde sonst zweimal gebaut.
 
-Stand 25.08.2026: **Schritte 1 bis 7 umgesetzt**, Rest offen.
+Stand 25.08.2026: **alle acht Schritte umgesetzt.**
 
 Entschieden: beim Umbau des Datenmodells in Schritt 3 wird **nicht migriert**, sondern neu
 aufgesetzt — bestehende `finanzapp.db` löschen. Damit muss die Schema-Prüfung beim Start
@@ -24,11 +24,11 @@ weiter. Die beiden Ordner bleiben deshalb liegen.
 | ~~1~~ | ~~Stylesheet Industry + Typo-Skala~~ | **erledigt** | groß |
 | ~~2~~ | ~~Responsiver Rahmen~~ | **erledigt** bis auf das Formular am Stück (siehe unten) | mittel |
 | ~~3~~ | ~~Vorsorge / Absicherung trennen~~ | **erledigt** | mittel |
-| ~~4~~ | ~~Anlege-Flows~~ | **erledigt** für 7 Typen; Fahrzeug kommt mit Schritt 8 | groß |
+| ~~4~~ | ~~Anlege-Flows~~ | **erledigt**, alle acht Typen (Fahrzeug kam mit Schritt 8) | groß |
 | ~~5~~ | ~~Buchungstabelle, Filter, Summen, Leerzustände~~ | **erledigt** | mittel |
 | ~~6~~ | ~~Dokumente Master/Detail, Scan & PKV zweispaltig~~ | **erledigt** | mittel |
 | ~~7~~ | ~~Police-Import hinter der Analyse-Schnittstelle~~ | **erledigt** | mittel |
-| 8 | Fahrzeuge, Scaneingang | 2 neue Entitäten + Bereiche | mittel |
+| ~~8~~ | ~~Fahrzeuge, Scaneingang~~ | **erledigt** | mittel |
 
 ## Was schon da ist und nur zusammengeführt werden muss
 
@@ -326,3 +326,47 @@ Nebenbei behoben: in `ExtensionEndpoints` standen seit Schritt 3 zwei XML-Kommen
 — der von `MapPolicies` war beim Einfügen über `MapCreate` gerutscht.
 
 82 Tests, davon 3 neue zum Einlesen.
+
+## Was Schritt 8 gebracht hat
+
+**Fahrzeuge, strukturgleich zur Immobilie** — und das ist keine Bequemlichkeit: beides sind
+Objekte, an denen Verträge, Rechnungen, Fristen und Dokumente hängen. Die Kfz-Versicherung wird
+**verknüpft, nicht kopiert**: sie bleibt eine `Policy` unter Absicherung, genau wie der
+Stromvertrag unter Wohnen bleibt. Ein Test hält fest, dass nach dem Anlegen genau ein Vertrag
+existiert.
+
+Die Kosten werden aus echten Buchungen gerechnet, nicht gepflegt — eine gepflegte Zahl wäre nach
+zwei Monaten falsch. Gefunden wird über Kennzeichen und Fahrzeugnamen; das ist eine Heuristik und
+wird als solche behandelt: was sie nicht findet, fehlt in der Summe. Besser als eine Zahl, die
+mehr behauptet, als sie weiß.
+
+Gegen die laufende API geprüft: **VW Passat 4.120 €, Skoda Fabia 1.980 €, Firmenwagen 0 €** —
+genau die Werte des Prototyps. Möglich, weil Steuer, Werkstatt und Kraftstoff in der
+Vorgeschichte März bis Juli liegen; der August und seine kalibrierten Monatssummen bleiben
+unberührt.
+
+**Scaneingang als Posteingang.** Gescannt wird stapelweise, eingeordnet wird später. Ein Beleg
+bleibt darin, bis **Typ und Objekt** bestätigt sind — die Prüfung liegt im Dienst, nicht in der
+Oberfläche: ein Beleg ohne Verknüpfung ist nicht eingeordnet, egal über welchen Weg jemand ihn
+wegräumen will. Vier Belege warten in der Demo, zwei erkannt, zwei zu prüfen; die Dateien liegen
+unter `Scaneingang/`, wie in der Dateiablage des Nutzers.
+
+Damit stehen **alle fünfzehn Bereiche** in der Seitennavigation, in der Reihenfolge aus
+Abschnitt 3.
+
+### Eine Abweichung, bewusst
+
+Der Prototyp markiert den Passat mit „1 Frist“. Seine Wechselfrist fällt auf den 30.11.2026 —
+das sind 99 Tage nach dem Stichtag, also knapp außerhalb des 90-Tage-Fensters, das überall sonst
+gilt. Statt das Fenster für diesen einen Fall zu dehnen, bleibt es bei 90: die Frist erscheint ab
+dem 01.09.2026, sechs Tage nach dem Demo-Stichtag. Der Zustand „Frist läuft“ ist ohnehin am
+Hausrat vorgeführt.
+
+83 Tests, davon 2 neue zu Fahrzeugen.
+
+## Was der Handoff bewusst offen lässt
+
+Unverändert nicht gebaut, weil nicht gestaltet: Ladezustände, Offline, Fehlerdialoge, 2FA,
+Rechtematrix, Auswertungen, Split-Buchung, Sondertilgung, CSV-Spalten-Mapping, Arbeit & Beruf,
+Administration. Dazu die beiden neu angedeuteten Bereiche **Steuer nach Jahr** und
+**Unterhalt / Scheidung**. Der Handoff sagt dazu: vorher anfragen.

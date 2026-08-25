@@ -232,6 +232,18 @@ Vertrag kann ein Jahr vor dem Termin auf den Tisch gehören, weil ein Vergleich 
 bestehende Darlehen; es gibt weiterhin genau einen Darlehensbereich mit einem Tilgungsplan.
 Zahlungen sind überall Verweise auf echte Buchungen — Geldbewegungen bleiben Buchungen.
 
+### Fahrzeuge und Scaneingang
+
+Ein **Fahrzeug** ist strukturgleich zur Immobilie: ein Objekt, an dem Verträge, Rechnungen,
+Fristen und Dokumente hängen. Seine Kosten der letzten zwölf Monate werden aus echten Buchungen
+gerechnet, nicht gepflegt. Die Kfz-Versicherung wird **verwiesen**, nicht kopiert — sie bleibt
+unter Absicherung.
+
+Der **Scaneingang** ist ein Posteingang: gescannt wird stapelweise, eingeordnet wird später. Ein
+Beleg bleibt darin, bis Typ **und** Objekt bestimmt sind. Ohne diese Schwelle verschwände er in
+der Ablage, ohne dass jemand entschieden hätte, wozu er gehört — und genau solche Dokumente
+findet später niemand wieder.
+
 ### Anlegen
 
 Alle Objekttypen teilen sich **einen** Formularscreen, gesteuert über eine Feldliste, die der

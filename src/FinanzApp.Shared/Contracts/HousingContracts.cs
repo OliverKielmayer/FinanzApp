@@ -216,3 +216,69 @@ public sealed record PayInvoiceRequest
     /// <summary>Zugeordnete Buchung. Ohne Angabe gilt die Rechnung als bezahlt ohne Beleg.</summary>
     public int? TransactionId { get; init; }
 }
+
+// ── Fahrzeuge ─────────────────────────────────────────────────────────────
+
+public sealed record VehicleListItemDto
+{
+    public required int Id { get; init; }
+    public required string Name { get; init; }
+    public required string Plate { get; init; }
+    public required string Meta { get; init; }
+
+    /// <summary>Kosten der letzten zwölf Monate — Beitrag, Steuer, Werkstatt.</summary>
+    public required decimal CostsLastTwelveMonths { get; init; }
+
+    /// <summary>Eine Frist läuft — Zeile im Akzentmuster.</summary>
+    public required bool HasDeadline { get; init; }
+}
+
+public sealed record VehicleDetailDto
+{
+    public required int Id { get; init; }
+    public required string Name { get; init; }
+    public required string Plate { get; init; }
+    public string? Usage { get; init; }
+    public DateOnly? FirstRegistration { get; init; }
+    public int? Mileage { get; init; }
+
+    public required decimal CostsLastTwelveMonths { get; init; }
+    public required IReadOnlyList<string> CostParts { get; init; }
+
+    /// <summary>Die verknüpfte Kfz-Versicherung, als Verweiszeile. Nicht kopiert.</summary>
+    public VehiclePolicyRefDto? Policy { get; init; }
+
+    public required IReadOnlyList<DocumentListItemDto> Documents { get; init; }
+}
+
+public sealed record VehiclePolicyRefDto
+{
+    public required int PolicyId { get; init; }
+    public required string Name { get; init; }
+    public required string Provider { get; init; }
+    public required decimal AnnualPremium { get; init; }
+    public DateOnly? NoticeDeadline { get; init; }
+    public required bool NoticeIsDue { get; init; }
+}
+
+// ── Scaneingang ──────────────────────────────────────────────────────────
+
+public sealed record ScanInboxDto
+{
+    public required int WaitingCount { get; init; }
+    public required IReadOnlyList<ScanInboxItemDto> Items { get; init; }
+}
+
+public sealed record ScanInboxItemDto
+{
+    public required int Id { get; init; }
+    public required int DocumentId { get; init; }
+    public required string FileName { get; init; }
+    public string? Sender { get; init; }
+    public int? PageCount { get; init; }
+
+    /// <summary>„erkannt“ oder „prüfen“.</summary>
+    public required bool Recognised { get; init; }
+
+    public required DateOnly ArrivedOn { get; init; }
+}

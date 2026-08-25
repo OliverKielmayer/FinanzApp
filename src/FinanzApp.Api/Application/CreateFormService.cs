@@ -37,6 +37,7 @@ public sealed class CreateFormService(
             CreateObjectType.Property => await PropertyFormAsync(ct),
             CreateObjectType.Contract => await ContractFormAsync(ct),
             CreateObjectType.Budget => await BudgetFormAsync(ct),
+            CreateObjectType.Vehicle => await VehicleFormAsync(ct),
             _ => null,
         };
 
@@ -68,6 +69,7 @@ public sealed class CreateFormService(
             CreateObjectType.Property => await CreatePropertyAsync(values, ct),
             CreateObjectType.Contract => await CreateContractAsync(values, ct),
             CreateObjectType.Budget => await CreateBudgetAsync(values, ct),
+            CreateObjectType.Vehicle => await CreateVehicleAsync(values, ct),
             _ => Fail(null, "Diesen Objekttyp gibt es noch nicht."),
         };
     }
@@ -675,6 +677,68 @@ public sealed class CreateFormService(
         await db.SaveChangesAsync(ct);
 
         return Ok(budget.Id, "/budgets");
+    }
+
+    // ── Fahrzeug ───────────────────────────────────────────────────────────
+
+    private async Task<CreateFormDto> VehicleFormAsync(CancellationToken ct)
+    {
+        // Nur Kfz-Verträge zur Auswahl — eine Hausratversicherung gehört nicht ans Auto.
+        var policies = await db.Policies.AsNoTracking()
+            .Where(p => p.Kind == PolicyKind.Vehicle)
+            .OrderBy(p => p.Name)
+            .Select(p => new CreateOptionDto { Value = p.Id.ToString(), Label = p.Name, Hint = p.Provider })
+            .ToListAsync(ct);
+
+        return new CreateFormDto
+        {
+            Type = CreateObjectType.Vehicle,
+            Kicker = "Neu",
+            Title = "Fahrzeug anlegen",
+            SubmitLabel = "Fahrzeug anlegen",
+            Hint = "Die Kfz-Versicherung wird verknüpft, nicht kopiert — sie bleibt unter Absicherung.",
+            Fields =
+            [
+                Text("name", "Bezeichnung", required: true, placeholder: "z. B. VW Passat Variant"),
+                Text("plate", "Kennzeichen", required: true, placeholder: "L-2905"),
+                Choice("usage", "Typ", required: false,
+                [
+                    new() { Value = "Erstwagen", Label = "Erstwagen" },
+                    new() { Value = "Zweitwagen", Label = "Zweitwagen" },
+                    new() { Value = "Dienstwagen", Label = "Dienstwagen" },
+                ]),
+                Date("first", "Erstzulassung", required: false),
+                Number("mileage", "Kilometerstand", required: false),
+                Reference("policy", "Versicherung verknüpfen", required: false, policies),
+            ],
+        };
+    }
+
+    private async Task<CreateResultDto> CreateVehicleAsync(
+        IReadOnlyDictionary<string, string?> values, CancellationToken ct)
+    {
+        var name = Value(values, "name")!.Trim();
+        var plate = Value(values, "plate")!.Trim();
+
+        if (await db.Vehicles.AnyAsync(v => v.Plate == plate, ct))
+        {
+            return Fail("plate", $"Ein Fahrzeug mit Kennzeichen „{plate}“ besteht bereits.");
+        }
+
+        var vehicle = new Vehicle
+        {
+            Name = name,
+            Plate = plate,
+            Usage = Value(values, "usage")?.Trim(),
+            FirstRegistration = ParseDate(Value(values, "first")),
+            Mileage = ParseInt(Value(values, "mileage")),
+            PolicyId = ParseInt(Value(values, "policy")),
+        };
+
+        db.Vehicles.Add(vehicle);
+        await db.SaveChangesAsync(ct);
+
+        return Ok(vehicle.Id, $"/fahrzeuge/{vehicle.Id}");
     }
 
     // ── Bausteine ──────────────────────────────────────────────────────────────────────────

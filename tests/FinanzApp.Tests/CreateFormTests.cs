@@ -230,7 +230,7 @@ public sealed class CreateFormTests : IDisposable
         [
             CreateObjectType.Account, CreateObjectType.Depot, CreateObjectType.Pension,
             CreateObjectType.Protection, CreateObjectType.Property, CreateObjectType.Contract,
-            CreateObjectType.Budget,
+            CreateObjectType.Budget, CreateObjectType.Vehicle,
         ];
 
         foreach (var type in types)
@@ -245,10 +245,63 @@ public sealed class CreateFormTests : IDisposable
     }
 
     [Fact]
-    public async Task Fahrzeug_gibt_es_noch_nicht()
+    public async Task Fahrzeug_verknuepft_die_Versicherung_statt_sie_zu_kopieren()
     {
-        // Kommt mit Schritt 8. Bis dahin darf der Typ nichts vortäuschen.
-        Assert.Null(await Service().GetFormAsync(CreateObjectType.Vehicle));
+        int policyId;
+        using (var context = database.Context())
+        {
+            var policy = new Policy
+            {
+                Kind = PolicyKind.Vehicle,
+                IsCapitalForming = false,
+                Name = "Kfz WGV",
+                Provider = "WGV",
+                Premium = 618m,
+                PremiumInterval = PremiumInterval.Yearly,
+            };
+            context.Policies.Add(policy);
+            context.SaveChanges();
+            policyId = policy.Id;
+        }
+
+        // Zur Auswahl steht nur, was ein Kfz-Vertrag ist — eine Hausratversicherung gehört
+        // nicht ans Auto.
+        var form = await Service().GetFormAsync(CreateObjectType.Vehicle);
+        var field = form!.Fields.Single(f => f.Key == "policy");
+        Assert.Contains(field.Options!, o => o.Value == policyId.ToString());
+
+        var result = await Service().CreateAsync(CreateObjectType.Vehicle, new Dictionary<string, string?>
+        {
+            ["name"] = "VW Passat Variant",
+            ["plate"] = "L-2905",
+            ["policy"] = policyId.ToString(),
+        });
+
+        Assert.True(result.Ok);
+
+        using var check = database.Context();
+        var vehicle = Assert.Single(check.Vehicles);
+        Assert.Equal(policyId, vehicle.PolicyId);
+
+        // Der Vertrag bleibt genau einer — er wurde verwiesen, nicht kopiert.
+        Assert.Single(check.Policies);
+    }
+
+    [Fact]
+    public async Task Zweites_Fahrzeug_mit_demselben_Kennzeichen_wird_abgelehnt()
+    {
+        var values = new Dictionary<string, string?>
+        {
+            ["name"] = "VW Passat Variant",
+            ["plate"] = "L-2905",
+        };
+
+        Assert.True((await Service().CreateAsync(CreateObjectType.Vehicle, values)).Ok);
+
+        var second = await Service().CreateAsync(CreateObjectType.Vehicle, values);
+
+        Assert.False(second.Ok);
+        Assert.Equal("plate", second.FieldKey);
     }
 
     [Fact]

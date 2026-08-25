@@ -60,6 +60,9 @@ public static class ScreenCatalog
             DetailTitle: "PKV-Vorgang"),
         new("/wohnen", "Wohnen", "Wohnen & Immobilien", IsDetail: true, InAreaList: true,
             DetailTitle: "Immobilie"),
+        new("/fahrzeuge", "Mobilität", "Fahrzeuge", IsDetail: true, InAreaList: true,
+            DetailTitle: "Fahrzeug"),
+        new("/scaneingang", "Eingang", "Scaneingang", IsDetail: true, InAreaList: true),
         new("/benutzer", "Konto", "Benutzer & Anmeldung", IsDetail: true, InAreaList: true),
 
         // Detailscreens, die aus einem Bereich heraus geöffnet werden.
@@ -84,9 +87,7 @@ public static class ScreenCatalog
     /// Abschnitt 3 — nicht die Reihenfolge der Tab-Bar.
     /// </summary>
     /// <remarks>
-    /// Der Handoff nennt fünfzehn Bereiche. Zwei davon gibt es noch nicht: <em>Scaneingang</em>
-    /// und <em>Fahrzeuge</em> entstehen mit Schritt 8. Sie fehlen hier bewusst — ein
-    /// Navigationseintrag, der ins Leere führt, ist schlechter als einer, der noch nicht da ist.
+    /// Alle fünfzehn Bereiche des Handoffs, in seiner Reihenfolge.
     /// </remarks>
     public static IReadOnlyList<Screen> SideNav { get; } =
     [
@@ -94,7 +95,8 @@ public static class ScreenCatalog
         {
             "/", "/vorgaenge", "/konten", "/budgets", "/depot",
             "/vorsorge", "/absicherung",
-            "/dokumente", "/gesundheit", "/wohnen", "/darlehen", "/import", "/benutzer",
+            "/dokumente", "/scaneingang", "/gesundheit", "/wohnen", "/fahrzeuge",
+            "/darlehen", "/import", "/benutzer",
         }
         .Select(route => All.First(s => s.Route == route)),
     ];

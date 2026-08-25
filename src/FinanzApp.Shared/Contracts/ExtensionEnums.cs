@@ -48,6 +48,7 @@ public enum LinkTargetType
     EmploymentContract = 10,
     Payslip = 11,
     MedicalBill = 12,
+    Vehicle = 13,
 }
 
 /// <summary>

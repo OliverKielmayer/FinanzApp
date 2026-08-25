@@ -209,6 +209,20 @@ public static class FinanzAppApiExtensions
         return await api.PostFormAsync<DocumentAnalysisDto>($"api/create/{type}/analyse", form, ct);
     }
 
+    // ── Fahrzeuge und Scaneingang ──────────────────────────────────────────────
+
+    public static Task<IReadOnlyList<VehicleListItemDto>> GetVehiclesAsync(
+        this FinanzAppApi api, CancellationToken ct = default)
+        => api.GetAsync<IReadOnlyList<VehicleListItemDto>>("api/vehicles", ct);
+
+    public static Task<VehicleDetailDto> GetVehicleAsync(
+        this FinanzAppApi api, int id, CancellationToken ct = default)
+        => api.GetAsync<VehicleDetailDto>($"api/vehicles/{id}", ct);
+
+    public static Task<ScanInboxDto> GetScanInboxAsync(
+        this FinanzAppApi api, CancellationToken ct = default)
+        => api.GetAsync<ScanInboxDto>("api/scan-inbox", ct);
+
     /// <summary>Vermerkt die gelesenen Werte als übernommen.</summary>
     public static Task<int> ConfirmExtractionsAsync(
         this FinanzAppApi api, int documentId, CancellationToken ct = default)

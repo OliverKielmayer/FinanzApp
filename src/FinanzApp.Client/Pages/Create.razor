@@ -214,8 +214,7 @@ else
 
 @code {
     /// <summary>
-    /// Die Typen, die es gibt. <em>Fahrzeug</em> fehlt bewusst — es entsteht mit Schritt 8;
-    /// ein Eintrag, der ins Leere führt, wäre schlechter als keiner.
+    /// Die Typen, die angelegt werden können — alle acht aus Abschnitt 6 des Handoffs.
     /// </summary>
     private static readonly (string Route, string Label, string Hint)[] Kinds =
     [
@@ -225,6 +224,7 @@ else
         ("/neu/protection", "Versicherung", "Hausrat, Kfz, Haftpflicht — ohne Vermögenswert"),
         ("/neu/property", "Immobilie", "mit Kaufdatum und bestehendem Darlehen"),
         ("/neu/contract", "Vertrag", "Strom, Internet, Wartung — mit Abschlag"),
+        ("/neu/vehicle", "Fahrzeug", "Kennzeichen, Erstzulassung, verknüpfte Versicherung"),
         ("/neu/budget", "Budget", "Kategorie, Betrag, Warnschwelle"),
     ];
 

@@ -1,0 +1,48 @@
+@page "/fahrzeuge"
+@attribute [Authorize]
+@inherits AppPage
+
+<PageTitle>Fahrzeuge — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (vehicles.Count == 0)
+    {
+        <div class="empty-area">
+            <span class="empty-area-title">Noch kein Fahrzeug</span>
+            <span class="empty-area-text">
+                Ein Fahrzeug sammelt Versicherung, Steuer, Werkstatt und Finanzierung an einem Ort —
+                so wie eine Immobilie ihre Verträge sammelt.
+            </span>
+        </div>
+    }
+
+    @foreach (var vehicle in vehicles)
+    {
+        <button type="button" class="tap contract-row @(vehicle.HasDeadline ? "deadline" : null)"
+                @onclick="@(() => Navigation.NavigateTo($"/fahrzeuge/{vehicle.Id}"))">
+            <span class="stack">
+                <span class="contract-name">@vehicle.Name · @vehicle.Plate</span>
+                <span class="meta">@vehicle.Meta@(vehicle.HasDeadline ? " · 1 Frist" : null)</span>
+            </span>
+            <span class="contract-amount num">@State.Euro0(vehicle.CostsLastTwelveMonths)</span>
+        </button>
+    }
+
+    <AddRow Route="/neu/vehicle" Label="Fahrzeug anlegen" />
+
+    @if (vehicles.Count > 0)
+    {
+        <div class="doc-foot">
+            <span class="num">@State.Euro0(vehicles.Sum(v => v.CostsLastTwelveMonths))</span>
+            <span>Kosten 12 Monate</span>
+        </div>
+    }
+
+    <div class="spacer"></div>
+</AsyncView>
+
+@code {
+    private IReadOnlyList<VehicleListItemDto> vehicles = [];
+
+    protected override async Task LoadAsync() => vehicles = await Api.GetVehiclesAsync();
+}

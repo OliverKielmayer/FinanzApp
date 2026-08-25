@@ -43,6 +43,10 @@ public static class ExtensionSeedData
 
         await SeedDocumentsAsync(db, paths, types, policies, property, bills, ct);
         await db.SaveChangesAsync(ct);
+
+        await SeedVehiclesAsync(db, policies, ct);
+        await SeedScanInboxAsync(db, paths, types, ct);
+        await db.SaveChangesAsync(ct);
     }
 
     private static Dictionary<string, DocumentType> SeedDocumentTypes(FinanzAppDbContext db)
@@ -375,6 +379,137 @@ public static class ExtensionSeedData
         }
 
         return bills;
+    }
+
+    /// <summary>
+    /// Die drei Fahrzeuge aus Handoff v4, Abschnitt 5 — samt der Buchungen, aus denen sich ihre
+    /// Kosten rechnen.
+    /// </summary>
+    /// <remarks>
+    /// Die Kosten werden nicht gepflegt, sondern aus echten Buchungen gerechnet. Damit die Zahlen
+    /// des Prototyps herauskommen (Passat 4.120 €, Fabia 1.980 €), liegen hier Steuer, Werkstatt
+    /// und Tanken — alle in der Vorgeschichte März bis Juli, damit der August und seine
+    /// kalibrierten Monatssummen unberührt bleiben. Das Kennzeichen steht in der Notiz: daran
+    /// findet der Dienst sie wieder.
+    /// </remarks>
+    private static async Task SeedVehiclesAsync(
+        FinanzAppDbContext db, Dictionary<string, Policy> policies, CancellationToken ct)
+    {
+        var kfz = policies.TryGetValue("Kfz", out var policy) ? policy.Id : (int?)null;
+
+        var passat = new Vehicle
+        {
+            Name = "VW Passat Variant",
+            Plate = "L-2905",
+            Usage = "Erstwagen",
+            FirstRegistration = new DateOnly(2019, 3, 1),
+            Mileage = 128400,
+            PolicyId = kfz,
+        };
+
+        db.Vehicles.AddRange(
+            passat,
+            new Vehicle
+            {
+                Name = "Skoda Fabia",
+                Plate = "L-1113",
+                Usage = "Zweitwagen",
+                FirstRegistration = new DateOnly(2016, 9, 1),
+                Mileage = 94200,
+            },
+            new Vehicle
+            {
+                Name = "Firmenwagen EWV",
+                Plate = "HD-EW 41",
+                Usage = "Dienstwagen · 1 % Regelung",
+            });
+
+        var account = await db.Accounts.FirstAsync(a => a.Name == "Sparkasse Giro", ct);
+        var autoCategory = await db.Categories
+            .Where(c => c.Name == "Auto" && c.Direction == CategoryDirection.Expense)
+            .Select(c => (int?)c.Id)
+            .FirstOrDefaultAsync(ct);
+
+        (int Month, int Day, string Payee, string Note, decimal Amount)[] costs =
+        [
+            (3, 12, "Hauptzollamt Heidelberg", "Kfz-Steuer L-2905", -282m),
+            (4, 18, "Autohaus Krause", "Inspektion L-2905", -1220m),
+            (5, 6, "Tankstellen 12 Monate", "Kraftstoff L-2905", -2000m),
+            (4, 22, "Werkstatt Sauer", "Bremsen L-1113", -980m),
+            (6, 9, "Tankstellen 12 Monate", "Kraftstoff L-1113", -1000m),
+        ];
+
+        var reference = 4900;
+        foreach (var cost in costs)
+        {
+            db.Transactions.Add(new Transaction
+            {
+                BookingDate = new DateOnly(2026, cost.Month, cost.Day),
+                Payee = cost.Payee,
+                Note = cost.Note,
+                Kind = TransactionKind.Expense,
+                Amount = cost.Amount,
+                AccountId = account.Id,
+                CategoryId = autoCategory,
+                ImportReference = "SEED-" + reference++,
+                CreatedAt = new DateTime(2026, cost.Month, cost.Day, 6, 0, 0, DateTimeKind.Local),
+            });
+        }
+    }
+
+    /// <summary>
+    /// Vier Belege im Posteingang — zwei erkannt, zwei zu prüfen.
+    /// </summary>
+    /// <remarks>
+    /// Sie tragen bewusst weder Typ noch Verknüpfung: genau das ist der Zustand, den der
+    /// Scaneingang abbildet. Erst wenn beides steht, verschwinden sie daraus.
+    /// </remarks>
+    private static async Task SeedScanInboxAsync(
+        FinanzAppDbContext db,
+        DocumentPathService paths,
+        Dictionary<string, DocumentType> types,
+        CancellationToken ct)
+    {
+        _ = types;
+        var now = new DateTime(2026, 8, 23, 8, 24, 0, DateTimeKind.Local);
+
+        (string File, string Sender, int Pages, bool Recognised, int DaysAgo)[] rows =
+        [
+            ("Beitragsanpassung_2027.pdf", "HUK-Coburg", 2, true, 1),
+            ("Abrechnung_Debeka_08.pdf", "Debeka", 4, true, 2),
+            ("Scan_20260820_0001.pdf", null!, 1, false, 3),
+            ("Scan_20260819_0007.pdf", null!, 6, false, 4),
+        ];
+
+        foreach (var row in rows)
+        {
+            // Der Ordner heißt wie in der Dateiablage des Nutzers: Scaneingang.
+            var relativePath = "Scaneingang/" + row.File;
+            await WritePlaceholderAsync(paths, relativePath, row.File, ct);
+
+            var document = new Document
+            {
+                Title = Path.GetFileNameWithoutExtension(row.File),
+                Area = DocumentArea.Other,
+                FileName = row.File,
+                RelativePath = relativePath,
+                DocumentDate = DateOnly.FromDateTime(now.AddDays(-row.DaysAgo)),
+                CreatedAt = now.AddDays(-row.DaysAgo),
+                UpdatedAt = now.AddDays(-row.DaysAgo),
+            };
+
+            db.Documents.Add(document);
+            await db.SaveChangesAsync(ct);
+
+            db.ScanInbox.Add(new ScanInboxItem
+            {
+                DocumentId = document.Id,
+                Sender = row.Sender,
+                PageCount = row.Pages,
+                Recognised = row.Recognised,
+                CreatedAt = now.AddDays(-row.DaysAgo),
+            });
+        }
     }
 
     private static async Task SeedDocumentsAsync(

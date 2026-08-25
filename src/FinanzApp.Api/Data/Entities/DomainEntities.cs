@@ -334,3 +334,67 @@ public class DocumentExtraction : IHouseholdOwned
 
     public DateTime CreatedAt { get; set; }
 }
+
+/// <summary>
+/// Ein Fahrzeug — Sammelpunkt für Versicherung, Steuer, Werkstatt und Finanzierung.
+/// </summary>
+/// <remarks>
+/// Strukturgleich zur Immobilie, und das ist keine Bequemlichkeit: beides sind Objekte, an denen
+/// Verträge, Rechnungen, Fristen und Dokumente hängen. Die Kfz-Versicherung wird deshalb
+/// <em>verknüpft</em>, nicht kopiert — sie steht weiter unter Absicherung, genau wie der
+/// Stromvertrag weiter unter Wohnen steht.
+/// </remarks>
+public class Vehicle : IHouseholdOwned
+{
+    public int Id { get; set; }
+    public int HouseholdId { get; set; }
+
+    public required string Name { get; set; }
+
+    /// <summary>Kennzeichen.</summary>
+    public required string Plate { get; set; }
+
+    /// <summary>Freitext: Erstwagen, Zweitwagen, Dienstwagen.</summary>
+    public string? Usage { get; set; }
+
+    public DateOnly? FirstRegistration { get; set; }
+
+    public int? Mileage { get; set; }
+
+    /// <summary>Verknüpfte Kfz-Versicherung. Sie bleibt eine <see cref="Policy"/>.</summary>
+    public int? PolicyId { get; set; }
+    public Policy? Policy { get; set; }
+}
+
+/// <summary>
+/// Ein Beleg im Posteingang — eingescannt, aber noch nicht eingeordnet.
+/// </summary>
+/// <remarks>
+/// <para>Der Handoff will einen <em>Posteingang</em> statt einzelner Belege: die Liste zeigt, was
+/// wartet, mit Absender, Seitenzahl und dem Zustand „erkannt“ oder „prüfen“. Ein Beleg bleibt
+/// darin, bis Typ <b>und</b> Objekt bestätigt sind — sonst verschwände er in der Ablage, ohne
+/// dass jemand ihn zugeordnet hätte.</para>
+/// <para>Er verweist auf ein bereits abgelegtes <see cref="Document"/>; die Datei liegt also
+/// schon, nur ihre Bedeutung fehlt noch.</para>
+/// </remarks>
+public class ScanInboxItem : IHouseholdOwned
+{
+    public int Id { get; set; }
+    public int HouseholdId { get; set; }
+
+    public int DocumentId { get; set; }
+    public Document? Document { get; set; }
+
+    /// <summary>Absender, soweit erkannt.</summary>
+    public string? Sender { get; set; }
+
+    public int? PageCount { get; set; }
+
+    /// <summary>Hat die Analyse etwas erkannt? Sonst muss ein Mensch hinsehen.</summary>
+    public bool Recognised { get; set; }
+
+    /// <summary>Erledigt, sobald Typ und Objekt bestätigt sind.</summary>
+    public DateTime? FiledAt { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+}

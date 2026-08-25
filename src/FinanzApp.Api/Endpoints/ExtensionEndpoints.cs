@@ -22,6 +22,8 @@ public static class ExtensionEndpoints
         MapHealth(app);
         MapPolicies(app);
         MapCreate(app);
+        MapVehicles(app);
+        MapScanInbox(app);
         MapHousing(app);
         MapLiquidity(app);
     }
@@ -229,6 +231,38 @@ public static class ExtensionEndpoints
             await using var content = file.OpenReadStream();
             return Results.Ok(await extractor.ExtractAsync(content, file.FileName, ct));
         }).RequireAuthorization(AuthPolicies.Write).DisableAntiforgery();
+    }
+
+    /// <summary>Fahrzeuge — dieselbe Form wie Immobilien, weil es dieselbe Art Objekt ist.</summary>
+    private static void MapVehicles(IEndpointRouteBuilder app)
+    {
+        var api = app.MapGroup("/api/vehicles").WithTags("Fahrzeuge").RequireAuthorization();
+
+        api.MapGet("/", async (VehicleService service, CancellationToken ct)
+            => Results.Ok(await service.GetListAsync(ct)));
+
+        api.MapGet("/{id:int}", async (int id, VehicleService service, CancellationToken ct) =>
+        {
+            var vehicle = await service.GetAsync(id, ct);
+            return vehicle is null ? Results.NotFound() : Results.Ok(vehicle);
+        });
+    }
+
+    /// <summary>Der Scaneingang. Wegräumen geht erst, wenn Typ und Objekt stehen.</summary>
+    private static void MapScanInbox(IEndpointRouteBuilder app)
+    {
+        var api = app.MapGroup("/api/scan-inbox").WithTags("Scaneingang").RequireAuthorization();
+
+        api.MapGet("/", async (ScanInboxService service, CancellationToken ct)
+            => Results.Ok(await service.GetAsync(ct)));
+
+        api.MapPost("/{id:int}/file", async (int id, ScanInboxService service, CancellationToken ct)
+            => await service.FileAsync(id, ct)
+                ? Results.NoContent()
+                : Results.Problem(
+                    "Der Beleg bleibt im Eingang, bis Typ und Objekt bestimmt sind.",
+                    statusCode: StatusCodes.Status409Conflict))
+            .RequireAuthorization(AuthPolicies.Write);
     }
 
     /// <summary>

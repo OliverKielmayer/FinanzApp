@@ -33,7 +33,7 @@ Die Mitte ist eine **Aktion, kein Ziel**: *Erfassen* legt ein Fenster über die 
 fragt, was erfasst werden soll (siehe Punkt 5). `Esc` oder ein Tipp daneben schließt es wieder.
 
 **Mehr** führt die übrigen Bereiche auf — Konten, Budgets, Depot, Vorsorge & Kapital,
-Absicherung, Darlehen, Import, Gesundheit, Wohnen, Benutzer.
+Absicherung, Scaneingang, Gesundheit, Wohnen, Fahrzeuge, Darlehen, Import, Benutzer.
 
 Am großen Bildschirm sieht die App anders aus. Sie schaltet nach Fensterbreite:
 
@@ -183,6 +183,17 @@ die Erinnerung.
 Unter *Wohnen* hängen an der Immobilie ihre Verträge und Rechnungen; das Darlehen ist ein Verweis
 auf den Darlehensbereich, wo auch der Tilgungsplan steht. Zahlungen sind überall Verweise auf echte
 Buchungen — eine Geldbewegung bleibt eine Buchung.
+
+## 8b. Fahrzeuge · Scaneingang
+
+**Fahrzeuge** funktionieren wie Immobilien: ein Objekt, an dem alles hängt. Oben stehen die
+Kosten der letzten zwölf Monate — die rechnet die App aus den Buchungen, sie werden nicht
+eingetragen. Die Kfz-Versicherung wird nur **verwiesen**; angelegt und geändert wird sie unter
+Absicherung.
+
+**Scaneingang** ist der Posteingang. Was eingescannt wurde, wartet hier, bis Typ und Objekt
+feststehen — erst dann verschwindet es daraus. Die Zeile sagt, ob etwas erkannt wurde
+(„erkannt“) oder ob jemand hinsehen muss („prüfen“), dazu Absender und Seitenzahl.
 
 ## 9. Import
 

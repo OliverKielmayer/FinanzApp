@@ -41,6 +41,11 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
     public DbSet<Document> Documents => Set<Document>();
     public DbSet<DocumentLink> DocumentLinks => Set<DocumentLink>();
     public DbSet<MedicalBill> MedicalBills => Set<MedicalBill>();
+    public DbSet<Vehicle> Vehicles => Set<Vehicle>();
+
+    /// <summary>Der Posteingang: Belege, die noch niemand eingeordnet hat.</summary>
+    public DbSet<ScanInboxItem> ScanInbox => Set<ScanInboxItem>();
+
     /// <summary>Gelesene Werte samt Herkunft — leer, solange keine Analyse angebunden ist.</summary>
     public DbSet<DocumentExtraction> DocumentExtractions => Set<DocumentExtraction>();
 
@@ -273,6 +278,25 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
             e.Property(x => x.ExpectedReimbursement).HasConversion(MoneyConverter);
             e.Property(x => x.ActualReimbursement).HasConversion(NullableMoneyConverter);
             e.HasIndex(x => new { x.HouseholdId, x.Status });
+        });
+
+        b.Entity<Vehicle>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(120).IsRequired();
+            e.Property(x => x.Plate).HasMaxLength(20).IsRequired();
+            e.Property(x => x.Usage).HasMaxLength(80);
+
+            // Die Versicherung wird verknüpft, nicht besessen — sie überlebt das Fahrzeug.
+            e.HasOne(x => x.Policy).WithMany()
+                .HasForeignKey(x => x.PolicyId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        b.Entity<ScanInboxItem>(e =>
+        {
+            e.Property(x => x.Sender).HasMaxLength(160);
+            e.HasOne(x => x.Document).WithMany()
+                .HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => x.FiledAt);
         });
 
         b.Entity<DocumentExtraction>(e =>
