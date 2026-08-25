@@ -193,6 +193,27 @@ public static class FinanzAppApiExtensions
         => api.PostAsync<CreateRequest, CreateResultDto>(
             $"api/create/{type}", new CreateRequest { Values = values }, ct);
 
+    /// <summary>
+    /// Schickt eine Police zur Analyse. Die Datei wird in jedem Fall abgelegt; ohne angebundene
+    /// Analyse kommt sie ohne erkannte Werte zurück.
+    /// </summary>
+    public static async Task<DocumentAnalysisDto> AnalysePolicyAsync(
+        this FinanzAppApi api, CreateObjectType type, Stream content, string fileName,
+        CancellationToken ct = default)
+    {
+        using var form = new MultipartFormDataContent();
+        using var file = new StreamContent(content);
+        file.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        form.Add(file, "file", fileName);
+
+        return await api.PostFormAsync<DocumentAnalysisDto>($"api/create/{type}/analyse", form, ct);
+    }
+
+    /// <summary>Vermerkt die gelesenen Werte als übernommen.</summary>
+    public static Task<int> ConfirmExtractionsAsync(
+        this FinanzAppApi api, int documentId, CancellationToken ct = default)
+        => api.PostAsync<object?, int>($"api/create/extractions/{documentId}/confirm", null, ct);
+
     // ── Wohnen ─────────────────────────────────────────────────────────────────────────────
 
     public static Task<IReadOnlyList<PropertyListItemDto>> GetPropertiesAsync(

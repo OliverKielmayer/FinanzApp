@@ -41,6 +41,9 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
     public DbSet<Document> Documents => Set<Document>();
     public DbSet<DocumentLink> DocumentLinks => Set<DocumentLink>();
     public DbSet<MedicalBill> MedicalBills => Set<MedicalBill>();
+    /// <summary>Gelesene Werte samt Herkunft — leer, solange keine Analyse angebunden ist.</summary>
+    public DbSet<DocumentExtraction> DocumentExtractions => Set<DocumentExtraction>();
+
     /// <summary>Vorsorge und Absicherung in einer Tabelle, getrennt durch das Flag.</summary>
     public DbSet<Policy> Policies => Set<Policy>();
     public DbSet<Property> Properties => Set<Property>();
@@ -270,6 +273,16 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
             e.Property(x => x.ExpectedReimbursement).HasConversion(MoneyConverter);
             e.Property(x => x.ActualReimbursement).HasConversion(NullableMoneyConverter);
             e.HasIndex(x => new { x.HouseholdId, x.Status });
+        });
+
+        b.Entity<DocumentExtraction>(e =>
+        {
+            e.Property(x => x.FieldKey).HasMaxLength(60).IsRequired();
+            e.Property(x => x.Label).HasMaxLength(120).IsRequired();
+            e.Property(x => x.Value).HasMaxLength(400).IsRequired();
+            e.HasOne(x => x.Document).WithMany()
+                .HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => x.DocumentId);
         });
 
         b.Entity<Policy>(e =>

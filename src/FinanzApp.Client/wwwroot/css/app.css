@@ -2359,6 +2359,55 @@ body {
   font-size: 14px;
 }
 
+/* Das Import-Panel sitzt über den Feldern und trägt Registermarken — die kommen aus
+   Industry (.blueprint mit .corner). */
+.import-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 14px 16px;
+  padding: 14px;
+}
+
+.import-field {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.import-field-label {
+  font-size: 12px;
+  color: var(--color-neutral-700);
+}
+
+.import-field-value {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 14px;
+  text-align: right;
+}
+
+.import-field-origin {
+  grid-column: 1 / -1;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-neutral-600);
+}
+
+/* Unsicher Gelesenes trägt denselben Akzent wie alles, was Aufmerksamkeit verlangt. */
+.import-field.unsure {
+  background: var(--color-accent-100);
+  padding-inline: 8px;
+  margin-inline: -8px;
+}
+
+.import-field.unsure .import-field-origin {
+  color: var(--color-accent-800);
+}
+
 .create-hint {
   padding: 12px 16px;
   border-bottom: 1px solid var(--color-text);

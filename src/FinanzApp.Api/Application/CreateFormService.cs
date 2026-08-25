@@ -20,7 +20,11 @@ namespace FinanzApp.Api.Application;
 /// der Vertragsanlage wählbar, ein neues Budget verändert Plan und Verbleibend. Deshalb gibt es
 /// hier keine Attrappen.</para>
 /// </remarks>
-public sealed class CreateFormService(FinanzAppDbContext db, IClock clock)
+public sealed class CreateFormService(
+    FinanzAppDbContext db,
+    IClock clock,
+    DocumentService documents,
+    IPolicyDocumentAnalyzer analyzer)
 {
     /// <summary>Beschreibt das Formular eines Typs, samt der Auswahlwerte aus dem Bestand.</summary>
     public async Task<CreateFormDto?> GetFormAsync(CreateObjectType type, CancellationToken ct = default)
@@ -66,6 +70,79 @@ public sealed class CreateFormService(FinanzAppDbContext db, IClock clock)
             CreateObjectType.Budget => await CreateBudgetAsync(values, ct),
             _ => Fail(null, "Diesen Objekttyp gibt es noch nicht."),
         };
+    }
+
+    // ── Police / Beleg einlesen ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Legt die Datei ab und lässt sie lesen. Beides in dieser Reihenfolge, denn die Ablage ist
+    /// das Verlässliche — die Analyse darf fehlschlagen oder gar nicht da sein.
+    /// </summary>
+    /// <remarks>
+    /// Gespeichert wird nur der relative Pfad, wie überall. Die gelesenen Werte landen als
+    /// <c>DocumentExtraction</c> mit Herkunft und dem Vermerk <em>unbestätigt</em> — sie
+    /// verändern nichts, solange niemand sie übernommen hat.
+    /// </remarks>
+    public async Task<DocumentAnalysisDto> AnalyseAsync(
+        CreateObjectType type, Stream content, string fileName, CancellationToken ct = default)
+    {
+        using var buffer = new MemoryStream();
+        await content.CopyToAsync(buffer, ct);
+
+        buffer.Position = 0;
+        var upload = await documents.UploadAsync(
+            buffer, fileName, DocumentArea.Insurance, title: null, documentTypeId: null,
+            documentDate: null, ct);
+
+        buffer.Position = 0;
+        var fields = await analyzer.AnalyseAsync(buffer, fileName, type, ct);
+
+        foreach (var field in fields)
+        {
+            db.DocumentExtractions.Add(new DocumentExtraction
+            {
+                DocumentId = upload.DocumentId,
+                FieldKey = field.Key,
+                Label = field.Label,
+                Value = field.Value,
+                SourcePage = field.SourcePage,
+                Confidence = field.Confidence,
+                Confirmed = false,
+                CreatedAt = clock.Now,
+            });
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        return new DocumentAnalysisDto
+        {
+            HasContent = fields.Count > 0,
+            FileName = fileName,
+            RelativePath = upload.RelativePath,
+            Fields = fields,
+            Note = fields.Count > 0
+                ? null
+                : "Es ist keine Analyse angebunden. Die Datei ist abgelegt, die Werte bitte von Hand eintragen.",
+        };
+    }
+
+    /// <summary>
+    /// Vermerkt die gelesenen Werte eines Dokuments als bestätigt — das passiert erst, wenn ein
+    /// Mensch „Übernehmen“ gedrückt hat.
+    /// </summary>
+    public async Task<int> ConfirmExtractionsAsync(int documentId, CancellationToken ct = default)
+    {
+        var rows = await db.DocumentExtractions
+            .Where(x => x.DocumentId == documentId && !x.Confirmed)
+            .ToListAsync(ct);
+
+        foreach (var row in rows)
+        {
+            row.Confirmed = true;
+        }
+
+        await db.SaveChangesAsync(ct);
+        return rows.Count;
     }
 
     // ── Konto ──────────────────────────────────────────────────────────────────────────────

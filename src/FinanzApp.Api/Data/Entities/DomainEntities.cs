@@ -295,3 +295,42 @@ public class TaskItem : IHouseholdOwned
     public DateTime CreatedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
 }
+
+/// <summary>
+/// Ein aus einem Dokument gelesener Wert — mit seiner Herkunft und seinem Bestätigungsstand.
+/// </summary>
+/// <remarks>
+/// <para>Der Handoff verlangt beides: „extrahierte Werte immer mit Herkunft (Seite, Konfidenz)
+/// und Bestätigungsstatus speichern“ und „nichts Unbestätigtes verändert Vermögenszahlen“.
+/// Ohne diese Tabelle wäre später nicht mehr feststellbar, ob eine Zahl gelesen oder getippt
+/// wurde — und genau das ist die Frage, wenn eine Bilanz nicht stimmt.</para>
+/// <para>Sie füllt sich erst, wenn eine Analyse angebunden ist. Bis dahin bleibt sie leer, und
+/// das ist die ehrliche Aussage: nichts wurde gelesen.</para>
+/// </remarks>
+public class DocumentExtraction : IHouseholdOwned
+{
+    public int Id { get; set; }
+    public int HouseholdId { get; set; }
+
+    public int DocumentId { get; set; }
+    public Document? Document { get; set; }
+
+    /// <summary>Schlüssel des Formularfelds, in das der Wert gehört.</summary>
+    public required string FieldKey { get; set; }
+
+    public required string Label { get; set; }
+
+    /// <summary>Der gelesene Wert, im Eingabeformat des Felds.</summary>
+    public required string Value { get; set; }
+
+    /// <summary>Seite, auf der er stand.</summary>
+    public int? SourcePage { get; set; }
+
+    /// <summary>0 bis 1.</summary>
+    public double Confidence { get; set; }
+
+    /// <summary>Hat ein Mensch ihn übernommen? Vorher verändert er nichts.</summary>
+    public bool Confirmed { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+}

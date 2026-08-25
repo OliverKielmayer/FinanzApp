@@ -4,7 +4,7 @@ Arbeitsliste zu [`docs/design-handoff-v4/handoff.md`](design-handoff-v4/handoff.
 aus Abschnitt 11 des Handoffs — sie ist nicht beliebig: Schritt 1 verschiebt jede Maßzahl, alles
 danach würde sonst zweimal gebaut.
 
-Stand 25.08.2026: **Schritte 1 bis 6 umgesetzt**, Rest offen.
+Stand 25.08.2026: **Schritte 1 bis 7 umgesetzt**, Rest offen.
 
 Entschieden: beim Umbau des Datenmodells in Schritt 3 wird **nicht migriert**, sondern neu
 aufgesetzt — bestehende `finanzapp.db` löschen. Damit muss die Schema-Prüfung beim Start
@@ -27,7 +27,7 @@ weiter. Die beiden Ordner bleiben deshalb liegen.
 | ~~4~~ | ~~Anlege-Flows~~ | **erledigt** für 7 Typen; Fahrzeug kommt mit Schritt 8 | groß |
 | ~~5~~ | ~~Buchungstabelle, Filter, Summen, Leerzustände~~ | **erledigt** | mittel |
 | ~~6~~ | ~~Dokumente Master/Detail, Scan & PKV zweispaltig~~ | **erledigt** | mittel |
-| 7 | Police-Import hinter der Analyse-Schnittstelle | `IBillTextExtractor` erweitern, Import-Panel, Herkunft je Feld | mittel |
+| ~~7~~ | ~~Police-Import hinter der Analyse-Schnittstelle~~ | **erledigt** | mittel |
 | 8 | Fahrzeuge, Scaneingang | 2 neue Entitäten + Bereiche | mittel |
 
 ## Was schon da ist und nur zusammengeführt werden muss
@@ -296,3 +296,33 @@ Die Vorschauspalte blieb zunächst leer, obwohl das Raster stimmte: der Grundzus
 (`display: none` für die jeweils andere Spalte) stand in `app.css` **hinter** der Media Query und
 gewann deshalb bei gleicher Spezifität. Behoben durch Umsortieren, nicht durch
 `!important` — die Reihenfolge war das Problem, nicht die Regel.
+
+## Was Schritt 7 gebracht hat
+
+**Eine Schnittstelle, kein Anbieter im Fachcode.** `IPolicyDocumentAnalyzer` sagt nur, *was*
+herauskommt, nie *wodurch*. Eingebaut ist `NoPolicyDocumentAnalyzer` — er erkennt nichts und sagt
+das auch. Bewusst kein Platzhalter, der etwas erfindet: erfundene Werte in einem Formular, das
+Vermögenszahlen speist, wären schlimmer als ein leeres Formular.
+
+**Das Panel steht über den Feldern**, als `.blueprint` mit vier Registermarken — beides kommt
+unverändert aus Industry. Drei Zustände wie im Handoff: leer mit Dateiwahl und dem Hinweis, dass
+nur der Pfad gespeichert wird; lesend als sichtbare Kette (Text erkannt → Absender bestimmt →
+Vertragsart erkannt → Werte gelesen), abbrechbar, kein Spinner; geprüft mit den Werten samt
+Herkunftsseite, Unsicheres im Akzent. Nur bei Vorsorge und Absicherung — ein Konto hat kein
+Dokument, aus dem sich etwas lesen ließe.
+
+**Die Reihenfolge ist Absicht**: erst ablegen, dann lesen. Die Ablage ist das Verlässliche, die
+Analyse darf fehlen. Deshalb liegt die Datei auch dann im Dokumentordner, wenn nichts erkannt wird
+— als Test festgehalten.
+
+**Herkunft und Bestätigung werden gespeichert.** `DocumentExtraction` hält je gelesenem Wert
+Schlüssel, Wert, Seite, Konfidenz und den Vermerk *unbestätigt*. Erst „Alle N Werte
+übernehmen“ füllt das Formular und vermerkt die Übernahme; bis dahin verändert kein gelesener
+Wert irgendetwas. Die Tabelle bleibt leer, solange keine Analyse angebunden ist — das ist die
+ehrliche Aussage: nichts wurde gelesen. Ohne sie wäre später nicht mehr feststellbar, ob eine
+Zahl gelesen oder getippt wurde, und genau das ist die Frage, wenn eine Bilanz nicht stimmt.
+
+Nebenbei behoben: in `ExtensionEndpoints` standen seit Schritt 3 zwei XML-Kommentare übereinander
+— der von `MapPolicies` war beim Einfügen über `MapCreate` gerutscht.
+
+82 Tests, davon 3 neue zum Einlesen.

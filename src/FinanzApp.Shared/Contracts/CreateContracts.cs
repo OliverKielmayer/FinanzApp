@@ -109,3 +109,60 @@ public sealed record CreateResultDto
     /// <summary>Wohin nach dem Anlegen gesprungen wird.</summary>
     public string? Route { get; init; }
 }
+
+// ── Police / Beleg einlesen ─────────────────────────────────────────────────
+
+/// <summary>
+/// Was aus einem hochgeladenen Dokument gelesen wurde.
+/// </summary>
+/// <remarks>
+/// <para>Die Datei ist zu diesem Zeitpunkt bereits abgelegt — gespeichert wird nur ihr relativer
+/// Pfad, wie überall. Die Werte sind ein <em>Vorschlag</em>: sie stehen hier, sie stehen noch
+/// nicht im Formular. Erst „Übernehmen“ bringt sie hinein, und erst das Anlegen schreibt sie
+/// fort. Nichts Unbestätigtes verändert eine Vermögenszahl.</para>
+/// <para>Metadaten kommen aus dem <b>Inhalt</b>, nie aus dem Dateinamen — der wird trotzdem
+/// mitgespeichert, weil er zur Wiedererkennung taugt.</para>
+/// </remarks>
+public sealed record DocumentAnalysisDto
+{
+    /// <summary>Ob überhaupt etwas erkannt wurde.</summary>
+    public required bool HasContent { get; init; }
+
+    /// <summary>Originalname der Datei.</summary>
+    public required string FileName { get; init; }
+
+    /// <summary>Wo sie liegt — relativ zum Dokumentordner.</summary>
+    public required string RelativePath { get; init; }
+
+    /// <summary>Seiten des Dokuments, soweit bekannt.</summary>
+    public int? PageCount { get; init; }
+
+    /// <summary>Wenn nichts erkannt wurde: warum.</summary>
+    public string? Note { get; init; }
+
+    public required IReadOnlyList<ExtractedFieldDto> Fields { get; init; }
+}
+
+/// <summary>Ein erkannter Wert, immer mit seiner Herkunft.</summary>
+public sealed record ExtractedFieldDto
+{
+    /// <summary>Schlüssel des Formularfelds, in das der Wert gehört.</summary>
+    public required string Key { get; init; }
+
+    public required string Label { get; init; }
+
+    /// <summary>Der Wert im Eingabeformat des Felds.</summary>
+    public required string Value { get; init; }
+
+    /// <summary>Der Wert, wie er dem Menschen gezeigt wird.</summary>
+    public required string Display { get; init; }
+
+    /// <summary>Auf welcher Seite er stand.</summary>
+    public int? SourcePage { get; init; }
+
+    /// <summary>0 bis 1. Niedrig heißt: bitte hinsehen.</summary>
+    public double Confidence { get; init; }
+
+    /// <summary>Unsicher — die Zeile steht im Akzent und nennt die Seite.</summary>
+    public bool IsUncertain => Confidence < 0.8;
+}

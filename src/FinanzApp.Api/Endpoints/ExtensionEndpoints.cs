@@ -232,10 +232,6 @@ public static class ExtensionEndpoints
     }
 
     /// <summary>
-    /// Zwei Einstiege, ein Modell: die Bereiche unterscheiden sich nur im Flag, das die Abfrage
-    /// mitgibt. Die Detailseite ist für beide dieselbe.
-    /// </summary>
-    /// <summary>
     /// Die Anlege-Flows. Ein Paar Endpunkte für alle Objekttypen: das Formular beschreiben,
     /// das Formular annehmen. Welche Felder es gibt, sagt der Dienst — nicht die Route.
     /// </summary>
@@ -249,6 +245,28 @@ public static class ExtensionEndpoints
             var form = await service.GetFormAsync(type, ct);
             return form is null ? Results.NotFound() : Results.Ok(form);
         });
+
+        // Police oder Beleg einlesen. Ohne angebundene Analyse antwortet er leer — die Datei
+        // ist trotzdem abgelegt, und die Maske ist dieselbe, nur unausgefüllt.
+        api.MapPost("/{type}/analyse", async (
+            CreateObjectType type, IFormFile file, CreateFormService service, CancellationToken ct) =>
+        {
+            await using var content = file.OpenReadStream();
+            try
+            {
+                return Results.Ok(await service.AnalyseAsync(type, content, file.FileName, ct));
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.Write).DisableAntiforgery();
+
+        // Übernahme bestätigen. Vorher verändert kein gelesener Wert irgendetwas.
+        api.MapPost("/extractions/{documentId:int}/confirm", async (
+                int documentId, CreateFormService service, CancellationToken ct)
+            => Results.Ok(await service.ConfirmExtractionsAsync(documentId, ct)))
+            .RequireAuthorization(AuthPolicies.Write);
 
         api.MapPost("/{type}", async (
             CreateObjectType type, CreateRequest request, CreateFormService service, CancellationToken ct) =>

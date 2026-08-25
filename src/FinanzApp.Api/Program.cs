@@ -136,6 +136,10 @@ builder.Services.AddSingleton<DocumentPathService>();
 // Ohne angebundene Texterkennung bleibt die Erfassungsmaske leer — der Flow läuft trotzdem.
 builder.Services.AddSingleton<IBillTextExtractor, NoBillTextExtractor>();
 
+// Dasselbe Prinzip für Policen: eine Schnittstelle, austauschbar, und ohne sie läuft der
+// Anlege-Flow trotzdem — nur mit leerer Maske.
+builder.Services.AddSingleton<IPolicyDocumentAnalyzer, NoPolicyDocumentAnalyzer>();
+
 builder.Services.AddScoped<ObjectLabelService>();
 builder.Services.AddScoped<DocumentService>();
 builder.Services.AddScoped<TaskService>();

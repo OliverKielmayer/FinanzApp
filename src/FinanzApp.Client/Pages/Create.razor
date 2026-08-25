@@ -42,6 +42,83 @@ else
             <div class="create-hint">@hint</div>
         }
 
+        @* Police einlesen — nur dort, wo es eine gibt. Die Werte landen nicht im Formular,
+           bis jemand sie übernimmt. *@
+        @if (SupportsImport)
+        {
+            <div class="import-panel blueprint">
+                <i class="corner tl" aria-hidden="true"></i>
+                <i class="corner tr" aria-hidden="true"></i>
+                <i class="corner bl" aria-hidden="true"></i>
+                <i class="corner br" aria-hidden="true"></i>
+
+                <span class="kicker">Police einlesen</span>
+
+                @if (reading)
+                {
+                    @* Kein Spinner, sondern die Kette — man sieht, wo es steht. *@
+                    <div class="chain">
+                        @foreach (var (label, done) in ReadSteps)
+                        {
+                            <div class="chain-step @(done ? "done" : null) @(!done ? "current" : null)">
+                                <span class="chain-mark" aria-hidden="true">@(done ? "✓" : "◻")</span>
+                                <span class="chain-title">@label</span>
+                            </div>
+                        }
+                    </div>
+                    <div class="doc-actions">
+                        <button type="button" class="btn btn-secondary" @onclick="CancelRead">Abbrechen</button>
+                    </div>
+                }
+                else if (analysis is { } read)
+                {
+                    @if (read.Fields.Count == 0)
+                    {
+                        <div class="notice">
+                            <span class="notice-title">Nichts erkannt</span>
+                            <span class="notice-text">@read.Note</span>
+                        </div>
+                        <span class="create-help num">@read.FileName · @read.RelativePath</span>
+                        <div class="doc-actions">
+                            <button type="button" class="btn btn-secondary" @onclick="DiscardRead">Verwerfen</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <span class="create-help num">@read.FileName</span>
+
+                        @foreach (var field in read.Fields)
+                        {
+                            <div class="import-field @(field.IsUncertain ? "unsure" : null)">
+                                <span class="import-field-label">@field.Label</span>
+                                <span class="import-field-value num">@field.Display</span>
+                                <span class="import-field-origin">
+                                    @(field.SourcePage is { } page ? $"Seite {page}" : "ohne Seitenangabe")@(field.IsUncertain ? " · unsicher" : null)
+                                </span>
+                            </div>
+                        }
+
+                        <div class="doc-actions">
+                            <button type="button" class="btn btn-primary" @onclick="ApplyRead">
+                                Alle @read.Fields.Count Werte übernehmen
+                            </button>
+                            <button type="button" class="btn btn-secondary" @onclick="DiscardRead">Verwerfen</button>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <span class="create-help">
+                        Die Datei bleibt liegen, wo sie ist — gespeichert wird nur ihr Pfad im
+                        Dokumentordner. Erkannte Werte füllen das Formular erst auf Ihr Zutun.
+                    </span>
+                    <div class="note-field">
+                        <InputFile class="input" accept=".pdf,image/*" OnChange="OnFilePicked" />
+                    </div>
+                }
+            </div>
+        }
+
         <div class="create-fields">
             @foreach (var field in definition.Fields)
             {
@@ -159,6 +236,27 @@ else
     private string? problemKey;
     private bool saving;
 
+    private DocumentAnalysisDto? analysis;
+    private bool reading;
+    private int readStep;
+    private CancellationTokenSource? readCancel;
+
+    /// <summary>
+    /// Nur Policen werden eingelesen. Ein Konto oder ein Budget hat kein Dokument, aus dem sich
+    /// etwas lesen ließe — dort wäre das Panel eine leere Verheißung.
+    /// </summary>
+    private bool SupportsImport =>
+        Parsed is CreateObjectType.Pension or CreateObjectType.Protection;
+
+    /// <summary>Die sichtbare Kette beim Lesen. Sie sagt, wo es steht, statt nur zu kreiseln.</summary>
+    private (string Label, bool Done)[] ReadSteps =>
+    [
+        ("Text erkannt", readStep > 0),
+        ("Absender bestimmt", readStep > 1),
+        ("Vertragsart erkannt", readStep > 2),
+        ("Werte gelesen", readStep > 3),
+    ];
+
     private CreateObjectType Parsed =>
         Enum.TryParse<CreateObjectType>(Type, ignoreCase: true, out var type) ? type : CreateObjectType.Account;
 
@@ -208,6 +306,86 @@ else
 
         Set(field.Key, option.Value);
     }
+
+    private async Task OnFilePicked(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null)
+        {
+            return;
+        }
+
+        readCancel?.Cancel();
+        readCancel = new CancellationTokenSource();
+        var token = readCancel.Token;
+
+        reading = true;
+        readStep = 0;
+        analysis = null;
+
+        try
+        {
+            // Die Kette läuft mit der Anfrage mit. Sie ist keine Fortschrittsanzeige der Analyse,
+            // sondern sagt, welcher Schritt gerade dran wäre — mehr weiß der Client nicht.
+            var call = Api.AnalysePolicyAsync(Parsed, file.OpenReadStream(25L * 1024 * 1024, token), file.Name, token);
+
+            while (!call.IsCompleted && readStep < 3)
+            {
+                await Task.Delay(220, token);
+                readStep++;
+                StateHasChanged();
+            }
+
+            analysis = await call;
+            readStep = 4;
+        }
+        catch (OperationCanceledException)
+        {
+            analysis = null;
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message);
+            analysis = null;
+        }
+        finally
+        {
+            reading = false;
+        }
+    }
+
+    private void CancelRead()
+    {
+        readCancel?.Cancel();
+        reading = false;
+        analysis = null;
+    }
+
+    private void DiscardRead()
+    {
+        analysis = null;
+        readStep = 0;
+    }
+
+    /// <summary>
+    /// Übernimmt die gelesenen Werte ins Formular — und erst hier wird die Übernahme auch
+    /// vermerkt. Jedes Feld bleibt danach änderbar.
+    /// </summary>
+    private Task ApplyRead() => RunAsync(async () =>
+    {
+        if (analysis is not { } read || read.Fields.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var field in read.Fields)
+        {
+            values[field.Key] = field.Value;
+        }
+
+        Toasts.Show($"{read.Fields.Count} Werte übernommen · bitte prüfen");
+        analysis = null;
+    });
 
     private Task SubmitAsync() => RunAsync(async () =>
     {

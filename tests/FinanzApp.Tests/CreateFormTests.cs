@@ -15,7 +15,22 @@ public sealed class CreateFormTests : IDisposable
     private readonly TestDatabase database = new();
     private readonly IClock clock = TestDatabase.ClockAt(2026, 8, 23);
 
-    private CreateFormService Service() => new(database.Context(), clock);
+    private readonly string root = Path.Combine(
+        Path.GetTempPath(), "finanzapp-tests", Guid.NewGuid().ToString("N"));
+
+    private CreateFormService Service() => Service(database);
+
+    private CreateFormService Service(TestDatabase db)
+    {
+        var context = db.Context();
+        var paths = TestDatabase.PathService(root);
+        var labels = new ObjectLabelService(context);
+        var documents = new DocumentService(
+            context, paths, labels, clock,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<DocumentService>.Instance);
+
+        return new CreateFormService(context, clock, documents, new NoPolicyDocumentAnalyzer());
+    }
 
     [Fact]
     public async Task Fehlendes_Pflichtfeld_wird_beim_Namen_genannt()
@@ -192,7 +207,7 @@ public sealed class CreateFormTests : IDisposable
         foreach (var (input, expected) in new[] { ("1.234,56", 1234.56m), ("1234,56", 1234.56m), ("1234.56", 1234.56m) })
         {
             using var fresh = new TestDatabase();
-            var service = new CreateFormService(fresh.Context(), clock);
+            var service = Service(fresh);
 
             var result = await service.CreateAsync(CreateObjectType.Account, new Dictionary<string, string?>
             {
@@ -236,5 +251,56 @@ public sealed class CreateFormTests : IDisposable
         Assert.Null(await Service().GetFormAsync(CreateObjectType.Vehicle));
     }
 
-    public void Dispose() => database.Dispose();
+    [Fact]
+    public async Task Ohne_Analyse_wird_die_Datei_trotzdem_abgelegt()
+    {
+        // Der Handoff: lauffähig auch wenn die Analyse fehlt — dann dieselbe Maske, leer.
+        using var content = new MemoryStream("nur ein Beleg"u8.ToArray());
+
+        var result = await Service().AnalyseAsync(CreateObjectType.Pension, content, "Police.pdf");
+
+        Assert.False(result.HasContent);
+        Assert.Empty(result.Fields);
+        Assert.Equal("Police.pdf", result.FileName);
+        Assert.False(string.IsNullOrWhiteSpace(result.RelativePath));
+        Assert.Contains("keine Analyse", result.Note);
+
+        // Das Dokument existiert, die Herkunftstabelle bleibt leer — es wurde ja nichts gelesen.
+        using var check = database.Context();
+        Assert.Single(check.Documents);
+        Assert.Empty(check.DocumentExtractions);
+    }
+
+    [Fact]
+    public async Task Der_Dateiname_liefert_keine_Metadaten()
+    {
+        // Metadaten kommen aus dem Inhalt, nie aus dem Namen — auch wenn der noch so sprechend ist.
+        using var content = new MemoryStream("x"u8.ToArray());
+
+        var result = await Service().AnalyseAsync(
+            CreateObjectType.Protection, content, "Hausrat_HUK_156EUR_2027-12-31.pdf");
+
+        Assert.Empty(result.Fields);
+    }
+
+    [Fact]
+    public async Task Bestätigen_ohne_gelesene_Werte_vermerkt_nichts()
+    {
+        using var content = new MemoryStream("x"u8.ToArray());
+        await Service().AnalyseAsync(CreateObjectType.Pension, content, "Police.pdf");
+
+        using var check = database.Context();
+        var documentId = check.Documents.Single().Id;
+
+        Assert.Equal(0, await Service().ConfirmExtractionsAsync(documentId));
+    }
+
+    public void Dispose()
+    {
+        database.Dispose();
+        if (Directory.Exists(root))
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
 }
