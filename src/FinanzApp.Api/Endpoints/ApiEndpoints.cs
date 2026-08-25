@@ -26,8 +26,11 @@ public static class ApiEndpoints
             => Results.Ok(await service.GetAccountsAsync(ct)));
 
         api.MapGet("/transactions", async (
-                string? search, int? skip, int? take, TransactionService service, CancellationToken ct)
-            => Results.Ok(await service.GetPageAsync(search, skip ?? 0, Math.Clamp(take ?? 100, 1, 500), ct)));
+                string? search, int? account, int? category, TransactionKind? kind, bool? offen,
+                int? skip, int? take, TransactionService service, CancellationToken ct)
+            => Results.Ok(await service.GetPageAsync(
+                search, account, category, kind, offen ?? false,
+                skip ?? 0, Math.Clamp(take ?? 100, 1, 500), ct)));
 
         api.MapPost("/transactions", async (
             CreateTransactionRequest request, TransactionService service, CancellationToken ct) =>
@@ -36,6 +39,19 @@ public static class ApiEndpoints
             {
                 var created = await service.CreateAsync(request, ct);
                 return Results.Created($"/api/transactions/{created.Id}", created);
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.Write);
+
+        api.MapPost("/transactions/batch-category", async (
+            BatchAssignRequest request, TransactionService service, CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(await service.AssignCategoryBatchAsync(request, ct));
             }
             catch (ArgumentException ex)
             {

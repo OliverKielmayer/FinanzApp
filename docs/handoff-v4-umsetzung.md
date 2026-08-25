@@ -4,7 +4,7 @@ Arbeitsliste zu [`docs/design-handoff-v4/handoff.md`](design-handoff-v4/handoff.
 aus Abschnitt 11 des Handoffs — sie ist nicht beliebig: Schritt 1 verschiebt jede Maßzahl, alles
 danach würde sonst zweimal gebaut.
 
-Stand 25.08.2026: **Schritte 1 bis 4 umgesetzt**, Rest offen.
+Stand 25.08.2026: **Schritte 1 bis 5 umgesetzt**, Rest offen.
 
 Entschieden: beim Umbau des Datenmodells in Schritt 3 wird **nicht migriert**, sondern neu
 aufgesetzt — bestehende `finanzapp.db` löschen. Damit muss die Schema-Prüfung beim Start
@@ -25,7 +25,7 @@ weiter. Die beiden Ordner bleiben deshalb liegen.
 | ~~2~~ | ~~Responsiver Rahmen~~ | **erledigt** bis auf das Formular am Stück (siehe unten) | mittel |
 | ~~3~~ | ~~Vorsorge / Absicherung trennen~~ | **erledigt** | mittel |
 | ~~4~~ | ~~Anlege-Flows~~ | **erledigt** für 7 Typen; Fahrzeug kommt mit Schritt 8 | groß |
-| 5 | Buchungstabelle, Filter, Summen, Leerzustände | `Accounts.razor`, `TransactionService`, Kategorie-Panel | mittel |
+| ~~5~~ | ~~Buchungstabelle, Filter, Summen, Leerzustände~~ | **erledigt** | mittel |
 | 6 | Dokumente Master/Detail, Scan & PKV zweispaltig | `Documents`, `DocumentDetail`, `ScanBill`, `MedicalBillDetail` | mittel |
 | 7 | Police-Import hinter der Analyse-Schnittstelle | `IBillTextExtractor` erweitern, Import-Panel, Herkunft je Feld | mittel |
 | 8 | Fahrzeuge, Scaneingang | 2 neue Entitäten + Bereiche | mittel |
@@ -241,3 +241,37 @@ Der Scan-Flow behält seine Schritte vorerst — er wird in Schritt 6 ohnehin zw
 und zweimal umbauen wäre verschwendet.
 
 70 Tests, davon 11 neue zu den Anlege-Flows.
+
+## Was Schritt 5 gebracht hat
+
+**Ab Tablet eine Tabelle**, mit den Spalten aus Abschnitt 8 — nachgemessen im Browser:
+`28px 56px 552px 118px 110px 104px`, also Auswahl, Datum, Empfänger als breiteste Spalte,
+Kategorie, Konto, Betrag rechtsbündig. Auf dem Telefon bleibt die kompakte Zeile; die
+Tabellenspalten und die Auswahlspalte sind dort schlicht nicht da.
+
+**Stapelvergabe mit einer fachlichen Regel.** Gewählte Zeilen liegen im Akzent, darüber steht
+„N Buchungen ausgewählt“. „Kategorie zuweisen“ schreibt **nicht direkt**, sondern öffnet das
+Kategorie-Panel — und dessen Kopf sagt vorab, was nicht angefasst wird: „Stapelvergabe · 3
+Buchungen · Umbuchungen bleiben unverändert“. Danach nennt die Meldung beides:
+„2 × Wohnen · 1 Umbuchung geschützt“.
+
+Das ist keine Bequemlichkeit. Wer fünfzehn Zeilen markiert und „Wohnen“ wählt, meint nicht die
+Umbuchung aufs Tagesgeld, die zufällig dazwischenliegt — sie mitzunehmen verfälschte jede
+Auswertung. Nur die ausdrückliche Wahl „Umbuchung“ fasst sie an.
+
+**Filter, Summen, Leerzustand.** Suche plus Chips für Konto, Art und Kategorie; auf dem Telefon
+eine scrollende Reihe, ab Tablet umbrechend. Die Summen rechnen gegen den **sichtbaren**
+Ausschnitt, Umbuchungen zählen weder als Einnahme noch als Ausgabe und werden nur gezählt. Das
+Triage-Banner bezieht sich ebenfalls auf den Ausschnitt — dafür gibt es jetzt
+`FilteredUncategorizedCount` neben dem Bestandszähler; ein Banner über fünf Buchungen, von denen
+der Filter keine zeigt, wäre eine Aufforderung ins Leere. Statt einer leeren Fläche steht
+„Keine Buchung im gewählten Ausschnitt“ mit einem Satz zur Ursache — bei einer Suche nennt er
+den Begriff — und zwei Auswegen.
+
+Eine Auswahl, die der Filter nicht mehr zeigt, wird verworfen: sonst beträfe die Stapelvergabe
+Zeilen, die niemand vor sich hat.
+
+Abschnitt 10 verlangt „Bleibt übrig“ zuoberst und das Nettovermögen darunter — das steht
+bereits so, seit der Erweiterung. Kein Handgriff nötig.
+
+79 Tests, davon 9 neue zur Stapelvergabe, den Summen und den Filtern.

@@ -80,12 +80,49 @@ public sealed class FinanzAppApi(HttpClient http)
     public Task<IReadOnlyList<AccountDto>> GetAccountsAsync(CancellationToken ct = default)
         => GetAsync<IReadOnlyList<AccountDto>>("api/accounts", ct);
 
-    public Task<TransactionPageDto> GetTransactionsAsync(string? search = null, CancellationToken ct = default)
-        => GetAsync<TransactionPageDto>(
-            string.IsNullOrWhiteSpace(search)
-                ? "api/transactions"
-                : "api/transactions?search=" + Uri.EscapeDataString(search),
-            ct);
+    /// <summary>Buchungsliste mit Suche und Filtern. Leere Filter bleiben aus der Adresse weg.</summary>
+    public Task<TransactionPageDto> GetTransactionsAsync(
+        string? search = null,
+        int? accountId = null,
+        int? categoryId = null,
+        TransactionKind? kind = null,
+        bool uncategorizedOnly = false,
+        CancellationToken ct = default)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            parts.Add("search=" + Uri.EscapeDataString(search));
+        }
+
+        if (accountId is { } account)
+        {
+            parts.Add("account=" + account);
+        }
+
+        if (categoryId is { } category)
+        {
+            parts.Add("category=" + category);
+        }
+
+        if (kind is { } wanted)
+        {
+            parts.Add("kind=" + wanted);
+        }
+
+        if (uncategorizedOnly)
+        {
+            parts.Add("offen=true");
+        }
+
+        var url = parts.Count == 0 ? "api/transactions" : "api/transactions?" + string.Join("&", parts);
+        return GetAsync<TransactionPageDto>(url, ct);
+    }
+
+    /// <summary>Stapelvergabe für mehrere Buchungen auf einmal.</summary>
+    public Task<BatchAssignResultDto> AssignCategoryBatchAsync(
+        BatchAssignRequest request, CancellationToken ct = default)
+        => PostAsync<BatchAssignRequest, BatchAssignResultDto>("api/transactions/batch-category", request, ct);
 
     public Task<TransactionDto> CreateTransactionAsync(
         CreateTransactionRequest request, CancellationToken ct = default)

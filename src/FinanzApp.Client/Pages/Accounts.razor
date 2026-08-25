@@ -5,12 +5,6 @@
 <PageTitle>Konten &amp; Buchungen — FinanzApp</PageTitle>
 
 <AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
-    <div class="searchbar">
-        <input class="input" type="search" placeholder="Buchungen durchsuchen" aria-label="Buchungen durchsuchen"
-               value="@search" @oninput="OnSearchInput" />
-        <button type="button" class="btn btn-secondary" @onclick="ClearSearch">Reset</button>
-    </div>
-
     @foreach (var account in accounts)
     {
         <div class="row">
@@ -32,47 +26,184 @@
         <span class="list-count num">@list.FilteredCount von @list.TotalCount</span>
     </div>
 
-    @if (list.UncategorizedCount > 0)
+    <div class="searchbar">
+        <input class="input" type="search" placeholder="Buchungen durchsuchen" aria-label="Buchungen durchsuchen"
+               value="@search" @oninput="OnSearchInput" />
+        @if (HasFilter)
+        {
+            <button type="button" class="btn btn-secondary" @onclick="ResetFilter">Zurücksetzen</button>
+        }
+    </div>
+
+    @* Filterchips: auf dem Telefon eine scrollende Reihe, ab Tablet umbrechend. *@
+    <div class="filter-row">
+        <button type="button" class="chip @(accountFilter is null ? "active" : null)"
+                @onclick="() => SetAccount(null)">Alle Konten</button>
+        @foreach (var account in accounts)
+        {
+            <button type="button" class="chip @(accountFilter == account.Id ? "active" : null)"
+                    @onclick="() => SetAccount(account.Id)">@account.ShortName</button>
+        }
+
+        <span class="filter-sep" aria-hidden="true"></span>
+
+        <button type="button" class="chip @(kindFilter is null && !onlyOpen ? "active" : null)"
+                @onclick="() => SetKind(null)">Alle Arten</button>
+        <button type="button" class="chip @(kindFilter == TransactionKind.Income ? "active" : null)"
+                @onclick="() => SetKind(TransactionKind.Income)">Einnahmen</button>
+        <button type="button" class="chip @(kindFilter == TransactionKind.Expense ? "active" : null)"
+                @onclick="() => SetKind(TransactionKind.Expense)">Ausgaben</button>
+        <button type="button" class="chip @(kindFilter == TransactionKind.Transfer ? "active" : null)"
+                @onclick="() => SetKind(TransactionKind.Transfer)">Umbuchungen</button>
+        <button type="button" class="chip @(onlyOpen ? "active" : null)"
+                @onclick="ToggleOnlyOpen">Ohne Kategorie</button>
+
+        <span class="filter-sep" aria-hidden="true"></span>
+
+        <button type="button" class="chip @(categoryFilter is null ? "active" : null)"
+                @onclick="() => SetCategory(null)">Alle Kategorien</button>
+        @foreach (var category in categories)
+        {
+            <button type="button" class="chip @(categoryFilter == category.Id ? "active" : null)"
+                    @onclick="() => SetCategory(category.Id)">@category.Name</button>
+        }
+    </div>
+
+    @* Die Summen rechnen gegen den sichtbaren Ausschnitt, nicht gegen den Gesamtbestand. *@
+    <section class="tx-totals">
+        <div class="tx-total">
+            <span class="label-muted">Einnahmen</span>
+            <span class="tx-total-value num income">@State.Euro(list.Totals.Income)</span>
+        </div>
+        <div class="tx-total">
+            <span class="label-muted">Ausgaben</span>
+            <span class="tx-total-value num">@State.Euro(list.Totals.Expense)</span>
+        </div>
+        <div class="tx-total">
+            <span class="label-muted">Saldo</span>
+            <span class="tx-total-value num">@Signed(list.Totals.Balance)</span>
+        </div>
+    </section>
+
+    @if (list.Totals.TransferCount > 0)
+    {
+        <div class="tx-totals-note">
+            @list.Totals.TransferCount @(list.Totals.TransferCount == 1 ? "Umbuchung zählt" : "Umbuchungen zählen")
+            weder als Einnahme noch als Ausgabe.
+        </div>
+    }
+
+    @if (list.FilteredUncategorizedCount > 0)
     {
         <AuthorizeView Roles="Owner,Member">
-        <div class="triage-wrap">
-            <button type="button" class="triage" @onclick="StartTriage">
-                <span class="stack">
-                    <span class="triage-title">@list.UncategorizedCount @(list.UncategorizedCount == 1 ? "Buchung" : "Buchungen") ohne Kategorie</span>
-                    <span class="triage-sub">Jetzt zuordnen</span>
+            <div class="triage-wrap">
+                <button type="button" class="triage" @onclick="StartTriage">
+                    <span class="stack">
+                        <span class="triage-title">
+                            @list.FilteredUncategorizedCount
+                            @(list.FilteredUncategorizedCount == 1 ? "Buchung" : "Buchungen") ohne Kategorie
+                        </span>
+                        <span class="triage-sub">Jetzt zuordnen</span>
+                    </span>
+                    <span class="triage-arrow" aria-hidden="true">→</span>
+                </button>
+            </div>
+        </AuthorizeView>
+    }
+
+    @if (selected.Count > 0)
+    {
+        <AuthorizeView Roles="Owner,Member">
+            <div class="tx-selection">
+                <span class="tx-selection-count">
+                    @selected.Count @(selected.Count == 1 ? "Buchung" : "Buchungen") ausgewählt
                 </span>
-                <span class="triage-arrow" aria-hidden="true">→</span>
-            </button>
-        </div>
+                <button type="button" class="btn btn-primary" @onclick="OpenBatchSheet">Kategorie zuweisen</button>
+                <button type="button" class="btn btn-secondary" @onclick="ClearSelection">Auswahl aufheben</button>
+            </div>
         </AuthorizeView>
     }
 
     @if (list.Items.Count == 0)
     {
-        <div class="state">Keine Buchung passt zur Suche.</div>
+        @* Nie eine leere Fläche: Ursache benennen, Ausweg anbieten. *@
+        <div class="empty-area">
+            <span class="empty-area-title">Keine Buchung im gewählten Ausschnitt</span>
+            <span class="empty-area-text">@EmptyReason</span>
+            <div class="empty-area-actions">
+                <button type="button" class="btn btn-secondary" @onclick="ResetFilter">Filter zurücksetzen</button>
+                <AuthorizeView Roles="Owner,Member">
+                    <button type="button" class="btn btn-primary"
+                            @onclick="@(() => Navigation.NavigateTo("/erfassen"))">Buchung erfassen</button>
+                </AuthorizeView>
+            </div>
+        </div>
     }
-
-    @foreach (var transaction in list.Items)
+    else
     {
-        <button type="button" class="tap tx-row" @onclick="() => OpenSheet(transaction)">
-            <span class="tx-date num">@GermanFormat.DateShort(transaction.BookingDate)</span>
-            <span class="tx-main">
-                <span class="tx-payee">@transaction.Payee</span>
-                <span class="tx-tags">
-                    <span class="tag @TagClass(transaction)">@TagLabel(transaction)</span>
-                    <span class="tx-account">@transaction.AccountShortName</span>
-                </span>
-            </span>
-            <span class="tx-amount num @(transaction.Amount > 0 ? "income" : null)">
-                @State.Euro(transaction.Amount, withPlusSign: true)
-            </span>
-        </button>
+        <div class="tx-table">
+            @* Die Kopfzeile trägt nur die Tabelle ab Tablet; auf dem Telefon ist sie ausgeblendet. *@
+            <div class="tx-head">
+                <AuthorizeView Roles="Owner,Member">
+                    <label class="tx-check">
+                        <input type="checkbox" checked="@AllSelected" @onchange="ToggleAll"
+                               aria-label="Alle sichtbaren Buchungen wählen" />
+                    </label>
+                </AuthorizeView>
+                <span>Datum</span>
+                <span>Empfänger</span>
+                <span>Kategorie</span>
+                <span>Konto</span>
+                <span class="tx-head-amount">Betrag</span>
+            </div>
+
+            @foreach (var transaction in list.Items)
+            {
+                <div class="tx-line @(selected.Contains(transaction.Id) ? "picked" : null)">
+                    <AuthorizeView Roles="Owner,Member">
+                        <label class="tx-check">
+                            <input type="checkbox" checked="@selected.Contains(transaction.Id)"
+                                   @onchange="e => Toggle(transaction.Id, e)"
+                                   aria-label="@($"{transaction.Payee} wählen")" />
+                        </label>
+                    </AuthorizeView>
+
+                    <button type="button" class="tap tx-row" @onclick="() => OpenSheet(transaction)">
+                        <span class="tx-date num">@GermanFormat.DateShort(transaction.BookingDate)</span>
+                        <span class="tx-main">
+                            <span class="tx-payee">@transaction.Payee</span>
+                            <span class="tx-tags">
+                                <span class="tag @TagClass(transaction)">@TagLabel(transaction)</span>
+                                <span class="tx-account">@transaction.AccountShortName</span>
+                            </span>
+                        </span>
+                        <span class="tx-cell tx-cell-category">
+                            <span class="tag @TagClass(transaction)">@TagLabel(transaction)</span>
+                        </span>
+                        <span class="tx-cell tx-cell-account">@transaction.AccountShortName</span>
+                        <span class="tx-amount num @(transaction.Amount > 0 ? "income" : null)">
+                            @State.Euro(transaction.Amount, withPlusSign: true)
+                        </span>
+                    </button>
+                </div>
+            }
+        </div>
     }
 
     <div class="spacer"></div>
 </AsyncView>
 
-@if (sheetTransaction is { } sheet)
+@if (batchOpen)
+{
+    <CategorySheet BatchCount="selected.Count"
+                   BatchAmount="SelectedAmount"
+                   Categories="categories"
+                   OnPickCategory="AssignBatch"
+                   OnPickTransfer="MarkBatchTransfer"
+                   OnConfirm="@(_ => CloseBatch())"
+                   OnClose="CloseBatch" />
+}
+else if (sheetTransaction is { } sheet)
 {
     <CategorySheet Transaction="sheet"
                    Categories="SheetCategories(sheet)"
@@ -84,9 +215,15 @@
 }
 
 @code {
+    private static readonly TransactionTotalsDto NoTotals = new()
+    {
+        Income = 0m, Expense = 0m, Balance = 0m, TransferCount = 0,
+    };
+
     private static readonly TransactionPageDto Empty = new()
     {
-        Items = [], FilteredCount = 0, TotalCount = 0, UncategorizedCount = 0,
+        Items = [], FilteredCount = 0, TotalCount = 0,
+        UncategorizedCount = 0, FilteredUncategorizedCount = 0, Totals = NoTotals,
     };
 
     private TransactionPageDto list = Empty;
@@ -94,15 +231,63 @@
     private IReadOnlyList<CategoryDto> categories = [];
     private TransactionDto? sheetTransaction;
 
+    private readonly HashSet<int> selected = [];
+    private bool batchOpen;
+
     private string search = string.Empty;
+    private int? accountFilter;
+    private int? categoryFilter;
+    private TransactionKind? kindFilter;
+    private bool onlyOpen;
     private CancellationTokenSource? searchDebounce;
+
+    private bool HasFilter => !string.IsNullOrWhiteSpace(search)
+                              || accountFilter is not null || categoryFilter is not null
+                              || kindFilter is not null || onlyOpen;
+
+    private bool AllSelected => list.Items.Count > 0 && list.Items.All(t => selected.Contains(t.Id));
+
+    private decimal SelectedAmount => list.Items.Where(t => selected.Contains(t.Id)).Sum(t => t.Amount);
 
     protected override async Task LoadAsync()
     {
         accounts = await Api.GetAccountsAsync();
         categories = await Api.GetCategoriesAsync();
-        list = await Api.GetTransactionsAsync(search);
+        await ReloadListAsync();
     }
+
+    private async Task ReloadListAsync(CancellationToken ct = default)
+    {
+        list = await Api.GetTransactionsAsync(search, accountFilter, categoryFilter, kindFilter, onlyOpen, ct);
+
+        // Eine Auswahl, die der Filter nicht mehr zeigt, ist keine Auswahl mehr — sonst beträfe
+        // die Stapelvergabe Zeilen, die niemand vor sich hat.
+        selected.IntersectWith(list.Items.Select(t => t.Id));
+    }
+
+    private string EmptyReason
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                return $"Die Suche nach „{search}“ trifft nichts im übrigen Ausschnitt.";
+            }
+
+            if (onlyOpen)
+            {
+                return "Im gewählten Ausschnitt ist alles kategorisiert.";
+            }
+
+            return HasFilter
+                ? "Der gewählte Filter lässt nichts übrig."
+                : "Es ist noch keine Buchung erfasst.";
+        }
+    }
+
+    /// <summary>Der Saldo trägt sein Vorzeichen — die Null aber nicht.</summary>
+    private static string Signed(decimal value)
+        => value == 0m ? GermanFormat.Euro(0m) : GermanFormat.Euro(value, withPlusSign: true);
 
     /// <summary>
     /// Die Suche läuft auf dem Server. Ein kurzer Aufschub bündelt die Tastenanschläge zu
@@ -120,7 +305,7 @@
         try
         {
             await Task.Delay(250, token);
-            list = await Api.GetTransactionsAsync(search, token);
+            await ReloadListAsync(token);
             StateHasChanged();
         }
         catch (OperationCanceledException)
@@ -133,12 +318,105 @@
         }
     }
 
-    private async Task ClearSearch()
+    private Task SetAccount(int? id) => Filter(() => accountFilter = id);
+
+    private Task SetCategory(int? id) => Filter(() => categoryFilter = id);
+
+    private Task SetKind(TransactionKind? kind) => Filter(() =>
+    {
+        kindFilter = kind;
+        onlyOpen = false;
+    });
+
+    private Task ToggleOnlyOpen() => Filter(() =>
+    {
+        onlyOpen = !onlyOpen;
+        kindFilter = null;
+    });
+
+    private Task ResetFilter() => Filter(() =>
     {
         search = string.Empty;
+        accountFilter = null;
+        categoryFilter = null;
+        kindFilter = null;
+        onlyOpen = false;
+    });
+
+    private Task Filter(Action change) => RunAsync(async () =>
+    {
         searchDebounce?.Cancel();
-        await RunAsync(async () => list = await Api.GetTransactionsAsync());
+        change();
+        await ReloadListAsync();
+    });
+
+    // ── Auswahl und Stapelvergabe ──────────────────────────────────────────────────────────
+
+    private void Toggle(int id, ChangeEventArgs e)
+    {
+        if (e.Value is true)
+        {
+            selected.Add(id);
+        }
+        else
+        {
+            selected.Remove(id);
+        }
     }
+
+    private void ToggleAll(ChangeEventArgs e)
+    {
+        selected.Clear();
+        if (e.Value is true)
+        {
+            foreach (var transaction in list.Items)
+            {
+                selected.Add(transaction.Id);
+            }
+        }
+    }
+
+    private void ClearSelection() => selected.Clear();
+
+    /// <summary>
+    /// „Kategorie zuweisen“ öffnet das Panel und schreibt nicht direkt — die Wahl gehört dorthin,
+    /// wo auch steht, was die Vergabe nicht anfassen wird.
+    /// </summary>
+    private void OpenBatchSheet() => batchOpen = true;
+
+    private void CloseBatch()
+    {
+        batchOpen = false;
+        selected.Clear();
+    }
+
+    private Task AssignBatch(CategoryDto category) => RunAsync(async () =>
+    {
+        var result = await Api.AssignCategoryBatchAsync(new BatchAssignRequest
+        {
+            TransactionIds = [.. selected],
+            CategoryId = category.Id,
+        });
+
+        Toasts.Show(result.Message);
+        await ReloadListAsync();
+        CloseBatch();
+    });
+
+    private Task MarkBatchTransfer() => RunAsync(async () =>
+    {
+        var result = await Api.AssignCategoryBatchAsync(new BatchAssignRequest
+        {
+            TransactionIds = [.. selected],
+            MarkAsTransfer = true,
+        });
+
+        Toasts.Show(result.Message);
+        await ReloadListAsync();
+        CloseBatch();
+    });
+
+    // ── Einzelbuchung ──────────────────────────────────────────────────────────────────────
 
     private void OpenSheet(TransactionDto transaction) => sheetTransaction = transaction;
 
@@ -195,8 +473,8 @@
     /// <summary>Übernimmt die geänderte Buchung in Liste und Sheet, ohne alles neu zu laden.</summary>
     private void Apply(TransactionDto updated)
     {
-        // Der Zähler gilt für alle Buchungen, nicht nur für die gerade sichtbaren. Er wird
-        // deshalb um die Änderung fortgeschrieben statt aus der gefilterten Liste gezählt.
+        // Die Zähler werden fortgeschrieben statt neu gezählt — der eine gilt für den Bestand,
+        // der andere für den Ausschnitt, und beide verschieben sich um dasselbe.
         var before = list.Items.FirstOrDefault(t => t.Id == updated.Id)?.IsUncategorized ?? false;
         var delta = (updated.IsUncategorized ? 1 : 0) - (before ? 1 : 0);
 
@@ -204,6 +482,7 @@
         {
             Items = [.. list.Items.Select(t => t.Id == updated.Id ? updated : t)],
             UncategorizedCount = Math.Max(0, list.UncategorizedCount + delta),
+            FilteredUncategorizedCount = Math.Max(0, list.FilteredUncategorizedCount + delta),
         };
 
         sheetTransaction = updated;

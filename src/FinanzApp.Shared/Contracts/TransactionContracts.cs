@@ -32,8 +32,41 @@ public sealed record TransactionPageDto
     /// <summary>Buchungen insgesamt, ohne Suchfilter.</summary>
     public required int TotalCount { get; init; }
 
-    /// <summary>Buchungen ohne Kategorie, ohne Suchfilter — speist das Triage-Banner.</summary>
+    /// <summary>Buchungen ohne Kategorie, ohne Suchfilter.</summary>
     public required int UncategorizedCount { get; init; }
+
+    /// <summary>
+    /// Buchungen ohne Kategorie <em>im gewählten Ausschnitt</em> — das speist das Triage-Banner.
+    /// </summary>
+    /// <remarks>
+    /// Der Handoff verlangt den Bezug auf die sichtbare Menge: ein Banner über fünf
+    /// unkategorisierte Buchungen, von denen der Filter keine einzige zeigt, wäre eine
+    /// Aufforderung ins Leere.
+    /// </remarks>
+    public required int FilteredUncategorizedCount { get; init; }
+
+    /// <summary>Summen über den sichtbaren Ausschnitt.</summary>
+    public required TransactionTotalsDto Totals { get; init; }
+}
+
+/// <summary>
+/// Einnahmen, Ausgaben und Saldo des sichtbaren Ausschnitts.
+/// </summary>
+/// <remarks>
+/// Umbuchungen zählen in keiner der drei Zahlen mit: Geld, das von einem eigenen Konto auf ein
+/// anderes wandert, ist weder Einnahme noch Ausgabe. Sie werden deshalb nur gezählt, nicht summiert.
+/// </remarks>
+public sealed record TransactionTotalsDto
+{
+    public required decimal Income { get; init; }
+
+    /// <summary>Positiv geführt — das Vorzeichen steht in der Beschriftung.</summary>
+    public required decimal Expense { get; init; }
+
+    public required decimal Balance { get; init; }
+
+    /// <summary>Wie viele Umbuchungen im Ausschnitt liegen, die hier bewusst nicht mitzählen.</summary>
+    public required int TransferCount { get; init; }
 }
 
 public sealed record CreateTransactionRequest
@@ -51,6 +84,42 @@ public sealed record CreateTransactionRequest
     public int? CategoryId { get; init; }
     public string? Note { get; init; }
     public DateOnly? BookingDate { get; init; }
+}
+
+/// <summary>Stapelvergabe: eine Kategorie für mehrere Buchungen auf einmal.</summary>
+public sealed record BatchAssignRequest
+{
+    public required IReadOnlyList<int> TransactionIds { get; init; }
+
+    public int? CategoryId { get; init; }
+
+    /// <summary>
+    /// Stuft alle gewählten Buchungen als Umbuchung ein. Nur so werden bestehende Umbuchungen
+    /// überhaupt angefasst.
+    /// </summary>
+    public bool MarkAsTransfer { get; init; }
+}
+
+/// <summary>
+/// Was die Stapelvergabe getan hat — und was sie bewusst nicht angefasst hat.
+/// </summary>
+/// <remarks>
+/// Die fachliche Regel des Handoffs: <b>Umbuchungen bleiben unverändert</b>, sofern nicht
+/// ausdrücklich „Umbuchung“ gewählt wurde. Eine Umbuchung ist keine Ausgabe; sie nachträglich
+/// in eine Kategorie zu zwingen, verfälschte jede Auswertung. Die Meldung nennt deshalb beides.
+/// </remarks>
+public sealed record BatchAssignResultDto
+{
+    /// <summary>Wie viele Buchungen die Kategorie bekommen haben.</summary>
+    public required int Assigned { get; init; }
+
+    /// <summary>Wie viele Umbuchungen unangetastet blieben.</summary>
+    public required int ProtectedTransfers { get; init; }
+
+    /// <summary>Der Satz für die Meldung, z. B. „6 × Wohnen · 1 Umbuchung geschützt“.</summary>
+    public required string Message { get; init; }
+
+    public required IReadOnlyList<TransactionDto> Items { get; init; }
 }
 
 public sealed record AssignCategoryRequest

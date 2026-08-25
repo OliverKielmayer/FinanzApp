@@ -5,15 +5,31 @@
 *@
 <button type="button" class="backdrop" aria-label="Schließen" @onclick="OnClose"></button>
 
-<div @ref="sheet" class="sheet" role="dialog" aria-modal="true" aria-label="Kategorie zuordnen"
+<div @ref="sheet" class="sheet" role="dialog" aria-modal="true" aria-label="@(IsBatch ? "Stapelvergabe" : "Kategorie zuordnen")"
      tabindex="-1" @onkeydown="OnKeyDown">
     <div class="sheet-head">
-        <div class="stack">
-            <span class="kicker">Kategorie zuordnen</span>
-            <span class="sheet-payee">@Transaction.Payee</span>
-            <span class="meta">@GermanFormat.Date(Transaction.BookingDate) · @Transaction.AccountName</span>
-        </div>
-        <span class="sheet-amount num">@State.Euro(Transaction.Amount, withPlusSign: true)</span>
+        @if (IsBatch)
+        {
+            @* Der Kopf sagt vorab, was die Stapelvergabe nicht anfassen wird. Das nachträglich
+               zu melden wäre zu spät — dann hätte man schon geklickt. *@
+            <div class="stack">
+                <span class="kicker">Stapelvergabe</span>
+                <span class="sheet-payee">
+                    @BatchCount @(BatchCount == 1 ? "Buchung" : "Buchungen")
+                </span>
+                <span class="meta">Umbuchungen bleiben unverändert</span>
+            </div>
+            <span class="sheet-amount num">@State.Euro(BatchAmount, withPlusSign: true)</span>
+        }
+        else
+        {
+            <div class="stack">
+                <span class="kicker">Kategorie zuordnen</span>
+                <span class="sheet-payee">@Transaction!.Payee</span>
+                <span class="meta">@GermanFormat.Date(Transaction.BookingDate) · @Transaction.AccountName</span>
+            </div>
+            <span class="sheet-amount num">@State.Euro(Transaction.Amount, withPlusSign: true)</span>
+        }
     </div>
 
     <div class="sheet-body">
@@ -24,22 +40,26 @@
                     @foreach (var category in Categories)
                     {
                         <button type="button"
-                                class="chip @(Transaction.CategoryId == category.Id ? "active" : null)"
+                                class="chip @(!IsBatch && Transaction!.CategoryId == category.Id ? "active" : null)"
                                 @onclick="() => OnPickCategory.InvokeAsync(category)">@category.Name</button>
                     }
 
                     <button type="button"
-                            class="chip @(Transaction.Kind == TransactionKind.Transfer ? "active" : null)"
+                            class="chip @(!IsBatch && Transaction!.Kind == TransactionKind.Transfer ? "active" : null)"
                             @onclick="OnPickTransfer">Umbuchung</button>
                 </div>
 
-                <div class="sheet-rule">
-                    <span class="sheet-rule-text">Regel für „@rulePattern“ merken</span>
-                    <label class="radio">
-                        <input type="checkbox" checked="@rememberRule" @onchange="ToggleRule" />
-                        <span class="dot"></span>
-                    </label>
-                </div>
+                @* Eine Regel hängt am Empfänger — bei vielen Buchungen gibt es den nicht. *@
+                @if (!IsBatch)
+                {
+                    <div class="sheet-rule">
+                        <span class="sheet-rule-text">Regel für „@rulePattern“ merken</span>
+                        <label class="radio">
+                            <input type="checkbox" checked="@rememberRule" @onchange="ToggleRule" />
+                            <span class="dot"></span>
+                        </label>
+                    </div>
+                }
             </Authorized>
             <NotAuthorized>
                 <span class="auth-note">
@@ -53,7 +73,10 @@
         <AuthorizeView Roles="Owner,Member">
             <Authorized>
                 <button type="button" class="btn btn-primary" @onclick="Confirm">Fertig</button>
-                <button type="button" class="btn btn-secondary" @onclick="OnSplit">Splitten</button>
+                @if (!IsBatch)
+                {
+                    <button type="button" class="btn btn-secondary" @onclick="OnSplit">Splitten</button>
+                }
             </Authorized>
             <NotAuthorized>
                 <button type="button" class="btn btn-primary" @onclick="OnClose">Schließen</button>
@@ -65,7 +88,16 @@
 @code {
     [Inject] private AppState State { get; set; } = default!;
 
-    [Parameter, EditorRequired] public TransactionDto Transaction { get; set; } = default!;
+    /// <summary>Die einzelne Buchung. <c>null</c>, wenn das Sheet für eine Stapelvergabe offen ist.</summary>
+    [Parameter] public TransactionDto? Transaction { get; set; }
+
+    /// <summary>Wie viele Buchungen die Stapelvergabe umfasst. 0 heißt: Einzelbuchung.</summary>
+    [Parameter] public int BatchCount { get; set; }
+
+    /// <summary>Summe der gewählten Buchungen — die Kopfzahl der Stapelvergabe.</summary>
+    [Parameter] public decimal BatchAmount { get; set; }
+
+    private bool IsBatch => BatchCount > 0;
 
     [Parameter, EditorRequired] public IReadOnlyList<CategoryDto> Categories { get; set; } = [];
 
@@ -85,7 +117,9 @@
     private ElementReference sheet;
 
     protected override void OnParametersSet()
-        => rulePattern = Categorization.RulePatternFor(Transaction.Payee);
+        => rulePattern = Transaction is null
+            ? string.Empty
+            : Categorization.RulePatternFor(Transaction.Payee);
 
     /// <summary>Beim Öffnen wandert der Fokus in das Sheet — sonst bliebe er auf der Zeile
     /// dahinter, und die Tastatur führte an der Auswahl vorbei.</summary>

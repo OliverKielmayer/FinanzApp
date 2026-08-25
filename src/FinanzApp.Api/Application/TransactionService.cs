@@ -19,15 +19,23 @@ public sealed class TransactionService(FinanzAppDbContext db, IClock clock)
     /// zusammenkommen, gehört die Filterung in SQL, mit einem Volltextindex auf dem Empfänger.
     /// </remarks>
     public async Task<TransactionPageDto> GetPageAsync(
-        string? search, int skip = 0, int take = 100, CancellationToken ct = default)
+        string? search,
+        int? accountId = null,
+        int? categoryId = null,
+        TransactionKind? kind = null,
+        bool uncategorizedOnly = false,
+        int skip = 0,
+        int take = 100,
+        CancellationToken ct = default)
     {
         var all = await LoadAsync(ct);
 
-        var filtered = string.IsNullOrWhiteSpace(search)
-            ? all
-            : [.. all.Where(t =>
-                t.Payee.Contains(search, StringComparison.OrdinalIgnoreCase)
-                || (t.CategoryName?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false))];
+        IReadOnlyList<TransactionDto> filtered = [.. all.Where(t =>
+            Matches(t, search)
+            && (accountId is not { } account || t.AccountId == account)
+            && (categoryId is not { } category || t.CategoryId == category)
+            && (kind is not { } wanted || t.Kind == wanted)
+            && (!uncategorizedOnly || t.IsUncategorized))];
 
         return new TransactionPageDto
         {
@@ -35,8 +43,103 @@ public sealed class TransactionService(FinanzAppDbContext db, IClock clock)
             FilteredCount = filtered.Count,
             TotalCount = all.Count,
             UncategorizedCount = all.Count(t => t.IsUncategorized),
+            FilteredUncategorizedCount = filtered.Count(t => t.IsUncategorized),
+            Totals = Totals(filtered),
         };
     }
+
+    private static bool Matches(TransactionDto transaction, string? search)
+        => string.IsNullOrWhiteSpace(search)
+           || transaction.Payee.Contains(search, StringComparison.OrdinalIgnoreCase)
+           || (transaction.CategoryName?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false);
+
+    /// <summary>
+    /// Summen über den sichtbaren Ausschnitt. Umbuchungen bleiben draußen — sie sind weder
+    /// Einnahme noch Ausgabe, sondern dasselbe Geld an einem anderen Ort.
+    /// </summary>
+    private static TransactionTotalsDto Totals(IReadOnlyList<TransactionDto> rows)
+    {
+        var real = rows.Where(t => t.Kind != TransactionKind.Transfer).ToList();
+        var income = real.Where(t => t.Amount > 0).Sum(t => t.Amount);
+        var expense = real.Where(t => t.Amount < 0).Sum(t => -t.Amount);
+
+        return new TransactionTotalsDto
+        {
+            Income = income,
+            Expense = expense,
+            Balance = income - expense,
+            TransferCount = rows.Count - real.Count,
+        };
+    }
+
+    /// <summary>
+    /// Stapelvergabe. <b>Umbuchungen bleiben unverändert</b>, sofern nicht ausdrücklich
+    /// „Umbuchung“ gewählt wurde.
+    /// </summary>
+    /// <remarks>
+    /// Das ist keine Bequemlichkeit, sondern eine fachliche Regel: wer fünfzehn Zeilen markiert
+    /// und „Wohnen“ wählt, meint nicht die Umbuchung aufs Tagesgeld, die zufällig dazwischen
+    /// liegt. Sie stillschweigend mitzunehmen würde jede Auswertung verfälschen — deshalb bleibt
+    /// sie stehen, und die Meldung sagt es.
+    /// </remarks>
+    public async Task<BatchAssignResultDto> AssignCategoryBatchAsync(
+        BatchAssignRequest request, CancellationToken ct = default)
+    {
+        var ids = request.TransactionIds.Distinct().ToList();
+        var rows = await db.Transactions.Where(t => ids.Contains(t.Id)).ToListAsync(ct);
+
+        if (request.MarkAsTransfer)
+        {
+            foreach (var row in rows)
+            {
+                row.Kind = TransactionKind.Transfer;
+                row.CategoryId = null;
+            }
+
+            await db.SaveChangesAsync(ct);
+            return await ResultAsync(rows.Count, 0, $"{Plural(rows.Count)} als Umbuchung markiert", ids, ct);
+        }
+
+        if (request.CategoryId is not { } categoryId)
+        {
+            throw new ArgumentException("Ohne Kategorie lässt sich nichts zuweisen.", nameof(request));
+        }
+
+        var category = await db.Categories.AsNoTracking().FirstOrDefaultAsync(c => c.Id == categoryId, ct)
+                       ?? throw new ArgumentException("Unbekannte Kategorie.", nameof(request));
+
+        var (targets, transfers) = (
+            rows.Where(t => t.Kind != TransactionKind.Transfer).ToList(),
+            rows.Count(t => t.Kind == TransactionKind.Transfer));
+
+        foreach (var row in targets)
+        {
+            row.CategoryId = categoryId;
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        var message = $"{targets.Count} × {category.Name}";
+        if (transfers > 0)
+        {
+            message += $" · {transfers} {(transfers == 1 ? "Umbuchung" : "Umbuchungen")} geschützt";
+        }
+
+        return await ResultAsync(targets.Count, transfers, message, ids, ct);
+    }
+
+    private static string Plural(int count)
+        => count == 1 ? "1 Buchung" : $"{count} Buchungen";
+
+    private async Task<BatchAssignResultDto> ResultAsync(
+        int assigned, int protectedTransfers, string message, List<int> ids, CancellationToken ct)
+        => new()
+        {
+            Assigned = assigned,
+            ProtectedTransfers = protectedTransfers,
+            Message = message,
+            Items = [.. (await LoadAsync(ct)).Where(t => ids.Contains(t.Id))],
+        };
 
     public async Task<TransactionDto?> GetAsync(int id, CancellationToken ct = default)
         => (await LoadAsync(ct)).FirstOrDefault(t => t.Id == id);
