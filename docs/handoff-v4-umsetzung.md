@@ -4,7 +4,7 @@ Arbeitsliste zu [`docs/design-handoff-v4/handoff.md`](design-handoff-v4/handoff.
 aus Abschnitt 11 des Handoffs — sie ist nicht beliebig: Schritt 1 verschiebt jede Maßzahl, alles
 danach würde sonst zweimal gebaut.
 
-Stand 25.08.2026: **alle acht Schritte umgesetzt.**
+Stand 26.08.2026: alle acht Schritte umgesetzt, dazu der **Nachtrag vom 26.08.** (Abschnitte 6b und 8b).
 
 Entschieden: beim Umbau des Datenmodells in Schritt 3 wird **nicht migriert**, sondern neu
 aufgesetzt — bestehende `finanzapp.db` löschen. Damit muss die Schema-Prüfung beim Start
@@ -370,3 +370,51 @@ Unverändert nicht gebaut, weil nicht gestaltet: Ladezustände, Offline, Fehlerd
 Rechtematrix, Auswertungen, Split-Buchung, Sondertilgung, CSV-Spalten-Mapping, Arbeit & Beruf,
 Administration. Dazu die beiden neu angedeuteten Bereiche **Steuer nach Jahr** und
 **Unterhalt / Scheidung**. Der Handoff sagt dazu: vorher anfragen.
+
+# Nachtrag vom 26.08.2026
+
+Der Handoff kam ein zweites Mal, unter demselben Ordnernamen — eine Fortschreibung, kein v5.
+Rein additiv, 72 Zeilen; Design-System und Laufzeit sind byte-identisch. Abgelegt unter
+[`design-handoff-v4-nachtrag/`](design-handoff-v4-nachtrag/), der erste Stand bleibt daneben
+liegen, damit sich beide vergleichen lassen.
+
+## Abschnitt 6b — Bearbeiten und Löschen
+
+**Dasselbe Formular, vorbefüllt.** `GetFormAsync(type, id)` liefert die Feldliste des Anlegens
+mit den vorhandenen Werten, anderem Kicker, Titel und Primärschalter — dazu einen Einleitungstext,
+der die *Wirkung der Änderung* beschreibt statt der Anlage, und den Löschabschnitt. Geprüft wird
+gegen dieselbe Liste wie beim Anlegen.
+
+**Die Regel, die eine frühere Entscheidung korrigiert.** Der Handoff warnt ausdrücklich davor,
+einen gepflegten Objektnamen beim Bearbeiten neu aus Art und Anbieter zusammenzusetzen — sonst
+wird aus „Risikoleben“ beim bloßen Öffnen und Speichern „Risikoleben Hannoversche“. Genau das
+hätte mein `CreatePolicyAsync` getan. Der Name wird jetzt beim **Anlegen** abgeleitet und beim
+**Bearbeiten** nie wieder: dafür gibt es dort das Feld `displayName`, das es im Anlegeformular
+nicht gibt. Ein Test hält den Fall fest.
+
+Ebenso: die Werte kommen aus den **Rohfeldern**, nie aus einer Anzeigezeile. Ein Vertragsname wie
+„Risikoleben“ trägt keinen Versicherer im Namen — wer ihn dort herausparsen wollte, ließe das
+Pflichtfeld leer und das Formular unbenutzbar. Auch das steht als Test.
+
+**Einstiege, zwei Muster.** Zeilen ohne eigenen Detailscreen (Konto, Budget, Depot) führen ganz
+ins Bearbeiten. Zeilen, die schon navigieren (Vorsorge, Absicherung, Fahrzeug, Immobilie), tragen
+rechts unter dem Betrag einen „Bearbeiten“-Link, 11 px im Akzent — dasselbe Muster wie „Rechte“
+in der Benutzerliste, mit gestoppter Ereignisweitergabe.
+
+**Löschen zweistufig, ohne Systemdialog.** Unten im Formular, durch eine Volllinie abgesetzt: der
+zweite Tipp ist die Bestätigung, in Akzent-700, daneben „Behalten“.
+
+Die Folgenbeschreibung **zählt echte Bezüge**, statt Prüfungen zu behaupten, die nicht
+stattfinden — ein Satz wie „Sind noch Buchungen verknüpft?“ ohne nachzusehen klingt nach
+Sorgfalt und ist keine. Geprüft in der laufenden App: „3 Buchungen hängen an diesem Konto …“
+gegenüber „An diesem Konto hängt keine Buchung.“
+
+Und die Folge stimmt auch: ein gelöschtes Konto nimmt seine Buchungen **nicht** mit, sie werden
+auf „Ohne Konto“ umgeschrieben. Buchungen sind Tatsachen; das Konto war nur ihre Schublade.
+
+**Buchungen und Dokumente.** Einzeln im Kategorie-Sheet („Löschen“ → „Wirklich löschen?“,
+Splitten wandert auf Ghost), im Stapel über die Auswahlleiste mit genannter Anzahl. Beim
+Dokument verschwindet nur der Eintrag — die Datei bleibt liegen, und das steht auch so da. Danach
+rückt die Vorschauspalte auf den nächsten Eintrag oder in den Leerzustand.
+
+91 Tests, davon 8 neue.

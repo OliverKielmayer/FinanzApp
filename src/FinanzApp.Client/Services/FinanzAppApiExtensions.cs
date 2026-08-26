@@ -193,6 +193,27 @@ public static class FinanzAppApiExtensions
         => api.PostAsync<CreateRequest, CreateResultDto>(
             $"api/create/{type}", new CreateRequest { Values = values }, ct);
 
+    /// <summary>Löscht den Dokumenteintrag. Die Datei im Dokumentordner bleibt liegen.</summary>
+    public static Task DeleteDocumentAsync(
+        this FinanzAppApi api, int id, CancellationToken ct = default)
+        => api.SendAsync<object?, object?>(HttpMethod.Delete, $"api/documents/{id}", null, ct);
+
+    /// <summary>Dasselbe Formular, vorbefüllt — plus der Löschabschnitt.</summary>
+    public static Task<CreateFormDto> GetEditFormAsync(
+        this FinanzAppApi api, CreateObjectType type, int id, CancellationToken ct = default)
+        => api.GetAsync<CreateFormDto>($"api/create/{type}/{id}", ct);
+
+    public static Task<CreateResultDto> UpdateObjectAsync(
+        this FinanzAppApi api, CreateObjectType type, int id, Dictionary<string, string?> values,
+        CancellationToken ct = default)
+        => api.SendAsync<CreateRequest, CreateResultDto>(
+            HttpMethod.Put, $"api/create/{type}/{id}", new CreateRequest { Values = values }, ct);
+
+    public static Task<DeleteResultDto> DeleteObjectAsync(
+        this FinanzAppApi api, CreateObjectType type, int id, CancellationToken ct = default)
+        => api.SendAsync<object?, DeleteResultDto>(
+            HttpMethod.Delete, $"api/create/{type}/{id}", null, ct);
+
     /// <summary>
     /// Schickt eine Police zur Analyse. Die Datei wird in jedem Fall abgelegt; ohne angebundene
     /// Analyse kommt sie ohne erkannte Werte zurück.

@@ -50,6 +50,43 @@ public sealed record CreateFormDto
     public string? Hint { get; init; }
 
     public required IReadOnlyList<CreateFieldDto> Fields { get; init; }
+
+    /// <summary>
+    /// Beim Bearbeiten die vorhandenen Werte, je Feldschlüssel. Beim Anlegen leer.
+    /// </summary>
+    /// <remarks>
+    /// Sie kommen aus den <em>Rohfeldern</em> des Objekts, nicht aus seiner Anzeigezeile. Eine
+    /// Anzeigezeile zurückzuparsen wäre der sichere Weg zu leeren Pflichtfeldern: „Risikoleben“
+    /// trägt keinen Versicherer im Namen.
+    /// </remarks>
+    public IReadOnlyDictionary<string, string?> Values { get; init; } =
+        new Dictionary<string, string?>();
+
+    /// <summary>Gesetzt, wenn ein vorhandenes Objekt bearbeitet wird.</summary>
+    public int? EditingId { get; init; }
+
+    /// <summary>Was das Löschen nach sich zöge. Nur im Bearbeiten-Modus gesetzt.</summary>
+    public DeleteImpactDto? DeleteImpact { get; init; }
+}
+
+/// <summary>
+/// Die Folgen einer Löschung, typgenau und mit <b>echten</b> Zahlen.
+/// </summary>
+/// <remarks>
+/// Der Handoff verlangt ausdrücklich, echte Bezüge zu zählen, statt Prüfungen zu behaupten, die
+/// nicht stattfinden. Ein Satz wie „Sind noch Buchungen verknüpft?“ ohne nachzusehen wäre
+/// schlimmer als gar keiner — er klingt nach Sorgfalt und ist keine.
+/// </remarks>
+public sealed record DeleteImpactDto
+{
+    /// <summary>Überschrift des Abschnitts, z. B. „Konto löschen“.</summary>
+    public required string Title { get; init; }
+
+    /// <summary>Ein Satz zu den Folgen, mit gezählten Bezügen und richtigem Singular.</summary>
+    public required string Consequence { get; init; }
+
+    /// <summary>Beschriftung der Aktion, z. B. „Konto löschen“.</summary>
+    public required string ActionLabel { get; init; }
 }
 
 public sealed record CreateFieldDto
@@ -86,6 +123,16 @@ public sealed record CreateOptionDto
     /// Pfad. Der Handoff verlangt das für „Depot“ im Konto-Formular: ein Depot ist kein Konto.
     /// </summary>
     public string? RedirectTo { get; init; }
+}
+
+/// <summary>Ergebnis einer Löschung.</summary>
+public sealed record DeleteResultDto
+{
+    public required bool Ok { get; init; }
+    public string? Message { get; init; }
+
+    /// <summary>Wohin danach gesprungen wird.</summary>
+    public string? Route { get; init; }
 }
 
 /// <summary>Die ausgefüllten Werte, als Zeichenketten wie eingegeben.</summary>

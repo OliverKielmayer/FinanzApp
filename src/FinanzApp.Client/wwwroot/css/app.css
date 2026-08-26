@@ -2408,6 +2408,49 @@ body {
   color: var(--color-accent-800);
 }
 
+/* „Bearbeiten“ an einer Zeile, die schon navigiert — dasselbe Muster wie „Rechte“ in der
+   Benutzerliste. */
+.edit-link {
+  padding: 0;
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 11px;
+  color: var(--color-accent);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.edit-link:hover {
+  color: var(--color-accent-700);
+}
+
+/* Der Löschabschnitt steht unten und ist durch eine Volllinie abgesetzt — nicht neben dem
+   Speichern, wo er versehentlich getroffen würde. */
+.delete-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 24px;
+  padding: 16px;
+  border-top: 1px solid var(--color-text);
+}
+
+.delete-consequence {
+  font-size: 12px;
+  color: var(--color-neutral-700);
+}
+
+/* Der zweite Tipp ist die Bestätigung. Kein Systemdialog — der reißt aus dem Zusammenhang. */
+.delete-confirm {
+  background: var(--color-accent-700);
+  border-color: var(--color-accent-700);
+}
+
+.delete-confirm:hover {
+  background: var(--color-accent-800);
+}
+
 .create-hint {
   padding: 12px 16px;
   border-bottom: 1px solid var(--color-text);
@@ -2854,6 +2897,13 @@ body {
 }
 
 /* ── Versicherungen, Verträge, Rechnungen ───────────────────────────────── */
+
+.contract-row .stack-end {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
 
 .contract-row {
   display: flex;

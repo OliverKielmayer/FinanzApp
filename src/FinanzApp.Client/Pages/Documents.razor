@@ -90,7 +90,7 @@
 <div class="doc-detail">
     @if (Id is { } open)
     {
-        <DocumentPane Id="open" />
+        <DocumentPane Id="open" OnDeleted="AfterDeleteAsync" />
     }
     else
     {
@@ -105,6 +105,22 @@
 @code {
     /// <summary>Das geöffnete Dokument. <c>null</c> heißt: nur die Liste.</summary>
     [Parameter] public int? Id { get; set; }
+
+    /// <summary>
+    /// Nach dem Löschen rückt die Vorschau auf den nächsten Eintrag — oder in den Leerzustand.
+    /// Eine Vorschau, die auf ein gelöschtes Dokument zeigt, wäre schlimmer als eine leere.
+    /// </summary>
+    private async Task AfterDeleteAsync(int deletedId)
+    {
+        var position = documents.ToList().FindIndex(d => d.Id == deletedId);
+        await ReloadAsync();
+
+        var next = documents.Count == 0
+            ? null
+            : documents[Math.Min(Math.Max(position, 0), documents.Count - 1)];
+
+        Navigation.NavigateTo(next is null ? "/dokumente" : $"/dokumente/{next.Id}");
+    }
 
     private static readonly (DocumentArea? Area, string Label)[] Areas =
     [

@@ -108,6 +108,37 @@
             </button>
         }
 
+        @* Gelöscht wird nur der Eintrag — die Datei bleibt liegen. Das steht auch so da,
+           damit niemand einen Dateiverlust befürchtet, den es nicht gibt. *@
+        <AuthorizeView Roles="Owner,Member">
+            <div class="delete-block">
+                <span class="label-strong">Dokument löschen</span>
+                <span class="delete-consequence">
+                    Nur der Eintrag verschwindet — die Datei bleibt im Dokumentordner liegen.
+                    @(document.Links.Count == 0
+                        ? "Es hängt keine Verknüpfung daran."
+                        : $"{document.Links.Count} Verknüpfung{(document.Links.Count == 1 ? "" : "en")} entfällt.")
+                </span>
+
+                @if (confirmingDelete)
+                {
+                    <div class="doc-actions">
+                        <button type="button" class="btn btn-primary delete-confirm" disabled="@busy"
+                                @onclick="DeleteAsync">Löschen bestätigen</button>
+                        <button type="button" class="btn btn-secondary" disabled="@busy"
+                                @onclick="@(() => confirmingDelete = false)">Behalten</button>
+                    </div>
+                }
+                else
+                {
+                    <div class="doc-actions">
+                        <button type="button" class="btn btn-secondary" disabled="@busy"
+                                @onclick="@(() => confirmingDelete = true)">Dokument löschen</button>
+                    </div>
+                }
+            </div>
+        </AuthorizeView>
+
         <div class="spacer"></div>
     }
 </AsyncView>
@@ -115,8 +146,12 @@
 @code {
     [Parameter] public int Id { get; set; }
 
+    /// <summary>Wird nach dem Löschen ausgelöst, damit die Liste nachrücken kann.</summary>
+    [Parameter] public EventCallback<int> OnDeleted { get; set; }
+
     private DocumentDetailDto? data;
     private bool fixing;
+    private bool confirmingDelete;
     private bool busy;
     private string newPath = string.Empty;
 
@@ -126,6 +161,7 @@
     {
         loadedId = Id;
         fixing = false;
+        confirmingDelete = false;
         data = await Api.GetDocumentAsync(Id);
     }
 
@@ -138,6 +174,26 @@
         if (data is not null && loadedId != Id)
         {
             await ReloadAsync();
+        }
+    }
+
+    private async Task DeleteAsync()
+    {
+        busy = true;
+        try
+        {
+            await Api.DeleteDocumentAsync(Id);
+            Toasts.Show("Dokumenteintrag gelöscht · Datei bleibt liegen");
+            await OnDeleted.InvokeAsync(Id);
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message);
+        }
+        finally
+        {
+            busy = false;
+            confirmingDelete = false;
         }
     }
 

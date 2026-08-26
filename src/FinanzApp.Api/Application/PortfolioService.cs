@@ -51,6 +51,7 @@ public sealed class PortfolioService(FinanzAppDbContext db)
 
         return new PortfolioDto
         {
+            DepotId = depot.Id,
             DepotName = depot.Name,
             TotalValue = totalValue,
             Gain = totalValue - totalCost,

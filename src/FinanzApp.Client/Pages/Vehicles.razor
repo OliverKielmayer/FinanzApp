@@ -24,7 +24,10 @@
                 <span class="contract-name">@vehicle.Name · @vehicle.Plate</span>
                 <span class="meta">@vehicle.Meta@(vehicle.HasDeadline ? " · 1 Frist" : null)</span>
             </span>
-            <span class="contract-amount num">@State.Euro0(vehicle.CostsLastTwelveMonths)</span>
+            <span class="stack-end">
+                <span class="contract-amount num">@State.Euro0(vehicle.CostsLastTwelveMonths)</span>
+                <EditLink Type="vehicle" Id="vehicle.Id" />
+            </span>
         </button>
     }
 

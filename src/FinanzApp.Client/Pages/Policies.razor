@@ -51,7 +51,10 @@
                     <span class="contract-name">@policy.Name</span>
                     <span class="meta">@Describe(policy)</span>
                 </span>
-                <span class="contract-amount num">@Figure(policy)</span>
+                <span class="stack-end">
+                    <span class="contract-amount num">@Figure(policy)</span>
+                    <EditLink Type="@(CapitalForming ? "pension" : "protection")" Id="policy.Id" />
+                </span>
             </button>
         }
 

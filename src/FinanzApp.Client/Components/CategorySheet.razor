@@ -73,9 +73,23 @@
         <AuthorizeView Roles="Owner,Member">
             <Authorized>
                 <button type="button" class="btn btn-primary" @onclick="Confirm">Fertig</button>
-                @if (!IsBatch)
+
+                @* Zweistufig: der zweite Tipp löscht. Kein Systemdialog — der reißt aus dem
+                   Zusammenhang, in dem die Buchung gerade steht. *@
+                @if (!IsBatch && OnDelete.HasDelegate)
                 {
-                    <button type="button" class="btn btn-secondary" @onclick="OnSplit">Splitten</button>
+                    @if (confirmingDelete)
+                    {
+                        <button type="button" class="btn btn-primary delete-confirm"
+                                @onclick="OnDelete">Wirklich löschen?</button>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-secondary"
+                                @onclick="@(() => confirmingDelete = true)">Löschen</button>
+                    }
+
+                    <button type="button" class="btn btn-ghost" @onclick="OnSplit">Splitten</button>
                 }
             </Authorized>
             <NotAuthorized>
@@ -112,14 +126,22 @@
 
     [Parameter] public EventCallback OnSplit { get; set; }
 
+    /// <summary>Löscht die Buchung. Ohne Empfänger erscheint der Schalter gar nicht.</summary>
+    [Parameter] public EventCallback OnDelete { get; set; }
+
+    private bool confirmingDelete;
+
     private bool rememberRule = true;
     private string rulePattern = string.Empty;
     private ElementReference sheet;
 
     protected override void OnParametersSet()
-        => rulePattern = Transaction is null
+    {
+        confirmingDelete = false;
+        rulePattern = Transaction is null
             ? string.Empty
             : Categorization.RulePatternFor(Transaction.Payee);
+    }
 
     /// <summary>Beim Öffnen wandert der Fokus in das Sheet — sonst bliebe er auf der Zeile
     /// dahinter, und die Tastatur führte an der Auswahl vorbei.</summary>

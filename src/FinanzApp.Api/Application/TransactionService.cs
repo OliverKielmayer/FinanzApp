@@ -128,6 +128,18 @@ public sealed class TransactionService(FinanzAppDbContext db, IClock clock)
         return await ResultAsync(targets.Count, transfers, message, ids, ct);
     }
 
+    /// <summary>
+    /// Löscht Buchungen. Sie sind Tatsachen — gelöscht wird nur, was ausdrücklich gewählt wurde,
+    /// und nichts hängt daran, was still mitverschwände.
+    /// </summary>
+    public async Task<int> DeleteAsync(IReadOnlyList<int> ids, CancellationToken ct = default)
+    {
+        var rows = await db.Transactions.Where(t => ids.Contains(t.Id)).ToListAsync(ct);
+        db.Transactions.RemoveRange(rows);
+        await db.SaveChangesAsync(ct);
+        return rows.Count;
+    }
+
     private static string Plural(int count)
         => count == 1 ? "1 Buchung" : $"{count} Buchungen";
 

@@ -26,8 +26,46 @@ public sealed class CreateFormService(
     DocumentService documents,
     IPolicyDocumentAnalyzer analyzer)
 {
-    /// <summary>Beschreibt das Formular eines Typs, samt der Auswahlwerte aus dem Bestand.</summary>
-    public async Task<CreateFormDto?> GetFormAsync(CreateObjectType type, CancellationToken ct = default)
+    /// <summary>
+    /// Beschreibt das Formular eines Typs, samt der Auswahlwerte aus dem Bestand. Mit
+    /// <paramref name="id"/> wird daraus das Bearbeiten-Formular: dieselben Felder, vorbefüllt,
+    /// andere Beschriftungen — und der Löschabschnitt.
+    /// </summary>
+    public async Task<CreateFormDto?> GetFormAsync(
+        CreateObjectType type, int? id = null, CancellationToken ct = default)
+    {
+        var form = await BuildFormAsync(type, ct);
+        if (form is null || id is not { } editing)
+        {
+            return form;
+        }
+
+        var values = await ReadValuesAsync(type, editing, ct);
+        if (values is null)
+        {
+            return null;
+        }
+
+        var impact = await DeleteImpactAsync(type, editing, ct);
+
+        return form with
+        {
+            Kicker = "Bearbeiten",
+            Title = form.Title.Replace(" anlegen", " bearbeiten"),
+            SubmitLabel = "Änderungen speichern",
+            Hint = EditHint(type),
+            EditingId = editing,
+            Values = values,
+            DeleteImpact = impact,
+
+            // Ein gepflegter Name wird beim Bearbeiten nicht neu zusammengesetzt — sonst würde
+            // aus „Risikoleben“ beim bloßen Öffnen und Speichern „Risikoleben Hannoversche“.
+            // Deshalb gibt es die Bezeichnung hier als echtes Feld.
+            Fields = NameField(type) is { } name ? [name, .. form.Fields] : form.Fields,
+        };
+    }
+
+    private async Task<CreateFormDto?> BuildFormAsync(CreateObjectType type, CancellationToken ct)
         => type switch
         {
             CreateObjectType.Account => await AccountFormAsync(ct),
@@ -44,7 +82,7 @@ public sealed class CreateFormService(
     public async Task<CreateResultDto> CreateAsync(
         CreateObjectType type, IReadOnlyDictionary<string, string?> values, CancellationToken ct = default)
     {
-        var form = await GetFormAsync(type, ct);
+        var form = await BuildFormAsync(type, ct);
         if (form is null)
         {
             return Fail(null, "Diesen Objekttyp gibt es noch nicht.");
@@ -73,6 +111,642 @@ public sealed class CreateFormService(
             _ => Fail(null, "Diesen Objekttyp gibt es noch nicht."),
         };
     }
+
+    // ── Bearbeiten und Löschen ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Ändert ein vorhandenes Objekt. Geprüft wird gegen dieselbe Feldliste wie beim Anlegen —
+    /// bis auf die Bezeichnung, die es nur hier gibt.
+    /// </summary>
+    public async Task<CreateResultDto> UpdateAsync(
+        CreateObjectType type, int id, IReadOnlyDictionary<string, string?> values,
+        CancellationToken ct = default)
+    {
+        var form = await GetFormAsync(type, id, ct);
+        if (form is null)
+        {
+            return Fail(null, "Diesen Datensatz gibt es nicht (mehr).");
+        }
+
+        foreach (var field in form.Fields.Where(f => f.Required))
+        {
+            if (string.IsNullOrWhiteSpace(Value(values, field.Key)))
+            {
+                return Fail(field.Key, $"{field.Label} fehlt");
+            }
+        }
+
+        return type switch
+        {
+            CreateObjectType.Account => await UpdateAccountAsync(id, values, ct),
+            CreateObjectType.Depot => await UpdateDepotAsync(id, values, ct),
+            CreateObjectType.Pension => await UpdatePolicyAsync(id, values, capitalForming: true, ct),
+            CreateObjectType.Protection => await UpdatePolicyAsync(id, values, capitalForming: false, ct),
+            CreateObjectType.Property => await UpdatePropertyAsync(id, values, ct),
+            CreateObjectType.Contract => await UpdateContractAsync(id, values, ct),
+            CreateObjectType.Budget => await UpdateBudgetAsync(id, values, ct),
+            CreateObjectType.Vehicle => await UpdateVehicleAsync(id, values, ct),
+            _ => Fail(null, "Diesen Objekttyp gibt es noch nicht."),
+        };
+    }
+
+    /// <summary>Löscht ein Objekt und räumt auf, was daran hängt.</summary>
+    public async Task<DeleteResultDto> DeleteAsync(
+        CreateObjectType type, int id, CancellationToken ct = default)
+        => type switch
+        {
+            CreateObjectType.Account => await DeleteAccountAsync(id, ct),
+            CreateObjectType.Depot => await DeleteSimpleAsync(db.Depots, id, "Depot gelöscht", "/depot", ct),
+            CreateObjectType.Pension => await DeleteSimpleAsync(db.Policies, id, "Vertrag gelöscht", "/vorsorge", ct),
+            CreateObjectType.Protection => await DeleteSimpleAsync(db.Policies, id, "Vertrag gelöscht", "/absicherung", ct),
+            CreateObjectType.Property => await DeleteSimpleAsync(db.Properties, id, "Immobilie gelöscht", "/wohnen", ct),
+            CreateObjectType.Contract => await DeleteSimpleAsync(db.Contracts, id, "Vertrag gelöscht", "/wohnen", ct),
+            CreateObjectType.Budget => await DeleteSimpleAsync(db.Budgets, id, "Budget gelöscht", "/budgets", ct),
+            CreateObjectType.Vehicle => await DeleteSimpleAsync(db.Vehicles, id, "Fahrzeug gelöscht", "/fahrzeuge", ct),
+            _ => new DeleteResultDto { Ok = false, Message = "Diesen Objekttyp gibt es nicht." },
+        };
+
+    private async Task<DeleteResultDto> DeleteSimpleAsync<T>(
+        DbSet<T> set, int id, string message, string route, CancellationToken ct)
+        where T : class
+    {
+        var entity = await set.FindAsync([id], ct);
+        if (entity is null)
+        {
+            return new DeleteResultDto { Ok = false, Message = "Der Datensatz ist bereits fort." };
+        }
+
+        set.Remove(entity);
+        await db.SaveChangesAsync(ct);
+        return new DeleteResultDto { Ok = true, Message = message, Route = route };
+    }
+
+    private const string OrphanAccountName = "Ohne Konto";
+
+    /// <summary>
+    /// Ein Konto zu löschen darf keine Buchungen mitnehmen — sie sind Tatsachen, das Konto war
+    /// nur ihre Schublade. Sie werden deshalb auf „Ohne Konto“ umgeschrieben.
+    /// </summary>
+    private async Task<DeleteResultDto> DeleteAccountAsync(int id, CancellationToken ct)
+    {
+        var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == id, ct);
+        if (account is null)
+        {
+            return new DeleteResultDto { Ok = false, Message = "Das Konto ist bereits fort." };
+        }
+
+        var affected = await db.Transactions.CountAsync(t => t.AccountId == id, ct);
+        if (affected > 0)
+        {
+            var orphan = await db.Accounts.FirstOrDefaultAsync(a => a.Name == OrphanAccountName, ct);
+            if (orphan is null)
+            {
+                orphan = new Account
+                {
+                    Name = OrphanAccountName,
+                    ShortName = OrphanAccountName,
+                    BankName = "—",
+                    Kind = AccountKind.Checking,
+                    BalanceAsOf = clock.Today,
+                };
+
+                db.Accounts.Add(orphan);
+                await db.SaveChangesAsync(ct);
+            }
+
+            foreach (var row in await db.Transactions.Where(t => t.AccountId == id).ToListAsync(ct))
+            {
+                row.AccountId = orphan.Id;
+            }
+        }
+
+        db.Accounts.Remove(account);
+        await db.SaveChangesAsync(ct);
+
+        return new DeleteResultDto
+        {
+            Ok = true,
+            Route = "/konten",
+            Message = affected == 0
+                ? "Konto gelöscht"
+                : $"Konto gelöscht · {Plural(affected)} auf „{OrphanAccountName}“ gesetzt",
+        };
+    }
+
+    /// <summary>
+    /// Die Bezeichnung gibt es nur im Bearbeiten-Formular. Beim Anlegen wird sie abgeleitet, beim
+    /// Bearbeiten nie wieder — sonst überschriebe ein bloßes Öffnen und Speichern einen
+    /// gepflegten Namen: aus „Risikoleben“ würde „Risikoleben Hannoversche“.
+    /// </summary>
+    private static CreateFieldDto? NameField(CreateObjectType type) => type switch
+    {
+        // Nur wo die Bezeichnung beim Anlegen abgeleitet wurde. Immobilie, Fahrzeug und Vertrag
+        // tragen sie ohnehin als eigenes Feld; ein Budget heißt wie seine Kategorie, ein
+        // eigener Name wäre dort eine zweite Wahrheit.
+        CreateObjectType.Account or CreateObjectType.Depot
+            or CreateObjectType.Pension or CreateObjectType.Protection
+            => Text("displayName", "Bezeichnung", required: true),
+        _ => null,
+    };
+
+    /// <summary>Der Einleitungstext sagt im Bearbeiten-Modus, was die Änderung bewirkt.</summary>
+    private static string EditHint(CreateObjectType type) => type switch
+    {
+        CreateObjectType.Account => "Ein neuer Startsaldo gilt ab seinem Stichtag; Buchungen davor bleiben unberührt.",
+        CreateObjectType.Depot => "Der angegebene Wert zählt nur, solange keine Positionen erfasst sind.",
+        CreateObjectType.Pension => "Ein neuer Wert mit Stichtag ersetzt den bisherigen im Vermögen.",
+        CreateObjectType.Protection => "Beitrag und Frist gelten ab sofort; gebuchte Beiträge bleiben, wie sie sind.",
+        CreateObjectType.Property => "Das verknüpfte Darlehen bleibt unverändert.",
+        CreateObjectType.Contract => "Erfasste Rechnungen bleiben erhalten.",
+        CreateObjectType.Budget => "Die bisher verbrauchte Summe bleibt erhalten.",
+        CreateObjectType.Vehicle => "Die verknüpfte Versicherung bleibt unverändert unter Absicherung.",
+        _ => "Änderungen gelten ab sofort.",
+    };
+
+    /// <summary>
+    /// Was das Löschen nach sich zieht — mit <b>gezählten</b> Bezügen, nicht mit behaupteten.
+    /// Ein Satz wie „Sind noch Buchungen verknüpft?“ ohne nachzusehen klingt nach Sorgfalt und
+    /// ist keine.
+    /// </summary>
+    private async Task<DeleteImpactDto?> DeleteImpactAsync(
+        CreateObjectType type, int id, CancellationToken ct)
+    {
+        switch (type)
+        {
+            case CreateObjectType.Account:
+            {
+                var bookings = await db.Transactions.CountAsync(t => t.AccountId == id, ct);
+                return Impact("Konto löschen", bookings == 0
+                    ? "An diesem Konto hängt keine Buchung."
+                    : $"{Plural(bookings)} hängen an diesem Konto — sie bleiben erhalten und werden auf "
+                      + $"„{OrphanAccountName}“ gesetzt.");
+            }
+
+            case CreateObjectType.Depot:
+            {
+                var positions = await db.PortfolioPositions.CountAsync(x => x.DepotId == id, ct);
+                return Impact("Depot löschen",
+                    "Das Depot verschwindet aus dem Vermögen"
+                    + (positions == 0 ? string.Empty : $" samt seinen {positions} Positionen")
+                    + ". Buchungen auf dem Verrechnungskonto bleiben unberührt.");
+            }
+
+            case CreateObjectType.Pension:
+                return Impact("Vertrag löschen",
+                    "Sein Wert zählt nicht mehr ins Vermögen. Statusberichte bleiben in den Dokumenten.");
+
+            case CreateObjectType.Protection:
+            {
+                var vehicles = await db.Vehicles.CountAsync(v => v.PolicyId == id, ct);
+                return Impact("Vertrag löschen",
+                    "Vertrag und Frist entfallen, gebuchte Beiträge bleiben."
+                    + (vehicles == 0
+                        ? string.Empty
+                        : $" {vehicles} {(vehicles == 1 ? "Fahrzeug verliert" : "Fahrzeuge verlieren")} die Verknüpfung."));
+            }
+
+            case CreateObjectType.Property:
+            {
+                var contracts = await db.Contracts.CountAsync(c => c.PropertyId == id, ct);
+                var hasLoan = await db.Properties.AnyAsync(x => x.Id == id && x.LoanId != null, ct);
+                return Impact("Immobilie löschen",
+                    "Das Objekt entfällt."
+                    + (hasLoan ? " Das verknüpfte Darlehen bleibt und steht weiter unter Darlehen." : string.Empty)
+                    + (contracts == 0
+                        ? string.Empty
+                        : $" {contracts} {(contracts == 1 ? "Vertrag verliert" : "Verträge verlieren")} die Zuordnung."));
+            }
+
+            case CreateObjectType.Contract:
+            {
+                var invoices = await db.Invoices.CountAsync(x => x.ContractId == id, ct);
+                return Impact("Vertrag löschen",
+                    "Der Vertrag entfällt."
+                    + (invoices == 0
+                        ? " Es hängt keine Rechnung daran."
+                        : $" {invoices} erfasste {(invoices == 1 ? "Rechnung bleibt" : "Rechnungen bleiben")} erhalten, ebenso die Buchungen."));
+            }
+
+            case CreateObjectType.Budget:
+            {
+                var categoryId = await db.Budgets.AsNoTracking()
+                    .Where(x => x.Id == id).Select(x => x.CategoryId).FirstOrDefaultAsync(ct);
+                var booked = await db.Transactions.CountAsync(t => t.CategoryId == categoryId, ct);
+                return Impact("Budget löschen",
+                    $"Nur die Planung entfällt. {Plural(booked)} in dieser Kategorie bleiben.");
+            }
+
+            case CreateObjectType.Vehicle:
+                return Impact("Fahrzeug löschen",
+                    "Die Kostenübersicht entfällt. Versicherung und Dokumente bleiben.");
+
+            default:
+                return null;
+        }
+    }
+
+    /// <summary>
+    /// Die Rohfelder eines Objekts, so wie das Formular sie erwartet.
+    /// </summary>
+    /// <remarks>
+    /// Gelesen wird aus den gespeicherten Feldern, <b>nie</b> aus einer Anzeigezeile. Ein
+    /// Vertragsname wie „Risikoleben“ trägt keinen Versicherer im Namen — wer ihn dort
+    /// herausparsen wollte, ließe das Pflichtfeld leer und das Formular unbenutzbar.
+    /// </remarks>
+    private async Task<Dictionary<string, string?>?> ReadValuesAsync(
+        CreateObjectType type, int id, CancellationToken ct)
+    {
+        switch (type)
+        {
+            case CreateObjectType.Account:
+            {
+                var a = await db.Accounts.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+                return a is null ? null : new()
+                {
+                    ["displayName"] = a.Name,
+                    ["kind"] = a.Kind == AccountKind.Savings ? "savings" : "checking",
+                    ["bank"] = a.BankName,
+                    ["iban"] = a.Iban,
+                    ["opening"] = Money(a.OpeningBalance),
+                    ["asOf"] = Iso(a.BalanceAsOf),
+                };
+            }
+
+            case CreateObjectType.Depot:
+            {
+                var d = await db.Depots.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+                return d is null ? null : new()
+                {
+                    ["displayName"] = d.Name,
+                    ["broker"] = d.Broker,
+                    ["number"] = d.Number,
+                    ["depotKind"] = d.DepotKind,
+                    ["value"] = d.StatedValue is { } v ? Money(v) : null,
+                    ["asOf"] = Iso(d.ValuationDate),
+                    ["account"] = d.AccountId?.ToString(),
+                    ["quotes"] = d.QuoteSource,
+                };
+            }
+
+            case CreateObjectType.Pension:
+            case CreateObjectType.Protection:
+            {
+                var x = await db.Policies.AsNoTracking().FirstOrDefaultAsync(y => y.Id == id, ct);
+                if (x is null || x.IsCapitalForming != (type == CreateObjectType.Pension))
+                {
+                    return null;
+                }
+
+                return new()
+                {
+                    ["displayName"] = x.Name,
+                    ["kind"] = x.Kind.ToString(),
+                    ["provider"] = x.Provider,
+                    ["number"] = x.PolicyNumber,
+                    ["premium"] = x.Premium == 0m ? null : Money(x.Premium),
+                    ["interval"] = x.PremiumInterval.ToString(),
+                    ["value"] = x.CurrentValue is { } value ? Money(value) : null,
+                    ["asOf"] = Iso(x.ValuationDate),
+                    ["maturesOn"] = Iso(x.MaturesOn),
+                    ["endsOn"] = Iso(x.EndsOn),
+                    ["notice"] = x.NoticePeriodMonths == 0 ? null : x.NoticePeriodMonths.ToString(),
+                };
+            }
+
+            case CreateObjectType.Property:
+            {
+                var x = await db.Properties.AsNoTracking().FirstOrDefaultAsync(y => y.Id == id, ct);
+                return x is null ? null : new()
+                {
+                    ["name"] = x.Name,
+                    ["address"] = x.Address,
+                    ["kind"] = x.Kind.ToString(),
+                    ["purchase"] = Iso(x.PurchaseDate),
+                    ["market"] = x.MarketValue == 0m ? null : Money(x.MarketValue),
+                    ["loan"] = x.LoanId?.ToString(),
+                };
+            }
+
+            case CreateObjectType.Contract:
+            {
+                var x = await db.Contracts.AsNoTracking().FirstOrDefaultAsync(y => y.Id == id, ct);
+                return x is null ? null : new()
+                {
+                    ["name"] = x.Name,
+                    ["provider"] = x.Provider,
+                    ["number"] = x.ContractNumber,
+                    ["amount"] = Money(x.MonthlyAmount),
+                    ["account"] = x.AccountId?.ToString(),
+                    ["property"] = x.PropertyId?.ToString(),
+                    ["notice"] = x.NoticePeriodWeeks == 0 ? null : x.NoticePeriodWeeks.ToString(),
+                };
+            }
+
+            case CreateObjectType.Budget:
+            {
+                var x = await db.Budgets.AsNoTracking().FirstOrDefaultAsync(y => y.Id == id, ct);
+                if (x is null)
+                {
+                    return null;
+                }
+
+                // Der Plan liegt je Monat; das Formular zeigt ihn im gewählten Zeitraum.
+                var shown = x.Period switch
+                {
+                    BudgetPeriod.Quarter => x.PlannedPerMonth * 3m,
+                    BudgetPeriod.Year => x.PlannedPerMonth * 12m,
+                    _ => x.PlannedPerMonth,
+                };
+
+                return new()
+                {
+                    ["category"] = x.CategoryId.ToString(),
+                    ["amount"] = Money(shown),
+                    ["period"] = x.Period.ToString(),
+                    ["validFrom"] = Iso(x.ValidFrom),
+                    ["warn"] = x.WarnThresholdPercent.ToString(),
+                };
+            }
+
+            case CreateObjectType.Vehicle:
+            {
+                var x = await db.Vehicles.AsNoTracking().FirstOrDefaultAsync(y => y.Id == id, ct);
+                return x is null ? null : new()
+                {
+                    ["name"] = x.Name,
+                    ["plate"] = x.Plate,
+                    ["usage"] = x.Usage,
+                    ["first"] = Iso(x.FirstRegistration),
+                    ["mileage"] = x.Mileage?.ToString(),
+                    ["policy"] = x.PolicyId?.ToString(),
+                };
+            }
+
+            default:
+                return null;
+        }
+    }
+
+    // ── Ändern je Typ ───────────────────────────────────────────────────────
+
+    private async Task<CreateResultDto> UpdateAccountAsync(
+        int id, IReadOnlyDictionary<string, string?> values, CancellationToken ct)
+    {
+        var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == id, ct);
+        if (account is null)
+        {
+            return Fail(null, "Das Konto gibt es nicht mehr.");
+        }
+
+        if (ParseMoney(Value(values, "opening")) is not { } opening)
+        {
+            return Fail("opening", "Startsaldo ist kein Betrag");
+        }
+
+        if (ParseDate(Value(values, "asOf")) is not { } asOf)
+        {
+            return Fail("asOf", "Stichtag ist kein Datum");
+        }
+
+        var name = Value(values, "displayName")!.Trim();
+        if (await db.Accounts.AnyAsync(a => a.Id != id && a.Name == name, ct))
+        {
+            return Fail("displayName", $"Ein Konto „{name}“ besteht bereits.");
+        }
+
+        // Der Name wird übernommen, nicht neu gebildet — sonst überschriebe jedes Speichern
+        // eine gepflegte Bezeichnung.
+        account.Name = name;
+        account.ShortName = Value(values, "bank")!.Trim();
+        account.BankName = Value(values, "bank")!.Trim();
+        account.Kind = Value(values, "kind") == "savings" ? AccountKind.Savings : AccountKind.Checking;
+        account.Iban = Value(values, "iban")?.Trim();
+        account.OpeningBalance = opening;
+        account.BalanceAsOf = asOf;
+
+        await db.SaveChangesAsync(ct);
+        return Ok(id, "/konten");
+    }
+
+    private async Task<CreateResultDto> UpdateDepotAsync(
+        int id, IReadOnlyDictionary<string, string?> values, CancellationToken ct)
+    {
+        var depot = await db.Depots.FirstOrDefaultAsync(d => d.Id == id, ct);
+        if (depot is null)
+        {
+            return Fail(null, "Das Depot gibt es nicht mehr.");
+        }
+
+        if (ParseMoney(Value(values, "value")) is not { } value)
+        {
+            return Fail("value", "Depotwert ist kein Betrag");
+        }
+
+        if (ParseDate(Value(values, "asOf")) is not { } asOf)
+        {
+            return Fail("asOf", "Stichtag ist kein Datum");
+        }
+
+        depot.Name = Value(values, "displayName")!.Trim();
+        depot.Broker = Value(values, "broker")!.Trim();
+        depot.Number = Value(values, "number")?.Trim();
+        depot.DepotKind = Value(values, "depotKind")?.Trim();
+        depot.StatedValue = value;
+        depot.ValuationDate = asOf;
+        depot.AccountId = ParseInt(Value(values, "account"));
+        depot.QuoteSource = Value(values, "quotes")?.Trim();
+
+        await db.SaveChangesAsync(ct);
+        return Ok(id, "/depot");
+    }
+
+    private async Task<CreateResultDto> UpdatePolicyAsync(
+        int id, IReadOnlyDictionary<string, string?> values, bool capitalForming, CancellationToken ct)
+    {
+        var policy = await db.Policies.FirstOrDefaultAsync(p => p.Id == id, ct);
+        if (policy is null || policy.IsCapitalForming != capitalForming)
+        {
+            return Fail(null, "Den Vertrag gibt es nicht mehr.");
+        }
+
+        if (!Enum.TryParse<PolicyKind>(Value(values, "kind"), out var kind))
+        {
+            return Fail("kind", capitalForming ? "Vertragsart fehlt" : "Art fehlt");
+        }
+
+        policy.Name = Value(values, "displayName")!.Trim();
+        policy.Kind = kind;
+        policy.Provider = Value(values, "provider")!.Trim();
+        policy.PolicyNumber = Value(values, "number")?.Trim();
+        policy.Premium = ParseMoney(Value(values, "premium")) ?? 0m;
+
+        if (capitalForming)
+        {
+            if (ParseMoney(Value(values, "value")) is not { } value)
+            {
+                return Fail("value", "Erreichter Wert ist kein Betrag");
+            }
+
+            if (ParseDate(Value(values, "asOf")) is not { } asOf)
+            {
+                return Fail("asOf", "Stichtag ist kein Datum");
+            }
+
+            policy.CurrentValue = value;
+            policy.ValuationDate = asOf;
+            policy.MaturesOn = ParseDate(Value(values, "maturesOn"));
+        }
+        else
+        {
+            policy.PremiumInterval = Enum.TryParse<PremiumInterval>(Value(values, "interval"), out var interval)
+                ? interval
+                : PremiumInterval.Yearly;
+            policy.EndsOn = ParseDate(Value(values, "endsOn"));
+            policy.NoticePeriodMonths = ParseInt(Value(values, "notice")) ?? 0;
+        }
+
+        await db.SaveChangesAsync(ct);
+        return Ok(id, $"/police/{id}");
+    }
+
+    private async Task<CreateResultDto> UpdatePropertyAsync(
+        int id, IReadOnlyDictionary<string, string?> values, CancellationToken ct)
+    {
+        var property = await db.Properties.FirstOrDefaultAsync(p => p.Id == id, ct);
+        if (property is null)
+        {
+            return Fail(null, "Die Immobilie gibt es nicht mehr.");
+        }
+
+        if (ParseDate(Value(values, "purchase")) is not { } purchase)
+        {
+            return Fail("purchase", "Kauf ist kein Datum");
+        }
+
+        property.Name = Value(values, "name")!.Trim();
+        property.Address = Value(values, "address")?.Trim();
+        property.Kind = Enum.TryParse<PropertyKind>(Value(values, "kind"), out var kind) ? kind : property.Kind;
+        property.PurchaseDate = purchase;
+        property.MarketValue = ParseMoney(Value(values, "market")) ?? 0m;
+        property.LoanId = ParseInt(Value(values, "loan"));
+
+        await db.SaveChangesAsync(ct);
+        return Ok(id, $"/wohnen/{id}");
+    }
+
+    private async Task<CreateResultDto> UpdateContractAsync(
+        int id, IReadOnlyDictionary<string, string?> values, CancellationToken ct)
+    {
+        var contract = await db.Contracts.FirstOrDefaultAsync(c => c.Id == id, ct);
+        if (contract is null)
+        {
+            return Fail(null, "Den Vertrag gibt es nicht mehr.");
+        }
+
+        if (ParseMoney(Value(values, "amount")) is not { } amount)
+        {
+            return Fail("amount", "Abschlag ist kein Betrag");
+        }
+
+        contract.Name = Value(values, "name")!.Trim();
+        contract.Provider = Value(values, "provider")!.Trim();
+        contract.ContractNumber = Value(values, "number")?.Trim();
+        contract.MonthlyAmount = amount;
+        contract.AccountId = ParseInt(Value(values, "account"));
+        contract.PropertyId = ParseInt(Value(values, "property"));
+        contract.NoticePeriodWeeks = ParseInt(Value(values, "notice")) ?? 0;
+
+        await db.SaveChangesAsync(ct);
+        return Ok(id, $"/vertraege/{id}");
+    }
+
+    private async Task<CreateResultDto> UpdateBudgetAsync(
+        int id, IReadOnlyDictionary<string, string?> values, CancellationToken ct)
+    {
+        var budget = await db.Budgets.FirstOrDefaultAsync(b => b.Id == id, ct);
+        if (budget is null)
+        {
+            return Fail(null, "Das Budget gibt es nicht mehr.");
+        }
+
+        if (ParseInt(Value(values, "category")) is not { } categoryId)
+        {
+            return Fail("category", "Kategorie fehlt");
+        }
+
+        var category = await db.Categories.AsNoTracking().FirstOrDefaultAsync(c => c.Id == categoryId, ct);
+        if (category is null)
+        {
+            return Fail("category", "Diese Kategorie gibt es nicht.");
+        }
+
+        if (ParseMoney(Value(values, "amount")) is not { } amount)
+        {
+            return Fail("amount", "Betrag ist kein Betrag");
+        }
+
+        if (await db.Budgets.AnyAsync(b => b.Id != id && b.CategoryId == categoryId, ct))
+        {
+            return Fail("category", $"Budget für {category.Name} besteht bereits");
+        }
+
+        var period = Enum.TryParse<BudgetPeriod>(Value(values, "period"), out var parsed)
+            ? parsed
+            : BudgetPeriod.Month;
+
+        budget.Name = category.Name;
+        budget.CategoryId = categoryId;
+        budget.Period = period;
+        budget.PlannedPerMonth = Math.Round(period switch
+        {
+            BudgetPeriod.Quarter => amount / 3m,
+            BudgetPeriod.Year => amount / 12m,
+            _ => amount,
+        }, 2, MidpointRounding.AwayFromZero);
+        budget.ValidFrom = ParseDate(Value(values, "validFrom"));
+        budget.WarnThresholdPercent = ParseInt(Value(values, "warn")) ?? budget.WarnThresholdPercent;
+
+        await db.SaveChangesAsync(ct);
+        return Ok(id, "/budgets");
+    }
+
+    private async Task<CreateResultDto> UpdateVehicleAsync(
+        int id, IReadOnlyDictionary<string, string?> values, CancellationToken ct)
+    {
+        var vehicle = await db.Vehicles.FirstOrDefaultAsync(v => v.Id == id, ct);
+        if (vehicle is null)
+        {
+            return Fail(null, "Das Fahrzeug gibt es nicht mehr.");
+        }
+
+        var plate = Value(values, "plate")!.Trim();
+        if (await db.Vehicles.AnyAsync(v => v.Id != id && v.Plate == plate, ct))
+        {
+            return Fail("plate", $"Ein Fahrzeug mit Kennzeichen „{plate}“ besteht bereits.");
+        }
+
+        vehicle.Name = Value(values, "name")!.Trim();
+        vehicle.Plate = plate;
+        vehicle.Usage = Value(values, "usage")?.Trim();
+        vehicle.FirstRegistration = ParseDate(Value(values, "first"));
+        vehicle.Mileage = ParseInt(Value(values, "mileage"));
+        vehicle.PolicyId = ParseInt(Value(values, "policy"));
+
+        await db.SaveChangesAsync(ct);
+        return Ok(id, $"/fahrzeuge/{id}");
+    }
+
+    private static string Plural(int count) => count == 1 ? "1 Buchung" : $"{count} Buchungen";
+
+    /// <summary>Betrag im Eingabeformat des Formulars — deutsch, ohne Tausendertrenner.</summary>
+    private static string Money(decimal value)
+        => value.ToString("0.00", CultureInfo.InvariantCulture).Replace('.', ',');
+
+    private static string? Iso(DateOnly? value)
+        => value?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    private static DeleteImpactDto Impact(string title, string consequence)
+        => new() { Title = title, ActionLabel = title, Consequence = consequence };
 
     // ── Police / Beleg einlesen ──────────────────────────────────────────────
 

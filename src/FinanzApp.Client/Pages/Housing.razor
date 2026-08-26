@@ -23,7 +23,10 @@
                     @(property.ContractCount == 1 ? "Vertrag" : "Verträge")
                 </span>
             </span>
-            <span class="contract-amount num">@State.Euro0(property.MarketValue)</span>
+            <span class="stack-end">
+                <span class="contract-amount num">@State.Euro0(property.MarketValue)</span>
+                <EditLink Type="property" Id="property.Id" />
+            </span>
         </button>
     }
 

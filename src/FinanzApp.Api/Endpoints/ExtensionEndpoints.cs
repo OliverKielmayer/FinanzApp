@@ -276,9 +276,28 @@ public static class ExtensionEndpoints
         api.MapGet("/{type}", async (
             CreateObjectType type, CreateFormService service, CancellationToken ct) =>
         {
-            var form = await service.GetFormAsync(type, ct);
+            var form = await service.GetFormAsync(type, null, ct);
             return form is null ? Results.NotFound() : Results.Ok(form);
         });
+
+        // Dasselbe Formular, vorbefüllt - plus der Löschabschnitt.
+        api.MapGet("/{type}/{id:int}", async (
+            CreateObjectType type, int id, CreateFormService service, CancellationToken ct) =>
+        {
+            var form = await service.GetFormAsync(type, id, ct);
+            return form is null ? Results.NotFound() : Results.Ok(form);
+        });
+
+        api.MapPut("/{type}/{id:int}", async (
+            CreateObjectType type, int id, CreateRequest request,
+            CreateFormService service, CancellationToken ct)
+            => Results.Ok(await service.UpdateAsync(type, id, request.Values, ct)))
+            .RequireAuthorization(AuthPolicies.Write);
+
+        api.MapDelete("/{type}/{id:int}", async (
+            CreateObjectType type, int id, CreateFormService service, CancellationToken ct)
+            => Results.Ok(await service.DeleteAsync(type, id, ct)))
+            .RequireAuthorization(AuthPolicies.Write);
 
         // Police oder Beleg einlesen. Ohne angebundene Analyse antwortet er leer — die Datei
         // ist trotzdem abgelegt, und die Maske ist dieselbe, nur unausgefüllt.

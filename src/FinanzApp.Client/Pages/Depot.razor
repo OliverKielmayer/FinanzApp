@@ -8,7 +8,13 @@
     @if (data is { } portfolio)
     {
         <section class="hero">
-            <span class="label-muted">Depotwert · @portfolio.DepotName</span>
+            <span class="label-muted">
+                Depotwert · @portfolio.DepotName
+                @if (portfolio.DepotId is { } depotId)
+                {
+                    <EditLink Type="depot" Id="depotId" />
+                }
+            </span>
             <span class="hero-value medium num">@State.Euro(portfolio.TotalValue)</span>
             <div class="hero-deltas">
                 <span class="hero-delta-primary num">

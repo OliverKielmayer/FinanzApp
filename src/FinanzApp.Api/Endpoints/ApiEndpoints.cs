@@ -46,6 +46,16 @@ public static class ApiEndpoints
             }
         }).RequireAuthorization(AuthPolicies.Write);
 
+        api.MapDelete("/transactions/{id:int}", async (
+                int id, TransactionService service, CancellationToken ct)
+            => await service.DeleteAsync([id], ct) > 0 ? Results.NoContent() : Results.NotFound())
+            .RequireAuthorization(AuthPolicies.Write);
+
+        api.MapPost("/transactions/batch-delete", async (
+                BatchAssignRequest request, TransactionService service, CancellationToken ct)
+            => Results.Ok(await service.DeleteAsync(request.TransactionIds, ct)))
+            .RequireAuthorization(AuthPolicies.Write);
+
         api.MapPost("/transactions/batch-category", async (
             BatchAssignRequest request, TransactionService service, CancellationToken ct) =>
         {

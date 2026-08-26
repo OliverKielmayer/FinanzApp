@@ -119,6 +119,15 @@ public sealed class FinanzAppApi(HttpClient http)
         return GetAsync<TransactionPageDto>(url, ct);
     }
 
+    /// <summary>Löscht eine Buchung.</summary>
+    public Task DeleteTransactionAsync(int id, CancellationToken ct = default)
+        => SendAsync<object?, object?>(HttpMethod.Delete, $"api/transactions/{id}", null, ct);
+
+    /// <summary>Löscht mehrere Buchungen und liefert, wie viele es waren.</summary>
+    public Task<int> DeleteTransactionsAsync(IReadOnlyList<int> ids, CancellationToken ct = default)
+        => PostAsync<BatchAssignRequest, int>(
+            "api/transactions/batch-delete", new BatchAssignRequest { TransactionIds = ids }, ct);
+
     /// <summary>Stapelvergabe für mehrere Buchungen auf einmal.</summary>
     public Task<BatchAssignResultDto> AssignCategoryBatchAsync(
         BatchAssignRequest request, CancellationToken ct = default)

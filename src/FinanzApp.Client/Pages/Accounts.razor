@@ -5,19 +5,41 @@
 <PageTitle>Konten &amp; Buchungen — FinanzApp</PageTitle>
 
 <AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
-    @foreach (var account in accounts)
-    {
-        <div class="row">
-            <div class="stack">
-                <span class="account-name">@account.Name</span>
-                <span class="account-sub">@AccountSubtitle(account)</span>
-            </div>
-            <div class="stack-end">
-                <span class="account-balance num">@State.Euro(account.Balance)</span>
-                <span class="meta">@AsOfLabel(account.BalanceAsOf)</span>
-            </div>
-        </div>
-    }
+    @* Ein Konto hat keinen eigenen Detailscreen — die Zeile führt deshalb direkt ins
+       Bearbeiten, statt einen Link zu tragen. *@
+    <AuthorizeView Roles="Owner,Member">
+        <Authorized>
+            @foreach (var account in accounts)
+            {
+                <button type="button" class="tap row"
+                        @onclick="@(() => Navigation.NavigateTo($"/bearbeiten/account/{account.Id}"))">
+                    <span class="stack">
+                        <span class="account-name">@account.Name</span>
+                        <span class="account-sub">@AccountSubtitle(account)</span>
+                    </span>
+                    <span class="stack-end">
+                        <span class="account-balance num">@State.Euro(account.Balance)</span>
+                        <span class="meta">@AsOfLabel(account.BalanceAsOf)</span>
+                    </span>
+                </button>
+            }
+        </Authorized>
+        <NotAuthorized>
+            @foreach (var account in accounts)
+            {
+                <div class="row">
+                    <div class="stack">
+                        <span class="account-name">@account.Name</span>
+                        <span class="account-sub">@AccountSubtitle(account)</span>
+                    </div>
+                    <div class="stack-end">
+                        <span class="account-balance num">@State.Euro(account.Balance)</span>
+                        <span class="meta">@AsOfLabel(account.BalanceAsOf)</span>
+                    </div>
+                </div>
+            }
+        </NotAuthorized>
+    </AuthorizeView>
 
     <AddRow Route="/neu/account" Label="Konto anlegen" />
 
@@ -119,6 +141,20 @@
                     @selected.Count @(selected.Count == 1 ? "Buchung" : "Buchungen") ausgewählt
                 </span>
                 <button type="button" class="btn btn-primary" @onclick="OpenBatchSheet">Kategorie zuweisen</button>
+
+                @if (confirmingBatchDelete)
+                {
+                    <button type="button" class="btn btn-primary delete-confirm" @onclick="DeleteBatchAsync">
+                        @selected.Count @(selected.Count == 1 ? "Buchung wird" : "Buchungen werden")
+                        gelöscht — erneut tippen
+                    </button>
+                }
+                else
+                {
+                    <button type="button" class="btn btn-secondary"
+                            @onclick="@(() => confirmingBatchDelete = true)">Löschen</button>
+                }
+
                 <button type="button" class="btn btn-secondary" @onclick="ClearSelection">Auswahl aufheben</button>
             </div>
         </AuthorizeView>
@@ -211,6 +247,7 @@ else if (sheetTransaction is { } sheet)
                    OnPickTransfer="PickTransfer"
                    OnConfirm="ConfirmSheet"
                    OnClose="CloseSheet"
+                   OnDelete="DeleteSingleAsync"
                    OnSplit="@(() => Toasts.Show("Split-Buchung folgt"))" />
 }
 
@@ -233,6 +270,7 @@ else if (sheetTransaction is { } sheet)
 
     private readonly HashSet<int> selected = [];
     private bool batchOpen;
+    private bool confirmingBatchDelete;
 
     private string search = string.Empty;
     private int? accountFilter;
@@ -376,7 +414,34 @@ else if (sheetTransaction is { } sheet)
         }
     }
 
-    private void ClearSelection() => selected.Clear();
+    private void ClearSelection()
+    {
+        selected.Clear();
+        confirmingBatchDelete = false;
+    }
+
+    private Task DeleteBatchAsync() => RunAsync(async () =>
+    {
+        var count = await Api.DeleteTransactionsAsync([.. selected]);
+
+        Toasts.Show(count == 1 ? "1 Buchung gelöscht" : $"{count} Buchungen gelöscht");
+        ClearSelection();
+        await ReloadListAsync();
+    });
+
+    private Task DeleteSingleAsync() => RunAsync(async () =>
+    {
+        var transaction = sheetTransaction;
+        if (transaction is null)
+        {
+            return;
+        }
+
+        await Api.DeleteTransactionAsync(transaction.Id);
+        CloseSheet();
+        Toasts.Show("Buchung gelöscht");
+        await ReloadListAsync();
+    });
 
     /// <summary>
     /// „Kategorie zuweisen“ öffnet das Panel und schreibt nicht direkt — die Wahl gehört dorthin,

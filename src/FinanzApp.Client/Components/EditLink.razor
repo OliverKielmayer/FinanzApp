@@ -1,0 +1,22 @@
+@*
+    Der „Bearbeiten“-Link für Zeilen, die schon auf einen Detailscreen führen — dasselbe Muster
+    wie „Rechte“ in der Benutzerliste. Er stoppt die Ereignisweitergabe, sonst würde derselbe
+    Tipp zugleich navigieren und bearbeiten.
+*@
+<AuthorizeView Roles="Owner,Member">
+    <button type="button" class="edit-link"
+            @onclick="Open" @onclick:stopPropagation="true">Bearbeiten</button>
+</AuthorizeView>
+
+@code {
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    /// <summary>Objekttyp, wie ihn die Route erwartet — etwa <c>protection</c>.</summary>
+    [Parameter, EditorRequired]
+    public string Type { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public int Id { get; set; }
+
+    private void Open() => Navigation.NavigateTo($"/bearbeiten/{Type}/{Id}");
+}

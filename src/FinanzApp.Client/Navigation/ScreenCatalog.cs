@@ -69,6 +69,8 @@ public static class ScreenCatalog
         new("/gesundheit/scannen", "Erfassen", "Beleg scannen", IsDetail: true, RequiresWrite: true),
         new("/police", "Vertrag", "Vertrag", IsDetail: true, DetailTitle: "Vertrag"),
         new("/neu", "Neu", "Anlegen", IsDetail: true, RequiresWrite: true, DetailTitle: "Anlegen"),
+        new("/bearbeiten", "Bearbeiten", "Bearbeiten", IsDetail: true, RequiresWrite: true,
+            DetailTitle: "Bearbeiten"),
         new("/vertraege", "Wohnen", "Vertrag", IsDetail: true, DetailTitle: "Vertrag"),
         new("/rechnungen", "Wohnen", "Rechnung", IsDetail: true, DetailTitle: "Rechnung"),
         new("/liquiditaet", "Übersicht", "Liquidität", IsDetail: true),

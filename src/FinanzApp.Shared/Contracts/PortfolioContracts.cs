@@ -2,6 +2,9 @@ namespace FinanzApp.Shared.Contracts;
 
 public sealed record PortfolioDto
 {
+    /// <summary>Das Depot dahinter — für den Weg ins Bearbeiten.</summary>
+    public int? DepotId { get; init; }
+
     public required string DepotName { get; init; }
     public required decimal TotalValue { get; init; }
 
