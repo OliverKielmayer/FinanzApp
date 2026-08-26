@@ -278,7 +278,19 @@ public sealed class AuthService(
             $"Der Link gilt {ResetTokenLifetime.TotalMinutes:0} Minuten und lässt sich nur einmal verwenden.\n" +
             "Wenn du das nicht warst, ignoriere diese Nachricht — dein Passwort bleibt unverändert.\n";
 
-        await mail.SendAsync(user.Email, user.Name, "FinanzApp: Passwort zurücksetzen", body, ct);
+        try
+        {
+            await mail.SendAsync(user.Email, user.Name, "FinanzApp: Passwort zurücksetzen", body, ct);
+        }
+        catch (Exception ex)
+        {
+            // Nicht durchreichen. Sonst antwortet der Endpunkt bei einer bekannten Adresse mit 500
+            // und bei einer unbekannten mit 204 — und das Formular sagt doch, welche Konten es
+            // gibt. Genau das soll die einheitliche Antwort verhindern.
+            log.LogError(
+                ex, "Reset-Mail an {Empfänger} konnte nicht versendet werden. Der Link bleibt gültig.",
+                user.Email);
+        }
     }
 
     /// <summary>Löst ein Reset-Token ein. Alle Sitzungen des Benutzers werden dabei widerrufen.</summary>
