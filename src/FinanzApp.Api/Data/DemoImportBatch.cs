@@ -5,7 +5,13 @@ namespace FinanzApp.Api.Data;
 /// <param name="BookingDate">Buchungstag. <c>null</c> bei einem unlesbaren Satz.</param>
 /// <param name="Payee">Empfänger beziehungsweise Auftraggeber.</param>
 /// <param name="Amount">Vorzeichenbehafteter Betrag. <c>null</c> bei einem unlesbaren Satz.</param>
-public sealed record ImportRecord(string Reference, DateOnly? BookingDate, string Payee, decimal? Amount);
+/// <param name="Problem">
+/// Warum aus diesem Satz keine Buchung wird — etwa weil er nur vorgemerkt ist. Gesetzt heißt: der
+/// Satz steht mit Grund in der Liste und lässt sich nicht zuschalten. Übersprungen wird nichts
+/// stillschweigend, auch nicht das, was gar keine Buchung ist.
+/// </param>
+public sealed record ImportRecord(
+    string Reference, DateOnly? BookingDate, string Payee, decimal? Amount, string? Problem = null);
 
 /// <summary>
 /// Steht für die Datei, die im Handoff auf dem Importscreen liegt.

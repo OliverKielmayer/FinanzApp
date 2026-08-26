@@ -19,6 +19,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Derselbe Beispielauszug, den die Oberflaeche zum Ausprobieren anbietet. Eine zweite,
+         nur fuer den Test gebaute Fassung wuerde irgendwann abweichen. -->
+    <Content Include="..\..\docs\beispiele\*.xml" Link="Beispiele\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\FinanzApp.Api\FinanzApp.Api.csproj" />
     <!-- Nur für FinanzAppApi: der HTTP-Zugriff des Clients wird gegen einen Attrappen-Handler
          geprüft. Die Razor-Komponenten selbst laufen hier nicht. -->

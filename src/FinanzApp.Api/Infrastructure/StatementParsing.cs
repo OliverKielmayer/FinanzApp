@@ -1,0 +1,395 @@
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
+using System.Xml;
+using System.Xml.Linq;
+using FinanzApp.Api.Data;
+
+namespace FinanzApp.Api.Infrastructure;
+
+/// <summary>Ein eingelesener Kontoauszug, unabhängig vom Dateiformat.</summary>
+public sealed record ParsedStatement
+{
+    public required string FileName { get; init; }
+
+    /// <summary>Das erkannte Format, so genau wie die Datei es hergibt — z. B. „CAMT.052.001.08“.</summary>
+    public required string Format { get; init; }
+
+    public string? BankName { get; init; }
+
+    /// <summary>IBAN des Kontos, auf das sich der Auszug bezieht. Ordnet das Zielkonto zu.</summary>
+    public string? Iban { get; init; }
+
+    /// <summary>Schlusssaldo, sofern die Datei einen nennt.</summary>
+    public decimal? ClosingBalance { get; init; }
+
+    /// <summary>
+    /// Alle Sätze der Datei — auch die, aus denen keine Buchung wird. Die tragen dann ein
+    /// <see cref="ImportRecord.Problem"/> und stehen in der Liste, statt zu verschwinden.
+    /// </summary>
+    public required IReadOnlyList<ImportRecord> Records { get; init; }
+}
+
+/// <summary>Liest eine Auszugsdatei in Sätze.</summary>
+/// <remarks>
+/// Eine Schnittstelle, weil das Dateiformat den Fachcode nichts angeht: Vorschau, Duplikatprüfung
+/// und Übernahme arbeiten auf <see cref="ImportRecord"/> — ob die aus CAMT, CSV oder MT940 kommen,
+/// ändert daran nichts.
+/// </remarks>
+public interface IStatementParser
+{
+    /// <summary>Ob dieser Leser die Datei überhaupt anfassen will.</summary>
+    bool CanRead(string fileName);
+
+    /// <summary>
+    /// Liest die Datei. Wirft <see cref="StatementFormatException"/>, wenn sie nicht zum Format passt.
+    /// </summary>
+    Task<ParsedStatement> ParseAsync(Stream content, string fileName, CancellationToken ct = default);
+}
+
+/// <summary>Die Datei ist nicht das, was sie sein sollte. Die Meldung geht an den Benutzer.</summary>
+public sealed class StatementFormatException(string message) : Exception(message);
+
+/// <summary>
+/// Liest ISO-20022-Auszüge: camt.052 (Umsatzabfrage) und camt.053 (Kontoauszug).
+/// </summary>
+/// <remarks>
+/// <para>Beide Formate sind unterhalb von <c>Ntry</c> gleich aufgebaut; sie unterscheiden sich nur
+/// im Namen des Wurzelberichts (<c>BkToCstmrAcctRpt/Rpt</c> gegenüber <c>BkToCstmrStmt/Stmt</c>).
+/// Deshalb liest derselbe Leser beide — 053 zusätzlich zu unterstützen kostet einen Elementnamen.</para>
+/// <para>Gesucht wird ausschließlich über <em>lokale</em> Elementnamen. Die Namensräume tragen die
+/// Version (<c>…camt.052.001.02</c> bis <c>…001.08</c>), und die Banken liefern unterschiedliche.
+/// Ein Leser, der auf einen Namensraum festgenagelt ist, versteht die Datei der nächsten Bank nicht
+/// mehr.</para>
+/// </remarks>
+public sealed class CamtStatementParser : IStatementParser
+{
+    /// <summary>Eine Auszugsdatei ist Text; alles jenseits davon ist keine.</summary>
+    public const int MaxBytes = 20 * 1024 * 1024;
+
+    public bool CanRead(string fileName)
+        => fileName.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)
+           || fileName.EndsWith(".camt", StringComparison.OrdinalIgnoreCase);
+
+    public async Task<ParsedStatement> ParseAsync(
+        Stream content, string fileName, CancellationToken ct = default)
+    {
+        var document = await LoadAsync(content, ct);
+        var root = document.Root
+                   ?? throw new StatementFormatException("Die Datei enthält kein XML-Dokument.");
+
+        // 052 heißt BkToCstmrAcctRpt und führt Rpt, 053 heißt BkToCstmrStmt und führt Stmt.
+        var reports = Descend(root, "BkToCstmrAcctRpt").SelectMany(x => Children(x, "Rpt"))
+            .Concat(Descend(root, "BkToCstmrStmt").SelectMany(x => Children(x, "Stmt")))
+            .ToList();
+
+        if (reports.Count == 0)
+        {
+            throw new StatementFormatException(
+                "Kein camt.052 oder camt.053: die Datei enthält weder BkToCstmrAcctRpt noch BkToCstmrStmt.");
+        }
+
+        var records = new List<ImportRecord>();
+
+        foreach (var entry in reports.SelectMany(r => Children(r, "Ntry")))
+        {
+            ct.ThrowIfCancellationRequested();
+            Read(entry, records);
+        }
+
+        var account = reports.Select(r => Child(r, "Acct")).FirstOrDefault(a => a is not null);
+
+        return new ParsedStatement
+        {
+            FileName = fileName,
+            Format = FormatOf(root),
+            BankName = BankNameOf(account),
+            Iban = Text(Child(Child(account, "Id"), "IBAN")),
+            ClosingBalance = ClosingBalanceOf(reports),
+            Records = records,
+        };
+    }
+
+    /// <summary>
+    /// Lädt das Dokument ohne DTD und ohne externe Auflösung.
+    /// </summary>
+    /// <remarks>
+    /// Eine Auszugsdatei kommt von außen. Mit erlaubter DTD ließe sich über eine externe Entität
+    /// jede Datei des Servers in die Antwort ziehen; <c>Prohibit</c> lässt eine solche Datei
+    /// scheitern, statt sie zu verarbeiten.
+    /// </remarks>
+    private static async Task<XDocument> LoadAsync(Stream content, CancellationToken ct)
+    {
+        var settings = new XmlReaderSettings
+        {
+            DtdProcessing = DtdProcessing.Prohibit,
+            XmlResolver = null,
+            MaxCharactersFromEntities = 0,
+            IgnoreComments = true,
+            IgnoreProcessingInstructions = true,
+            IgnoreWhitespace = true,
+            Async = true,
+        };
+
+        try
+        {
+            using var reader = XmlReader.Create(content, settings);
+            return await XDocument.LoadAsync(reader, LoadOptions.None, ct);
+        }
+        catch (XmlException ex)
+        {
+            throw new StatementFormatException($"Die Datei ist kein gültiges XML: {ex.Message}");
+        }
+    }
+
+    /// <summary>Ein einzelner Umsatz.</summary>
+    /// <remarks>
+    /// Ein <c>Ntry</c> kann mehrere <c>TxDtls</c> tragen (ein Sammler, etwa ein Lastschrifteinzug).
+    /// Tragen die Einzelposten eigene Beträge, werden sie einzeln übernommen — sonst bliebe die
+    /// Zuordnung zu Empfängern und Kategorien Raten. Sonst zählt der Sammelbetrag.
+    /// </remarks>
+    private static void Read(XElement entry, List<ImportRecord> records)
+    {
+        // Ein vorgemerkter Umsatz ist keine Buchung. Er verschwindet trotzdem nicht, sondern
+        // steht mit Grund in der Liste — sonst fehlten am Ende Sätze, die niemand erklärt hat.
+        var status = StatusOf(entry);
+        var problem = status is null or "BOOK"
+            ? null
+            : $"nur vorgemerkt ({status}), noch nicht gebucht";
+
+        var sign = SignOf(entry);
+        var date = DateOf(entry);
+        var details = Descend(entry, "TxDtls").ToList();
+
+        var split = details.Count > 1 && details.All(d => Child(d, "Amt") is not null);
+        if (split)
+        {
+            foreach (var detail in details)
+            {
+                records.Add(Build(entry, detail, date, DirectionOf(detail) ?? sign, Amount(detail), problem));
+            }
+
+            return;
+        }
+
+        records.Add(Build(entry, details.FirstOrDefault(), date, sign, Amount(entry), problem));
+    }
+
+    private static ImportRecord Build(
+        XElement entry, XElement? detail, DateOnly? date, int sign, decimal? amount, string? problem)
+    {
+        var payee = PayeeOf(entry, detail, sign);
+
+        return new ImportRecord(
+            Reference: ReferenceOf(entry, detail, date, payee, amount),
+            BookingDate: date,
+            Payee: payee,
+            Amount: amount is { } value ? sign * value : null,
+            Problem: problem);
+    }
+
+    /// <summary>
+    /// Der Betrag steht in der Datei immer <b>ohne</b> Vorzeichen; die Richtung trägt
+    /// <c>CdtDbtInd</c>.
+    /// </summary>
+    /// <remarks>
+    /// Das ist die Stelle, an der ein Auszug am leisesten kippt: wer den Betrag nimmt und den
+    /// Indikator übersieht, bucht jede Abbuchung als Eingang und die Bilanz sieht großartig aus.
+    /// </remarks>
+    private static int SignOf(XElement element) => DirectionOf(element) ?? 1;
+
+    /// <summary><c>null</c>, wenn das Element gar keine Richtung nennt — dann gilt die des Sammlers.</summary>
+    private static int? DirectionOf(XElement element)
+    {
+        var indicator = Text(Child(element, "CdtDbtInd"));
+
+        return indicator is null
+            ? null
+            : indicator.Equals("DBIT", StringComparison.OrdinalIgnoreCase) ? -1 : 1;
+    }
+
+    private static decimal? Amount(XElement element)
+        => decimal.TryParse(
+            Text(Child(element, "Amt")), NumberStyles.Number, CultureInfo.InvariantCulture, out var value)
+            ? value
+            : null;
+
+    /// <summary>Gebucht oder vorgemerkt. Ältere Fassungen schreiben den Code direkt, neuere in <c>Cd</c>.</summary>
+    private static string? StatusOf(XElement entry)
+    {
+        var status = Child(entry, "Sts");
+        if (status is null)
+        {
+            return null;
+        }
+
+        var code = Text(Child(status, "Cd")) ?? Text(status);
+        return string.IsNullOrWhiteSpace(code) ? null : code.ToUpperInvariant();
+    }
+
+    /// <summary>Buchungstag; ersatzweise die Wertstellung.</summary>
+    private static DateOnly? DateOf(XElement entry)
+        => DateIn(Child(entry, "BookgDt")) ?? DateIn(Child(entry, "ValDt"));
+
+    private static DateOnly? DateIn(XElement? holder)
+    {
+        if (holder is null)
+        {
+            return null;
+        }
+
+        var text = Text(Child(holder, "Dt")) ?? Text(Child(holder, "DtTm"));
+        if (text is null)
+        {
+            return null;
+        }
+
+        // DtTm bringt noch die Uhrzeit mit; für eine Buchung zählt der Tag.
+        return DateOnly.TryParseExact(
+            text.Length > 10 ? text[..10] : text, "yyyy-MM-dd",
+            CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
+            ? date
+            : null;
+    }
+
+    /// <summary>
+    /// Wer auf der anderen Seite steht — bei einer Abbuchung der Empfänger, bei einem Eingang der
+    /// Zahler.
+    /// </summary>
+    /// <remarks>
+    /// Immer den Gläubiger zu nehmen wäre falsch herum: bei einer Gutschrift sind wir selbst der
+    /// Gläubiger, und in der Liste stünde dann der eigene Name.
+    /// </remarks>
+    private static string PayeeOf(XElement entry, XElement? detail, int sign)
+    {
+        var parties = Child(detail, "RltdPties");
+        var counterpart = sign < 0 ? "Cdtr" : "Dbtr";
+
+        var name = Text(Child(Child(parties, counterpart), "Nm"))
+                   ?? Text(Child(Child(parties, counterpart), "Pty", "Nm"))
+                   ?? Purpose(detail)
+                   ?? Text(Child(entry, "AddtlNtryInf"));
+
+        return Shorten(name) ?? "Ohne Empfänger";
+    }
+
+    private static string? Purpose(XElement? detail)
+    {
+        var parts = Descend(Child(detail, "RmtInf"), "Ustrd")
+            .Select(x => x.Value.Trim())
+            .Where(x => x.Length > 0)
+            .ToList();
+
+        return parts.Count == 0 ? null : string.Join(" ", parts);
+    }
+
+    /// <summary>Verwendungszwecke werden lang; die Liste zeigt eine Zeile.</summary>
+    private static string? Shorten(string? text)
+    {
+        var trimmed = text?.Trim();
+        if (string.IsNullOrEmpty(trimmed))
+        {
+            return null;
+        }
+
+        return trimmed.Length <= 80 ? trimmed : trimmed[..79].TrimEnd() + "…";
+    }
+
+    /// <summary>
+    /// Die Referenz, an der ein bereits gebuchter Satz wiedererkannt wird.
+    /// </summary>
+    /// <remarks>
+    /// Bevorzugt die von der Bank vergebene <c>AcctSvcrRef</c>: sie ist über Wiederholungen
+    /// desselben Auszugs stabil, und genau das trägt die Duplikatprüfung. <c>EndToEndId</c> steht
+    /// bei vielen Zahlungen auf <c>NOTPROVIDED</c> und taugt dann nicht. Fehlt alles, wird aus
+    /// Tag, Empfänger und Betrag ein Fingerabdruck gebildet — derselbe Satz ergibt dieselbe
+    /// Referenz, ein anderer eine andere.
+    /// </remarks>
+    private static string ReferenceOf(
+        XElement entry, XElement? detail, DateOnly? date, string payee, decimal? amount)
+    {
+        var references = Child(detail, "Refs");
+
+        var given = Clean(Text(Child(entry, "AcctSvcrRef")))
+                    ?? Clean(Text(Child(references, "AcctSvcrRef")))
+                    ?? Clean(Text(Child(references, "TxId")))
+                    ?? Clean(Text(Child(references, "EndToEndId")))
+                    ?? Clean(Text(Child(entry, "NtryRef")));
+
+        if (given is not null)
+        {
+            return "CAMT:" + given;
+        }
+
+        var fingerprint = string.Create(
+            CultureInfo.InvariantCulture, $"{date:yyyy-MM-dd}|{payee}|{amount:0.00}");
+
+        return "CAMT:~" + Convert.ToHexString(
+            SHA256.HashData(Encoding.UTF8.GetBytes(fingerprint)))[..16];
+    }
+
+    /// <summary>„NOTPROVIDED“ ist keine Referenz, sondern das Eingeständnis, keine zu haben.</summary>
+    private static string? Clean(string? text)
+    {
+        var trimmed = text?.Trim();
+
+        return string.IsNullOrEmpty(trimmed)
+               || trimmed.Equals("NOTPROVIDED", StringComparison.OrdinalIgnoreCase)
+            ? null
+            : trimmed;
+    }
+
+    /// <summary>Der Schlusssaldo (<c>CLBD</c>); ersatzweise der letzte genannte Saldo.</summary>
+    private static decimal? ClosingBalanceOf(List<XElement> reports)
+    {
+        var balances = reports.SelectMany(r => Children(r, "Bal")).ToList();
+
+        var closing = balances.LastOrDefault(b =>
+                          string.Equals(
+                              Text(Child(Child(Child(b, "Tp"), "CdOrPrtry"), "Cd")),
+                              "CLBD", StringComparison.OrdinalIgnoreCase))
+                      ?? balances.LastOrDefault();
+
+        if (closing is null || Amount(closing) is not { } value)
+        {
+            return null;
+        }
+
+        return SignOf(closing) * value;
+    }
+
+    private static string? BankNameOf(XElement? account)
+        => Shorten(Text(Child(Child(Child(account, "Svcr"), "FinInstnId"), "Nm"))
+                   ?? Text(Child(Child(Child(account, "Svcr"), "FinInstnId"), "BIC"))
+                   ?? Text(Child(Child(Child(account, "Svcr"), "FinInstnId"), "BICFI")));
+
+    /// <summary>Das Format steht im Namensraum: <c>…tech:xsd:camt.052.001.08</c>.</summary>
+    private static string FormatOf(XElement root)
+    {
+        var space = root.Name.NamespaceName;
+        var marker = space.LastIndexOf("camt.", StringComparison.OrdinalIgnoreCase);
+
+        return marker < 0 ? "CAMT" : space[marker..].ToUpperInvariant();
+    }
+
+    // ── Suche über lokale Namen, damit die Version des Namensraums egal bleibt ──────────────
+
+    private static IEnumerable<XElement> Children(XContainer? parent, string name)
+        => parent?.Elements().Where(e => e.Name.LocalName == name) ?? [];
+
+    private static IEnumerable<XElement> Descend(XContainer? parent, string name)
+        => parent?.Descendants().Where(e => e.Name.LocalName == name) ?? [];
+
+    private static XElement? Child(XContainer? parent, string name)
+        => Children(parent, name).FirstOrDefault();
+
+    /// <summary>Zwei Ebenen am Stück — spart die Klammerkaskade an den tiefen Pfaden.</summary>
+    private static XElement? Child(XContainer? parent, string name, string then)
+        => Child(Child(parent, name), then);
+
+    private static string? Text(XElement? element)
+    {
+        var value = element?.Value.Trim();
+        return string.IsNullOrEmpty(value) ? null : value;
+    }
+}
