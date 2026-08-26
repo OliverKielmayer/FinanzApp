@@ -314,6 +314,9 @@ Filter findet **nichts** — der Standardfall ist „nichts sichtbar“, nicht �
 - Nach fünf Fehlversuchen 15 Minuten Sperre, dazu ein Rate-Limit von 10 Anfragen je Minute und IP.
 - Die Sitzung steht als Datensatz in der Datenbank, das Cookie trägt nur ihre Id. Abmelden wirkt
   sofort, auch für ein Cookie, das kryptografisch noch gültig wäre.
+- **Passwort ändern** (angemeldet) verlangt das bisherige und beendet danach alle *anderen*
+  Sitzungen — wer sein Passwort ändert, will fremde Zugänge loswerden, nicht sich selbst
+  abmelden. Offene Reset-Links werden dabei entwertet.
 - Der Passwort-Reset antwortet **immer** gleich. Vom Token liegt nur der SHA-256-Hash in der
   Datenbank; er gilt 30 Minuten, ist einmal einlösbar und widerruft alle offenen Sitzungen.
 

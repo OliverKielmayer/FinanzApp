@@ -171,6 +171,14 @@ public sealed class FinanzAppApi(HttpClient http)
             new ImportCommitRequest { PreviewId = previewId, AccountId = accountId, Indexes = indexes },
             ct);
 
+    /// <summary>Ändert das eigene Passwort. Fehler kommen als <see cref="ApiException"/>.</summary>
+    public Task ChangePasswordAsync(
+        string currentPassword, string newPassword, CancellationToken ct = default)
+        => SendWithoutResultAsync(
+            HttpMethod.Post, "api/auth/password",
+            new ChangePasswordRequest { CurrentPassword = currentPassword, NewPassword = newPassword },
+            ct);
+
     public Task<MoreOverviewDto> GetMoreOverviewAsync(CancellationToken ct = default)
         => GetAsync<MoreOverviewDto>("api/overview/more", ct);
 

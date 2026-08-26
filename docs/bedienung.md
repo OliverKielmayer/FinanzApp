@@ -254,6 +254,9 @@ ausschließlich dessen Bestand.
 - **Einladen** zeigt den gültigen Code samt Ablaufdatum; er ist **einmal** einlösbar, der
   Eingeladene registriert sich damit und landet im selben Haushalt. *Neuer Code* ersetzt den alten.
   Der Code des Demo-Haushalts lautet `HH-4K2P-9XQ1`. Einladen darf nur der Inhaber.
+- **Passwort ändern** verlangt das bisherige — wer einen unbeaufsichtigten Bildschirm findet,
+  soll das Konto nicht übernehmen können. Danach sind alle **anderen** offenen Sitzungen beendet,
+  die eigene bleibt. Offene „Passwort vergessen“-Links werden dabei wertlos.
 - **Diese Sitzung** nennt Benutzer und Anmeldezeit. Zwei Schalter beenden sie, mit einem
   Unterschied: **Benutzer wechseln** lässt das Profil in der Geräteliste stehen, **Abmelden**
   vergisst es. Beides wirkt sofort — die Sitzung liegt auf dem Server, nicht nur im Browser.

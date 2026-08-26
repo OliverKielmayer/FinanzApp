@@ -124,6 +124,24 @@ public static class AuthEndpoints
                 : Results.Problem(error, statusCode: StatusCodes.Status400BadRequest);
         }).AllowAnonymous().RequireRateLimiting("auth");
 
+        // Passwort ändern, angemeldet. Nicht anonym und nicht über den Reset-Weg: hier zählt,
+        // dass jemand das bisherige Passwort kennt.
+        auth.MapPost("/password", async (
+            ChangePasswordRequest request, AuthService service, CurrentUser current, CancellationToken ct) =>
+        {
+            if (current.UserId is not { } userId || current.SessionId is not { } sessionId)
+            {
+                return Results.Unauthorized();
+            }
+
+            var error = await service.ChangePasswordAsync(
+                userId, sessionId, request.CurrentPassword, request.NewPassword, ct);
+
+            return error is null
+                ? Results.NoContent()
+                : Results.Problem(error, statusCode: StatusCodes.Status400BadRequest);
+        }).RequireAuthorization().RequireRateLimiting("auth");
+
         var household = app.MapGroup("/api/household").WithTags("Haushalt").RequireAuthorization();
 
         household.MapGet("/", async (HouseholdService service, CancellationToken ct) =>

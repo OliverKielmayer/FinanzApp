@@ -317,6 +317,67 @@ public sealed class AuthService(
         return null;
     }
 
+    /// <summary>
+    /// Ändert das Passwort eines angemeldeten Benutzers.
+    /// </summary>
+    /// <remarks>
+    /// <para>Das <b>bisherige</b> Passwort ist Pflicht — sonst könnte, wer einen unbeaufsichtigten
+    /// Bildschirm findet, das Konto übernehmen, ohne es je gekannt zu haben.</para>
+    /// <para>Danach fliegen alle <em>anderen</em> Sitzungen heraus, die eigene bleibt. Wer sein
+    /// Passwort ändert, will fremde Zugänge loswerden, nicht sich selbst abmelden.</para>
+    /// </remarks>
+    public async Task<string?> ChangePasswordAsync(
+        int userId, Guid currentSessionId, string currentPassword, string newPassword,
+        CancellationToken ct = default)
+    {
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
+        if (user is null)
+        {
+            return "Das Konto gibt es nicht mehr.";
+        }
+
+        if (hasher.VerifyHashedPassword(user, user.PasswordHash, currentPassword)
+            == PasswordVerificationResult.Failed)
+        {
+            return "Das bisherige Passwort stimmt nicht.";
+        }
+
+        // Vor der Stärkeprüfung: wer zweimal dasselbe tippt, soll das hören und nicht „zu
+        // schwach“ — zu tun ist ohnehin dasselbe, aber nur die eine Meldung sagt, was los ist.
+        if (currentPassword == newPassword)
+        {
+            return "Das neue Passwort ist dasselbe wie das bisherige.";
+        }
+
+        if (PasswordPolicy.Reject(newPassword) is { } problem)
+        {
+            return problem;
+        }
+
+        var now = time.GetLocalNow().DateTime;
+        user.PasswordHash = hasher.HashPassword(user, newPassword);
+        user.FailedAttempts = 0;
+        user.LockedUntil = null;
+
+        var others = await db.UserSessions
+            .Where(x => x.UserId == userId && x.RevokedAt == null && x.Id != currentSessionId)
+            .ToListAsync(ct);
+        others.ForEach(x => x.RevokedAt = now);
+
+        // Auch offene Reset-Links werden wertlos — wer sein Passwort selbst gesetzt hat, braucht
+        // keinen mehr, und ein liegengebliebener wäre eine offene Tür.
+        var links = await db.PasswordResetTokens
+            .Where(t => t.UserId == userId && t.UsedAt == null && t.ExpiresAt > now)
+            .ToListAsync(ct);
+        links.ForEach(t => t.UsedAt = now);
+
+        await db.SaveChangesAsync(ct);
+        log.LogInformation(
+            "Passwort geändert. {Count} andere Sitzung(en) widerrufen.", others.Count);
+
+        return null;
+    }
+
     /// <summary>Erzeugt einen neuen Einladungscode und entwertet die vorherigen offenen.</summary>
     public async Task<Invitation> CreateInvitationAsync(
         int householdId, HouseholdRole role, CancellationToken ct = default)

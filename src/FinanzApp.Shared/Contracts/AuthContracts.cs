@@ -71,6 +71,16 @@ public sealed record PasswordResetStartRequest
     public required string Email { get; init; }
 }
 
+/// <summary>
+/// Passwort ändern, wenn man angemeldet ist. Das bisherige ist Pflicht — sonst könnte, wer einen
+/// unbeaufsichtigten Bildschirm findet, das Konto übernehmen, ohne es je gekannt zu haben.
+/// </summary>
+public sealed record ChangePasswordRequest
+{
+    public required string CurrentPassword { get; init; }
+    public required string NewPassword { get; init; }
+}
+
 public sealed record PasswordResetRedeemRequest
 {
     public required string Token { get; init; }

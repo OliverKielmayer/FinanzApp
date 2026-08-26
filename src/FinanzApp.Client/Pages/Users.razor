@@ -78,6 +78,63 @@
             </div>
         </div>
 
+        @* Das eigene Passwort ändern. Nicht der Vergessen-Weg — hier zählt, dass jemand das
+           bisherige kennt. *@
+        <div class="session">
+            <span class="label-strong">Passwort ändern</span>
+
+            @if (!changing)
+            {
+                <span class="session-line">
+                    Ein neues Passwort beendet alle anderen offenen Sitzungen. Diese hier bleibt.
+                </span>
+                <div class="session-actions">
+                    <button type="button" class="btn btn-secondary"
+                            @onclick="@(() => changing = true)">Passwort ändern</button>
+                </div>
+            }
+            else
+            {
+                <div class="field">
+                    <label for="pw-old">Bisheriges Passwort</label>
+                    <input id="pw-old" class="input" type="password" autocomplete="current-password"
+                           value="@currentPassword"
+                           @oninput="e => currentPassword = e.Value?.ToString() ?? string.Empty" />
+                </div>
+
+                <div class="field">
+                    <label for="pw-new">Neues Passwort</label>
+                    <input id="pw-new" class="input" type="password" autocomplete="new-password"
+                           placeholder="@($"mindestens {PasswordPolicy.MinimumLength} Zeichen")"
+                           value="@newPassword" @oninput="OnNewPasswordInput" />
+                </div>
+
+                <div class="strength">
+                    <div class="strength-bars" role="img" aria-label="@($"Passwortstärke: {strengthText}")">
+                        @for (var level = 1; level <= 4; level++)
+                        {
+                            <div class="strength-bar @BarClass(level)"></div>
+                        }
+                    </div>
+                    <span class="strength-text">@strengthText</span>
+                </div>
+
+                @if (problem is { Length: > 0 })
+                {
+                    <span class="create-problem">@problem</span>
+                }
+
+                <div class="session-actions">
+                    <button type="button" class="btn btn-primary"
+                            disabled="@(busy || !CanSubmit)" @onclick="ChangePasswordAsync">
+                        Passwort speichern
+                    </button>
+                    <button type="button" class="btn btn-secondary" disabled="@busy"
+                            @onclick="CancelChange">Abbrechen</button>
+                </div>
+            }
+        </div>
+
         <div class="spacer"></div>
     }
 </AsyncView>
@@ -86,6 +143,68 @@
     private HouseholdOverviewDto? data;
     private bool canManage;
     private bool busy;
+
+    private bool changing;
+    private string currentPassword = string.Empty;
+    private string newPassword = string.Empty;
+    private string? problem;
+    private PasswordStrength strength = PasswordStrength.None;
+    private string strengthText = PasswordPolicy.Describe(PasswordStrength.None);
+
+    private bool CanSubmit =>
+        currentPassword.Length > 0 && PasswordPolicy.IsAcceptable(newPassword);
+
+    private void OnNewPasswordInput(ChangeEventArgs e)
+    {
+        newPassword = e.Value?.ToString() ?? string.Empty;
+        strength = PasswordPolicy.Evaluate(newPassword);
+        strengthText = PasswordPolicy.Describe(strength);
+        problem = null;
+    }
+
+    /// <summary>Gefüllte Balken bis zur erreichten Stufe; ab „Gut“ in Akzent.</summary>
+    private string? BarClass(int level)
+    {
+        if (level > (int)strength)
+        {
+            return null;
+        }
+
+        return strength >= PasswordPolicy.Required ? "filled enough" : "filled";
+    }
+
+    private void CancelChange()
+    {
+        changing = false;
+        currentPassword = string.Empty;
+        newPassword = string.Empty;
+        problem = null;
+        strength = PasswordStrength.None;
+        strengthText = PasswordPolicy.Describe(PasswordStrength.None);
+    }
+
+    private async Task ChangePasswordAsync()
+    {
+        busy = true;
+        problem = null;
+
+        try
+        {
+            await Api.ChangePasswordAsync(currentPassword, newPassword);
+
+            CancelChange();
+            Toasts.Show("Passwort geändert · andere Sitzungen beendet");
+        }
+        catch (ApiException ex)
+        {
+            // Der Grund kommt vom Server und steht am Feld — nicht als flüchtiger Toast.
+            problem = ex.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
 
     protected override async Task LoadAsync()
     {
