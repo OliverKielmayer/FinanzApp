@@ -187,6 +187,114 @@ public sealed class CamtParserTests
         Assert.Equal("nur vorgemerkt (PDNG), noch nicht gebucht", statement.Records.Single().Problem);
     }
 
+    /// <summary>
+    /// Bei einer Kartenzahlung nennt das Gläubigerfeld oft nicht den Laden.
+    /// </summary>
+    /// <remarks>
+    /// An einer echten Bankdatei nachgewiesen: 46 Einkäufe an einem einzigen Laden lagen dort
+    /// unter „PAYONE GmbH“ und „Lastschrift aus Kartenzahlung“ — zwei Namen, die nichts über den
+    /// Einkauf sagen. Der Laden steht im Verwendungszweck.
+    ///
+    /// Die drei Schreibweisen stammen alle aus derselben Datei.
+    /// </remarks>
+    [Theory]
+    [InlineData("Setzer 24/7 Vell./Wolpertshausen/DE 31.12.2025 um 19:08:01 Uhr 682/228/ECTL/",
+        "Lastschrift aus Kartenzahlung", "Setzer 24/7 Vell./Wolpertshausen")]
+    [InlineData("DIAK Klinikum Landkrei/Am Mutterhaus 1/Schwaebisch H/D02.01.2026 / 18:58 Ortszeit",
+        "DZ BANK AG", "DIAK Klinikum Landkrei/Am Mutterhaus 1/Schwaebisch H")]
+    [InlineData("NYX.DeinAutomat/Diakoniestrasse/SchwaebischHa/DE/0 16.01.2026 / 16:01 Ortszeit",
+        "DZ BANK AG", "NYX.DeinAutomat/Diakoniestrasse/SchwaebischHa")]
+    public async Task Bei_einer_Kartenzahlung_zaehlt_der_Laden_aus_dem_Zweck(
+        string zweck, string glaeubiger, string erwartet)
+    {
+        var statement = await ParseAsync(Karte(zweck, glaeubiger));
+
+        Assert.Equal(erwartet, statement.Records.Single().Payee);
+    }
+
+    [Fact]
+    public async Task Ein_echter_Haendlername_bleibt_stehen()
+    {
+        // „REWE Martin Sitter“ ist besser lesbar als „REWE SAGT DANKE. 45655449/Heidenheim“ — und
+        // beide ergeben dasselbe Regelmuster. Wo der Gläubiger schon der Laden ist, bleibt er.
+        var statement = await ParseAsync(Karte(
+            "REWE SAGT DANKE. 45655449/Heidenheim/DE 04.01.2026 um 10:11:00 Uhr",
+            "REWE Martin Sitter"));
+
+        Assert.Equal("REWE Martin Sitter", statement.Records.Single().Payee);
+    }
+
+    /// <summary>
+    /// PayPal bucht unter eigenem Namen und nennt den Laden im Zweck.
+    /// </summary>
+    /// <remarks>
+    /// Sonst lägen Apotheke, Bahnfahrt und Tierbedarf unter einem einzigen Empfänger. In einer
+    /// echten Datei betraf das 15 von 36 Sätzen — bei den übrigen 21 lässt PayPal die Stelle leer.
+    /// </remarks>
+    [Fact]
+    public async Task Bei_PayPal_zaehlt_der_Laden_aus_dem_Zweck()
+    {
+        var statement = await ParseAsync(Karte(
+            "1047425604925/PP.7060.PP/. LaVita GmbH, Ihr Einkauf bei LaVita GmbH EREF: 104742 MREF: 459",
+            "PayPal Europe S.a.r.l. et Cie S.C.A"));
+
+        Assert.Equal("LaVita GmbH", statement.Records.Single().Payee);
+    }
+
+    [Fact]
+    public async Task Ohne_Ladennamen_bleibt_es_bei_PayPal()
+    {
+        // Die Stelle ist leer. Ein geratener Name wäre schlechter als der Dienstleister.
+        var statement = await ParseAsync(Karte(
+            "1047387317764/PP.7474.PP/. , Ihr Einkauf bei EREF: 1047387317764 MREF: 52PJ224NRUSSJ",
+            "PayPal Europe S.a.r.l. et Cie S.C.A"));
+
+        Assert.Equal("PayPal Europe S.a.r.l. et Cie S.C.A", statement.Records.Single().Payee);
+    }
+
+    /// <summary>
+    /// Ein Name, der den Tag der Buchung trägt, ist keiner.
+    /// </summary>
+    /// <remarks>
+    /// Manche Häuser schreiben „Ihr Einkauf bei EDEKA Möller vom 30.12.2025“. Bliebe das Datum
+    /// stehen, wäre jeder Einkauf ein eigener Empfänger — in einer echten Datei wären aus einer
+    /// Gruppe mit 42 Sätzen 42 Gruppen geworden, und dieselbe Frage wäre 42-mal gestellt worden.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_angehaengtes_Datum_gehoert_nicht_in_den_Namen()
+    {
+        var erste = await ParseAsync(Karte(
+            "KJNUUX Ihr Einkauf bei EDEKA Möller vom 30.12.2025 EREF: T005115664 MREF: 101", "EDEKABANK AG"));
+        var zweite = await ParseAsync(Karte(
+            "CKVW1R Ihr Einkauf bei EDEKA Möller vom 31.12.2025 EREF: T005130842 MREF: 101", "EDEKABANK AG"));
+
+        Assert.Equal("EDEKA Möller", erste.Records.Single().Payee);
+        Assert.Equal(erste.Records.Single().Payee, zweite.Records.Single().Payee);
+    }
+
+    /// <summary>
+    /// Der Buchungstext der Bank wird mitgeführt — als Auskunft, nicht als Kategorie.
+    /// </summary>
+    /// <remarks>
+    /// An echten Daten geprüft trennt er keine Gruppe, die Empfänger und Vorzeichen nicht schon
+    /// trennen: von neun Empfängern mit mehr als einem Text unterschieden acht nur Ein- von
+    /// Ausgang. Eine Kategorie daraus abzuleiten wäre geraten; als Angabe an der Gruppe sagt er,
+    /// um welche Art Umsatz es geht.
+    /// </remarks>
+    [Fact]
+    public async Task Der_Buchungstext_der_Bank_wird_mitgefuehrt()
+    {
+        var statement = await ParseAsync(Karte("Miete August", "Heike Immel")
+            .Replace("</Ntry>", "<AddtlNtryInf>Dauerauftrag</AddtlNtryInf></Ntry>"));
+
+        Assert.Equal("Dauerauftrag", statement.Records.Single().BookingText);
+    }
+
+    private static string Karte(string zweck, string glaeubiger)
+        => """
+            <Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.052.001.08"><BkToCstmrAcctRpt><Rpt><Id>1</Id><Ntry><Amt Ccy="EUR">12.34</Amt><CdtDbtInd>DBIT</CdtDbtInd><BookgDt><Dt>2026-08-20</Dt></BookgDt><AcctSvcrRef>K1</AcctSvcrRef><NtryDtls><TxDtls><RltdPties><Cdtr><Pty><Nm>CDTR</Nm></Pty></Cdtr></RltdPties><RmtInf><Ustrd>ZWECK</Ustrd></RmtInf></TxDtls></NtryDtls></Ntry></Rpt></BkToCstmrAcctRpt></Document>
+            """.Replace("ZWECK", zweck).Replace("CDTR", glaeubiger);
+
     [Fact]
     public async Task Eine_fremde_XML_Datei_wird_benannt_und_nicht_geraten()
     {

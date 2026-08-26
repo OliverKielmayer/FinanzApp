@@ -1,9 +1,11 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
 using FinanzApp.Api.Data;
+using FinanzApp.Shared.Contracts;
 
 namespace FinanzApp.Api.Infrastructure;
 
@@ -185,7 +187,8 @@ public sealed class CamtStatementParser : IStatementParser
             BookingDate: date,
             Payee: payee,
             Amount: amount is { } value ? sign * value : null,
-            Problem: problem);
+            Problem: problem,
+            BookingText: Text(Child(entry, "AddtlNtryInf")));
     }
 
     /// <summary>
@@ -265,13 +268,115 @@ public sealed class CamtStatementParser : IStatementParser
         var parties = Child(detail, "RltdPties");
         var counterpart = sign < 0 ? "Cdtr" : "Dbtr";
 
-        var name = Text(Child(Child(parties, counterpart), "Nm"))
-                   ?? Text(Child(Child(parties, counterpart), "Pty", "Nm"))
-                   ?? Purpose(detail)
-                   ?? Text(Child(entry, "AddtlNtryInf"));
+        var genannt = Text(Child(Child(parties, counterpart), "Nm"))
+                      ?? Text(Child(Child(parties, counterpart), "Pty", "Nm"));
 
-        return Shorten(name) ?? "Ohne Empfänger";
+        var zweck = Purpose(detail);
+        var haendler = MerchantIn(zweck) ?? ShopIn(zweck);
+
+        // Steht im Zweck ein Händler und heißt der Genannte anders, ist der Genannte der
+        // Zahlungsdienstleister. Dann zählt der Händler.
+        if (haendler is not null
+            && (genannt is null || !Categorization.Matches(haendler, Categorization.RulePatternFor(genannt))))
+        {
+            return Shorten(haendler)!;
+        }
+
+        return Shorten(genannt ?? zweck ?? Text(Child(entry, "AddtlNtryInf"))) ?? "Ohne Empfänger";
     }
+
+    /// <summary>
+    /// Der Händler aus dem Verwendungszweck einer Kartenzahlung.
+    /// </summary>
+    /// <remarks>
+    /// <para>Bei einer Kartenzahlung nennt das Gläubigerfeld oft nicht den Laden, sondern den
+    /// Zahlungsdienstleister — „PAYONE GmbH“, „DZ BANK AG“ — oder gleich den Platzhalter
+    /// „Lastschrift aus Kartenzahlung“. Der Laden steht dann im Zweck, und ohne ihn fallen
+    /// Dutzende Einkäufe an ganz verschiedenen Orten unter einen nichtssagenden Namen.</para>
+    /// <para>Der Zweck folgt dem ELV-Muster: Name, Straße und Ort, dann Datum und Uhrzeit. Zwei
+    /// Schreibweisen kommen vor — <c>…/DE 31.12.2025 um 19:08:01 Uhr</c> und
+    /// <c>…/D02.01.2026 / 18:58 Ortszeit</c>. Beide enden den Kopf am Datum; abgeschnitten wird
+    /// dort und sonst nirgends, denn Händlernamen enthalten selbst Schrägstriche
+    /// („Setzer 24/7 Vell.“).</para>
+    /// </remarks>
+    private static string? MerchantIn(string? purpose)
+    {
+        if (purpose is null)
+        {
+            return null;
+        }
+
+        var treffer = CardPurpose.Match(purpose);
+        if (!treffer.Success)
+        {
+            return null;
+        }
+
+        var kopf = treffer.Groups[1].Value.Trim().TrimEnd('/');
+
+        return kopf.Length < 3 ? null : kopf;
+    }
+
+    /// <summary>
+    /// Der Laden hinter einem Zahlungsdienstleister, der ihn im Zweck nennt.
+    /// </summary>
+    /// <remarks>
+    /// PayPal bucht unter eigenem Namen und schreibt den Laden in den Zweck: <c>… Ihr Einkauf bei
+    /// LaVita GmbH EREF: …</c>. Ohne das lägen alle PayPal-Zahlungen unter einem Namen, obwohl
+    /// dahinter Apotheke, Bahnfahrt und Tierbedarf stehen.
+    ///
+    /// Oft bleibt die Stelle allerdings leer — in einer echten Datei bei 21 von 36 Sätzen. Dann
+    /// bleibt es beim Dienstleister, und das ist ehrlicher als ein geratener Name.
+    /// </remarks>
+    private static string? ShopIn(string? purpose)
+    {
+        if (purpose is null)
+        {
+            return null;
+        }
+
+        var treffer = ShopPurpose.Match(purpose);
+
+        return treffer.Success ? WithoutDate(treffer.Groups[1].Value.Trim()) : null;
+    }
+
+    private static readonly Regex ShopPurpose = new(
+        @"Ihr Einkauf bei\s+(\S[^,]{2,60}?)\s+EREF:",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    /// <summary>
+    /// Streicht ein angehängtes Buchungsdatum aus dem Namen.
+    /// </summary>
+    /// <remarks>
+    /// Manche Häuser schreiben <c>Ihr Einkauf bei EDEKA Möller vom 30.12.2025</c>. Bliebe das
+    /// Datum stehen, wäre jeder Einkauf ein eigener Empfänger — aus einer Gruppe mit 42 Sätzen
+    /// würden 42 Gruppen, und der Nutzer beantwortete zweiundvierzigmal dieselbe Frage. Ein Name,
+    /// der den Tag der Buchung trägt, ist keiner.
+    /// </remarks>
+    private static string WithoutDate(string name)
+    {
+        var ohne = TrailingDate.Replace(name, string.Empty).TrimEnd();
+
+        return ohne.Length < 3 ? name : ohne;
+    }
+
+    private static readonly Regex TrailingDate = new(
+        @"\s+(?:vom\s+)?\d{2}\.\d{2}\.\d{2,4}$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    /// <summary>
+    /// Alles vor dem Zahlungsdatum; Länderkürzel und Terminalziffer davor fallen weg.
+    /// </summary>
+    /// <remarks>
+    /// Drei Schreibweisen sind in einer einzigen Bankdatei belegt:
+    /// <c>…/Wolpertshausen/DE 31.12.2025 um 19:08:01 Uhr</c>,
+    /// <c>…/Schwaebisch H/D02.01.2026 / 18:58 Ortszeit</c> und
+    /// <c>…/SchwaebischHa/DE/0 16.01.2026 / 16:01 Ortszeit</c>. Sie unterscheiden sich allein
+    /// zwischen Ort und Datum — dort wird geschnitten und sonst nirgends.
+    /// </remarks>
+    private static readonly Regex CardPurpose = new(
+        @"^(.{3,70}?)/D[E]?(?:/\d+)?\s?\d{2}\.\d{2}\.\d{4}",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private static string? Purpose(XElement? detail)
     {

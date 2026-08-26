@@ -10,8 +10,18 @@ namespace FinanzApp.Api.Data;
 /// Satz steht mit Grund in der Liste und lässt sich nicht zuschalten. Übersprungen wird nichts
 /// stillschweigend, auch nicht das, was gar keine Buchung ist.
 /// </param>
+/// <param name="BookingText">
+/// Was die Bank die Buchung nennt — „Lastschrift“, „Dauerauftrag“, „SB-Auszahlung“,
+/// „Lohn/Gehalt/Rente“. Keine Kategorie, aber eine Auskunft darüber, um welche Art Umsatz es
+/// geht; sie hilft beim Zuordnen.
+/// </param>
 public sealed record ImportRecord(
-    string Reference, DateOnly? BookingDate, string Payee, decimal? Amount, string? Problem = null);
+    string Reference,
+    DateOnly? BookingDate,
+    string Payee,
+    decimal? Amount,
+    string? Problem = null,
+    string? BookingText = null);
 
 /// <summary>
 /// Steht für die Datei, die im Handoff auf dem Importscreen liegt.
