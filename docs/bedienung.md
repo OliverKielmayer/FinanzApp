@@ -195,16 +195,49 @@ Absicherung.
 feststehen — erst dann verschwindet es daraus. Die Zeile sagt, ob etwas erkannt wurde
 („erkannt“) oder ob jemand hinsehen muss („prüfen“), dazu Absender und Seitenzahl.
 
+## 8c. Ändern und Löschen
+
+Alles, was sich anlegen lässt, lässt sich auch ändern und löschen. Der Weg dorthin hängt
+daran, ob die Zeile schon irgendwohin führt:
+
+- **Konto, Budget, Depot** — die Zeile antippen, das Formular öffnet sich.
+- **Vorsorge, Absicherung, Fahrzeug, Immobilie** — dort führt die Zeile auf die Detailseite;
+  zum Ändern gibt es rechts unter dem Betrag den kleinen Schalter **Bearbeiten**.
+
+Das Formular ist dasselbe wie beim Anlegen, nur ausgefüllt. Oben steht, was die Änderung
+bewirkt — etwa „Ein neuer Wert mit Stichtag ersetzt den bisherigen im Vermögen“.
+
+**Gelöscht** wird ganz unten, abgesetzt durch eine Linie. Dort steht zuerst, was passieren
+würde, und zwar mit echten Zahlen: „3 Buchungen hängen an diesem Konto — sie bleiben erhalten
+und werden auf ‚Ohne Konto‘ gesetzt.“ Der erste Tipp fragt nach, der zweite löscht. Es gibt
+keinen Systemdialog.
+
+Buchungen löschen Sie einzeln im Kategorie-Fenster oder im Stapel über die Auswahlleiste der
+Tabelle — auch dort nennt der erste Tipp die Anzahl. Bei einem **Dokument** verschwindet nur der
+Eintrag; die Datei bleibt im Dokumentordner liegen.
+
 ## 9. Import
 
-Die Vorschau sortiert die eingelesenen Sätze in vier Gruppen:
+Der Import läuft in drei Schritten: **Datei wählen → liest → prüfen**. Am großen Bildschirm
+steht links, was in der Datei steht — Name, Format, Zeitraum, Auszugssaldo —, rechts die
+Prüfung.
 
-| Gruppe | Was passiert |
+In der Prüfung wählen Sie zuerst das **Zielkonto** (das erkannte ist vorgeschlagen), darunter
+stehen drei Zähler und alle Sätze einzeln:
+
+| Zustand | Was die App vorschlägt |
 | --- | --- |
-| Neue Buchungen | werden übernommen |
-| Bereits vorhanden | an der Importreferenz erkannt, werden übersprungen |
-| Mögliche Duplikate | zur Prüfung, werden **nicht** übernommen |
-| Fehlerhafte Sätze | Betrag nicht lesbar, bleiben liegen |
+| neu | angehakt — wird übernommen |
+| bereits vorhanden | abgewählt, grau — dieselbe Importreferenz ist schon gebucht |
+| mögliches Duplikat | abgewählt, grau — gleicher Tag, Empfänger und Betrag |
+| nicht lesbar | gesperrt — daraus wird keine Buchung |
+
+Jede Zeile lässt sich einzeln umschalten. Wer ein Duplikat zuschaltet, sieht den Zähler
+„Übernehmen“ **und** den Schalter mitwandern — beide lesen dieselbe Auswahl. Ist nichts
+gewählt, ist der Schalter aus.
+
+Geprüft wird **gegen den Bestand**, nicht nur innerhalb der Datei: derselbe Auszug zweimal
+eingelesen schlägt beim zweiten Mal nichts mehr vor.
 
 Danach lassen sich die neuen Buchungen kategorisieren. Wer eine Kategorie vergibt, bekommt eine
 Regel für künftige Importe angeboten — sie greift auf das erste Wort des Empfängers.
@@ -233,7 +266,8 @@ Split-Buchung · Sondertilgung planen · Aufgabe anlegen · Erinnerung setzen ·
 Bei PKV nachfragen · Im Ordner suchen · Rechteverwaltung
 
 Dazu die Einträge des Erfassen-Fensters, die nur in ihren Bereich führen (siehe Punkt 5), die
-Belegerkennung, die nichts erkennt, und **Fahrzeuge**, die es als Bereich noch nicht gibt.
+Belegerkennung, die nichts erkennt, und der Dateiparser des Imports — beide Schalter dort lesen
+denselben Beispielauszug.
 
 Ganz fehlen bislang die Bereiche **Arbeit & Beruf** und **Administration** sowie die
 Zwei-Faktor-Anmeldung.

@@ -257,6 +257,35 @@ wählbar, ein neues Budget verändert Plan und Verbleibend. Doppelte Anlage wird
 „Depot“ und „Darlehen“ im Konto-Formular legen kein Konto an, sondern führen dorthin, wo sie
 hingehören.
 
+### Bearbeiten und Löschen
+
+Jeder Datensatz, den die App anlegt, ist auch änderbar und löschbar. Bearbeitet wird im
+**selben** Formular, nur vorbefüllt — dieselbe Feldliste, gegen die auch geprüft wird.
+
+Zwei Regeln stecken im Datenmodell:
+
+1. **Keine Metadaten aus Anzeigetexten parsen.** Die Werte kommen aus den Rohfeldern. Ein
+   Vertragsname wie „Risikoleben“ trägt keinen Versicherer im Namen; wer ihn dort herausparsen
+   wollte, ließe das Pflichtfeld leer.
+2. **Ein gepflegter Name wird nie neu zusammengesetzt.** Beim Anlegen wird er abgeleitet, beim
+   Bearbeiten nie wieder — sonst würde aus „Risikoleben“ beim bloßen Öffnen und Speichern
+   „Risikoleben Hannoversche“.
+
+Gelöscht wird zweistufig, ohne Systemdialog, und die Folgen werden **gezählt**, nicht behauptet:
+„3 Buchungen hängen an diesem Konto — sie bleiben erhalten und werden auf ‚Ohne Konto‘ gesetzt.“
+Und so geschieht es dann auch. Buchungen sind Tatsachen; das Konto war nur ihre Schublade.
+
+### Kontoauszug einlesen
+
+Ein Flow mit drei Zuständen — leer, liest, prüfen —, ab Tablet zweispaltig. Die
+**Duplikatprüfung läuft gegen den Bestand**, nicht nur innerhalb der Datei: derselbe Auszug
+zweimal eingelesen ergibt beim zweiten Mal null Vorschläge. Zähler und Aktionsschalter lesen
+dieselbe Auswahl, damit der Kopf dem Knopf nicht widerspricht. Fehlerhafte Sätze werden gezählt
+und benannt — nie stillschweigend übersprungen.
+
+Ein Dateiparser hängt nicht dran; beide Schalter lesen denselben Beispielauszug, und das Panel
+sagt es. Die Prüfung dahinter ist echt.
+
 ## Anmeldung und Mehrbenutzerbetrieb
 
 Ein **Haushalt** besitzt die Daten. Ein **Benutzer** meldet sich mit eigenen Zugangsdaten an und
