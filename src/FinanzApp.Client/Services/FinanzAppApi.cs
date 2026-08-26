@@ -179,13 +179,31 @@ public sealed class FinanzAppApi(HttpClient http)
         return await PostFormAsync<ImportPreviewDto>("api/import/read", form, ct);
     }
 
-    /// <summary>Übernimmt die gewählten Sätze auf das gewählte Konto.</summary>
+    /// <summary>Übernimmt die gewählten Sätze auf das gewählte Konto, samt Zuordnungen.</summary>
     public Task<ImportCommitResultDto> CommitImportAsync(
-        Guid previewId, int accountId, IReadOnlyList<int> indexes, CancellationToken ct = default)
+        Guid previewId,
+        int accountId,
+        IReadOnlyList<int> indexes,
+        IReadOnlyList<ImportCategoryChoice>? choices = null,
+        CancellationToken ct = default)
         => PostAsync<ImportCommitRequest, ImportCommitResultDto>(
             "api/import/commit",
-            new ImportCommitRequest { PreviewId = previewId, AccountId = accountId, Indexes = indexes },
+            new ImportCommitRequest
+            {
+                PreviewId = previewId,
+                AccountId = accountId,
+                Indexes = indexes,
+                Choices = choices ?? [],
+            },
             ct);
+
+    /// <summary>Löscht eine gelernte Kategorieregel.</summary>
+    public Task DeleteRuleAsync(int id, CancellationToken ct = default)
+        => SendWithoutResultAsync<object?>(HttpMethod.Delete, $"api/rules/{id}", null, ct);
+
+    /// <summary>Die gelernten Kategorieregeln.</summary>
+    public Task<IReadOnlyList<CategorizationRuleDto>> GetRulesAsync(CancellationToken ct = default)
+        => GetAsync<IReadOnlyList<CategorizationRuleDto>>("api/rules", ct);
 
     /// <summary>Ändert das eigene Passwort. Fehler kommen als <see cref="ApiException"/>.</summary>
     public Task ChangePasswordAsync(

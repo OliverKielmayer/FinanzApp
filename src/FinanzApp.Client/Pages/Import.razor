@@ -141,13 +141,44 @@
 
                 @* Rechts: die Prüfung. *@
                 <div class="scan-fields">
+                    @*
+                        Die Leiste bleibt oben stehen. Bei dreihundert Sätzen läge der
+                        Importieren-Knopf sonst unerreichbar weit unten, und man scrollte
+                        blind an der Auswahl vorbei, die man gerade trifft.
+                    *@
+                    <div class="import-bar">
+                        <div class="import-bar-text">
+                            <span class="kicker">
+                                @selected.Count von @preview.RecordCount
+                                @(preview.RecordCount == 1 ? "Satz" : "Sätzen") gewählt
+                            </span>
+                            <span class="import-bar-status @(StatusIsWarning ? "warn" : null)">
+                                @StatusText
+                            </span>
+                        </div>
+
+                        <AuthorizeView Roles="Owner,Member" Context="bar">
+                            <div class="import-bar-actions">
+                                <button type="button" class="btn btn-primary"
+                                        disabled="@(busy || selected.Count == 0)" @onclick="CommitAsync">
+                                    @(selected.Count == 0
+                                        ? "Nichts ausgewählt"
+                                        : $"{selected.Count} {(selected.Count == 1 ? "Buchung" : "Buchungen")} importieren")
+                                </button>
+                                <button type="button" class="btn btn-ghost" disabled="@busy"
+                                        @onclick="Cancel">Verwerfen</button>
+                            </div>
+                        </AuthorizeView>
+                    </div>
+
                     <div class="picker">
                         <span class="label-strong">Zielkonto</span>
                         <div class="chipcloud">
                             @foreach (var account in preview.Accounts)
                             {
-                                <button type="button" class="chip @(accountId == account.Id ? "active" : null)"
-                                        @onclick="() => accountId = account.Id">
+                                var id = account.Id;
+                                <button type="button" class="chip @(accountId == id ? "active" : null)"
+                                        @onclick="() => accountId = id">
                                     @account.Name
                                     @if (account.Id == preview.SuggestedAccountId)
                                     {
@@ -157,6 +188,29 @@
                             }
                         </div>
                     </div>
+
+                    @if (NothingNew)
+                    {
+                        @*
+                            Der häufigste Wiederholungsfall. Leere Blöcke zu zeigen wäre die
+                            schlechtere Auskunft — hier steht, warum nichts dasteht.
+                        *@
+                        <div class="import-nothing">
+                            <span class="label-strong">Nichts Neues in dieser Datei</span>
+                            <span class="create-help">
+                                @preview.RecordCount @(preview.RecordCount == 1 ? "Satz" : "Sätze")
+                                erkannt, keiner neu.
+                            </span>
+                            <div class="doc-actions">
+                                <button type="button" class="btn btn-secondary" @onclick="Cancel">
+                                    Andere Datei wählen
+                                </button>
+                            </div>
+                            <span class="create-help">
+                                Einzelne Sätze lassen sich unter „Alle Zeilen“ trotzdem zuschalten.
+                            </span>
+                        </div>
+                    }
 
                     @* Die drei Zähler rechnen gegen dieselbe Auswahl wie der Schalter. *@
                     <section class="tx-totals">
@@ -180,48 +234,148 @@
                     {
                         <div class="notice">
                             <span class="notice-title">
-                                @preview.ErrorCount @(preview.ErrorCount == 1 ? "Satz" : "Sätze") nicht lesbar
+                                @preview.ErrorCount @(preview.ErrorCount == 1 ? "Satz" : "Sätze") nicht übernehmbar
                             </span>
                             <span class="notice-text">
-                                Sie stehen unten mit dem Grund und lassen sich nicht zuschalten —
-                                übersprungen wird nichts stillschweigend.
+                                Sie stehen unter „Alle Zeilen“ mit dem Grund und lassen sich nicht
+                                zuschalten — übersprungen wird nichts stillschweigend.
                             </span>
                         </div>
                     }
 
-                    @foreach (var row in preview.Rows)
+                    <div class="segmented bordered">
+                        <button type="button" class="segmented-opt @(grouped ? "active" : null)"
+                                @onclick="() => grouped = true">Gruppen</button>
+                        <button type="button" class="segmented-opt @(grouped ? null : "active")"
+                                @onclick="() => grouped = false">Alle Zeilen</button>
+                    </div>
+
+                    @if (grouped)
                     {
-                        <div class="import-row @StateClass(row) @(selected.Contains(row.Index) ? "picked" : null)">
-                            <label class="tx-check import-check">
-                                <input type="checkbox" checked="@selected.Contains(row.Index)"
-                                       disabled="@(row.State == ImportRowState.Error)"
-                                       @onchange="e => Toggle(row, e)"
-                                       aria-label="@($"{row.Payee} übernehmen")" />
-                            </label>
+                        var offen = OpenGroups;
 
-                            <span class="stack">
-                                <span class="import-row-payee">@row.Payee</span>
-                                <span class="meta num">@Describe(row)</span>
-                            </span>
+                        @if (offen.Count > 0)
+                        {
+                            <div class="list-head">
+                                <span class="label-strong">
+                                    @offen.Count @(offen.Count == 1 ? "Empfänger" : "Empfänger") zuordnen
+                                </span>
+                            </div>
 
-                            <span class="import-row-amount num">
-                                @(row.Amount is { } amount ? State.Euro(amount, withPlusSign: true) : "—")
-                            </span>
-                        </div>
+                            @foreach (var group in offen)
+                            {
+                                var key = group.Key;
+                                var aufgeklappt = openGroup == key;
+
+                                <div class="import-group @(aufgeklappt ? "open" : null)">
+                                    <button type="button" class="import-group-head"
+                                            @onclick="() => ToggleGroup(key)">
+                                        <span class="import-group-mark" aria-hidden="true">+</span>
+                                        <span class="stack">
+                                            <span class="import-row-payee">@group.Payee</span>
+                                            <span class="meta num">@DescribeGroup(group)</span>
+                                        </span>
+                                        <span class="import-row-amount num">
+                                            @State.Euro(group.Sum, withPlusSign: true)
+                                        </span>
+                                    </button>
+
+                                    @if (aufgeklappt)
+                                    {
+                                        <div class="import-group-body">
+                                            <div class="chipcloud">
+                                                @foreach (var category in ChipsFor(group))
+                                                {
+                                                    var chosen = category;
+                                                    <button type="button" class="chip"
+                                                            @onclick="() => Assign(group, chosen)">
+                                                        @category.Name
+                                                    </button>
+                                                }
+                                            </div>
+
+                                            <label class="sheet-rule">
+                                                <input type="checkbox" checked="@remember"
+                                                       @onchange="e => remember = e.Value is true" />
+                                                <span class="sheet-rule-text">
+                                                    Regel merken: „@Categorization.RulePatternFor(group.Payee)“
+                                                    → künftig automatisch
+                                                </span>
+                                            </label>
+                                        </div>
+                                    }
+                                </div>
+                            }
+
+                            @* Zwei Auswege, damit niemand dreihundert Zeilen einzeln beantworten muss. *@
+                            <AuthorizeView Roles="Owner,Member" Context="bulk">
+                                <div class="doc-actions">
+                                    <button type="button" class="btn btn-secondary"
+                                            @onclick="AssignRestAsMiscellaneous">
+                                        Alle @offen.Count als „Sonstiges“
+                                    </button>
+                                    <button type="button" class="btn btn-secondary" @onclick="DeferRest">
+                                        Später zuordnen
+                                    </button>
+                                </div>
+                            </AuthorizeView>
+                        }
+
+                        var zugeordnet = AssignedGroups;
+
+                        @if (zugeordnet.Count > 0)
+                        {
+                            <div class="list-head">
+                                <span class="label-strong">Automatisch zugeordnet</span>
+                                <span class="label-muted num">
+                                    @zugeordnet.Sum(g => g.Rows.Count) von @selected.Count Sätzen
+                                </span>
+                            </div>
+
+                            @foreach (var group in zugeordnet)
+                            {
+                                <div class="import-row">
+                                    <span class="tag">@group.CategoryName</span>
+                                    <span class="stack">
+                                        <span class="import-row-payee num">@(group.Rows.Count)×</span>
+                                        <span class="meta">@group.Payees</span>
+                                    </span>
+                                    <span class="import-row-amount num">
+                                        @State.Euro(group.Sum, withPlusSign: true)
+                                    </span>
+                                </div>
+                            }
+
+                            <div class="tx-totals-note">
+                                @RuleCount @(RuleCount == 1 ? "Regel greift" : "Regeln greifen") ·
+                                @LearnedCount davon in diesem Import gelernt ·
+                                <a href="/kategorieregeln">Regeln ansehen</a>
+                            </div>
+                        }
                     }
+                    else
+                    {
+                        @foreach (var row in preview.Rows)
+                        {
+                            <div class="import-row @StateClass(row) @(selected.Contains(row.Index) ? "picked" : null)">
+                                <label class="tx-check import-check">
+                                    <input type="checkbox" checked="@selected.Contains(row.Index)"
+                                           disabled="@(row.State == ImportRowState.Error)"
+                                           @onchange="e => Toggle(row, e)"
+                                           aria-label="@($"{row.Payee} übernehmen")" />
+                                </label>
 
-                    <AuthorizeView Roles="Owner,Member">
-                        <div class="actions">
-                            <button type="button" class="btn btn-primary"
-                                    disabled="@(busy || selected.Count == 0)" @onclick="CommitAsync">
-                                @(selected.Count == 0
-                                    ? "Nichts ausgewählt"
-                                    : $"{selected.Count} {(selected.Count == 1 ? "Buchung" : "Buchungen")} importieren")
-                            </button>
-                            <button type="button" class="btn btn-secondary" disabled="@busy"
-                                    @onclick="Cancel">Abbrechen</button>
-                        </div>
-                    </AuthorizeView>
+                                <span class="stack">
+                                    <span class="import-row-payee">@row.Payee</span>
+                                    <span class="meta num">@Describe(row)</span>
+                                </span>
+
+                                <span class="import-row-amount num">
+                                    @(row.Amount is { } amount ? State.Euro(amount, withPlusSign: true) : "—")
+                                </span>
+                            </div>
+                        }
+                    }
                 </div>
             </div>
         }
@@ -240,6 +394,238 @@
 
     /// <summary>20 MB — dieselbe Grenze, die der Server zieht.</summary>
     private const long MaxBytes = 20L * 1024 * 1024;
+
+    /// <summary>
+    /// Ein Empfänger mit allen seinen gewählten Sätzen.
+    /// </summary>
+    /// <remarks>
+    /// Gefragt wird je Empfänger, nicht je Buchung. Niemand kategorisiert dreihundert Zeilen
+    /// einzeln, und dieselbe Antwort dreißigmal zu geben ist keine Sorgfalt, sondern Arbeit
+    /// ohne Ertrag.
+    /// </remarks>
+    private sealed record PayeeGroup(
+        string Key, string Payee, IReadOnlyList<ImportRowDto> Rows, decimal Sum,
+        DateOnly? From, DateOnly? To);
+
+    /// <summary>Eine Kategorie mit dem, was ihr automatisch zugefallen ist.</summary>
+    private sealed record AssignedGroup(
+        string CategoryName, IReadOnlyList<ImportRowDto> Rows, string Payees, decimal Sum);
+
+    private IReadOnlyList<CategoryDto> categories = [];
+    private bool grouped = true;
+    private string? openGroup;
+    private bool remember = true;
+
+    /// <summary>Zuordnung je Empfänger, im Import getroffen. Schlägt jede Regel.</summary>
+    private readonly Dictionary<string, ImportCategoryChoice> choices = new(StringComparer.Ordinal);
+
+    /// <summary>Empfänger, die der Nutzer bewusst offengelassen hat.</summary>
+    private readonly HashSet<string> deferred = new(StringComparer.Ordinal);
+
+    /// <summary>Die gewählten Sätze, aus denen wirklich eine Buchung wird.</summary>
+    private IEnumerable<ImportRowDto> Importable
+        => data?.Rows.Where(r => selected.Contains(r.Index) && r.State != ImportRowState.Error)
+           ?? [];
+
+    /// <summary>Was noch keine Kategorie hat — weder aus einer Regel noch aus einer Wahl.</summary>
+    private List<PayeeGroup> OpenGroups =>
+    [
+        .. Importable
+            .Where(r => Resolve(r) is null && !deferred.Contains(Categorization.Normalize(r.Payee)))
+            .GroupBy(r => Categorization.Normalize(r.Payee), StringComparer.Ordinal)
+            .Select(g => Build(g.Key, [.. g]))
+            .OrderByDescending(g => g.Rows.Count)
+            .ThenBy(g => g.Payee, StringComparer.CurrentCulture),
+    ];
+
+    private List<AssignedGroup> AssignedGroups =>
+    [
+        .. Importable
+            .Select(r => (Row: r, Category: Resolve(r)))
+            .Where(x => x.Category is not null)
+            .GroupBy(x => x.Category!, StringComparer.Ordinal)
+            .Select(g => new AssignedGroup(
+                g.Key,
+                [.. g.Select(x => x.Row)],
+                string.Join(" · ", g.Select(x => x.Row.Payee).Distinct(StringComparer.CurrentCulture).Take(4)),
+                g.Sum(x => x.Row.Amount ?? 0m)))
+            .OrderByDescending(g => g.Rows.Count),
+    ];
+
+    /// <summary>
+    /// Wie viele Regeln auf diesen Auszug wirken — die bestehenden und die gerade gemerkten.
+    /// </summary>
+    /// <remarks>
+    /// Die neu gemerkten zählen mit, sonst stünde da „0 Regeln greifen · 1 davon in diesem Import
+    /// gelernt“. Ein „davon“ von null geht nicht auf, und die gerade gelernte Regel ordnet ihre
+    /// Gruppe ja tatsächlich zu.
+    /// </remarks>
+    private int RuleCount
+        => Importable.Select(r => r.RuleId).Where(id => id is not null).Distinct().Count()
+           + LearnedCount;
+
+    /// <summary>Wie viele davon erst hier gemerkt werden sollen.</summary>
+    private int LearnedCount => choices.Values.Count(c => c.RememberRule);
+
+    /// <summary>Der Fall „alles schon gebucht“ — kein leerer Bildschirm, sondern eine Auskunft.</summary>
+    private bool NothingNew => data is { RecordCount: > 0, NewCount: 0 };
+
+    /// <summary>Sätze, aus denen eine Buchung ohne Kategorie würde.</summary>
+    private int Uncategorised => Importable.Count(r => Resolve(r) is null);
+
+    private bool StatusIsWarning => selected.Count == 0 || Uncategorised > 0;
+
+    /// <summary>
+    /// Die Statuszeile.
+    /// </summary>
+    /// <remarks>
+    /// Sie darf nie Vollständigkeit behaupten, wenn etwas offen bleibt. „Später zuordnen“ nimmt
+    /// die Empfänger aus der Fragenliste, aber ihre Buchungen gehen trotzdem ohne Kategorie
+    /// hinein — „Alle gewählten Sätze haben eine Kategorie“ wäre dann schlicht falsch. Deshalb
+    /// gibt es neben den drei Fassungen des Handoffs eine vierte für genau diesen Fall.
+    /// </remarks>
+    private string StatusText
+    {
+        get
+        {
+            if (selected.Count == 0)
+            {
+                return "Nichts zu übernehmen";
+            }
+
+            var offen = OpenGroups.Count;
+            if (offen > 0)
+            {
+                return $"{offen} Empfänger ohne Kategorie";
+            }
+
+            var ohne = Uncategorised;
+
+            return ohne == 0
+                ? "Alle gewählten Sätze haben eine Kategorie"
+                : $"{ohne} {(ohne == 1 ? "Satz" : "Sätze")} gehen ohne Kategorie hinein";
+        }
+    }
+
+    /// <summary>Die Kategorie eines Satzes: erst die Wahl im Import, dann die Regel.</summary>
+    private string? Resolve(ImportRowDto row)
+    {
+        var key = Categorization.Normalize(row.Payee);
+
+        if (choices.TryGetValue(key, out var choice))
+        {
+            return categories.FirstOrDefault(c => c.Id == choice.CategoryId)?.Name;
+        }
+
+        return deferred.Contains(key) ? null : row.CategoryName;
+    }
+
+    private static PayeeGroup Build(string key, IReadOnlyList<ImportRowDto> rows)
+    {
+        var dates = rows.Where(r => r.BookingDate is not null).Select(r => r.BookingDate!.Value).ToList();
+
+        return new PayeeGroup(
+            key,
+            rows[0].Payee,
+            rows,
+            rows.Sum(r => r.Amount ?? 0m),
+            dates.Count == 0 ? null : dates.Min(),
+            dates.Count == 0 ? null : dates.Max());
+    }
+
+    /// <summary>
+    /// Anzahl, Zeitraum und, wenn er für die ganze Gruppe gilt, der Buchungstext der Bank.
+    /// </summary>
+    /// <remarks>
+    /// <para>Bei einer einzigen Buchung steht ein Datum da, keine Spanne — „22.08. – 22.08.“ wäre
+    /// eine Zeitangabe, die sich selbst widerspricht.</para>
+    /// <para>Der Buchungstext („Dauerauftrag“, „SB-Auszahlung“, „Lohn/Gehalt/Rente“) sagt, um
+    /// welche Art Umsatz es geht. Er steht nur da, wenn er für <em>alle</em> Sätze der Gruppe
+    /// gilt — sonst wäre er keine Eigenschaft der Gruppe, sondern eine Behauptung über sie.</para>
+    /// </remarks>
+    private static string DescribeGroup(PayeeGroup group)
+    {
+        var teile = new List<string> { $"{group.Rows.Count}×" };
+
+        if (group.From is { } from)
+        {
+            teile.Add(group.To is { } to && to != from
+                ? $"{GermanFormat.Date(from)} – {GermanFormat.Date(to)}"
+                : GermanFormat.Date(from));
+        }
+
+        var texte = group.Rows.Select(r => r.BookingText).Distinct().ToList();
+        if (texte is [{ Length: > 0 } gemeinsam])
+        {
+            teile.Add(gemeinsam);
+        }
+
+        return string.Join(" · ", teile);
+    }
+
+    /// <summary>
+    /// Die Chipliste folgt dem Vorzeichen der Gruppe.
+    /// </summary>
+    /// <remarks>
+    /// Ein Gehaltseingang darf nicht nur als „Sonstiges“ ablegbar sein — sonst wird eine falsche
+    /// Regel gelernt, und die greift dann bei jedem weiteren Import.
+    /// </remarks>
+    private IEnumerable<CategoryDto> ChipsFor(PayeeGroup group)
+        => categories.Where(c => c.Direction == (group.Sum >= 0
+            ? CategoryDirection.Income
+            : CategoryDirection.Expense));
+
+    private void ToggleGroup(string key) => openGroup = openGroup == key ? null : key;
+
+    /// <summary>Eine Chip-Wahl gilt für alle Sätze des Empfängers.</summary>
+    private void Assign(PayeeGroup group, CategoryDto category)
+    {
+        choices[group.Key] = new ImportCategoryChoice(group.Payee, category.Id, remember);
+        deferred.Remove(group.Key);
+        openGroup = null;
+
+        Toasts.Show(remember
+            ? $"{group.Rows.Count}× {category.Name} · Regel gemerkt"
+            : $"{group.Rows.Count}× {category.Name}");
+    }
+
+    /// <summary>Der schnelle Ausweg — ohne Regel, denn „Sonstiges“ lernt man nicht.</summary>
+    private void AssignRestAsMiscellaneous()
+    {
+        var betroffen = OpenGroups;
+
+        foreach (var group in betroffen)
+        {
+            var direction = group.Sum >= 0 ? CategoryDirection.Income : CategoryDirection.Expense;
+            var misc = categories.FirstOrDefault(
+                c => c.Direction == direction && c.Name == "Sonstiges");
+
+            if (misc is not null)
+            {
+                choices[group.Key] = new ImportCategoryChoice(group.Payee, misc.Id, RememberRule: false);
+            }
+        }
+
+        openGroup = null;
+        Toasts.Show($"{betroffen.Count} als „Sonstiges“ übernommen");
+    }
+
+    /// <summary>
+    /// Die Empfänger fallen aus der Fragenliste; ihre Buchungen landen unkategorisiert im
+    /// Triage-Banner der Buchungsliste. Verschwiegen wird nichts.
+    /// </summary>
+    private void DeferRest()
+    {
+        var betroffen = OpenGroups;
+
+        foreach (var group in betroffen)
+        {
+            deferred.Add(group.Key);
+        }
+
+        openGroup = null;
+        Toasts.Show($"{betroffen.Count} später zuordnen");
+    }
 
     private ImportPreviewDto? data;
     private Stage stage = Stage.Empty;
@@ -270,7 +656,12 @@
 
     protected override async Task LoadAsync()
     {
+        // Beides zugleich: die Chips im Empfänger-Akkordeon brauchen die Kategorien, und ohne
+        // sie stünde die Gruppe offen da, ohne dass sich etwas wählen ließe.
+        var laden = Api.GetCategoriesAsync();
         data = await Api.GetImportPreviewAsync();
+        categories = await laden;
+
         accountId = data.SuggestedAccountId ?? data.Accounts.FirstOrDefault()?.Id ?? 0;
     }
 
@@ -345,6 +736,13 @@
                 selected.Add(row.Index);
             }
 
+            // Zuordnungen gehören zu der Datei, für die sie getroffen wurden.
+            choices.Clear();
+            deferred.Clear();
+            openGroup = null;
+            grouped = true;
+            remember = true;
+
             stage = Stage.Check;
         }
         catch (OperationCanceledException)
@@ -364,6 +762,9 @@
     {
         reading?.Cancel();
         selected.Clear();
+        choices.Clear();
+        deferred.Clear();
+        openGroup = null;
         problem = null;
         stage = Stage.Empty;
     }
@@ -390,12 +791,27 @@
         busy = true;
         try
         {
-            var result = await Api.CommitImportAsync(data!.Id, accountId, [.. selected]);
+            var result = await Api.CommitImportAsync(
+                data!.Id, accountId, [.. selected], [.. choices.Values]);
 
-            Toasts.Show(result.ForcedDuplicates == 0
-                ? $"{result.ImportedCount} Buchungen importiert"
-                : $"{result.ImportedCount} Buchungen importiert · {result.ForcedDuplicates} trotz Treffer");
+            // Was ohne Kategorie blieb, gehört in die Meldung: diese Zahl ist die Brücke zum
+            // Triage-Banner der Buchungsliste. Verschwiegen taucht sie dort unerklärt auf.
+            var teile = new List<string>
+            {
+                $"{result.ImportedCount} {(result.ImportedCount == 1 ? "Buchung" : "Buchungen")} importiert",
+            };
 
+            if (result.ForcedDuplicates > 0)
+            {
+                teile.Add($"{result.ForcedDuplicates} trotz Treffer");
+            }
+
+            if (result.WithoutCategory > 0)
+            {
+                teile.Add($"{result.WithoutCategory} ohne Kategorie");
+            }
+
+            Toasts.Show(string.Join(" · ", teile));
             Navigation.NavigateTo("/konten");
         }
         finally
