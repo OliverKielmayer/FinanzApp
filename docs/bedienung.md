@@ -251,8 +251,38 @@ gewählt, ist der Schalter aus.
 Geprüft wird **gegen den Bestand**, nicht nur innerhalb der Datei: derselbe Auszug zweimal
 eingelesen schlägt beim zweiten Mal nichts mehr vor.
 
-Danach lassen sich die neuen Buchungen kategorisieren. Wer eine Kategorie vergibt, bekommt eine
-Regel für künftige Importe angeboten — sie greift auf das erste Wort des Empfängers.
+Oben bleibt beim Blättern eine Leiste stehen: links steht, wie viele Sätze gewählt sind und
+was noch offen ist, rechts der Importieren-Schalter und **Verwerfen**. Bei einer langen Datei
+ist der Schalter damit immer erreichbar.
+
+### Kategorien vergeben
+
+Gefragt wird **je Empfänger**, nicht je Buchung — wer fünfmal beim selben Laden war,
+beantwortet das einmal. Unter **Gruppen** (Standard) stehen drei Blöcke:
+
+- **„N Empfänger zuordnen"** — antippen klappt die Zeile auf. Sie wählen eine Kategorie, und
+  sie gilt für alle Sätze dieses Empfängers. Das Kästchen **„Regel merken"** ist angehakt:
+  dann ordnet die App denselben Empfänger künftig von allein zu.
+- Darunter zwei Auswege: **„Alle N als ‚Sonstiges‘"** (ohne Regel) und **„Später zuordnen"**.
+  Beim zweiten wandern die Buchungen ohne Kategorie in den Bestand — die Leiste sagt Ihnen
+  das auch, sie behauptet nie, alles sei zugeordnet.
+- **„Automatisch zugeordnet"** zeigt, was die Regeln schon erledigt haben, je Kategorie eine
+  Zeile. Der Block fehlt, wenn nichts automatisch zugeordnet wurde.
+
+**Alle Zeilen** ist die flache Liste — dafür, einen einzelnen Satz ab- oder zuzuschalten.
+
+Ist an der Datei nichts Neues, steht das statt leerer Blöcke da: „Nichts Neues in dieser
+Datei — N Sätze erkannt, keiner neu."
+
+### Gelernte Regeln ansehen
+
+Unter **Mehr → Kategorien & Regeln** (oder über „Regeln ansehen" im Import) stehen alle
+Regeln: Muster, Kategorie und Herkunft. Was die App beim Import gelernt hat, steht im Akzent
+mit Datum; der Rest war von Anfang an dabei. Jede Zeile lässt sich löschen — der erste Tipp
+fragt nach, der zweite löscht.
+
+Eine gelöschte Regel lässt bereits importierte Buchungen unverändert; sie greift nur beim
+nächsten Import.
 
 > **Der Import ist echt.** Er schreibt die Buchungen tatsächlich, danach stimmen die Demo-Zahlen
 > nicht mehr. Wie sich der Ausgangszustand herstellen lässt, steht unter Punkt 12.

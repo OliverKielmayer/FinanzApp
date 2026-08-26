@@ -1,0 +1,124 @@
+@page "/kategorieregeln"
+@attribute [Authorize]
+@inherits AppPage
+
+@*
+    Was die App sich beigebracht hat, muss sichtbar und widerrufbar sein. Eine Regel, die
+    still im Hintergrund zuordnet und die niemand einsehen kann, ist keine Hilfe, sondern
+    eine Eigenmächtigkeit.
+
+    Erreichbar aus „Mehr“ und aus der Prüfansicht des Imports.
+*@
+
+<PageTitle>Kategorieregeln — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    <section class="hero">
+        <span class="label-muted">Gelernte Regeln</span>
+        <span class="hero-value num">@rules.Count</span>
+        <span class="loan-sub">
+            @(learnedCount == 0
+                ? "keine beim Import gelernt"
+                : $"{learnedCount} davon beim Import gelernt")
+        </span>
+    </section>
+
+    @if (rules.Count == 0)
+    {
+        <div class="detail-block">
+            <span class="detail-label">Noch keine Regel</span>
+            <span class="create-help">
+                Regeln entstehen dort, wo Sie eine Kategorie vergeben — im Kategorie-Fenster einer
+                Buchung oder beim Einlesen eines Kontoauszugs. Beide fragen vorher, ob die
+                Zuordnung bleiben soll.
+            </span>
+        </div>
+    }
+    else
+    {
+        <div class="list-head">
+            <span class="label-strong">Muster · Kategorie</span>
+        </div>
+
+        @foreach (var rule in rules)
+        {
+            var id = rule.Id;
+
+            <div class="import-row @(pending == id ? "picked" : null)">
+                <span class="tag">@rule.CategoryName</span>
+
+                <span class="stack">
+                    <span class="import-row-payee">@rule.PayeePattern</span>
+                    <span class="meta @(rule.LearnedOn is null ? null : "learned")">@Origin(rule)</span>
+                </span>
+
+                <AuthorizeView Roles="Owner,Member" Context="write">
+                    @if (pending == id)
+                    {
+                        @* Zweistufig und ohne Systemdialog — wie überall sonst beim Löschen. *@
+                        <span class="rule-actions">
+                            <button type="button" class="btn btn-primary delete-confirm" disabled="@busy"
+                                    @onclick="() => DeleteAsync(id)">Löschen bestätigen</button>
+                            <button type="button" class="btn btn-secondary" disabled="@busy"
+                                    @onclick="@(() => pending = null)">Behalten</button>
+                        </span>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-secondary" disabled="@busy"
+                                @onclick="() => pending = id">Löschen</button>
+                    }
+                </AuthorizeView>
+            </div>
+        }
+
+        <div class="tx-totals-note">
+            Eine gelöschte Regel lässt bereits importierte Buchungen unverändert — sie greift nur
+            beim nächsten Import.
+        </div>
+    }
+
+    <div class="spacer"></div>
+</AsyncView>
+
+@code {
+    private IReadOnlyList<CategorizationRuleDto> rules = [];
+    private int? pending;
+    private bool busy;
+
+    private int learnedCount => rules.Count(r => r.LearnedOn is not null);
+
+    protected override async Task LoadAsync()
+    {
+        rules = await Api.GetRulesAsync();
+        pending = null;
+    }
+
+    /// <summary>
+    /// Woher die Regel stammt.
+    /// </summary>
+    /// <remarks>
+    /// Der Unterschied zählt: eine Regel, die von Anfang an dabei war, hat jemand eingerichtet;
+    /// eine gelernte hat die App sich selbst beigebracht, und genau die will man nachsehen können.
+    /// </remarks>
+    private static string Origin(CategorizationRuleDto rule)
+        => rule.LearnedOn is { } learned
+            ? $"gelernt am {GermanFormat.Date(learned)}"
+            : "seit dem ersten Import";
+
+    private Task DeleteAsync(int id) => RunAsync(async () =>
+    {
+        busy = true;
+        try
+        {
+            await Api.DeleteRuleAsync(id);
+            await LoadAsync();
+
+            Toasts.Show("Regel gelöscht");
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+}

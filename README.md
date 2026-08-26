@@ -336,6 +336,71 @@ der Übernahme ist die Vorschau verbraucht — ein zweiter Klick bucht nicht noc
 Zum Ausprobieren liegt `docs/beispiele/camt052-sparkasse.xml` bereit; dieselbe Datei prüfen
 auch die Tests. CSV ist weiterhin nicht angebunden.
 
+### Wenn der Empfänger nicht der Empfänger ist
+
+An einer echten Bankdatei mit 459 Umsätzen geprüft. Bei Kartenzahlungen und über
+Zahlungsdienstleister steht im Gläubigerfeld nicht der Laden, sondern der Acquirer
+(„PAYONE GmbH“, „DZ BANK AG“, „EDEKABANK AG“) oder ein Platzhalter
+(„Lastschrift aus Kartenzahlung“). Der Laden steht im Verwendungszweck — in mehreren
+Schreibweisen, alle in derselben Datei:
+
+```
+Setzer 24/7 Vell./Wolpertshausen/DE 31.12.2025 um 19:08:01 Uhr
+DIAK Klinikum Landkrei/Am Mutterhaus 1/Schwaebisch H/D02.01.2026 / 18:58 Ortszeit
+NYX.DeinAutomat/Diakoniestrasse/SchwaebischHa/DE/0 16.01.2026 / 16:01 Ortszeit
+KJNUUX Ihr Einkauf bei EDEKA Möller vom 30.12.2025 EREF: T005115664
+```
+
+Geschnitten wird am Datum und sonst nirgends — Ladennamen enthalten selbst Schrägstriche
+(„Setzer 24/7 Vell.“). Ein **angehängtes Buchungsdatum fällt weg**: bliebe es stehen, wäre jeder
+Einkauf ein eigener Empfänger, und aus einer Gruppe mit 42 Sätzen würden 42 Fragen. Nennt das
+Gläubigerfeld dagegen schon den Laden, bleibt es dabei — „REWE Martin Sitter“ liest sich besser
+als „REWE SAGT DANKE. 45655449/Heidenheim“, und beide ergeben dasselbe Regelmuster.
+
+Wirkung auf der Testdatei: 105 Sätze lagen unter vier nichtssagenden Namen, jetzt nur noch 24.
+Ist die Stelle im Zweck leer — bei PayPal in 21 von 36 Fällen — bleibt es beim Dienstleister;
+ein geratener Name wäre schlechter.
+
+### Der Buchungstext ist keine Kategorie
+
+Die Bank benennt jede Buchung: „Lastschrift“, „Dauerauftrag“, „SB-Auszahlung“,
+„Lohn/Gehalt/Rente“. Daraus eine Kategorie abzuleiten wäre nahegelegen — gemessen bringt es
+nichts. Von 96 Empfängern trugen neun mehr als einen Buchungstext, und bei acht davon
+unterschied er nur Ein- von Ausgang, was Vorzeichen und Chipliste ohnehin trennen. Der Text
+steht deshalb als **Angabe an der Empfängergruppe**, wo die Zuordnung getroffen wird, und nur
+dann, wenn er für alle Sätze der Gruppe gilt.
+
+### Kategorien beim Import — lernende Regeln
+
+Gefragt wird je **Empfänger**, nicht je Buchung. Niemand kategorisiert dreihundert Zeilen
+einzeln, und dieselbe Antwort dreißigmal zu geben ist keine Sorgfalt. Eine Chip-Wahl gilt für
+alle Sätze des Empfängers und kann als Regel hängenbleiben.
+
+Vier Entscheidungen stecken darin:
+
+1. **Die Herkunft gehört in die Vorschau, nicht in den Client.** Die Vorschau liefert je Satz
+   Status, Vorschlagskategorie und die greifende Regel-Id; der Client zeigt und bestätigt nur.
+   Ohne die Herkunft ließe sich „automatisch zugeordnet“ nicht von „von Hand gewählt“
+   unterscheiden.
+2. **Gelernt wird erst bei der Übernahme.** Wer den Import verwirft, soll keine Regel
+   hinterlassen haben — statt sie anzulegen und wieder wegzuräumen, entstehen sie gar nicht
+   erst. Dieselbe Regel zweimal gelernt wird überschrieben, nicht verdoppelt.
+3. **Verglichen wird normalisiert** (Groß/Klein, Mehrfachleerzeichen, Satzzeichen). Bankdaten
+   schreiben denselben Empfänger je nach Zahlungsweg anders; ein Vergleich, der daran
+   scheitert, fragt beim nächsten Import wieder dasselbe. Bei mehreren Treffern gewinnt die
+   **längste** Regel — sonst entschiede die Reihenfolge in der Tabelle.
+4. **Die Chipliste folgt dem Vorzeichen der Gruppe.** Ein Gehaltseingang darf nicht nur als
+   „Sonstiges“ ablegbar sein, sonst wird eine falsche Regel gelernt — und die greift dann bei
+   jedem weiteren Import.
+
+Vorrang: die Wahl im Import schlägt jede Regel. Eine Regel ändert **nie**, was schon gebucht
+ist. Was ohne Kategorie bleibt, nennt die Meldung nach dem Import — diese Zahl ist die Brücke
+zum Triage-Banner der Buchungsliste.
+
+Gelernte Regeln sind unter `/kategorieregeln` einsehbar und löschbar, mit Herkunft. Was die
+App sich selbst beigebracht hat, muss sichtbar und widerrufbar sein; eine Regel, die still im
+Hintergrund zuordnet und die niemand einsehen kann, ist keine Hilfe.
+
 ## Anmeldung und Mehrbenutzerbetrieb
 
 Ein **Haushalt** besitzt die Daten. Ein **Benutzer** meldet sich mit eigenen Zugangsdaten an und
