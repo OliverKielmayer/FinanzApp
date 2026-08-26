@@ -119,9 +119,12 @@ public sealed class FinanzAppApi(HttpClient http)
         return GetAsync<TransactionPageDto>(url, ct);
     }
 
-    /// <summary>Löscht eine Buchung.</summary>
+    /// <summary>
+    /// Löscht eine Buchung. Über den 204-Helfer — der Endpunkt schickt keinen Rumpf, und ein
+    /// JSON-Leser bräche daran.
+    /// </summary>
     public Task DeleteTransactionAsync(int id, CancellationToken ct = default)
-        => SendAsync<object?, object?>(HttpMethod.Delete, $"api/transactions/{id}", null, ct);
+        => SendWithoutResultAsync<object?>(HttpMethod.Delete, $"api/transactions/{id}", null, ct);
 
     /// <summary>Löscht mehrere Buchungen und liefert, wie viele es waren.</summary>
     public Task<int> DeleteTransactionsAsync(IReadOnlyList<int> ids, CancellationToken ct = default)

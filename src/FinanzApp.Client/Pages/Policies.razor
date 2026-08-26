@@ -2,7 +2,6 @@
 @page "/absicherung"
 @attribute [Authorize]
 @inherits AppPage
-@implements IDisposable
 
 @*
     Zwei Einstiege, eine Seite — so wie es dahinter ein Modell mit einem Flag ist. Was sich
@@ -147,5 +146,14 @@
         _ => GermanFormat.EuroRounded(policy.Premium) + "/Jahr",
     };
 
-    public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
+    /// <summary>
+    /// <c>override</c>, nicht <c>new</c>: <c>AppPage</c> trägt die Schnittstelle, und eine
+    /// verdeckende Fassung würde nie gerufen — der Handler bliebe nach dem Verlassen der Seite
+    /// angemeldet und für jede spätere Navigation mitfeuern.
+    /// </summary>
+    public override void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+        base.Dispose();
+    }
 }
