@@ -222,6 +222,17 @@ Der Import läuft in drei Schritten: **Datei wählen → liest → prüfen**. Am
 steht links, was in der Datei steht — Name, Format, Zeitraum, Auszugssaldo —, rechts die
 Prüfung.
 
+Die Datei wählen Sie auf zwei Wegen: **in die Fläche ziehen** oder **die Fläche anklicken**.
+Gelesen werden Kontoauszüge im Format **camt.052** und **camt.053** — die XML-Dateien, die das
+Onlinebanking zum Herunterladen anbietet. CSV geht noch nicht. Wer keine eigene Datei zur Hand
+hat, nimmt **Beispielauszug einlesen**.
+
+Passt die Datei nicht, bleibt der Grund an der Fläche stehen — etwa „Kein camt.052 oder
+camt.053“. Es geht nichts verloren, Sie ziehen einfach die nächste Datei hinein.
+
+Das **Zielkonto** erkennt die App an der IBAN aus der Datei; steht dort keine, rät sie über den
+Namen der Bank. Vorgeschlagen ist es nur — umstellen lässt es sich immer.
+
 In der Prüfung wählen Sie zuerst das **Zielkonto** (das erkannte ist vorgeschlagen), darunter
 stehen drei Zähler und alle Sätze einzeln:
 
@@ -231,6 +242,7 @@ stehen drei Zähler und alle Sätze einzeln:
 | bereits vorhanden | abgewählt, grau — dieselbe Importreferenz ist schon gebucht |
 | mögliches Duplikat | abgewählt, grau — gleicher Tag, Empfänger und Betrag |
 | nicht lesbar | gesperrt — daraus wird keine Buchung |
+| nur vorgemerkt | gesperrt — die Bank hat den Umsatz noch nicht gebucht |
 
 Jede Zeile lässt sich einzeln umschalten. Wer ein Duplikat zuschaltet, sieht den Zähler
 „Übernehmen“ **und** den Schalter mitwandern — beide lesen dieselbe Auswahl. Ist nichts
@@ -268,9 +280,9 @@ Diese Schalter sind vorhanden, aber noch nicht hinterlegt — sie melden es beim
 Split-Buchung · Sondertilgung planen · Aufgabe anlegen · Erinnerung setzen ·
 Bei PKV nachfragen · Im Ordner suchen · Rechteverwaltung
 
-Dazu die Einträge des Erfassen-Fensters, die nur in ihren Bereich führen (siehe Punkt 5), die
-Belegerkennung, die nichts erkennt, und der Dateiparser des Imports — beide Schalter dort lesen
-denselben Beispielauszug.
+Dazu die Einträge des Erfassen-Fensters, die nur in ihren Bereich führen (siehe Punkt 5), und
+die Belegerkennung, die nichts erkennt. Beim Import werden camt.052 und camt.053 gelesen —
+CSV-Dateien noch nicht.
 
 Ganz fehlen bislang die Bereiche **Arbeit & Beruf** und **Administration** sowie die
 Zwei-Faktor-Anmeldung.

@@ -2369,6 +2369,43 @@ body {
   padding: 14px;
 }
 
+/* Ablageflaeche fuer die Auszugsdatei.
+
+   Das Dateifeld liegt unsichtbar ueber der ganzen Flaeche, statt dass eine eigene
+   Drop-Behandlung in JavaScript danebensteht: ein <input type="file"> ist von sich aus
+   ein gueltiges Drop-Ziel, nimmt die fallengelassene Datei an und meldet sie ueber
+   dasselbe change-Ereignis wie ein Klick. Ein Weg, zwei Bedienungen. */
+.dropzone {
+  position: relative;
+}
+
+.dropzone-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* Waehrend eine Datei darueber haengt. Nur eine Rueckmeldung, keine Zustandsaenderung. */
+.dropzone.over {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft, rgba(89, 128, 166, 0.08));
+}
+
+/* Der Inhalt muss ueber dem Dateifeld liegen, sonst faengt das die Klicks auf die
+   Schaltflaechen ab. */
+.dropzone > *:not(.dropzone-input) {
+  position: relative;
+  pointer-events: none;
+}
+
+.dropzone .doc-actions,
+.dropzone .doc-actions * {
+  pointer-events: auto;
+}
+
 /* Eine Zeile des Auszugs: Auswahl, Empfänger mit Zustand, Betrag. */
 .import-row {
   display: grid;

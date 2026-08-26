@@ -301,8 +301,40 @@ zweimal eingelesen ergibt beim zweiten Mal null Vorschläge. Zähler und Aktions
 dieselbe Auswahl, damit der Kopf dem Knopf nicht widerspricht. Fehlerhafte Sätze werden gezählt
 und benannt — nie stillschweigend übersprungen.
 
-Ein Dateiparser hängt nicht dran; beide Schalter lesen denselben Beispielauszug, und das Panel
-sagt es. Die Prüfung dahinter ist echt.
+Gelesen werden **camt.052 und camt.053**. Beide Formate sind unterhalb von `Ntry` gleich
+aufgebaut und unterscheiden sich nur im Namen des Wurzelberichts — derselbe Leser nimmt
+deshalb beide. Gesucht wird ausschließlich über lokale Elementnamen: der Namensraum trägt die
+Version, und die liefert jede Bank anders.
+
+Vier Stellen, an denen ein Auszug leise kippt, und was dagegen steht:
+
+1. **Der Betrag steht ohne Vorzeichen in der Datei**; die Richtung trägt `CdtDbtInd`. Wer den
+   Indikator übersieht, bucht jede Abbuchung als Eingang und die Bilanz sieht großartig aus.
+2. **Die Gegenseite wechselt mit der Richtung** — bei einer Abbuchung der Gläubiger, bei einer
+   Gutschrift der Zahler. Immer den Gläubiger zu nehmen ergäbe beim eigenen Gehalt den eigenen
+   Namen als Empfänger.
+3. **Die Referenz trägt die Wiedererkennung.** Bevorzugt wird `AcctSvcrRef` von der Bank;
+   `EndToEndId` steht oft auf `NOTPROVIDED` und taugt dann nicht. Fehlt jede Referenz, wird aus
+   Tag, Empfänger und Betrag ein Fingerabdruck gebildet — stabil über Wiederholungen, sonst
+   erkännte die Duplikatprüfung denselben Satz beim zweiten Einlesen nicht wieder.
+4. **Die IBAN steht in den Stammdaten mit Leerzeichen und in der Datei ohne.** Ohne
+   Normalisierung träfe die Kontozuordnung nie zu und die App schlüge stumm das falsche Konto
+   vor.
+
+Ein nur vorgemerkter Umsatz ist keine Buchung — er steht trotzdem in der Liste, mit Grund und
+unwählbar. Ein Sammler mit eigenen Einzelbeträgen wird zerlegt, damit Empfänger und Kategorie
+nicht geraten werden müssen; der Sammelbetrag entfällt dann, sonst stünde er doppelt da.
+
+Die Datei wird ohne DTD gelesen (`DtdProcessing.Prohibit`, kein `XmlResolver`). Ein Auszug
+kommt von außen; mit erlaubter DTD ließe sich über eine externe Entität jede Serverdatei in
+die Antwort ziehen.
+
+Zwischen Vorschau und Übernahme liegt die gelesene Datei im Zwischenspeicher des Servers, nicht
+beim Client. Käme sie zurückgereicht, entschiede der Aufrufer über Beträge und Referenzen. Nach
+der Übernahme ist die Vorschau verbraucht — ein zweiter Klick bucht nicht noch einmal.
+
+Zum Ausprobieren liegt `docs/beispiele/camt052-sparkasse.xml` bereit; dieselbe Datei prüfen
+auch die Tests. CSV ist weiterhin nicht angebunden.
 
 ## Anmeldung und Mehrbenutzerbetrieb
 

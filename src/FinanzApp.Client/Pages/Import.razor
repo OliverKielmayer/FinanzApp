@@ -18,32 +18,51 @@
     {
         @if (stage == Stage.Empty)
         {
-            <div class="import-panel blueprint">
-                <i class="corner tl" aria-hidden="true"></i>
-                <i class="corner tr" aria-hidden="true"></i>
-                <i class="corner bl" aria-hidden="true"></i>
-                <i class="corner br" aria-hidden="true"></i>
+            <AuthorizeView Roles="Owner,Member" Context="write">
+                <Authorized>
+                    <div class="import-panel blueprint dropzone @(dragging ? "over" : null)"
+                         @ondragenter="() => dragging = true"
+                         @ondragleave="() => dragging = false"
+                         @ondrop="() => dragging = false">
+                        <i class="corner tl" aria-hidden="true"></i>
+                        <i class="corner tr" aria-hidden="true"></i>
+                        <i class="corner bl" aria-hidden="true"></i>
+                        <i class="corner br" aria-hidden="true"></i>
 
-                <span class="kicker">Kontoauszug einlesen</span>
-                <span class="create-help">Datei hierher ziehen oder auswählen.</span>
+                        @* Liegt unsichtbar über der ganzen Fläche: derselbe Weg nimmt den Klick
+                           und die fallengelassene Datei. *@
+                        <InputFile class="dropzone-input" accept=".xml,.camt,text/xml,application/xml"
+                                   OnChange="OnFileSelected" aria-label="Kontoauszug auswählen" />
 
-                <AuthorizeView Roles="Owner,Member">
-                    <div class="doc-actions">
-                        <button type="button" class="btn btn-primary" @onclick="@(() => ReadAsync("CAMT.053"))">
-                            CAMT.053 wählen
-                        </button>
-                        <button type="button" class="btn btn-secondary" @onclick="@(() => ReadAsync("CSV"))">
-                            CSV wählen
-                        </button>
+                        <span class="kicker">Kontoauszug einlesen</span>
+                        <span class="create-help">
+                            camt.052 oder camt.053 hierher ziehen oder anklicken.
+                        </span>
+
+                        @if (problem is { Length: > 0 })
+                        {
+                            <span class="create-problem">@problem</span>
+                        }
+
+                        <div class="doc-actions">
+                            <button type="button" class="btn btn-secondary" @onclick="ReadExampleAsync">
+                                Beispielauszug einlesen
+                            </button>
+                        </div>
                     </div>
-                </AuthorizeView>
+                </Authorized>
+                <NotAuthorized>
+                    <div class="import-panel blueprint">
+                        <i class="corner tl" aria-hidden="true"></i>
+                        <i class="corner tr" aria-hidden="true"></i>
+                        <i class="corner bl" aria-hidden="true"></i>
+                        <i class="corner br" aria-hidden="true"></i>
 
-                @* Ehrlich benannt: es hängt kein Parser dran, gelesen wird der Beispielauszug. *@
-                <span class="create-help">
-                    Es ist kein Dateiparser angebunden — beide Schalter lesen denselben
-                    Beispielauszug. Die Prüfung dahinter ist echt.
-                </span>
-            </div>
+                        <span class="kicker">Kontoauszug einlesen</span>
+                        <span class="create-help">Zum Einlesen fehlen die Rechte.</span>
+                    </div>
+                </NotAuthorized>
+            </AuthorizeView>
 
             @if (preview.LastImport is { } last)
             {
@@ -67,7 +86,7 @@
                 <i class="corner bl" aria-hidden="true"></i>
                 <i class="corner br" aria-hidden="true"></i>
 
-                <span class="kicker">Liest @format</span>
+                <span class="kicker">Liest @fileName</span>
 
                 <div class="chain">
                     @foreach (var (label, done) in ReadSteps)
@@ -219,21 +238,34 @@
         Check,
     }
 
+    /// <summary>20 MB — dieselbe Grenze, die der Server zieht.</summary>
+    private const long MaxBytes = 20L * 1024 * 1024;
+
     private ImportPreviewDto? data;
     private Stage stage = Stage.Empty;
-    private string format = "CAMT.053";
+    private string fileName = string.Empty;
+    private string? problem;
+    private bool dragging;
     private int readStep;
     private int accountId;
     private bool busy;
     private readonly HashSet<int> selected = [];
     private CancellationTokenSource? reading;
 
+    /// <summary>
+    /// Die Kette benennt die Reihenfolge und erfindet keinen Fortschritt.
+    /// </summary>
+    /// <remarks>
+    /// Schritt 1 ist getan, sobald die Datei im Speicher liegt; die übrigen drei geschehen in
+    /// einem Zug auf dem Server und werden auch zusammen abgehakt. Sie einzeln durchlaufen zu
+    /// lassen hieße, eine Zwischenzeit vorzuspielen, die es nicht gibt.
+    /// </remarks>
     private (string Label, bool Done)[] ReadSteps =>
     [
         ("Datei gelesen", readStep > 0),
         ("Format erkannt", readStep > 1),
-        ("Konto zugeordnet", readStep > 2),
-        ("Duplikate geprüft", readStep > 3),
+        ("Konto zugeordnet", readStep > 1),
+        ("Duplikate geprüft", readStep > 1),
     ];
 
     protected override async Task LoadAsync()
@@ -242,9 +274,53 @@
         accountId = data.SuggestedAccountId ?? data.Accounts.FirstOrDefault()?.Id ?? 0;
     }
 
-    private async Task ReadAsync(string chosenFormat)
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
     {
-        format = chosenFormat;
+        dragging = false;
+        problem = null;
+
+        var file = e.File;
+        if (file.Size > MaxBytes)
+        {
+            problem = "Die Datei ist größer als 20 MB.";
+            return;
+        }
+
+        fileName = file.Name;
+
+        // Erst in den Speicher, dann die Stufe wechseln. Mit dem Wechsel verschwindet das
+        // Dateifeld aus dem DOM, und IBrowserFile hängt daran — danach ließe sich der Strom
+        // nicht mehr öffnen, und das Lesen bliebe wortlos in der Kette stehen.
+        byte[] content;
+        try
+        {
+            using var buffer = new MemoryStream();
+            await using (var source = file.OpenReadStream(MaxBytes))
+            {
+                await source.CopyToAsync(buffer);
+            }
+
+            content = buffer.ToArray();
+        }
+        catch (IOException ex)
+        {
+            problem = $"Die Datei ließ sich nicht lesen: {ex.Message}";
+            return;
+        }
+
+        await ReadAsync(token => Api.ReadStatementAsync(new MemoryStream(content), file.Name, token));
+    }
+
+    /// <summary>Der eingebaute Beispielauszug — zum Ausprobieren ohne eigene Datei.</summary>
+    private async Task ReadExampleAsync()
+    {
+        problem = null;
+        fileName = "Beispielauszug";
+        await ReadAsync(Api.GetImportPreviewAsync);
+    }
+
+    private async Task ReadAsync(Func<CancellationToken, Task<ImportPreviewDto>> read)
+    {
         stage = Stage.Reading;
         readStep = 0;
 
@@ -254,16 +330,13 @@
 
         try
         {
-            // Die Kette zeigt, welcher Schritt gerade dran wäre. Sie erfindet keinen Fortschritt,
-            // den es nicht gibt — sie benennt die Reihenfolge.
-            while (readStep < 4)
-            {
-                await Task.Delay(260, token);
-                readStep++;
-                StateHasChanged();
-            }
+            readStep = 1;
+            StateHasChanged();
 
-            data = await Api.GetImportPreviewAsync(token);
+            data = await read(token);
+            readStep = 2;
+
+            fileName = data.FileName;
             accountId = data.SuggestedAccountId ?? data.Accounts.FirstOrDefault()?.Id ?? 0;
 
             selected.Clear();
@@ -280,7 +353,9 @@
         }
         catch (ApiException ex)
         {
-            Toasts.Show(ex.Message);
+            // Der Grund bleibt am Panel stehen. Ein Toast wäre weg, bevor jemand die nächste
+            // Datei aussucht — und genau dabei soll er helfen.
+            problem = ex.Message;
             stage = Stage.Empty;
         }
     }
@@ -289,6 +364,7 @@
     {
         reading?.Cancel();
         selected.Clear();
+        problem = null;
         stage = Stage.Empty;
     }
 

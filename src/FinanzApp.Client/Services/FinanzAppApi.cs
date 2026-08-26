@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -165,6 +166,18 @@ public sealed class FinanzAppApi(HttpClient http)
 
     public Task<ImportPreviewDto> GetImportPreviewAsync(CancellationToken ct = default)
         => GetAsync<ImportPreviewDto>("api/import/preview", ct);
+
+    /// <summary>Liest eine hochgeladene Auszugsdatei und liefert die Vorschau dazu.</summary>
+    public async Task<ImportPreviewDto> ReadStatementAsync(
+        Stream content, string fileName, CancellationToken ct = default)
+    {
+        using var form = new MultipartFormDataContent();
+        using var file = new StreamContent(content);
+        file.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        form.Add(file, "file", fileName);
+
+        return await PostFormAsync<ImportPreviewDto>("api/import/read", form, ct);
+    }
 
     /// <summary>Übernimmt die gewählten Sätze auf das gewählte Konto.</summary>
     public Task<ImportCommitResultDto> CommitImportAsync(
