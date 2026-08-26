@@ -2,6 +2,8 @@ using FinanzApp.Api.Application;
 using FinanzApp.Api.Data.Entities;
 using FinanzApp.Api.Infrastructure;
 using FinanzApp.Shared.Contracts;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace FinanzApp.Tests;
 
@@ -34,7 +36,20 @@ public sealed class ImportTests : IDisposable
         accountId = account.Id;
     }
 
-    private ImportService Service() => new(database.Context(), clock);
+    /// <summary>
+    /// Der Zwischenspeicher gehoert dem Test, nicht dem einzelnen Dienst.
+    /// </summary>
+    /// <remarks>
+    /// Vorschau und Uebernahme laufen ueber zwei Anfragen und damit zwei Dienst-Instanzen. Legte
+    /// jede ihren eigenen Speicher an, waere eine eingelesene Datei beim Uebernehmen verschwunden
+    /// — und der Test pruefte etwas, das es im Betrieb nicht gibt.
+    /// </remarks>
+    private readonly IMemoryCache cache = new MemoryCache(new MemoryCacheOptions { SizeLimit = 50_000 });
+
+    private readonly CurrentUser anonymous = new(new HttpContextAccessor());
+
+    private ImportService Service()
+        => new(database.Context(), clock, new CamtStatementParser(), cache, anonymous);
 
     [Fact]
     public async Task Ein_frischer_Bestand_kennt_lauter_neue_Saetze()

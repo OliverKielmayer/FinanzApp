@@ -122,6 +122,37 @@ public static class ApiEndpoints
         api.MapGet("/import/preview", async (ImportService service, CancellationToken ct)
             => Results.Ok(await service.GetPreviewAsync(ct)));
 
+        // Eine hochgeladene Auszugsdatei. DisableAntiforgery wie bei den uebrigen Uploads:
+        // der Schutz gegen fremde Formulare liegt am Anmelde-Cookie mit SameSite=Strict.
+        api.MapPost("/import/read", async (
+            IFormFile file, ImportService service, CancellationToken ct) =>
+        {
+            if (file.Length == 0)
+            {
+                return Results.Problem(
+                    "Die Datei ist leer.", statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            if (file.Length > CamtStatementParser.MaxBytes)
+            {
+                return Results.Problem(
+                    "Die Datei ist groesser als 20 MB.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            await using var content = file.OpenReadStream();
+            try
+            {
+                return Results.Ok(await service.ReadAsync(content, file.FileName, ct));
+            }
+            catch (StatementFormatException ex)
+            {
+                // Der Grund steht in der Meldung und gehoert dem Benutzer — er hat die
+                // Datei ausgesucht und kann eine andere nehmen.
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.Write).DisableAntiforgery();
+
         api.MapPost("/import/commit", async (
             ImportCommitRequest request, ImportService service, CancellationToken ct) =>
         {

@@ -122,6 +122,11 @@ else
     builder.Services.AddSingleton<IMailSender, LoggingMailSender>();
 }
 
+// Auszugsdateien. Der Zwischenspeicher haelt die gelesene Datei zwischen Vorschau und
+// Uebernahme — begrenzt, damit ein Stapel Uploads den Server nicht auffuellt.
+builder.Services.AddMemoryCache(options => options.SizeLimit = 50_000);
+builder.Services.AddSingleton<IStatementParser, CamtStatementParser>();
+
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<HouseholdService>();
 builder.Services.AddScoped<AccountService>();
