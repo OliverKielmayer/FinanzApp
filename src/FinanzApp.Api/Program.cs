@@ -112,6 +112,13 @@ if (mailOptions.IsConfigured)
 }
 else
 {
+    // Ohne diese Zeile ist „es kommt keine Mail an“ beim Start nicht zu sehen, sondern erst,
+    // wenn jemand vergeblich auf eine wartet.
+    Console.WriteLine(string.IsNullOrWhiteSpace(mailOptions.Host)
+        ? "Mail: kein Postausgang (Mail:Host leer). Reset-Links stehen im Protokoll."
+        : $"Mail: {mailOptions.Host} vorbereitet, aber Mail:Password fehlt. "
+          + "Reset-Links stehen im Protokoll.");
+
     builder.Services.AddSingleton<IMailSender, LoggingMailSender>();
 }
 

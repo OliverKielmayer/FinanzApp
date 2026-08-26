@@ -17,10 +17,29 @@ public sealed class MailOptions
 
     public string? User { get; set; }
     public string? Password { get; set; }
-    public string FromAddress { get; set; } = "noreply@finanzapp.local";
+    /// <summary>
+    /// Absender. Leer heißt: dieselbe Adresse, mit der wir uns anmelden. Die meisten Anbieter,
+    /// mail.de eingeschlossen, weisen eine fremde Absenderadresse zurück.
+    /// </summary>
+    public string FromAddress { get; set; } = string.Empty;
+
     public string FromName { get; set; } = "FinanzApp";
 
-    public bool IsConfigured => !string.IsNullOrWhiteSpace(Host);
+    /// <summary>Was am Ende im Von-Feld steht.</summary>
+    public string EffectiveFromAddress =>
+        !string.IsNullOrWhiteSpace(FromAddress) ? FromAddress : User ?? string.Empty;
+
+    /// <summary>
+    /// Erst wenn Host <em>und</em> Passwort dastehen.
+    /// </summary>
+    /// <remarks>
+    /// Am Host allein zu erkennen reichte nicht: dann würde eine vorbereitete, aber noch
+    /// geheimnislose Konfiguration den echten Versand einschalten, jede Nachricht an der
+    /// Anmeldung scheitern — und der Link stünde nicht mehr im Protokoll, wo man ihn ohne
+    /// Postausgang braucht. Ein Relay ganz ohne Anmeldung ist damit nicht vorgesehen.
+    /// </remarks>
+    public bool IsConfigured =>
+        !string.IsNullOrWhiteSpace(Host) && !string.IsNullOrWhiteSpace(Password);
 }
 
 public interface IMailSender
@@ -43,7 +62,7 @@ public sealed class SmtpMailSender(MailOptions options, ILogger<SmtpMailSender> 
             Subject = subject,
             Body = new TextPart("plain") { Text = body },
         };
-        message.From.Add(new MailboxAddress(options.FromName, options.FromAddress));
+        message.From.Add(new MailboxAddress(options.FromName, options.EffectiveFromAddress));
         message.To.Add(new MailboxAddress(toName, toAddress));
 
         using var client = new SmtpClient();
@@ -82,15 +101,20 @@ public sealed class SmtpMailSender(MailOptions options, ILogger<SmtpMailSender> 
 /// der Konsole. Im Produktivbetrieb muss <c>Mail:Host</c> gesetzt sein, sonst erreicht kein
 /// Zurücksetzen jemals den Empfänger.
 /// </remarks>
-public sealed class LoggingMailSender(ILogger<LoggingMailSender> log) : IMailSender
+public sealed class LoggingMailSender(MailOptions options, ILogger<LoggingMailSender> log) : IMailSender
 {
+    /// <summary>Was genau fehlt — dieselbe Auskunft wie die Startmeldung.</summary>
+    private string Missing => string.IsNullOrWhiteSpace(options.Host)
+        ? "Mail:Host ist nicht gesetzt"
+        : "Mail:Password fehlt";
+
     public Task SendAsync(
         string toAddress, string toName, string subject, string body, CancellationToken ct = default)
     {
         log.LogWarning(
-            "Kein Postausgangsserver konfiguriert (Mail:Host). Nachricht an {Empfänger} nicht versendet.\n" +
+            "Kein Postausgang aktiv ({Grund}). Nachricht an {Empfänger} nicht versendet.\n" +
             "Betreff: {Betreff}\n{Text}",
-            toAddress, subject, body);
+            Missing, toAddress, subject, body);
 
         return Task.CompletedTask;
     }

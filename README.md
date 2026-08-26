@@ -76,15 +76,33 @@ Alle drei Benutzer des Haushalts *Haushalt Kielmayer* teilen das Passwort
 `App_Data/Dokumente`, relativ zum Anwendungsverzeichnis oder absolut). Dazu kommen
 `MaxFileSizeMegabytes` und `AllowedExtensions`.
 
-Der Passwort-Reset verschickt eine echte Mail, sobald `Mail:Host` gesetzt ist. Ohne Postausgang
-schreibt die Anwendung die Nachricht samt Link ins Protokoll und arbeitet sonst unverändert.
+Der Passwort-Reset verschickt eine echte Mail, sobald `Mail:Host` **und** `Mail:Password`
+gesetzt sind. Fehlt eines davon, schreibt die Anwendung die Nachricht samt Link ins
+Protokoll und arbeitet sonst unverändert; beim Start steht in der Konsole, welcher der
+beiden Fälle gerade gilt.
+
+Dass beides nötig ist, ist Absicht: `appsettings.json` bringt den Host für mail.de schon
+mit. Würde der allein genügen, wäre der echte Versand ab dem ersten Start aktiv, jede
+Nachricht scheiterte an der Anmeldung — und der Link stünde nicht mehr im Protokoll, wo man
+ihn ohne Postausgang braucht. Ein Relay ganz ohne Anmeldung ist damit nicht vorgesehen.
+
+Zum Scharfschalten fehlen nur die beiden persönlichen Angaben:
 
 ```bash
-dotnet user-secrets --project src/FinanzApp.Api set "Mail:Host" "smtp.example.net"
+dotnet user-secrets --project src/FinanzApp.Api set "Mail:User" "vorname.name@mail.de"
+```
+
+```bash
 dotnet user-secrets --project src/FinanzApp.Api set "Mail:Password" "…"
 ```
 
-Das Passwort gehört **nicht** in `appsettings.json` — die Datei liegt im Repository.
+Das Passwort gehört **nicht** in `appsettings.json` — die Datei liegt im Repository. Die
+Mailadresse aus demselben Grund nicht: sie ist persönlich und hätte in der Versionierung
+nichts verloren. `Mail:FromAddress` bleibt leer, dann wird als Absender genau die Adresse
+benutzt, mit der wir uns anmelden — mail.de weist eine fremde Absenderadresse zurück.
+
+Ein anderer Anbieter braucht zusätzlich `Mail:Host`, `Mail:Port` und ggf.
+`Mail:UseStartTls=false` für Port 465.
 
 ## Aufbau
 
