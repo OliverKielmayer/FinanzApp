@@ -106,14 +106,21 @@ public sealed class ImportService(
         var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == request.AccountId, ct)
                       ?? throw new ArgumentException("Unbekanntes Zielkonto.", nameof(request));
 
-        var rules = await db.CategorizationRules.AsNoTracking().ToListAsync(ct);
         var rows = await ClassifyAsync(batch, ct);
         var chosen = request.Indexes.ToHashSet();
 
+        // Was der Nutzer im Import gewählt hat, hat Vorrang vor jeder Regel.
+        var byPayee = request.Choices
+            .GroupBy(c => Categorization.Normalize(c.Payee))
+            .ToDictionary(g => g.Key, g => g.Last(), StringComparer.Ordinal);
+
         await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+        var learned = await LearnAsync(request.Choices, ct);
 
         var imported = 0;
         var forced = 0;
+        var withoutCategory = 0;
 
         foreach (var row in rows)
         {
@@ -123,6 +130,10 @@ public sealed class ImportService(
             }
 
             var record = batch.Records[row.Index];
+            var categoryId = byPayee.TryGetValue(Categorization.Normalize(record.Payee), out var choice)
+                ? choice.CategoryId
+                : row.SuggestedCategoryId;
+
             db.Transactions.Add(new Transaction
             {
                 BookingDate = record.BookingDate!.Value,
@@ -130,12 +141,17 @@ public sealed class ImportService(
                 Kind = record.Amount!.Value >= 0 ? TransactionKind.Income : TransactionKind.Expense,
                 Amount = record.Amount.Value,
                 AccountId = account.Id,
-                CategoryId = MatchCategory(record.Payee, rules),
+                CategoryId = categoryId,
                 ImportReference = record.Reference,
                 CreatedAt = clock.Now,
             });
 
             imported++;
+            if (categoryId is null)
+            {
+                withoutCategory++;
+            }
+
             if (row.State is ImportRowState.Duplicate or ImportRowState.Existing)
             {
                 forced++;
@@ -149,7 +165,73 @@ public sealed class ImportService(
         // Sätze noch einmal buchen.
         cache.Remove(KeyOf(batch.Id));
 
-        return new ImportCommitResultDto { ImportedCount = imported, ForcedDuplicates = forced };
+        return new ImportCommitResultDto
+        {
+            ImportedCount = imported,
+            ForcedDuplicates = forced,
+            WithoutCategory = withoutCategory,
+            LearnedRuleIds = [.. learned],
+        };
+    }
+
+    /// <summary>
+    /// Legt die Regeln an, die der Nutzer sich merken lassen wollte.
+    /// </summary>
+    /// <remarks>
+    /// Erst hier, nicht schon in der Vorschau: wer den Import verwirft, soll keine Regel
+    /// hinterlassen haben. Ein durchgeführter Import macht sie dauerhaft.
+    ///
+    /// Eine bestehende Regel wird überschrieben statt verdoppelt — zwei Regeln auf dasselbe
+    /// Muster wären ein Widerspruch, den niemand auflösen kann.
+    /// </remarks>
+    private async Task<List<int>> LearnAsync(
+        IReadOnlyList<ImportCategoryChoice> choices, CancellationToken ct)
+    {
+        var wanted = choices.Where(c => c.RememberRule).ToList();
+        if (wanted.Count == 0)
+        {
+            return [];
+        }
+
+        var existing = await db.CategorizationRules.ToListAsync(ct);
+        var learned = new List<int>();
+
+        foreach (var choice in wanted)
+        {
+            var pattern = Categorization.RulePatternFor(choice.Payee);
+            var normalized = Categorization.Normalize(pattern);
+
+            var rule = existing.FirstOrDefault(r =>
+                Categorization.Normalize(r.PayeePattern) == normalized);
+
+            if (rule is null)
+            {
+                rule = new CategorizationRule
+                {
+                    PayeePattern = pattern,
+                    CategoryId = choice.CategoryId,
+                    LearnedAt = clock.Now,
+                };
+
+                db.CategorizationRules.Add(rule);
+                existing.Add(rule);
+            }
+            else
+            {
+                rule.CategoryId = choice.CategoryId;
+                rule.LearnedAt = clock.Now;
+            }
+
+            learned.Add(rule.Id);
+        }
+
+        // Die Ids der neuen Regeln stehen erst nach dem Speichern fest.
+        await db.SaveChangesAsync(ct);
+
+        return [.. wanted
+            .Select(c => Categorization.Normalize(Categorization.RulePatternFor(c.Payee)))
+            .Distinct(StringComparer.Ordinal)
+            .Select(n => existing.First(r => Categorization.Normalize(r.PayeePattern) == n).Id)];
     }
 
     public Task<int> GetProfileCountAsync(CancellationToken ct = default)
@@ -289,13 +371,19 @@ public sealed class ImportService(
         return profile?.Name ?? "ohne Profil";
     }
 
-    /// <summary>Ordnet einem Empfänger über die Regeln eine Kategorie zu, sofern eine greift.</summary>
-    private static int? MatchCategory(string payee, List<CategorizationRule> rules)
-        => rules.FirstOrDefault(r => payee.StartsWith(r.PayeePattern, StringComparison.OrdinalIgnoreCase))?.CategoryId;
-
-    private static string? MatchCategoryName(string payee, List<CategorizationRule> rules)
-        => rules.FirstOrDefault(r => payee.StartsWith(r.PayeePattern, StringComparison.OrdinalIgnoreCase))
-            ?.Category?.Name;
+    /// <summary>
+    /// Die Regel, die auf einen Empfänger greift.
+    /// </summary>
+    /// <remarks>
+    /// Die längste zuerst: greifen „Amazon“ und „Amazon Prime“, ist die genauere gemeint. Ohne
+    /// diese Ordnung entschiede die Reihenfolge in der Tabelle, und dieselbe Buchung landete je
+    /// nach Anlagezeitpunkt woanders.
+    /// </remarks>
+    private static CategorizationRule? MatchRule(string payee, List<CategorizationRule> rules)
+        => rules
+            .Where(r => Categorization.Matches(payee, r.PayeePattern))
+            .OrderByDescending(r => Categorization.Normalize(r.PayeePattern).Length)
+            .FirstOrDefault();
 
     /// <summary>
     /// Der letzte tatsächlich erfolgte Import, abgeleitet aus den Buchungen mit Importreferenz.
@@ -353,6 +441,7 @@ public sealed class ImportService(
         [
             .. batch.Records.Select((record, index) =>
             {
+                var match = MatchRule(record.Payee, rules);
                 var state = record switch
                 {
                     { Problem: not null } => ImportRowState.Error,
@@ -371,13 +460,14 @@ public sealed class ImportService(
                     Payee = record.Payee,
                     Amount = record.Amount,
                     State = state,
+                    BookingText = record.BookingText,
                     Problem = state != ImportRowState.Error
                         ? null
                         : record.Problem
                           ?? (record.BookingDate is null ? "Datum nicht lesbar" : "Betrag nicht lesbar"),
-                    CategoryName = state == ImportRowState.Error
-                        ? null
-                        : MatchCategoryName(record.Payee, rules),
+                    SuggestedCategoryId = state == ImportRowState.Error ? null : match?.CategoryId,
+                    CategoryName = state == ImportRowState.Error ? null : match?.Category?.Name,
+                    RuleId = state == ImportRowState.Error ? null : match?.Id,
 
                     // Neue Sätze angehakt, Treffer abgewählt — ein Vorschlag, keine Entscheidung.
                     PreSelected = state == ImportRowState.New,

@@ -94,11 +94,21 @@ public class CategorizationRule : IHouseholdOwned
     public int Id { get; set; }
     public int HouseholdId { get; set; }
 
-    /// <summary>Präfix des Empfängers, case-insensitiv verglichen.</summary>
+    /// <summary>Präfix des Empfängers, normalisiert verglichen.</summary>
     public required string PayeePattern { get; set; }
 
     public int CategoryId { get; set; }
     public Category? Category { get; set; }
+
+    /// <summary>
+    /// Wann die Regel gelernt wurde. <c>null</c> für die, die von Anfang an dabei waren.
+    /// </summary>
+    /// <remarks>
+    /// Der Regelscreen unterscheidet daran „beim Import gelernt“ von „seit dem ersten Import“.
+    /// Ohne den Zeitpunkt sähen beide gleich aus, und niemand wüsste, was die App sich selbst
+    /// beigebracht hat.
+    /// </remarks>
+    public DateTime? LearnedAt { get; set; }
 }
 
 public class Budget : IHouseholdOwned

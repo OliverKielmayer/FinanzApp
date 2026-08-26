@@ -16,4 +16,9 @@ public sealed record CategorizationRuleDto
 
     public required int CategoryId { get; init; }
     public required string CategoryName { get; init; }
+
+    /// <summary>
+    /// Wann die Regel gelernt wurde — <c>null</c> für die, die von Anfang an dabei waren.
+    /// </summary>
+    public DateOnly? LearnedOn { get; init; }
 }

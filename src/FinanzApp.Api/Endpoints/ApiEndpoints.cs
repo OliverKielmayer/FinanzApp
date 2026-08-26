@@ -87,6 +87,10 @@ public static class ApiEndpoints
                 CategoryDirection? direction, CatalogService service, CancellationToken ct)
             => Results.Ok(await service.GetCategoriesAsync(direction, ct)));
 
+        api.MapDelete("/rules/{id:int}", async (int id, CatalogService service, CancellationToken ct)
+                => await service.DeleteRuleAsync(id, ct) ? Results.NoContent() : Results.NotFound())
+            .RequireAuthorization(AuthPolicies.Write);
+
         api.MapGet("/rules", async (CatalogService service, CancellationToken ct)
             => Results.Ok(await service.GetRulesAsync(ct)));
 

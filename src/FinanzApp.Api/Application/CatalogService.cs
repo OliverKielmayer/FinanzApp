@@ -25,10 +25,35 @@ public sealed class CatalogService(FinanzAppDbContext db)
                 PayeePattern = r.PayeePattern,
                 CategoryId = r.CategoryId,
                 CategoryName = r.Category!.Name,
+                LearnedOn = r.LearnedAt == null
+                    ? null
+                    : DateOnly.FromDateTime(r.LearnedAt.Value),
             })
             .ToListAsync(ct);
 
     public Task<int> GetCategoryCountAsync(CancellationToken ct = default) => db.Categories.CountAsync(ct);
 
     public Task<int> GetRuleCountAsync(CancellationToken ct = default) => db.CategorizationRules.CountAsync(ct);
+
+    /// <summary>
+    /// Löscht eine gelernte Regel.
+    /// </summary>
+    /// <remarks>
+    /// Bereits importierte Buchungen bleiben unverändert. Eine Regel ordnet beim Einlesen zu; sie
+    /// ist keine fortlaufende Verknüpfung, die man wieder aufziehen könnte. Der Regelscreen sagt
+    /// das auch, damit niemand das Löschen für eine Korrektur der Vergangenheit hält.
+    /// </remarks>
+    public async Task<bool> DeleteRuleAsync(int id, CancellationToken ct = default)
+    {
+        var rule = await db.CategorizationRules.FirstOrDefaultAsync(r => r.Id == id, ct);
+        if (rule is null)
+        {
+            return false;
+        }
+
+        db.CategorizationRules.Remove(rule);
+        await db.SaveChangesAsync(ct);
+
+        return true;
+    }
 }

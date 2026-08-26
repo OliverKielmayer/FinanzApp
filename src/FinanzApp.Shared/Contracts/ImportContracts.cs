@@ -83,8 +83,32 @@ public sealed record ImportRowDto
     /// <summary>Bei fehlerhaften Sätzen: was nicht lesbar war.</summary>
     public string? Problem { get; init; }
 
-    /// <summary>Kategorie aus den gelernten Regeln, falls eine greift.</summary>
+    /// <summary>
+    /// Wie die Bank die Buchung nennt — „Dauerauftrag“, „SB-Auszahlung“, „Lohn/Gehalt/Rente“.
+    /// </summary>
+    /// <remarks>
+    /// Bewusst <em>keine</em> Kategorie: an echten Daten geprüft trennt der Buchungstext keine
+    /// Gruppe, die Empfänger und Vorzeichen nicht schon trennen — von neun Empfängern mit mehr
+    /// als einem Text unterschieden acht nur Ein- von Ausgang. Eine Zuordnung daraus abzuleiten
+    /// wäre geraten. Als Angabe an der Gruppe sagt er dagegen, um welche Art Umsatz es geht.
+    /// </remarks>
+    public string? BookingText { get; init; }
+
+    /// <summary>Vorgeschlagene Kategorie, falls eine Regel greift.</summary>
+    public int? SuggestedCategoryId { get; init; }
+
+    /// <summary>Name dazu — dieselbe Kategorie, für die Anzeige.</summary>
     public string? CategoryName { get; init; }
+
+    /// <summary>
+    /// Woher der Vorschlag kommt: die Regel, die gegriffen hat.
+    /// </summary>
+    /// <remarks>
+    /// Die Herkunft gehört in die Vorschau, nicht in den Client. Nur so lässt sich „automatisch
+    /// zugeordnet“ von „im Import von Hand gewählt“ unterscheiden — und der Client zeigt und
+    /// bestätigt bloß, statt die Zuordnung selbst zu erfinden.
+    /// </remarks>
+    public int? RuleId { get; init; }
 
     /// <summary>Vorschlag der App: neue Sätze angehakt, Treffer abgewählt.</summary>
     public required bool PreSelected { get; init; }
@@ -98,13 +122,31 @@ public sealed record ImportHistoryDto
     public required int RecordCount { get; init; }
 }
 
-/// <summary>Was tatsächlich übernommen werden soll — Auswahl und Zielkonto.</summary>
+/// <summary>Was tatsächlich übernommen werden soll — Auswahl, Zielkonto, Zuordnungen.</summary>
 public sealed record ImportCommitRequest
 {
     public required Guid PreviewId { get; init; }
     public required int AccountId { get; init; }
     public required IReadOnlyList<int> Indexes { get; init; }
+
+    /// <summary>
+    /// Im Import getroffene Zuordnungen, je Empfänger — nicht je Buchung.
+    /// </summary>
+    /// <remarks>
+    /// Niemand kategorisiert dreihundert Buchungen einzeln. Gefragt wird nach dem Empfänger, und
+    /// die Antwort gilt für alle seine Sätze. Was hier steht, hat Vorrang vor jeder Regel.
+    /// </remarks>
+    public IReadOnlyList<ImportCategoryChoice> Choices { get; init; } = [];
 }
+
+/// <summary>Eine Zuordnung aus dem Import.</summary>
+/// <param name="Payee">Der Empfänger, für den sie gilt.</param>
+/// <param name="CategoryId">Die gewählte Kategorie.</param>
+/// <param name="RememberRule">
+/// Ob daraus eine Regel wird. Gelernt wird erst bei der Übernahme — wer den Import verwirft,
+/// soll keine Regel hinterlassen haben.
+/// </param>
+public sealed record ImportCategoryChoice(string Payee, int CategoryId, bool RememberRule);
 
 public sealed record ImportCommitResultDto
 {
@@ -112,4 +154,13 @@ public sealed record ImportCommitResultDto
 
     /// <summary>Wie viele davon vorher als Duplikat galten und ausdrücklich zugeschaltet wurden.</summary>
     public required int ForcedDuplicates { get; init; }
+
+    /// <summary>
+    /// Wie viele Buchungen ohne Kategorie geblieben sind — die Brücke zum Triage-Banner der
+    /// Buchungsliste. Wer das verschweigt, lässt sie dort unerklärt auftauchen.
+    /// </summary>
+    public required int WithoutCategory { get; init; }
+
+    /// <summary>Die in diesem Lauf gelernten Regeln.</summary>
+    public required IReadOnlyList<int> LearnedRuleIds { get; init; }
 }
