@@ -418,3 +418,32 @@ Dokument verschwindet nur der Eintrag — die Datei bleibt liegen, und das steht
 rückt die Vorschauspalte auf den nächsten Eintrag oder in den Leerzustand.
 
 91 Tests, davon 8 neue.
+
+## Abschnitt 8b — Kontoauszug einlesen
+
+**Aus der Zusammenfassung wird ein Flow**: leer → liest → prüfen. Ab Tablet zweispaltig — links
+Datei, Format, Zeitraum, Auszugssaldo und Trennzeichen, rechts die Prüfung. Der Leerzustand sitzt
+im `.blueprint`-Rahmen mit Registermarken und zeigt darunter, was zuletzt importiert wurde;
+das Lesen ist wieder eine sichtbare Kette statt eines Spinners.
+
+**Die Duplikatprüfung lief schon gegen den Bestand** — das war der Kern der Regel und stand
+bereits. Neu ist, was daraus in der Oberfläche wird: jede Zeile einzeln umschaltbar, Treffer
+abgewählt und grau hinterlegt, das Zielkonto als Chips mit dem erkannten vorne.
+
+**Zähler und Schalter lesen dieselbe Auswahl.** In der laufenden App geprüft: ein zugeschaltetes
+Duplikat hebt „Übernehmen“ von 34 auf 35 — und der Knopf sagt im selben Moment „35 Buchungen
+importieren“. Hätte ich beide getrennt gerechnet, würde der Kopf dem Knopf widersprechen, und
+genau davor warnt der Handoff.
+
+**Fehlerhafte Sätze werden gezählt und benannt.** Dafür musste ich den Beispielauszug ergänzen:
+er enthielt keinen einzigen unlesbaren Satz, der Zustand ließ sich also nirgends vorführen. Jetzt
+liegt einer darin — mit Absicht, wie das Dokument ohne Datei. Er ist gesperrt: aus einem
+unlesbaren Betrag wird keine Buchung, egal wie oft jemand darauf tippt.
+
+Der Auszug zählt damit 42 Sätze: 34 neu, 5 vorhanden, 2 mögliche Duplikate, 1 unlesbar.
+
+**Was nicht dranhängt:** ein Dateiparser. Beide Schalter lesen denselben Beispielauszug, und das
+steht auch so im Panel. Die Prüfung dahinter ist echt — CSV-Spalten-Mapping führt der Handoff
+weiterhin unter „nicht gestaltet“.
+
+98 Tests, davon 7 neue zum Import.

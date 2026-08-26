@@ -98,6 +98,12 @@ public static class DemoImportBatch
         records.Add(new ImportRecord("CAMT-2608-901", new DateOnly(2026, 8, 13), "ARAL Tankstelle", -92.30m));
         records.Add(new ImportRecord("CAMT-2608-902", new DateOnly(2026, 8, 10), "Amazon Bestellung", -62.71m));
 
+        // Ein Satz mit unlesbarem Betrag — mit Absicht, wie das Dokument ohne Datei. Sonst
+        // ließe sich der Zustand „Fehlerhafte Sätze“ nirgends vorführen, und der Handoff
+        // verlangt ausdrücklich, dass solche Sätze gezählt und benannt werden statt
+        // stillschweigend übersprungen zu werden.
+        records.Add(new ImportRecord("CAMT-2608-903", new DateOnly(2026, 8, 16), "Unleserlicher Beleg", null));
+
         return records;
     }
 }

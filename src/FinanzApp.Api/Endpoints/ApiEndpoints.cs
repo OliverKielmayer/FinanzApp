@@ -122,11 +122,12 @@ public static class ApiEndpoints
         api.MapGet("/import/preview", async (ImportService service, CancellationToken ct)
             => Results.Ok(await service.GetPreviewAsync(ct)));
 
-        api.MapPost("/import/{id:guid}/commit", async (Guid id, ImportService service, CancellationToken ct) =>
+        api.MapPost("/import/commit", async (
+            ImportCommitRequest request, ImportService service, CancellationToken ct) =>
         {
             try
             {
-                return Results.Ok(await service.CommitAsync(id, ct));
+                return Results.Ok(await service.CommitAsync(request, ct));
             }
             catch (ArgumentException ex)
             {

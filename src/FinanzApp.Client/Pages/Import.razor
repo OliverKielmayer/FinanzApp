@@ -2,96 +2,362 @@
 @attribute [Authorize]
 @inherits AppPage
 
-<PageTitle>Importvorschau — FinanzApp</PageTitle>
+@*
+    Der Import ist ein Flow, keine feste Zusammenfassung: leer → liest → prüfen → übernommen.
+    Ab Tablet zweispaltig — links, was in der Datei steht, rechts die Prüfung.
+
+    Die eine Regel, die alles zusammenhält: Zähler und Aktionsschalter lesen **dieselbe**
+    Auswahl. Ein zugeschaltetes Duplikat erhöht „Übernehmen“ mit, sonst widerspräche der Kopf
+    dem Knopf.
+*@
+
+<PageTitle>Kontoauszug einlesen — FinanzApp</PageTitle>
 
 <AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
     @if (data is { } preview)
     {
-        <div class="import-head">
-            <span class="import-file num">
-                @preview.FileName · @preview.BankName · @preview.RecordCount Datensätze
-            </span>
-            <div class="import-tags">
-                <span class="tag tag-neutral">@preview.Format</span>
-                <span class="tag tag-outline">Profil: @preview.ProfileName</span>
-            </div>
-        </div>
+        @if (stage == Stage.Empty)
+        {
+            <div class="import-panel blueprint">
+                <i class="corner tl" aria-hidden="true"></i>
+                <i class="corner tr" aria-hidden="true"></i>
+                <i class="corner bl" aria-hidden="true"></i>
+                <i class="corner br" aria-hidden="true"></i>
 
-        <div class="import-row">
-            <div class="stack">
-                <span class="import-label">Neue Buchungen</span>
-                <span class="meta">werden importiert</span>
-            </div>
-            <span class="import-count num">@preview.NewCount</span>
-        </div>
+                <span class="kicker">Kontoauszug einlesen</span>
+                <span class="create-help">Datei hierher ziehen oder auswählen.</span>
 
-        <div class="import-row">
-            <div class="stack">
-                <span class="import-label muted">Bereits vorhanden</span>
-                <span class="meta">per Importreferenz erkannt</span>
-            </div>
-            <span class="import-count muted num">@preview.ExistingCount</span>
-        </div>
+                <AuthorizeView Roles="Owner,Member">
+                    <div class="doc-actions">
+                        <button type="button" class="btn btn-primary" @onclick="@(() => ReadAsync("CAMT.053"))">
+                            CAMT.053 wählen
+                        </button>
+                        <button type="button" class="btn btn-secondary" @onclick="@(() => ReadAsync("CSV"))">
+                            CSV wählen
+                        </button>
+                    </div>
+                </AuthorizeView>
 
-        <div class="import-row">
-            <div class="stack">
-                <span class="import-label accent">Mögliche Duplikate</span>
-                <span class="meta">Prüfung empfohlen, werden nicht übernommen</span>
+                @* Ehrlich benannt: es hängt kein Parser dran, gelesen wird der Beispielauszug. *@
+                <span class="create-help">
+                    Es ist kein Dateiparser angebunden — beide Schalter lesen denselben
+                    Beispielauszug. Die Prüfung dahinter ist echt.
+                </span>
             </div>
-            <span class="import-count accent num">@preview.DuplicateCount</span>
-        </div>
 
-        <div class="import-row">
-            <div class="stack">
-                <span class="import-label muted">Fehlerhafte Sätze</span>
-                <span class="meta">Betrag nicht lesbar</span>
+            @if (preview.LastImport is { } last)
+            {
+                <div class="list-head">
+                    <span class="label-strong">Zuletzt importiert</span>
+                </div>
+                <div class="detail-block">
+                    <span class="detail-label">@last.FileName</span>
+                    <span class="detail-value num">
+                        @GermanFormat.Date(last.ImportedOn) · @last.AccountName · @last.RecordCount Sätze
+                    </span>
+                </div>
+            }
+        }
+        else if (stage == Stage.Reading)
+        {
+            @* Kein Spinner, sondern die Kette — man sieht, wo es steht. *@
+            <div class="import-panel blueprint">
+                <i class="corner tl" aria-hidden="true"></i>
+                <i class="corner tr" aria-hidden="true"></i>
+                <i class="corner bl" aria-hidden="true"></i>
+                <i class="corner br" aria-hidden="true"></i>
+
+                <span class="kicker">Liest @format</span>
+
+                <div class="chain">
+                    @foreach (var (label, done) in ReadSteps)
+                    {
+                        <div class="chain-step @(done ? "done" : null) @(!done ? "current" : null)">
+                            <span class="chain-mark" aria-hidden="true">@(done ? "✓" : "◻")</span>
+                            <span class="chain-title">@label</span>
+                        </div>
+                    }
+                </div>
+
+                <div class="doc-actions">
+                    <button type="button" class="btn btn-secondary" @onclick="Cancel">Abbrechen</button>
+                </div>
             </div>
-            <span class="import-count muted num">@preview.ErrorCount</span>
-        </div>
+        }
+        else
+        {
+            <div class="scan-split">
+                @* Links: was in der Datei steht. *@
+                <div class="scan-source">
+                    <div class="detail-block">
+                        <span class="detail-label">Datei · Format</span>
+                        <span class="detail-value num">@preview.FileName · @preview.Format</span>
+                    </div>
 
-        <div class="actions">
-            @* Lesezugriff sieht die Vorschau, übernimmt aber nichts. Der Server lehnt den
-               Aufruf ohnehin ab — die Schaltfläche zu zeigen wäre nur ein leeres Versprechen. *@
-            <AuthorizeView Roles="Owner,Member">
-                <button type="button" class="btn btn-primary" disabled="@(running || preview.NewCount == 0)"
-                        @onclick="RunImport">
-                    @preview.NewCount @(preview.NewCount == 1 ? "Buchung" : "Buchungen") importieren
-                </button>
-            </AuthorizeView>
-            <button type="button" class="btn btn-secondary"
-                    @onclick="@(() => Navigation.NavigateTo("/konten"))">Abbrechen</button>
-        </div>
+                    <div class="detail-block">
+                        <span class="detail-label">Zeitraum</span>
+                        <span class="detail-value num">
+                            @(preview.From is { } from && preview.To is { } to
+                                ? $"{GermanFormat.Date(from)} – {GermanFormat.Date(to)}"
+                                : "—")
+                        </span>
+                    </div>
+
+                    <div class="detail-block">
+                        <span class="detail-label">Auszugssaldo</span>
+                        <span class="detail-value num">
+                            @(preview.StatementBalance is { } balance
+                                ? State.Euro(balance, withPlusSign: true)
+                                : "—")
+                        </span>
+                    </div>
+
+                    <div class="detail-block">
+                        <span class="detail-label">Trennzeichen · Profil</span>
+                        <span class="detail-value num">
+                            @(preview.Separator ?? "entfällt") · @preview.ProfileName
+                        </span>
+                    </div>
+                </div>
+
+                @* Rechts: die Prüfung. *@
+                <div class="scan-fields">
+                    <div class="picker">
+                        <span class="label-strong">Zielkonto</span>
+                        <div class="chipcloud">
+                            @foreach (var account in preview.Accounts)
+                            {
+                                <button type="button" class="chip @(accountId == account.Id ? "active" : null)"
+                                        @onclick="() => accountId = account.Id">
+                                    @account.Name
+                                    @if (account.Id == preview.SuggestedAccountId)
+                                    {
+                                        <span class="chip-hint">erkannt</span>
+                                    }
+                                </button>
+                            }
+                        </div>
+                    </div>
+
+                    @* Die drei Zähler rechnen gegen dieselbe Auswahl wie der Schalter. *@
+                    <section class="tx-totals">
+                        <div class="tx-total">
+                            <span class="label-muted">Übernehmen</span>
+                            <span class="tx-total-value num">@selected.Count</span>
+                        </div>
+                        <div class="tx-total">
+                            <span class="label-muted">Duplikat</span>
+                            <span class="tx-total-value num">@preview.DuplicateCount</span>
+                        </div>
+                        <div class="tx-total">
+                            <span class="label-muted">Vorhanden</span>
+                            <span class="tx-total-value num">@preview.ExistingCount</span>
+                        </div>
+                    </section>
+
+                    <div class="tx-totals-note">@preview.DuplicateCriterion</div>
+
+                    @if (preview.ErrorCount > 0)
+                    {
+                        <div class="notice">
+                            <span class="notice-title">
+                                @preview.ErrorCount @(preview.ErrorCount == 1 ? "Satz" : "Sätze") nicht lesbar
+                            </span>
+                            <span class="notice-text">
+                                Sie stehen unten mit dem Grund und lassen sich nicht zuschalten —
+                                übersprungen wird nichts stillschweigend.
+                            </span>
+                        </div>
+                    }
+
+                    @foreach (var row in preview.Rows)
+                    {
+                        <div class="import-row @StateClass(row) @(selected.Contains(row.Index) ? "picked" : null)">
+                            <label class="tx-check import-check">
+                                <input type="checkbox" checked="@selected.Contains(row.Index)"
+                                       disabled="@(row.State == ImportRowState.Error)"
+                                       @onchange="e => Toggle(row, e)"
+                                       aria-label="@($"{row.Payee} übernehmen")" />
+                            </label>
+
+                            <span class="stack">
+                                <span class="import-row-payee">@row.Payee</span>
+                                <span class="meta num">@Describe(row)</span>
+                            </span>
+
+                            <span class="import-row-amount num">
+                                @(row.Amount is { } amount ? State.Euro(amount, withPlusSign: true) : "—")
+                            </span>
+                        </div>
+                    }
+
+                    <AuthorizeView Roles="Owner,Member">
+                        <div class="actions">
+                            <button type="button" class="btn btn-primary"
+                                    disabled="@(busy || selected.Count == 0)" @onclick="CommitAsync">
+                                @(selected.Count == 0
+                                    ? "Nichts ausgewählt"
+                                    : $"{selected.Count} {(selected.Count == 1 ? "Buchung" : "Buchungen")} importieren")
+                            </button>
+                            <button type="button" class="btn btn-secondary" disabled="@busy"
+                                    @onclick="Cancel">Abbrechen</button>
+                        </div>
+                    </AuthorizeView>
+                </div>
+            </div>
+        }
+
+        <div class="spacer"></div>
     }
 </AsyncView>
 
 @code {
-    private ImportPreviewDto? data;
-    private bool running;
-
-    protected override async Task LoadAsync() => data = await Api.GetImportPreviewAsync();
-
-    private async Task RunImport()
+    private enum Stage
     {
-        if (data is not { } preview)
-        {
-            return;
-        }
+        Empty,
+        Reading,
+        Check,
+    }
 
-        running = true;
+    private ImportPreviewDto? data;
+    private Stage stage = Stage.Empty;
+    private string format = "CAMT.053";
+    private int readStep;
+    private int accountId;
+    private bool busy;
+    private readonly HashSet<int> selected = [];
+    private CancellationTokenSource? reading;
+
+    private (string Label, bool Done)[] ReadSteps =>
+    [
+        ("Datei gelesen", readStep > 0),
+        ("Format erkannt", readStep > 1),
+        ("Konto zugeordnet", readStep > 2),
+        ("Duplikate geprüft", readStep > 3),
+    ];
+
+    protected override async Task LoadAsync()
+    {
+        data = await Api.GetImportPreviewAsync();
+        accountId = data.SuggestedAccountId ?? data.Accounts.FirstOrDefault()?.Id ?? 0;
+    }
+
+    private async Task ReadAsync(string chosenFormat)
+    {
+        format = chosenFormat;
+        stage = Stage.Reading;
+        readStep = 0;
+
+        reading?.Cancel();
+        reading = new CancellationTokenSource();
+        var token = reading.Token;
+
         try
         {
-            var result = await Api.CommitImportAsync(preview.Id);
-            Toasts.Show(result.ImportedCount
-                        + (result.ImportedCount == 1 ? " Buchung importiert" : " Buchungen importiert"));
-            Navigation.NavigateTo("/konten");
+            // Die Kette zeigt, welcher Schritt gerade dran wäre. Sie erfindet keinen Fortschritt,
+            // den es nicht gibt — sie benennt die Reihenfolge.
+            while (readStep < 4)
+            {
+                await Task.Delay(260, token);
+                readStep++;
+                StateHasChanged();
+            }
+
+            data = await Api.GetImportPreviewAsync(token);
+            accountId = data.SuggestedAccountId ?? data.Accounts.FirstOrDefault()?.Id ?? 0;
+
+            selected.Clear();
+            foreach (var row in data.Rows.Where(r => r.PreSelected))
+            {
+                selected.Add(row.Index);
+            }
+
+            stage = Stage.Check;
+        }
+        catch (OperationCanceledException)
+        {
+            stage = Stage.Empty;
         }
         catch (ApiException ex)
         {
             Toasts.Show(ex.Message);
+            stage = Stage.Empty;
+        }
+    }
+
+    private void Cancel()
+    {
+        reading?.Cancel();
+        selected.Clear();
+        stage = Stage.Empty;
+    }
+
+    private void Toggle(ImportRowDto row, ChangeEventArgs e)
+    {
+        if (row.State == ImportRowState.Error)
+        {
+            return;
+        }
+
+        if (e.Value is true)
+        {
+            selected.Add(row.Index);
+        }
+        else
+        {
+            selected.Remove(row.Index);
+        }
+    }
+
+    private Task CommitAsync() => RunAsync(async () =>
+    {
+        busy = true;
+        try
+        {
+            var result = await Api.CommitImportAsync(data!.Id, accountId, [.. selected]);
+
+            Toasts.Show(result.ForcedDuplicates == 0
+                ? $"{result.ImportedCount} Buchungen importiert"
+                : $"{result.ImportedCount} Buchungen importiert · {result.ForcedDuplicates} trotz Treffer");
+
+            Navigation.NavigateTo("/konten");
         }
         finally
         {
-            running = false;
+            busy = false;
         }
+    });
+
+    private static string StateClass(ImportRowDto row) => row.State switch
+    {
+        ImportRowState.Existing => "known",
+        ImportRowState.Duplicate => "known",
+        ImportRowState.Error => "broken",
+        _ => string.Empty,
+    };
+
+    private static string Describe(ImportRowDto row)
+    {
+        var parts = new List<string>();
+
+        if (row.BookingDate is { } date)
+        {
+            parts.Add(GermanFormat.Date(date));
+        }
+
+        parts.Add(row.State switch
+        {
+            ImportRowState.Existing => "bereits vorhanden",
+            ImportRowState.Duplicate => "mögliches Duplikat",
+            ImportRowState.Error => row.Problem ?? "nicht lesbar",
+            _ => "neu",
+        });
+
+        if (row.CategoryName is { Length: > 0 } category)
+        {
+            parts.Add(category);
+        }
+
+        return string.Join(" · ", parts);
     }
 }

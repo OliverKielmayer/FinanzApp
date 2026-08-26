@@ -163,8 +163,13 @@ public sealed class FinanzAppApi(HttpClient http)
     public Task<ImportPreviewDto> GetImportPreviewAsync(CancellationToken ct = default)
         => GetAsync<ImportPreviewDto>("api/import/preview", ct);
 
-    public Task<ImportCommitResultDto> CommitImportAsync(Guid previewId, CancellationToken ct = default)
-        => PostAsync<object?, ImportCommitResultDto>($"api/import/{previewId}/commit", null, ct);
+    /// <summary>Übernimmt die gewählten Sätze auf das gewählte Konto.</summary>
+    public Task<ImportCommitResultDto> CommitImportAsync(
+        Guid previewId, int accountId, IReadOnlyList<int> indexes, CancellationToken ct = default)
+        => PostAsync<ImportCommitRequest, ImportCommitResultDto>(
+            "api/import/commit",
+            new ImportCommitRequest { PreviewId = previewId, AccountId = accountId, Indexes = indexes },
+            ct);
 
     public Task<MoreOverviewDto> GetMoreOverviewAsync(CancellationToken ct = default)
         => GetAsync<MoreOverviewDto>("api/overview/more", ct);

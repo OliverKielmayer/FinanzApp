@@ -2369,6 +2369,53 @@ body {
   padding: 14px;
 }
 
+/* Eine Zeile des Auszugs: Auswahl, Empfänger mit Zustand, Betrag. */
+.import-row {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.import-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.import-row-payee {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.import-row-amount {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 14px;
+  text-align: right;
+}
+
+/* Treffer sind abgewählt und grau hinterlegt — sichtbar, aber zurückgenommen. */
+.import-row.known {
+  background: var(--color-neutral-200);
+  color: var(--color-neutral-700);
+}
+
+.import-row.broken .meta {
+  color: var(--color-accent-800);
+}
+
+.import-row.broken {
+  background: var(--color-accent-100);
+}
+
+.import-row.picked {
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+}
+
 .import-field {
   display: grid;
   grid-template-columns: 1fr auto;
