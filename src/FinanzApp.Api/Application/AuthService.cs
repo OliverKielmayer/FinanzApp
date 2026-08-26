@@ -172,10 +172,9 @@ public sealed class AuthService(
             return new RegistrationResult(null, "Name und E-Mail nötig.");
         }
 
-        if (!PasswordPolicy.IsAcceptable(request.Password))
+        if (PasswordPolicy.Reject(request.Password) is { } problem)
         {
-            return new RegistrationResult(
-                null, $"Das Passwort ist zu schwach oder kürzer als {PasswordPolicy.MinimumLength} Zeichen.");
+            return new RegistrationResult(null, problem);
         }
 
         var email = Normalize(request.Email);
@@ -286,9 +285,9 @@ public sealed class AuthService(
     public async Task<string?> RedeemPasswordResetAsync(
         string token, string newPassword, CancellationToken ct = default)
     {
-        if (!PasswordPolicy.IsAcceptable(newPassword))
+        if (PasswordPolicy.Reject(newPassword) is { } problem)
         {
-            return $"Das Passwort ist zu schwach oder kürzer als {PasswordPolicy.MinimumLength} Zeichen.";
+            return problem;
         }
 
         var hash = HashToken(token);

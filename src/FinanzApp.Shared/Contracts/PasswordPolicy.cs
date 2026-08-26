@@ -27,6 +27,11 @@ public static class PasswordPolicy
     /// <summary>Ab dieser Stufe nimmt der Server ein Passwort an.</summary>
     public const PasswordStrength Required = PasswordStrength.Good;
 
+    /// <summary>
+    /// Bekannte Passwörter. Sie werden als Teilzeichenkette gesucht, aber nicht als Verbot
+    /// behandelt: macht das Wort den größten Teil aus, ist es das Passwort und wird abgelehnt;
+    /// steckt es nur darin, kostet es eine Stufe.
+    /// </summary>
     private static readonly string[] CommonPasswords =
     [
         "passwort", "password", "123456", "12345678", "123456789", "qwertz", "qwerty",
@@ -41,7 +46,14 @@ public static class PasswordPolicy
         }
 
         var normalized = password.ToLowerInvariant();
-        if (CommonPasswords.Any(common => normalized.Contains(common, StringComparison.Ordinal)))
+        var common = CommonPasswords
+            .Where(word => normalized.Contains(word, StringComparison.Ordinal))
+            .OrderByDescending(word => word.Length)
+            .FirstOrDefault();
+
+        // Ein bekanntes Wort ist das Passwort selbst, wenn es den größten Teil ausmacht —
+        // dann hilft auch eine angehängte Ziffer nicht.
+        if (common is not null && common.Length * 2 >= password.Length)
         {
             return PasswordStrength.TooWeak;
         }
@@ -62,11 +74,34 @@ public static class PasswordPolicy
         if (HasLongRun(password)) score--;
         if (password.Distinct().Count() <= 4) score--;
 
+        // Steckt ein bekanntes Wort nur darin, kostet das eine Stufe — es verbietet das Passwort
+        // aber nicht. „Neues-Passwort-2026!“ ist kein schwaches Passwort, bloß weil das Wort
+        // darin vorkommt.
+        if (common is not null) score--;
+
         return (PasswordStrength)Math.Clamp(score, (int)PasswordStrength.TooWeak, (int)PasswordStrength.Strong);
     }
 
     public static bool IsAcceptable(string? password)
         => password is { Length: >= MinimumLength } && Evaluate(password) >= Required;
+
+    /// <summary>
+    /// Warum ein Passwort abgelehnt wurde — <c>null</c>, wenn es angenommen wird.
+    /// </summary>
+    /// <remarks>
+    /// Die beiden Gründe werden getrennt genannt. „Zu schwach oder kürzer als 12 Zeichen“ lässt
+    /// den Benutzer raten, welches von beidem gemeint ist — und wenn keines zutrifft, sucht er an
+    /// der falschen Stelle.
+    /// </remarks>
+    public static string? Reject(string? password) => password switch
+    {
+        null or "" => "Bitte ein Passwort eingeben.",
+        { Length: var length } when length < MinimumLength
+            => $"Das Passwort ist {length} Zeichen lang — nötig sind mindestens {MinimumLength}.",
+        _ when Evaluate(password) < Required
+            => "Das Passwort ist zu schwach. Mehr Länge oder mehr verschiedene Zeichenarten helfen.",
+        _ => null,
+    };
 
     /// <summary>Text unter der Balkenreihe.</summary>
     public static string Describe(PasswordStrength strength) => strength switch
