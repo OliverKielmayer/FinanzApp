@@ -81,6 +81,12 @@ public sealed class FinanzAppApi(HttpClient http)
     public Task<IReadOnlyList<AccountDto>> GetAccountsAsync(CancellationToken ct = default)
         => GetAsync<IReadOnlyList<AccountDto>>("api/accounts", ct);
 
+    /// <summary>Ändert die Freigabe eines Kontos. Nur der Eigentümer darf das.</summary>
+    public Task<AccountDto> SetAccountSharingAsync(
+        int id, AccountSharing sharing, IReadOnlyList<int> userIds, CancellationToken ct = default)
+        => SendAsync<AccountSharingRequest, AccountDto>(
+            HttpMethod.Put, $"api/accounts/{id}/sharing", new AccountSharingRequest(sharing, userIds), ct);
+
     /// <summary>Buchungsliste mit Suche und Filtern. Leere Filter bleiben aus der Adresse weg.</summary>
     public Task<TransactionPageDto> GetTransactionsAsync(
         string? search = null,

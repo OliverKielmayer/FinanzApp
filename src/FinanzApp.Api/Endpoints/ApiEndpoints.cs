@@ -89,6 +89,21 @@ public static class ApiEndpoints
 
         // Kategorien sind Daten, keine Konstante im Code: sie speisen die Chips bei Erfassung,
         // Kategorie-Sheet, Import und Budgetanlage.
+        // Die Freigabe eines Kontos aendern. Wer nicht Eigentuemer ist, wird abgewiesen -
+        // der Filter im DbContext schuetzt das Lesen, diese Pruefung das Schreiben.
+        api.MapPut("/accounts/{id:int}/sharing", async (
+            int id, AccountSharingRequest request, AccountService service, CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(await service.SetSharingAsync(id, request.Sharing, request.UserIds, ct));
+            }
+            catch (RuleViolationException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.Write);
+
         api.MapGet("/categories/usage", async (
                 CategoryDirection direction, CatalogService service, CancellationToken ct)
             => Results.Ok(await service.GetUsageAsync(direction, ct)));

@@ -2369,6 +2369,16 @@ body {
   padding: 14px;
 }
 
+/* Eine Zeile im Block „Kontofreigaben": Name und Reichweite links, die Chips darunter.
+   Untereinander statt nebeneinander, weil die Chipreihe mit jedem Mitglied waechst. */
+.share-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 0;
+  border-top: 1px solid var(--color-divider);
+}
+
 /* Gestrichelt, damit er nicht wie ein Auswahl-Chip aussieht: er legt etwas an,
    statt zu waehlen. */
 .chip.chip-new {

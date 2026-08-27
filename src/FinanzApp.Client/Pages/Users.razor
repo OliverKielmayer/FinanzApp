@@ -25,6 +25,7 @@
                     <span class="member-name">@member.Name</span>
                     <span class="member-mail">@member.Email</span>
                     <span class="meta">zuletzt aktiv: @LastSeen(member.LastSeenAt)</span>
+                    <span class="meta">@Sees(member)</span>
                 </div>
                 <div class="member-side">
                     <span class="tag @RoleTag(member.Role)">@RoleLabel(member.Role)</span>
@@ -76,6 +77,68 @@
                 <button type="button" class="btn btn-primary" disabled="@busy"
                         @onclick="LogoutAsync">Abmelden</button>
             </div>
+        </div>
+
+        @*
+            Nur eigene Konten. Fremde stehen nicht hier — ihre Freigabe verwaltet der
+            Eigentümer, und ein Schalter, der nichts bewirkt, wäre schlimmer als keiner.
+        *@
+        <div class="session">
+            <span class="label-strong">Kontofreigaben</span>
+
+            @if (mine.Count == 0)
+            {
+                <span class="session-line">
+                    @foreign @(foreign == 1 ? "Konto ist" : "Konten sind") für dich freigegeben —
+                    die Freigabe verwaltet jeweils der Eigentümer.
+                </span>
+            }
+            else
+            {
+                <span class="session-line">@shared von @mine.Count eigenen geteilt</span>
+
+                @foreach (var account in mine)
+                {
+                    var konto = account;
+
+                    <div class="share-row">
+                        <div class="stack">
+                            <span class="member-name">@konto.Name</span>
+                            <span class="meta">@Reach(konto)</span>
+                        </div>
+
+                        <AuthorizeView Roles="Owner,Member" Context="share">
+                            <div class="chipcloud">
+                                <button type="button"
+                                        class="chip @(konto.Sharing == AccountSharing.Household ? "active" : null)"
+                                        disabled="@busy"
+                                        @onclick="() => ShareAsync(konto, AccountSharing.Household, [])">
+                                    Haushalt
+                                </button>
+                                <button type="button"
+                                        class="chip @(IsPrivate(konto) ? "active" : null)"
+                                        disabled="@busy"
+                                        @onclick="() => ShareAsync(konto, AccountSharing.Private, [])">
+                                    Nur ich
+                                </button>
+
+                                @* Die Chips kommen aus der Mitgliederliste — ohne den
+                                   Angemeldeten: er selbst ist „Nur ich“. *@
+                                @foreach (var other in Others(household))
+                                {
+                                    var wer = other;
+                                    <button type="button"
+                                            class="chip @(SharedWith(konto, wer.Id) ? "active" : null)"
+                                            disabled="@busy"
+                                            @onclick="() => ToggleShareAsync(konto, wer.Id)">
+                                        @wer.Name
+                                    </button>
+                                }
+                            </div>
+                        </AuthorizeView>
+                    </div>
+                }
+            }
         </div>
 
         @* Das eigene Passwort ändern. Nicht der Vergessen-Weg — hier zählt, dass jemand das
@@ -141,6 +204,16 @@
 
 @code {
     private HouseholdOverviewDto? data;
+    private IReadOnlyList<AccountDto> accounts = [];
+
+    /// <summary>Die eigenen Konten — nur sie lassen sich hier umstellen.</summary>
+    private List<AccountDto> mine = [];
+
+    /// <summary>Wie viele fremde Konten für mich freigegeben sind.</summary>
+    private int foreign;
+
+    /// <summary>Wie viele eigene ich geteilt habe.</summary>
+    private int shared;
     private bool canManage;
     private bool busy;
 
@@ -208,9 +281,118 @@
 
     protected override async Task LoadAsync()
     {
+        var konten = Api.GetAccountsAsync();
+
         data = await Api.GetHouseholdAsync();
+        accounts = await konten;
         canManage = Auth.User?.CanManageUsers == true;
+
+        Recount();
     }
+
+    private void Recount()
+    {
+        mine = [.. accounts.Where(a => a.IsMine)];
+        foreign = accounts.Count(a => !a.IsMine);
+        shared = mine.Count(a => a.Sharing != AccountSharing.Private
+                                 && !(a.Sharing == AccountSharing.Named && a.SharedWith.Count == 0));
+    }
+
+    /// <summary>
+    /// Die übrigen Mitglieder — ohne den Angemeldeten.
+    /// </summary>
+    /// <remarks>
+    /// Er selbst ist „Nur ich“; ein Chip mit dem eigenen Namen wäre entweder wirkungslos oder
+    /// eine zweite Schreibweise für dieselbe Sache.
+    /// </remarks>
+    private IEnumerable<HouseholdMemberDto> Others(HouseholdOverviewDto household)
+        => household.Members.Where(m => m.Id != Auth.User?.Id);
+
+    private static bool IsPrivate(AccountDto account)
+        => account.Sharing == AccountSharing.Private
+           || (account.Sharing == AccountSharing.Named && account.SharedWith.Count == 0);
+
+    private static bool SharedWith(AccountDto account, int userId)
+        => account.Sharing == AccountSharing.Named
+           && account.SharedWith.Any(s => s.UserId == userId);
+
+    /// <summary>Wen das Konto erreicht — in Klartext, nicht als Rohwert.</summary>
+    private string Reach(AccountDto account)
+    {
+        if (account.Sharing == AccountSharing.Household)
+        {
+            var alle = data?.Members.Count ?? 0;
+            return alle == 1 ? "nur du" : $"alle {alle} Benutzer";
+        }
+
+        if (IsPrivate(account))
+        {
+            return "nur " + (Auth.User?.Name ?? "du");
+        }
+
+        // Der Eigentümer sieht sein Konto immer mit — er gehört in die Aufzählung.
+        var namen = new List<string> { Auth.User?.Name ?? "du" };
+        namen.AddRange(account.SharedWith.Select(x => x.Name));
+
+        return string.Join(" + ", namen);
+    }
+
+    /// <summary>
+    /// Wie viele Konten ein Mitglied sieht.
+    /// </summary>
+    /// <remarks>
+    /// Der Plural richtet sich nach der Gesamtzahl, nicht nach der gesehenen: „sieht 1 von 3
+    /// Konten“, nicht „1 von 3 Konto“.
+    /// </remarks>
+    private static string Sees(HouseholdMemberDto member)
+    {
+        var text = $"sieht {member.VisibleAccountCount} von {member.TotalAccountCount} "
+                   + (member.TotalAccountCount == 1 ? "Konto" : "Konten");
+
+        return member.Role == HouseholdRole.ReadOnly ? text + " · nur lesend" : text;
+    }
+
+    private Task ShareAsync(AccountDto account, AccountSharing sharing, IReadOnlyList<int> userIds)
+        => ApplyAsync(account, sharing, userIds);
+
+    /// <summary>Einen Namen zu- oder abschalten. Bleibt keiner übrig, ist das Konto privat.</summary>
+    private Task ToggleShareAsync(AccountDto account, int userId)
+    {
+        var namen = account.Sharing == AccountSharing.Named
+            ? account.SharedWith.Select(s => s.UserId).ToList()
+            : [];
+
+        if (!namen.Remove(userId))
+        {
+            namen.Add(userId);
+        }
+
+        return ApplyAsync(
+            account,
+            namen.Count == 0 ? AccountSharing.Private : AccountSharing.Named,
+            namen);
+    }
+
+    private Task ApplyAsync(AccountDto account, AccountSharing sharing, IReadOnlyList<int> userIds)
+        => RunAsync(async () =>
+        {
+            busy = true;
+            try
+            {
+                var geaendert = await Api.SetAccountSharingAsync(account.Id, sharing, userIds);
+
+                // Nur die eine Zeile ersetzen: die Liste neu zu laden würde die Ansicht
+                // zurücksetzen, obwohl sich genau ein Konto geändert hat.
+                accounts = [.. accounts.Select(a => a.Id == geaendert.Id ? geaendert : a)];
+                Recount();
+
+                Toasts.Show($"{geaendert.Name}: {Reach(geaendert)}");
+            }
+            finally
+            {
+                busy = false;
+            }
+        });
 
     private Task NewInviteAsync() => RunAsync(async () =>
     {

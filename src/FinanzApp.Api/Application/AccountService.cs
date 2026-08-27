@@ -16,7 +16,11 @@ public sealed class AccountService(FinanzAppDbContext db)
 {
     public async Task<IReadOnlyList<AccountDto>> GetAccountsAsync(CancellationToken ct = default)
     {
-        var accounts = await db.Accounts.AsNoTracking().OrderBy(a => a.Id).ToListAsync(ct);
+        var accounts = await db.Accounts.AsNoTracking()
+            .Include(a => a.Owner)
+            .Include(a => a.Shares).ThenInclude(s => s.User)
+            .OrderBy(a => a.Id)
+            .ToListAsync(ct);
         var balances = await GetBalancesAsync(ct);
 
         return [.. accounts.Select(a => new AccountDto
@@ -29,7 +33,59 @@ public sealed class AccountService(FinanzAppDbContext db)
             InterestYearToDate = a.InterestYearToDate,
             Balance = balances[a.Id],
             BalanceAsOf = a.BalanceAsOf,
+
+            OwnerUserId = a.OwnerUserId,
+            OwnerName = a.Owner?.Name,
+            IsMine = a.OwnerUserId == db.CurrentUserId,
+            Sharing = a.Sharing,
+            SharedWith = [.. a.Shares
+                .Where(s => s.User != null)
+                .Select(s => new SharedWithDto(s.UserId, s.User!.Name))
+                .OrderBy(s => s.Name, StringComparer.CurrentCulture)],
         })];
+    }
+
+    /// <summary>
+    /// Ändert die Freigabe eines Kontos.
+    /// </summary>
+    /// <remarks>
+    /// <para>Nur der Eigentümer darf das. Ein fremdes Konto ist für andere nicht bearbeitbar —
+    /// sonst könnte sich jedes Mitglied selbst Zugang verschaffen, und die Freigabe wäre eine
+    /// Anzeige-Konvention statt einer Regel.</para>
+    /// <para>Ein Konto ohne Eigentümer gehört niemandem und lässt sich nicht umstellen; es bleibt
+    /// beim Haushalt. Wer es sich zueignen dürfte, wäre eine eigene Entscheidung.</para>
+    /// </remarks>
+    public async Task<AccountDto> SetSharingAsync(
+        int id, AccountSharing sharing, IReadOnlyList<int> userIds, CancellationToken ct = default)
+    {
+        var account = await db.Accounts
+                          .Include(a => a.Shares)
+                          .FirstOrDefaultAsync(a => a.Id == id, ct)
+                      ?? throw new RuleViolationException("Dieses Konto gibt es nicht.");
+
+        if (account.OwnerUserId != db.CurrentUserId)
+        {
+            throw new RuleViolationException(
+                account.OwnerUserId is null
+                    ? "Dieses Konto hat keinen Eigentümer und bleibt beim Haushalt."
+                    : "Die Freigabe verwaltet der Eigentümer des Kontos.");
+        }
+
+        account.Sharing = sharing;
+        db.AccountShares.RemoveRange(account.Shares);
+
+        if (sharing == AccountSharing.Named)
+        {
+            // Sich selbst braucht der Eigentümer nicht zu benennen — er sieht sein Konto ohnehin.
+            foreach (var userId in userIds.Distinct().Where(u => u != account.OwnerUserId))
+            {
+                db.AccountShares.Add(new AccountShare { AccountId = id, UserId = userId });
+            }
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        return (await GetAccountsAsync(ct)).Single(a => a.Id == id);
     }
 
     /// <summary>Saldo je Konto-Id.</summary>

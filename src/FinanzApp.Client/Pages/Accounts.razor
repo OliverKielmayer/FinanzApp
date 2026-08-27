@@ -11,17 +11,35 @@
         <Authorized>
             @foreach (var account in accounts)
             {
-                <button type="button" class="tap row"
-                        @onclick="@(() => Navigation.NavigateTo($"/bearbeiten/account/{account.Id}"))">
-                    <span class="stack">
-                        <span class="account-name">@account.Name</span>
-                        <span class="account-sub">@AccountSubtitle(account)</span>
-                    </span>
-                    <span class="stack-end">
-                        <span class="account-balance num">@State.Euro(account.Balance)</span>
-                        <span class="meta">@AsOfLabel(account.BalanceAsOf)</span>
-                    </span>
-                </button>
+                @* Ein fremdes Konto ist nicht bearbeitbar — es führt gar nicht erst irgendwohin,
+                   statt auf einer Maske abzuweisen. Der Tag nennt dafür den Eigentümer. *@
+                @if (account.IsMine || account.OwnerUserId is null)
+                {
+                    <button type="button" class="tap row"
+                            @onclick="@(() => Navigation.NavigateTo($"/bearbeiten/account/{account.Id}"))">
+                        <span class="stack">
+                            <span class="account-name">@account.Name</span>
+                            <span class="account-sub">@AccountSubtitle(account)</span>
+                        </span>
+                        <span class="stack-end">
+                            <span class="account-balance num">@State.Euro(account.Balance)</span>
+                            <span class="meta">@AsOfLabel(account.BalanceAsOf)</span>
+                        </span>
+                    </button>
+                }
+                else
+                {
+                    <div class="row">
+                        <div class="stack">
+                            <span class="account-name">@account.Name</span>
+                            <span class="account-sub">@AccountSubtitle(account)</span>
+                        </div>
+                        <div class="stack-end">
+                            <span class="account-balance num">@State.Euro(account.Balance)</span>
+                            <span class="meta">@AsOfLabel(account.BalanceAsOf)</span>
+                        </div>
+                    </div>
+                }
             }
         </Authorized>
         <NotAuthorized>
@@ -555,23 +573,63 @@ else if (sheetTransaction is { } sheet)
 
     private static string AccountSubtitle(AccountDto account)
     {
+        var parts = new List<string>();
+
         if (account.Iban is { Length: > 0 } iban)
         {
-            return iban;
+            parts.Add(iban);
+        }
+        else
+        {
+            if (account.InterestRatePercent is { } rate)
+            {
+                parts.Add(GermanFormat.Percent(rate, 2));
+            }
+
+            if (account.InterestYearToDate is { } interest)
+            {
+                parts.Add("Zinsen " + GermanFormat.Euro(interest) + " YTD");
+            }
         }
 
-        var parts = new List<string>();
-        if (account.InterestRatePercent is { } rate)
+        if (SharingLabel(account) is { Length: > 0 } freigabe)
         {
-            parts.Add(GermanFormat.Percent(rate, 2));
-        }
-
-        if (account.InterestYearToDate is { } interest)
-        {
-            parts.Add("Zinsen " + GermanFormat.Euro(interest) + " YTD");
+            parts.Add(freigabe);
         }
 
         return string.Join(" · ", parts);
+    }
+
+    /// <summary>
+    /// Der Freigabe-Tag — <b>perspektivisch</b>, nie der Rohwert.
+    /// </summary>
+    /// <remarks>
+    /// Dasselbe Konto heißt für den Eigentümer „geteilt mit Sabine“ und für Sabine „geteilt von
+    /// Oliver“. „Named“ hinzuschreiben wäre für beide gleich nichtssagend, und „Nur ich“ an einem
+    /// fremden Konto wäre schlicht falsch — wer es liest, ist ja nicht gemeint.
+    ///
+    /// Ein Konto ohne Eigentümer trägt keinen Tag: es gehört niemandem und steht allen offen.
+    /// </remarks>
+    private static string? SharingLabel(AccountDto account)
+    {
+        if (account.OwnerUserId is null)
+        {
+            return null;
+        }
+
+        if (!account.IsMine)
+        {
+            return account.OwnerName is { Length: > 0 } owner ? $"geteilt von {owner}" : "geteilt";
+        }
+
+        return account.Sharing switch
+        {
+            AccountSharing.Private => "privat",
+            AccountSharing.Named when account.SharedWith.Count == 0 => "privat",
+            AccountSharing.Named
+                => "geteilt mit " + string.Join(" + ", account.SharedWith.Select(s => s.Name)),
+            _ => "Haushalt",
+        };
     }
 
     /// <summary>„heute“, „gestern“ oder das Datum — die Aktualität des Saldos.</summary>

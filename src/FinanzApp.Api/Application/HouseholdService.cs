@@ -28,6 +28,19 @@ public sealed class HouseholdService(FinanzAppDbContext db, CurrentUser current,
             return null;
         }
 
+        // Wie viele Konten jedes Mitglied sieht. Gerechnet wird über alle Konten des Haushalts,
+        // nicht über die sichtbaren — sonst stünde in der Zeile, was der Betrachter sieht, und
+        // nicht, was das Mitglied sieht.
+        var accounts = await db.Accounts.IgnoreQueryFilters()
+            .Where(a => a.HouseholdId == householdId)
+            .Select(a => new
+            {
+                a.OwnerUserId,
+                a.Sharing,
+                Shared = a.Shares.Select(x => x.UserId).ToList(),
+            })
+            .ToListAsync(ct);
+
         var members = await db.Users.AsNoTracking()
             .Where(u => u.HouseholdId == householdId)
             .OrderBy(u => u.Role)
@@ -41,6 +54,18 @@ public sealed class HouseholdService(FinanzAppDbContext db, CurrentUser current,
                 LastSeenAt = u.LastSeenAt,
             })
             .ToListAsync(ct);
+
+        members =
+        [
+            .. members.Select(m => m with
+            {
+                TotalAccountCount = accounts.Count,
+                VisibleAccountCount = accounts.Count(a =>
+                    a.OwnerUserId == m.Id
+                    || a.Sharing == AccountSharing.Household
+                    || (a.Sharing == AccountSharing.Named && a.Shared.Contains(m.Id))),
+            }),
+        ];
 
         return new HouseholdOverviewDto
         {

@@ -107,6 +107,12 @@ public sealed record HouseholdMemberDto
     public required string Email { get; init; }
     public required HouseholdRole Role { get; init; }
     public DateTime? LastSeenAt { get; init; }
+
+    /// <summary>Wie viele Konten des Haushalts dieses Mitglied sehen darf.</summary>
+    public int VisibleAccountCount { get; init; }
+
+    /// <summary>Wie viele es insgesamt gibt — der Bezug, ohne den die erste Zahl nichts sagt.</summary>
+    public int TotalAccountCount { get; init; }
 }
 
 public sealed record InvitationDto
