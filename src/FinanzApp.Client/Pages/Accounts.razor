@@ -297,6 +297,21 @@ else if (sheetTransaction is { } sheet)
     private bool onlyOpen;
     private CancellationTokenSource? searchDebounce;
 
+    /// <summary>
+    /// Vorgewählte Kategorie aus der Adresse — <c>/konten?category=5</c>.
+    /// </summary>
+    /// <remarks>
+    /// Damit führt „In Buchungen zeigen“ aus einer Auswertung wirklich zu den Buchungen
+    /// dieser Kategorie und nicht nur auf die Liste. Ein Sprungziel, das den Filter nicht
+    /// mitbringt, ist ein Link, der so tut, als würde er etwas auswählen.
+    /// </remarks>
+    [SupplyParameterFromQuery(Name = "category")]
+    public int? CategoryFromQuery { get; set; }
+
+    /// <summary>Nur Buchungen ohne Kategorie — <c>/konten?offen=1</c>.</summary>
+    [SupplyParameterFromQuery(Name = "offen")]
+    public bool? OpenFromQuery { get; set; }
+
     private bool HasFilter => !string.IsNullOrWhiteSpace(search)
                               || accountFilter is not null || categoryFilter is not null
                               || kindFilter is not null || onlyOpen;
@@ -307,6 +322,11 @@ else if (sheetTransaction is { } sheet)
 
     protected override async Task LoadAsync()
     {
+        // Die Adresse setzt den Filter, bevor die Liste zum ersten Mal geholt wird — sonst
+        // erschiene kurz die ungefilterte und spränge danach um.
+        categoryFilter = CategoryFromQuery;
+        onlyOpen = OpenFromQuery == true;
+
         accounts = await Api.GetAccountsAsync();
         categories = await Api.GetCategoriesAsync();
         await ReloadListAsync();

@@ -43,7 +43,7 @@ public sealed class ReportTests : IDisposable
         wohnen = b.Id;
     }
 
-    private ReportService Service() => new(database.Context(), clock);
+    private ReportService Service() => database.Reports(clock);
 
     /// <summary>Eine Ausgabe. Der Betrag wird negativ abgelegt, wie überall im Bestand.</summary>
     private int Ausgabe(DateOnly tag, int kategorie, decimal betrag, string empfaenger = "Laden")

@@ -190,6 +190,9 @@ public static class ApiEndpoints
             return gewinn is null ? Results.NotFound() : Results.Ok(gewinn);
         });
 
+        api.MapGet("/reports/data-quality", async (ReportService service, CancellationToken ct)
+            => Results.Ok(await service.GetDataQualityAsync(ct)));
+
         api.MapGet("/portfolio", async (PortfolioService service, CancellationToken ct) =>
         {
             var portfolio = await service.GetAsync(ct);

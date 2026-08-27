@@ -1,3 +1,4 @@
+using FinanzApp.Api.Application;
 using FinanzApp.Api.Data;
 using FinanzApp.Api.Data.Entities;
 using FinanzApp.Api.Infrastructure;
@@ -60,6 +61,31 @@ public sealed class TestDatabase : IDisposable
             new DocumentStorageOptions { Root = root },
             new TestHostEnvironment(root),
             NullLogger<DocumentPathService>.Instance);
+
+    /// <summary>
+    /// Ein <see cref="ReportService"/> samt seiner Mitspieler.
+    /// </summary>
+    /// <remarks>
+    /// Der Datenqualitätsbericht fragt, ob die hinterlegten Dateien wirklich liegen — das weiß
+    /// nur der <see cref="DocumentService"/>, und der bringt eigene Abhängigkeiten mit. Sie hier
+    /// einmal zu verdrahten ist besser, als sie in jedem Test noch einmal aufzuzählen.
+    /// </remarks>
+    public ReportService Reports(IClock clock, string? documentRoot = null)
+    {
+        var context = Context();
+        var root = documentRoot
+                   ?? Path.Combine(Path.GetTempPath(), "finanzapp-tests", Guid.NewGuid().ToString("N"));
+
+        return new ReportService(
+            context,
+            clock,
+            new DocumentService(
+                context,
+                PathService(root),
+                new ObjectLabelService(context),
+                clock,
+                NullLogger<DocumentService>.Instance));
+    }
 
     public void Dispose() => connection.Dispose();
 

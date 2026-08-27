@@ -284,3 +284,40 @@ public sealed record PortfolioGainRowDto
     public required decimal Gain { get; init; }
     public required decimal? GainPercent { get; init; }
 }
+
+
+// ── Datenqualität ────────────────────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Was die Auswertungen darüber unvollständig macht.
+/// </summary>
+/// <remarks>
+/// Kein Bericht über Geld, sondern über die Grundlage. Er steht im selben Bereich, weil eine
+/// Lücke hier jede Summe eine Registerkarte weiter verzerrt — und weil man sie sonst nirgends
+/// zählen würde.
+/// </remarks>
+public sealed record DataQualityDto
+{
+    /// <summary>Summe aller offenen Posten über alle Zeilen.</summary>
+    public required int OpenCount { get; init; }
+
+    /// <summary>„3 Lücken“ oder „vollständig“.</summary>
+    public required string Headline { get; init; }
+
+    /// <summary>Was daraus folgt.</summary>
+    public required string Line { get; init; }
+
+    public required IReadOnlyList<DataQualityRowDto> Rows { get; init; }
+}
+
+/// <summary>Eine Lücke: wie viele, was sie anrichtet, und wo man sie schließt.</summary>
+/// <param name="Count">Wie viele Datensätze betroffen sind.</param>
+/// <param name="Label">Woran es fehlt.</param>
+/// <param name="Consequence">
+/// Die Folge, nicht die Wiederholung des Labels. „Fehlt“ weiß der Leser schon; warum es
+/// stört, steht nirgends sonst.
+/// </param>
+/// <param name="Action">Das Verb auf dem Sprungziel — „zuordnen“, „prüfen“, „ergänzen“.</param>
+/// <param name="Route">Wohin der Sprung führt, samt Filter.</param>
+public sealed record DataQualityRowDto(
+    int Count, string Label, string Consequence, string Action, string Route);

@@ -84,6 +84,11 @@
         <FixedCostsReport Data="fix" />
         <div class="spacer"></div>
     }
+    else if (report == ReportKind.DataQuality && quality is { } luecken)
+    {
+        <DataQualityReport Data="luecken" />
+        <div class="spacer"></div>
+    }
     else if (report == ReportKind.PortfolioGainLoss)
     {
         @if (gain is { } depot)
@@ -123,7 +128,7 @@
                     Nicht enthalten: @bericht.UncategorisedCount
                     @(bericht.UncategorisedCount == 1 ? "Ausgabe" : "Ausgaben") ohne Kategorie
                     über @State.Euro(bericht.UncategorisedAmount) ·
-                    <a href="/vorgaenge">zuordnen</a>
+                    <a href="/konten?offen=1">zuordnen</a>
                 </span>
             }
         </div>
@@ -232,7 +237,7 @@
                         }
 
                         <div class="doc-actions">
-                            <a class="btn btn-secondary" href="@($"/vorgaenge?category={zeile.CategoryId}")">
+                            <a class="btn btn-secondary" href="@($"/konten?category={zeile.CategoryId}")">
                                 In Buchungen zeigen
                             </a>
                             <a class="btn btn-ghost" href="/budgets">
@@ -262,6 +267,7 @@
     private CostTrendDto? data;
     private FixedCostsDto? fixedCosts;
     private PortfolioGainDto? gain;
+    private DataQualityDto? quality;
     private int? depotId;
 
     private PeriodScope period = PeriodScope.Month;
@@ -302,13 +308,13 @@
         (CostTrendSort.Name, "Name"),
     ];
 
-    /// <summary>Die vier Berichte. Die Datenqualität kommt noch — sie steht da, aber als „folgt“.</summary>
+    /// <summary>Die vier Berichte aus Abschnitt 10b.</summary>
     private static readonly (ReportKind Kind, string Label, bool Ready)[] Available =
     [
         (ReportKind.CostTrend, "Kostentrend", true),
         (ReportKind.FixedCosts, "Fixkosten", true),
         (ReportKind.PortfolioGainLoss, "Depot G/V", true),
-        (ReportKind.DataQuality, "Datenqualität", false),
+        (ReportKind.DataQuality, "Datenqualität", true),
     ];
 
     protected override Task LoadAsync() => FetchAsync();
@@ -332,6 +338,10 @@
 
             case ReportKind.PortfolioGainLoss:
                 gain = await Api.GetPortfolioGainAsync(depotId);
+                break;
+
+            case ReportKind.DataQuality:
+                quality = await Api.GetDataQualityAsync();
                 break;
 
             default:

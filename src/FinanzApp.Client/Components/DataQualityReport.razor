@@ -1,0 +1,38 @@
+@*
+    Datenqualität — Abschnitt 10b.
+
+    Kein Bericht über Geld, sondern über die Grundlage. Jede Zeile nennt eine Folge und ein
+    Ziel: eine Zahl ohne beides ist ein Vorwurf — sie sagt, dass etwas fehlt, aber nicht, was
+    es anrichtet und wo man es abstellt.
+*@
+
+<div class="report-hero">
+    <span class="kicker">Auswertbarkeit</span>
+    <span class="hero-value medium">@Data.Headline</span>
+    <span class="meta">@Data.Line</span>
+</div>
+
+@foreach (var zeile in Data.Rows)
+{
+    @* Erledigte Zeilen bleiben stehen, nur blass. Eine verschwundene Zeile sähe aus, als wäre
+       nie danach gefragt worden — und man könnte nicht sehen, dass sie erledigt ist. *@
+    <a class="report-gap @(zeile.Count == 0 ? "done" : null)" href="@zeile.Route">
+        <span class="report-gap-count num">@zeile.Count</span>
+
+        <span class="stack">
+            <span class="report-row-name">@zeile.Label</span>
+            <span class="meta">@zeile.Consequence</span>
+        </span>
+
+        <span class="report-gap-action">@(zeile.Count == 0 ? "erledigt" : zeile.Action)</span>
+    </a>
+}
+
+<div class="tx-totals-note">
+    Jede Lücke verzerrt die Auswertungen darüber — daher zuerst hier aufräumen.
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public DataQualityDto Data { get; set; } = default!;
+}

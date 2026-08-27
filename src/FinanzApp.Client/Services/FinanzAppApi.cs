@@ -267,6 +267,10 @@ public sealed class FinanzAppApi(HttpClient http)
         }
     }
 
+    /// <summary>Was die Auswertungen unvollständig macht.</summary>
+    public Task<DataQualityDto> GetDataQualityAsync(CancellationToken ct = default)
+        => GetAsync<DataQualityDto>("api/reports/data-quality", ct);
+
     /// <summary>Die gelernten Kategorieregeln.</summary>
     public Task<IReadOnlyList<CategorizationRuleDto>> GetRulesAsync(CancellationToken ct = default)
         => GetAsync<IReadOnlyList<CategorizationRuleDto>>("api/rules", ct);

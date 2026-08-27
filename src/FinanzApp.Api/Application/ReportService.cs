@@ -19,7 +19,7 @@ namespace FinanzApp.Api.Application;
 /// <c>DbContext</c> sitzt. Hier steht deshalb <b>kein</b> <c>IgnoreQueryFilters</c> — ein Bericht
 /// darf keine Beträge aus nicht freigegebenen Konten enthalten, auch nicht summiert.</para>
 /// </remarks>
-public sealed class ReportService(FinanzAppDbContext db, IClock clock)
+public sealed class ReportService(FinanzAppDbContext db, IClock clock, DocumentService documents)
 {
     /// <summary>Ab hier gilt eine Kategorie als steigend oder sinkend.</summary>
     private const decimal Threshold = 5m;
@@ -469,6 +469,96 @@ public sealed class ReportService(FinanzAppDbContext db, IClock clock)
             // ältester Bestandteil.
             PricesAsOf = positionen.Count == 0 ? null : positionen.Min(p => p.PriceAsOf),
             Positions = zeilen,
+        };
+    }
+
+    // ── Datenqualität ──────────────────────────────────────────────────────────────────────
+
+    /// <summary>Ab wann ein Kontostand als nicht mehr frisch gilt.</summary>
+    private static readonly TimeSpan StaleAfter = TimeSpan.FromDays(3);
+
+    /// <summary>
+    /// Die Lücken, die jede Auswertung darüber verzerren.
+    /// </summary>
+    /// <remarks>
+    /// Jede Zeile nennt eine Folge und ein Ziel. Eine Zahl ohne beides ist ein Vorwurf: sie
+    /// sagt, dass etwas fehlt, aber nicht, was es anrichtet und wo man es abstellt.
+    /// </remarks>
+    public async Task<DataQualityDto> GetDataQualityAsync(CancellationToken ct = default)
+    {
+        var stichtag = clock.Today.AddDays(-(int)StaleAfter.TotalDays);
+
+        // Umbuchungen tragen zu Recht keine Kategorie — sie sind keine Lücke.
+        var ohneKategorie = await db.Transactions
+            .CountAsync(t => t.CategoryId == null && t.Kind != TransactionKind.Transfer, ct);
+
+        // „Ohne Datei“ heißt: der gespeicherte Pfad zeigt ins Leere. Das weiß nur, wer gegen
+        // die Platte prüft — in der Tabelle steht ein Pfad, und er sieht immer gleich aus.
+        var ohneDatei = (await documents.GetPageAsync(ct: ct)).MissingFileCount;
+
+        var belegt = await db.DocumentLinks
+            .Select(l => new { l.TargetType, l.TargetId })
+            .Distinct()
+            .ToListAsync(ct);
+
+        var vertraege = belegt.Where(l => l.TargetType == LinkTargetType.Contract)
+            .Select(l => l.TargetId).ToHashSet();
+        var policen = belegt.Where(l => l.TargetType == LinkTargetType.Policy)
+            .Select(l => l.TargetId).ToHashSet();
+
+        var vertraegeOhneBeleg = await db.Contracts
+            .CountAsync(c => !vertraege.Contains(c.Id), ct);
+        var policenOhneBeleg = await db.Policies
+            .CountAsync(p => !policen.Contains(p.Id), ct);
+
+        var policenOhneBeitrag = await db.Policies.CountAsync(p => p.Premium == 0m, ct);
+
+        var alteStaende = await db.Accounts.CountAsync(a => a.BalanceAsOf < stichtag, ct);
+
+        // Die Beschriftung richtet sich nach der Zahl daneben. „1 Dokumente ohne Datei“ ist
+        // ein Zahlwort, das seinem eigenen Substantiv widerspricht.
+        static DataQualityRowDto Gap(
+            int anzahl, string einzahl, string mehrzahl, string folge, string tat, string ziel)
+            => new(anzahl, anzahl == 1 ? einzahl : mehrzahl, folge, tat, ziel);
+
+        List<DataQualityRowDto> zeilen =
+        [
+            Gap(ohneKategorie, "Buchung ohne Kategorie", "Buchungen ohne Kategorie",
+                "fehlt in jeder Kategorieauswertung — gezählt über den ganzen Bestand, "
+                + "nicht nur im gewählten Zeitraum",
+                "zuordnen", "/konten?offen=1"),
+
+            Gap(ohneDatei, "Dokument ohne Datei", "Dokumente ohne Datei",
+                "der Pfad zeigt ins Leere", "prüfen", "/dokumente"),
+
+            Gap(vertraegeOhneBeleg, "Vertrag ohne Beleg", "Verträge ohne Beleg",
+                "die Kündigungsfrist ist nicht belegt", "ergänzen", "/wohnen"),
+
+            Gap(policenOhneBeleg, "Police ohne Beleg", "Policen ohne Beleg",
+                "die Kündigungsfrist ist nicht belegt", "ergänzen", "/absicherung"),
+
+            // Eigene Zeile, nicht die des Fixkostenberichts: dort steht, was fehlt; hier steht,
+            // dass es fehlt und wo man es einträgt.
+            Gap(policenOhneBeitrag, "Police ohne Beitrag", "Policen ohne Beitrag",
+                "fehlt in den Fixkosten", "erfassen", "/absicherung"),
+
+            Gap(alteStaende, "Konto ohne frischen Stand", "Konten ohne frischen Stand",
+                $"älter als {StaleAfter.TotalDays:0} Tage", "aktualisieren", "/konten"),
+        ];
+
+        var offen = zeilen.Sum(z => z.Count);
+
+        return new DataQualityDto
+        {
+            OpenCount = offen,
+            Headline = offen == 0 ? "vollständig" : $"{offen} {(offen == 1 ? "Lücke" : "Lücken")}",
+            Line = offen == 0
+                ? "Alle Auswertungen rechnen auf vollständigen Daten."
+                : "Solange Lücken offen sind, bleiben die Summen darüber unvollständig.",
+
+            // Volle Zeilen zuerst; die erledigten stehen hinten und bleiben trotzdem sichtbar.
+            // Eine verschwundene Zeile sähe aus, als wäre nie danach gefragt worden.
+            Rows = [.. zeilen.OrderByDescending(z => z.Count)],
         };
     }
 

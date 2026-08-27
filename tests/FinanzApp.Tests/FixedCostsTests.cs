@@ -40,7 +40,7 @@ public sealed class FixedCostsTests : IDisposable
         wohnen = kategorie.Id;
     }
 
-    private ReportService Service() => new(database.Context(), clock);
+    private ReportService Service() => database.Reports(clock);
 
     private void Ausgabe(DateOnly tag, decimal betrag)
     {
