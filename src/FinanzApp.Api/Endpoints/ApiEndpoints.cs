@@ -171,6 +171,13 @@ public static class ApiEndpoints
         api.MapGet("/budgets", async (PeriodScope? period, BudgetService service, CancellationToken ct)
             => Results.Ok(await service.GetOverviewAsync(period ?? PeriodScope.Month, ct)));
 
+        // Als POST, weil die Ausschlussliste beliebig lang wird — in einer Abfragezeichenkette
+        // waere sie irgendwann abgeschnitten, und ein Bericht rechnete stillschweigend anders,
+        // als die Oberflaeche zeigt.
+        api.MapPost("/reports/cost-trend", async (
+                CostTrendRequest request, ReportService service, CancellationToken ct)
+            => Results.Ok(await service.GetCostTrendAsync(request, ct)));
+
         api.MapGet("/portfolio", async (PortfolioService service, CancellationToken ct) =>
         {
             var portfolio = await service.GetAsync(ct);

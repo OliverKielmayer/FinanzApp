@@ -45,6 +45,59 @@ public enum PropertyKind
 }
 
 /// <summary>
+/// Wogegen ein Bericht seinen Zeitraum hält.
+/// </summary>
+/// <remarks>
+/// Der Vorjahresvergleich ist der Standard, weil er denselben Saisonpunkt trifft. Belastbar ist
+/// er nur dann — einzelne Monate schwanken stark. Dafür gibt es das Zwölfmonatsmittel als
+/// dritte Achse; es glättet, was ein einzelner Vormonat nur zufällig zeigt.
+/// </remarks>
+public enum ComparisonBasis
+{
+    /// <summary>Der gleich lange Zeitraum davor.</summary>
+    PreviousPeriod = 0,
+
+    /// <summary>Derselbe Zeitraum ein Jahr früher.</summary>
+    PreviousYear = 1,
+
+    /// <summary>Das Mittel der zwölf Monate vor dem Zeitraum, hochgerechnet.</summary>
+    TwelveMonthAverage = 2,
+}
+
+/// <summary>Welcher Bericht im Auswertungsbereich gezeigt wird.</summary>
+public enum ReportKind
+{
+    CostTrend = 0,
+    FixedCosts = 1,
+    PortfolioGainLoss = 2,
+    DataQuality = 3,
+}
+
+/// <summary>Wonach der Kostentrend seine Kategorien ordnet.</summary>
+public enum CostTrendSort
+{
+    /// <summary>Stärkster Anstieg zuerst — die Frage, die den Bericht veranlasst.</summary>
+    Increase = 0,
+
+    Amount = 1,
+    Name = 2,
+}
+
+/// <summary>Wie sich eine Kategorie gegen ihren Vergleichswert verhält.</summary>
+/// <remarks>
+/// Die Schwelle liegt bei ±5 %. <see cref="Unknown"/> ist kein Verlegenheitswert: ohne Daten im
+/// Vergleichsfenster gibt es keinen Trend, und „stabil“ zu behaupten wäre eine Aussage über
+/// nichts.
+/// </remarks>
+public enum CostTrendStatus
+{
+    Stable = 0,
+    Rising = 1,
+    Falling = 2,
+    Unknown = 3,
+}
+
+/// <summary>
 /// Der Zeitraum, über den gerechnet wird — für Budgets wie für Auswertungen derselbe.
 /// </summary>
 /// <remarks>

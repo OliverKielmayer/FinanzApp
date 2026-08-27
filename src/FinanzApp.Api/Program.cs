@@ -162,6 +162,7 @@ builder.Services.AddScoped<ScanInboxService>();
 builder.Services.AddScoped<CreateFormService>();
 builder.Services.AddScoped<PropertyService>();
 builder.Services.AddScoped<LiquidityService>();
+builder.Services.AddScoped<ReportService>();
 
 var app = builder.Build();
 

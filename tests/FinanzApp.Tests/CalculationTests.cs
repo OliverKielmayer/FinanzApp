@@ -53,7 +53,7 @@ public sealed class CalculationTests
     public void Budgetzeitraum_rechnet_richtig_hoch(PeriodScope period, int months, string label)
     {
         var (from, to, resolvedMonths, resolvedLabel) =
-            BudgetService.ResolvePeriod(period, new DateOnly(2026, 8, 23));
+            Periods.Resolve(period, new DateOnly(2026, 8, 23));
 
         Assert.Equal(months, resolvedMonths);
         Assert.Equal(label, resolvedLabel);
