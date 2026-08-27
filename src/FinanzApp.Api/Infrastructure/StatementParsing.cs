@@ -93,10 +93,15 @@ public sealed class CamtStatementParser : IStatementParser
 
         var records = new List<ImportRecord>();
 
-        foreach (var entry in reports.SelectMany(r => Children(r, "Ntry")))
+        foreach (var report in reports)
         {
-            ct.ThrowIfCancellationRequested();
-            Read(entry, records);
+            var statementId = Text(Child(report, "Id"));
+
+            foreach (var entry in Children(report, "Ntry"))
+            {
+                ct.ThrowIfCancellationRequested();
+                Read(entry, records, statementId);
+            }
         }
 
         var account = reports.Select(r => Child(r, "Acct")).FirstOrDefault(a => a is not null);
@@ -150,7 +155,7 @@ public sealed class CamtStatementParser : IStatementParser
     /// Tragen die Einzelposten eigene Beträge, werden sie einzeln übernommen — sonst bliebe die
     /// Zuordnung zu Empfängern und Kategorien Raten. Sonst zählt der Sammelbetrag.
     /// </remarks>
-    private static void Read(XElement entry, List<ImportRecord> records)
+    private static void Read(XElement entry, List<ImportRecord> records, string? statementId)
     {
         // Ein vorgemerkter Umsatz ist keine Buchung. Er verschwindet trotzdem nicht, sondern
         // steht mit Grund in der Liste — sonst fehlten am Ende Sätze, die niemand erklärt hat.
@@ -168,17 +173,20 @@ public sealed class CamtStatementParser : IStatementParser
         {
             foreach (var detail in details)
             {
-                records.Add(Build(entry, detail, date, DirectionOf(detail) ?? sign, Amount(detail), problem));
+                records.Add(Build(
+                    entry, detail, date, DirectionOf(detail) ?? sign, Amount(detail), problem, statementId));
             }
 
             return;
         }
 
-        records.Add(Build(entry, details.FirstOrDefault(), date, sign, Amount(entry), problem));
+        records.Add(Build(
+            entry, details.FirstOrDefault(), date, sign, Amount(entry), problem, statementId));
     }
 
     private static ImportRecord Build(
-        XElement entry, XElement? detail, DateOnly? date, int sign, decimal? amount, string? problem)
+        XElement entry, XElement? detail, DateOnly? date, int sign, decimal? amount,
+        string? problem, string? statementId)
     {
         var payee = PayeeOf(entry, detail, sign);
 
@@ -188,7 +196,67 @@ public sealed class CamtStatementParser : IStatementParser
             Payee: payee,
             Amount: amount is { } value ? sign * value : null,
             Problem: problem,
-            BookingText: Text(Child(entry, "AddtlNtryInf")));
+            Details: DetailsOf(entry, detail, sign, statementId));
+    }
+
+    /// <summary>
+    /// Die übrigen Felder des Auszugs.
+    /// </summary>
+    /// <remarks>
+    /// Jedes Feld bleibt <c>null</c>, wenn die Datei es nicht liefert. Der Unterschied zwischen
+    /// „steht nicht im Auszug“ und „steht drin, ist leer“ geht sonst verloren — und die Anzeige
+    /// verspricht, genau diesen Unterschied zu zeigen.
+    /// </remarks>
+    private static StatementDetails DetailsOf(
+        XElement entry, XElement? detail, int sign, string? statementId)
+    {
+        var parties = Child(detail, "RltdPties");
+        var agents = Child(detail, "RltdAgts");
+        var gegen = sign < 0 ? "Cdtr" : "Dbtr";
+
+        return new StatementDetails(
+            ValueDate: DateIn(Child(entry, "ValDt")),
+            Currency: Attribute(Child(detail, "Amt") ?? Child(entry, "Amt"), "Ccy"),
+            CounterpartyIban: Text(Child(Child(Child(parties, gegen + "Acct"), "Id"), "IBAN")),
+            CounterpartyBic: BicOf(Child(agents, gegen + "Agt")),
+            Purpose: Purpose(detail),
+            BookingText: Text(Child(entry, "AddtlNtryInf")),
+            BankTransactionCode: DomainCodeOf(Child(detail, "BkTxCd") ?? Child(entry, "BkTxCd")),
+            ProprietaryCode: Text(Child(Child(entry, "BkTxCd"), "Prtry", "Cd"))
+                             ?? Text(Child(Child(detail, "BkTxCd"), "Prtry", "Cd")),
+            StatementId: statementId);
+    }
+
+    /// <summary>Der Geschäftsvorfall nach ISO, zusammengesetzt als <c>PMNT-RDDT-ESDD</c>.</summary>
+    private static string? DomainCodeOf(XElement? code)
+    {
+        var domain = Child(code, "Domn");
+        if (domain is null)
+        {
+            return null;
+        }
+
+        var teile = new[]
+        {
+            Text(Child(domain, "Cd")),
+            Text(Child(Child(domain, "Fmly"), "Cd")),
+            Text(Child(Child(domain, "Fmly"), "SubFmlyCd")),
+        }.Where(t => t is not null);
+
+        var zusammen = string.Join("-", teile);
+
+        return zusammen.Length == 0 ? null : zusammen;
+    }
+
+    /// <summary>Neuere Fassungen schreiben <c>BICFI</c>, ältere <c>BIC</c>.</summary>
+    private static string? BicOf(XElement? agent)
+        => Text(Child(Child(agent, "FinInstnId"), "BICFI"))
+           ?? Text(Child(Child(agent, "FinInstnId"), "BIC"));
+
+    private static string? Attribute(XElement? element, string name)
+    {
+        var wert = element?.Attribute(name)?.Value.Trim();
+        return string.IsNullOrEmpty(wert) ? null : wert;
     }
 
     /// <summary>

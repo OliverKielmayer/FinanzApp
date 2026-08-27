@@ -287,7 +287,7 @@ public sealed class CamtParserTests
         var statement = await ParseAsync(Karte("Miete August", "Heike Immel")
             .Replace("</Ntry>", "<AddtlNtryInf>Dauerauftrag</AddtlNtryInf></Ntry>"));
 
-        Assert.Equal("Dauerauftrag", statement.Records.Single().BookingText);
+        Assert.Equal("Dauerauftrag", statement.Records.Single().Details?.BookingText);
     }
 
     private static string Karte(string zweck, string glaeubiger)

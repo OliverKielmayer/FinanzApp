@@ -554,7 +554,7 @@
                 : GermanFormat.Date(from));
         }
 
-        var texte = group.Rows.Select(r => r.BookingText).Distinct().ToList();
+        var texte = group.Rows.Select(r => r.Details?.BookingText).Distinct().ToList();
         if (texte is [{ Length: > 0 } gemeinsam])
         {
             teile.Add(gemeinsam);

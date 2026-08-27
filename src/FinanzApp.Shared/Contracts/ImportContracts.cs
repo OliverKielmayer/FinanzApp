@@ -84,15 +84,17 @@ public sealed record ImportRowDto
     public string? Problem { get; init; }
 
     /// <summary>
-    /// Wie die Bank die Buchung nennt — „Dauerauftrag“, „SB-Auszahlung“, „Lohn/Gehalt/Rente“.
+    /// Die Referenz, an der die Duplikatprüfung hängt — <c>AcctSvcrRef</c>.
     /// </summary>
     /// <remarks>
-    /// Bewusst <em>keine</em> Kategorie: an echten Daten geprüft trennt der Buchungstext keine
-    /// Gruppe, die Empfänger und Vorzeichen nicht schon trennen — von neun Empfängern mit mehr
-    /// als einem Text unterschieden acht nur Ein- von Ausgang. Eine Zuordnung daraus abzuleiten
-    /// wäre geraten. Als Angabe an der Gruppe sagt er dagegen, um welche Art Umsatz es geht.
+    /// Sie steht im Detailpanel als Tatsache aus der Datei. Ob sie mitgespeichert wird, sagt der
+    /// Schalter darunter — beides in dasselbe Feld zu schreiben, ersätze die Angabe durch ihren
+    /// eigenen Zustand.
     /// </remarks>
-    public string? BookingText { get; init; }
+    public string? Reference { get; init; }
+
+    /// <summary>Die Felder des Auszugs zu diesem Satz.</summary>
+    public StatementDetailsDto? Details { get; init; }
 
     /// <summary>Vorgeschlagene Kategorie, falls eine Regel greift.</summary>
     public int? SuggestedCategoryId { get; init; }
@@ -112,6 +114,46 @@ public sealed record ImportRowDto
 
     /// <summary>Vorschlag der App: neue Sätze angehakt, Treffer abgewählt.</summary>
     public required bool PreSelected { get; init; }
+}
+
+/// <summary>
+/// Die Felder eines Auszugssatzes, jedes mit seiner Herkunft aus ISO 20022.
+/// </summary>
+/// <remarks>
+/// <para><c>null</c> heißt „steht nicht im Auszug“ — nie ein Leerstring. Die Anzeige verspricht,
+/// genau diesen Unterschied zu zeigen, und kann ihn nur zeigen, wenn er im Vertrag steht.</para>
+/// <para>Der Buchungstext ist bewusst <em>keine</em> Kategorie: an echten Daten geprüft trennt er
+/// keine Gruppe, die Empfänger und Vorzeichen nicht schon trennen — von neun Empfängern mit mehr
+/// als einem Text unterschieden acht nur Ein- von Ausgang.</para>
+/// </remarks>
+public sealed record StatementDetailsDto
+{
+    /// <summary>Wertstellung — <c>ValDt</c>.</summary>
+    public DateOnly? ValueDate { get; init; }
+
+    /// <summary>Währung — <c>Amt</c>.</summary>
+    public string? Currency { get; init; }
+
+    /// <summary>IBAN der Gegenseite — <c>CdtrAcct</c> bzw. <c>DbtrAcct</c>.</summary>
+    public string? CounterpartyIban { get; init; }
+
+    /// <summary>BIC der Gegenseite — <c>Agt</c>.</summary>
+    public string? CounterpartyBic { get; init; }
+
+    /// <summary>Verwendungszweck — <c>RmtInf</c>.</summary>
+    public string? Purpose { get; init; }
+
+    /// <summary>Buchungsart — <c>AddtlNtryInf</c>.</summary>
+    public string? BookingText { get; init; }
+
+    /// <summary>Geschäftsvorfallcode — <c>Domn/Fmly</c>, etwa <c>PMNT-RDDT-ESDD</c>.</summary>
+    public string? BankTransactionCode { get; init; }
+
+    /// <summary>Der hauseigene Code der Bank — <c>Prtry</c>.</summary>
+    public string? ProprietaryCode { get; init; }
+
+    /// <summary>Der Auszug, aus dem der Satz stammt — <c>Stmt</c>.</summary>
+    public string? StatementId { get; init; }
 }
 
 public sealed record ImportHistoryDto
@@ -137,7 +179,31 @@ public sealed record ImportCommitRequest
     /// die Antwort gilt für alle seine Sätze. Was hier steht, hat Vorrang vor jeder Regel.
     /// </remarks>
     public IReadOnlyList<ImportCategoryChoice> Choices { get; init; } = [];
+
+    /// <summary>Welche Auszugsfelder mitgespeichert werden. Vorgabe: alle.</summary>
+    public ImportKeepFields Keep { get; init; } = new();
+
+    /// <summary>Sätze, für die etwas anderes gilt als die Vorgabe.</summary>
+    public IReadOnlyList<ImportKeepOverride> KeepOverrides { get; init; } = [];
 }
+
+/// <summary>
+/// „Beim Import behalten“ — was von den Auszugsfeldern in der Buchung landet.
+/// </summary>
+/// <remarks>
+/// Standard ist alles an. Die Referenz verdient dabei besondere Erwähnung: sie ist das
+/// Duplikatkriterium. Tag, Betrag und Empfänger sind nur der Notnagel für Auszüge, die keine
+/// Referenz liefern — wer sie abschaltet, verliert die verlässliche Wiedererkennung.
+/// </remarks>
+/// <param name="Purpose">Verwendungszweck speichern; danach in der Buchungsliste durchsuchbar.</param>
+/// <param name="Counterparty">IBAN und BIC der Gegenseite speichern.</param>
+/// <param name="Reference">Importreferenz speichern.</param>
+public sealed record ImportKeepFields(
+    bool Purpose = true, bool Counterparty = true, bool Reference = true);
+
+/// <param name="Index">Der Satz, für den etwas anderes gilt.</param>
+/// <param name="Keep">Was für ihn gespeichert wird.</param>
+public sealed record ImportKeepOverride(int Index, ImportKeepFields Keep);
 
 /// <summary>Eine Zuordnung aus dem Import.</summary>
 /// <param name="Payee">Der Empfänger, für den sie gilt.</param>

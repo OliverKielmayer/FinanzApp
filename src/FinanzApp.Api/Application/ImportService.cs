@@ -113,6 +113,9 @@ public sealed class ImportService(
             .GroupBy(c => Categorization.Normalize(c.Payee))
             .ToDictionary(g => g.Key, g => g.Last(), StringComparer.Ordinal);
 
+        // Was der Nutzer je Satz anders entschieden hat als die Vorgabe.
+        var overrides = request.KeepOverrides.ToDictionary(o => o.Index, o => o.Keep);
+
         await using var tx = await db.Database.BeginTransactionAsync(ct);
 
         var learned = await LearnAsync(request.Choices, ct);
@@ -133,6 +136,9 @@ public sealed class ImportService(
                 ? choice.CategoryId
                 : row.SuggestedCategoryId;
 
+            var keep = overrides.TryGetValue(row.Index, out var eigene) ? eigene : request.Keep;
+            var details = record.Details;
+
             db.Transactions.Add(new Transaction
             {
                 BookingDate = record.BookingDate!.Value,
@@ -141,8 +147,23 @@ public sealed class ImportService(
                 Amount = record.Amount.Value,
                 AccountId = account.Id,
                 CategoryId = categoryId,
-                ImportReference = record.Reference,
+
+                // Die Referenz ist das Duplikatkriterium. Wer sie abwählt, behält nur den
+                // Notnagel aus Tag, Betrag und Empfänger.
+                ImportReference = keep.Reference ? record.Reference : null,
                 CreatedAt = clock.Now,
+
+                // Was der Auszug nicht liefert, bleibt null — genau wie das, was der Nutzer
+                // nicht behalten wollte. Die Anzeige unterscheidet beides an anderer Stelle.
+                ValueDate = details?.ValueDate,
+                Currency = details?.Currency,
+                BookingText = details?.BookingText,
+                BankTransactionCode = details?.BankTransactionCode,
+                ProprietaryCode = details?.ProprietaryCode,
+                StatementId = details?.StatementId,
+                Purpose = keep.Purpose ? details?.Purpose : null,
+                CounterpartyIban = keep.Counterparty ? details?.CounterpartyIban : null,
+                CounterpartyBic = keep.Counterparty ? details?.CounterpartyBic : null,
             });
 
             imported++;
@@ -459,7 +480,8 @@ public sealed class ImportService(
                     Payee = record.Payee,
                     Amount = record.Amount,
                     State = state,
-                    BookingText = record.BookingText,
+                    Reference = record.Reference,
+                    Details = Map(record.Details),
                     Problem = state != ImportRowState.Error
                         ? null
                         : record.Problem
@@ -474,6 +496,23 @@ public sealed class ImportService(
             }),
         ];
     }
+
+    /// <summary>Die gelesenen Auszugsfelder in den Vertrag übersetzt.</summary>
+    private static StatementDetailsDto? Map(StatementDetails? details)
+        => details is null
+            ? null
+            : new StatementDetailsDto
+            {
+                ValueDate = details.ValueDate,
+                Currency = details.Currency,
+                CounterpartyIban = details.CounterpartyIban,
+                CounterpartyBic = details.CounterpartyBic,
+                Purpose = details.Purpose,
+                BookingText = details.BookingText,
+                BankTransactionCode = details.BankTransactionCode,
+                ProprietaryCode = details.ProprietaryCode,
+                StatementId = details.StatementId,
+            };
 
     /// <summary>
     /// Schlüssel für die Duplikatprüfung.

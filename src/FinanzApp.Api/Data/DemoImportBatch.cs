@@ -10,18 +10,50 @@ namespace FinanzApp.Api.Data;
 /// Satz steht mit Grund in der Liste und lässt sich nicht zuschalten. Übersprungen wird nichts
 /// stillschweigend, auch nicht das, was gar keine Buchung ist.
 /// </param>
-/// <param name="BookingText">
-/// Was die Bank die Buchung nennt — „Lastschrift“, „Dauerauftrag“, „SB-Auszahlung“,
-/// „Lohn/Gehalt/Rente“. Keine Kategorie, aber eine Auskunft darüber, um welche Art Umsatz es
-/// geht; sie hilft beim Zuordnen.
-/// </param>
+/// <param name="Details">Die übrigen Felder des Auszugs, soweit die Datei sie hergibt.</param>
 public sealed record ImportRecord(
     string Reference,
     DateOnly? BookingDate,
     string Payee,
     decimal? Amount,
     string? Problem = null,
-    string? BookingText = null);
+    StatementDetails? Details = null);
+
+/// <summary>
+/// Was der Auszug über einen Satz sonst noch sagt.
+/// </summary>
+/// <remarks>
+/// <para>Jedes Feld ist <c>null</c>, wenn die Datei es nicht liefert — nie ein Leerstring. Der
+/// Unterschied zwischen „steht nicht im Auszug“ und „steht drin, ist aber leer“ geht sonst
+/// verloren, und die Anzeige müsste raten, was sie schreiben soll.</para>
+/// <para>Die Namen der Felder tragen ihre Herkunft aus ISO 20022 im Kommentar, damit sich jede
+/// Anzeige darauf berufen kann, statt sie zu erfinden.</para>
+/// </remarks>
+/// <param name="ValueDate">Wertstellung — <c>ValDt</c>.</param>
+/// <param name="Currency">Währung des Betrags — <c>Amt/@Ccy</c>.</param>
+/// <param name="CounterpartyIban">IBAN der Gegenseite — <c>CdtrAcct</c> bzw. <c>DbtrAcct</c>.</param>
+/// <param name="CounterpartyBic">BIC der Gegenseite — <c>CdtrAgt</c> bzw. <c>DbtrAgt</c>.</param>
+/// <param name="Purpose">Verwendungszweck — <c>RmtInf/Ustrd</c>, mehrteilig zusammengesetzt.</param>
+/// <param name="BookingText">
+/// Was die Bank die Buchung nennt — <c>AddtlNtryInf</c>: „Lastschrift“, „Dauerauftrag“,
+/// „SB-Auszahlung“, „Lohn/Gehalt/Rente“. Keine Kategorie, aber eine Auskunft darüber, um welche
+/// Art Umsatz es geht.
+/// </param>
+/// <param name="BankTransactionCode">
+/// Geschäftsvorfall nach ISO — <c>BkTxCd/Domn</c> als <c>PMNT-RDDT-ESDD</c>.
+/// </param>
+/// <param name="ProprietaryCode">Der deutsche Geschäftsvorfallcode — <c>BkTxCd/Prtry</c>.</param>
+/// <param name="StatementId">Der Auszug, aus dem der Satz stammt — <c>Rpt/Id</c> bzw. <c>Stmt/Id</c>.</param>
+public sealed record StatementDetails(
+    DateOnly? ValueDate = null,
+    string? Currency = null,
+    string? CounterpartyIban = null,
+    string? CounterpartyBic = null,
+    string? Purpose = null,
+    string? BookingText = null,
+    string? BankTransactionCode = null,
+    string? ProprietaryCode = null,
+    string? StatementId = null);
 
 /// <summary>
 /// Steht für die Datei, die im Handoff auf dem Importscreen liegt.

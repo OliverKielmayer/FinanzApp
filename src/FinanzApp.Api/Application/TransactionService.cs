@@ -48,10 +48,19 @@ public sealed class TransactionService(FinanzAppDbContext db, IClock clock)
         };
     }
 
+    /// <summary>
+    /// Wonach die Suche greift.
+    /// </summary>
+    /// <remarks>
+    /// Der Verwendungszweck gehört dazu: er ist oft das Einzige, was einen Einkauf benennt — bei
+    /// einer Kartenzahlung steht der Laden dort und sonst nirgends. Wer ihn beim Import behalten
+    /// hat, soll ihn auch wiederfinden.
+    /// </remarks>
     private static bool Matches(TransactionDto transaction, string? search)
         => string.IsNullOrWhiteSpace(search)
            || transaction.Payee.Contains(search, StringComparison.OrdinalIgnoreCase)
-           || (transaction.CategoryName?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false);
+           || (transaction.CategoryName?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
+           || (transaction.Details?.Purpose?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false);
 
     /// <summary>
     /// Summen über den sichtbaren Ausschnitt. Umbuchungen bleiben draußen — sie sind weder
@@ -278,6 +287,28 @@ public sealed class TransactionService(FinanzAppDbContext db, IClock clock)
                 AccountName = t.Account!.Name,
                 AccountShortName = t.Account.ShortName,
                 Note = t.Note,
+                ImportReference = t.ImportReference,
+
+                // Nur wenn wirklich etwas aus einem Auszug dransteht. Sonst bliebe ein leerer
+                // Block übrig, und eine von Hand erfasste Buchung sähe aus, als hätte sie
+                // Auszugsdaten.
+                Details = t.ValueDate == null && t.Currency == null && t.Purpose == null
+                          && t.BookingText == null && t.CounterpartyIban == null
+                          && t.CounterpartyBic == null && t.BankTransactionCode == null
+                          && t.ProprietaryCode == null && t.StatementId == null
+                    ? null
+                    : new StatementDetailsDto
+                    {
+                        ValueDate = t.ValueDate,
+                        Currency = t.Currency,
+                        CounterpartyIban = t.CounterpartyIban,
+                        CounterpartyBic = t.CounterpartyBic,
+                        Purpose = t.Purpose,
+                        BookingText = t.BookingText,
+                        BankTransactionCode = t.BankTransactionCode,
+                        ProprietaryCode = t.ProprietaryCode,
+                        StatementId = t.StatementId,
+                    },
             })
             .ToListAsync(ct);
 }

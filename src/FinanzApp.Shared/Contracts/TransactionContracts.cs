@@ -17,6 +17,22 @@ public sealed record TransactionDto
     public required string AccountShortName { get; init; }
     public string? Note { get; init; }
 
+    /// <summary>Die Importreferenz, sofern sie beim Import behalten wurde.</summary>
+    public string? ImportReference { get; init; }
+
+    /// <summary>
+    /// Die Auszugsfelder, so wie sie an der Buchung stehen.
+    /// </summary>
+    /// <remarks>
+    /// Gelesen wird ausschließlich, was gespeichert wurde — nie eine Nachschlagetabelle über den
+    /// Empfängernamen. Sonst trüge auch eine von Hand erfasste Buchung plötzlich Auszugsdaten samt
+    /// erfundener Referenz.
+    /// </remarks>
+    public StatementDetailsDto? Details { get; init; }
+
+    /// <summary>Ob überhaupt etwas aus einem Auszug an der Buchung steht.</summary>
+    public bool HasStatementData => ImportReference is not null || Details is not null;
+
     /// <summary>Umbuchungen brauchen keine Kategorie und gelten nie als „nicht zugeordnet“.</summary>
     public bool IsUncategorized => Kind != TransactionKind.Transfer && CategoryId is null;
 }

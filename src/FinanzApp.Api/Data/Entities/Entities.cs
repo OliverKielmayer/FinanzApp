@@ -80,6 +80,38 @@ public class Transaction : IHouseholdOwned
 
     public string? Note { get; set; }
 
+    // ── Auszugsfelder ──────────────────────────────────────────────────────────────────────
+    // Gespeichert wird nur, was der Nutzer beim Import behalten wollte; alles übrige bleibt
+    // null. Die Anzeige unterscheidet daran „nicht im Auszug“ von „nicht gespeichert“ — ein
+    // Leerstring würde beides ununterscheidbar machen.
+
+    /// <summary>Wertstellung aus dem Auszug — <c>ValDt</c>.</summary>
+    public DateOnly? ValueDate { get; set; }
+
+    /// <summary>Währung aus dem Auszug — <c>Amt</c>.</summary>
+    public string? Currency { get; set; }
+
+    /// <summary>IBAN der Gegenseite — Grundlage künftiger Zuordnung nach Gegenkonto.</summary>
+    public string? CounterpartyIban { get; set; }
+
+    /// <summary>BIC der Gegenseite — <c>Agt</c>.</summary>
+    public string? CounterpartyBic { get; set; }
+
+    /// <summary>Verwendungszweck — <c>RmtInf</c>. Wird in der Buchungsliste mitdurchsucht.</summary>
+    public string? Purpose { get; set; }
+
+    /// <summary>Buchungsart der Bank — <c>AddtlNtryInf</c>.</summary>
+    public string? BookingText { get; set; }
+
+    /// <summary>Geschäftsvorfallcode — <c>Domn/Fmly</c>.</summary>
+    public string? BankTransactionCode { get; set; }
+
+    /// <summary>Hauseigener Code der Bank — <c>Prtry</c>.</summary>
+    public string? ProprietaryCode { get; set; }
+
+    /// <summary>Der Auszug, aus dem die Buchung stammt — <c>Stmt</c>.</summary>
+    public string? StatementId { get; set; }
+
     /// <summary>Referenz aus der Importdatei. Erkennt bereits importierte Sätze wieder.</summary>
     public string? ImportReference { get; set; }
 
