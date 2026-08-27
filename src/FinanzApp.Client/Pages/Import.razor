@@ -877,6 +877,13 @@
         }
 
         categories = await laden;
+
+        var verwaist = Draft.DropChoicesOutside(categories.Select(c => c.Id));
+        if (verwaist > 0)
+        {
+            Toasts.Show($"{verwaist} {(verwaist == 1 ? "Empfänger ist" : "Empfänger sind")} "
+                        + "wieder offen — die gewählte Kategorie gibt es nicht mehr");
+        }
     }
 
     private async Task OnFileSelected(InputFileChangeEventArgs e)

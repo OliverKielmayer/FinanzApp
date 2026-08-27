@@ -173,4 +173,31 @@ public sealed class ImportDraftTests
         clock.Advance(TimeSpan.FromMinutes(1));
         Assert.True(draft.Expired);
     }
+
+    [Fact]
+    public void Eine_geloeschte_Kategorie_gibt_ihren_Empfaenger_wieder_frei()
+    {
+        var draft = Draft();
+        draft.Start(Preview(true, true));
+
+        draft.Choices["rewe"] = new ImportCategoryChoice("REWE", 3, RememberRule: true);
+        draft.Choices["dm"] = new ImportCategoryChoice("dm", 4, RememberRule: false);
+
+        // Kategorie 4 gibt es nach dem Ausflug in die Kategorienverwaltung nicht mehr.
+        var verwaist = draft.DropChoicesOutside([3, 5]);
+
+        Assert.Equal(1, verwaist);
+        Assert.Equal(["rewe"], draft.Choices.Keys);
+    }
+
+    [Fact]
+    public void Ohne_Loeschung_bleibt_jede_Zuordnung_stehen()
+    {
+        var draft = Draft();
+        draft.Start(Preview(true));
+        draft.Choices["rewe"] = new ImportCategoryChoice("REWE", 3, RememberRule: true);
+
+        Assert.Equal(0, draft.DropChoicesOutside([3, 4, 5]));
+        Assert.Single(draft.Choices);
+    }
 }

@@ -113,6 +113,23 @@ public sealed class ImportService(
         // Was der Nutzer je Satz anders entschieden hat als die Vorgabe.
         var overrides = request.KeepOverrides.ToDictionary(o => o.Index, o => o.Keep);
 
+        // Zwischen Vorschau und Übernahme kann eine Kategorie gelöscht worden sein — ein
+        // begonnener Import überdauert ja den Weg in die Kategorienverwaltung. Ungeprüft bräche
+        // die Übernahme erst am Fremdschlüssel ab, mit einer Meldung, die niemandem sagt, was
+        // zu tun ist. Der Filter des Haushalts gilt hier mit: eine fremde Kategorie ist
+        // genauso unbekannt wie eine gelöschte.
+        var gewaehlt = request.Choices.Select(c => c.CategoryId).Distinct().ToList();
+        var bekannt = await db.Categories
+            .Where(c => gewaehlt.Contains(c.Id))
+            .CountAsync(ct);
+
+        if (bekannt < gewaehlt.Count)
+        {
+            throw new RuleViolationException(
+                "Eine gewählte Kategorie gibt es nicht mehr. "
+                + "Bitte die betroffenen Empfänger noch einmal zuordnen.");
+        }
+
         await using var tx = await db.Database.BeginTransactionAsync(ct);
 
         var learned = await LearnAsync(request.Choices, ct);

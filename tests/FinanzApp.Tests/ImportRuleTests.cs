@@ -67,6 +67,39 @@ public sealed class ImportRuleTests : IDisposable
     private static IReadOnlyList<int> Selected(ImportPreviewDto preview)
         => [.. preview.Rows.Where(r => r.PreSelected).Select(r => r.Index)];
 
+    /// <summary>
+    /// Eine Wahl, deren Kategorie es nicht mehr gibt, wird abgewiesen — nicht am
+    /// Fremdschlüssel, sondern mit einem Satz, der sagt, was zu tun ist.
+    /// </summary>
+    /// <remarks>
+    /// Erreichbar, seit ein begonnener Import den Bereichswechsel überdauert: der Weg führt vom
+    /// Import in die Kategorienverwaltung und zurück. Die Oberfläche räumt solche Zuordnungen
+    /// beim Betreten weg; hier steht, dass auch der Server sie nicht durchlässt.
+    /// </remarks>
+    [Fact]
+    public async Task Eine_geloeschte_Kategorie_laesst_sich_nicht_uebernehmen()
+    {
+        var preview = await ReadAsync();
+        await Catalog().DeleteAsync(lebensmittel);
+
+        var fehler = await Assert.ThrowsAsync<RuleViolationException>(
+            () => Service().CommitAsync(new ImportCommitRequest
+            {
+                PreviewId = preview.Id,
+                AccountId = account,
+                Indexes = Selected(preview),
+                Choices =
+                    [new ImportCategoryChoice("REWE Markt Heidelberg", lebensmittel, RememberRule: true)],
+            }));
+
+        Assert.Contains("gibt es nicht mehr", fehler.Message);
+
+        // Nichts halb übernommen: der Abbruch fällt vor die Transaktion.
+        using var context = database.Context();
+        Assert.Empty(context.Transactions);
+        Assert.Empty(context.CategorizationRules);
+    }
+
     [Fact]
     public async Task Ohne_Regeln_hat_kein_Satz_einen_Vorschlag()
     {

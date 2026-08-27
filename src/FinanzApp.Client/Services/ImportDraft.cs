@@ -105,6 +105,31 @@ public sealed class ImportDraft : IDisposable
         }
     }
 
+    /// <summary>
+    /// Wirft Zuordnungen weg, deren Kategorie es nicht mehr gibt, und meldet, wie viele.
+    /// </summary>
+    /// <remarks>
+    /// Der Entwurf überdauert den Bereichswechsel — auch den in die Kategorienverwaltung. Wird
+    /// dort eine Kategorie gelöscht, zeigt eine hier liegende Zuordnung ins Leere. Der Empfänger
+    /// gehört dann zurück in die Fragenliste; ihn mit einer toten Kategorie stehen zu lassen
+    /// hieße, die Antwort erst bei der Übernahme zu verweigern.
+    /// </remarks>
+    public int DropChoicesOutside(IEnumerable<int> categoryIds)
+    {
+        var vorhanden = categoryIds.ToHashSet();
+        var verwaist = Choices
+            .Where(x => !vorhanden.Contains(x.Value.CategoryId))
+            .Select(x => x.Key)
+            .ToList();
+
+        foreach (var key in verwaist)
+        {
+            Choices.Remove(key);
+        }
+
+        return verwaist.Count;
+    }
+
     /// <summary>Nach dem Verwerfen, nach der Übernahme und beim Benutzerwechsel.</summary>
     public void Clear()
     {
