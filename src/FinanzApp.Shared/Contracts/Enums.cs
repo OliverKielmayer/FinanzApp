@@ -16,7 +16,25 @@ public enum CategoryDirection
     Income = 1,
 }
 
-/// <summary>Zeitraum eines Budgets.</summary>
+/// <summary>
+/// Wer ein Konto sehen darf.
+/// </summary>
+/// <remarks>
+/// „Nur ich“ ist eigentümerrelativ und darf nie global ausgewertet werden: die Sichtbarkeit
+/// entscheidet sich immer am angemeldeten Benutzer.
+/// </remarks>
+public enum AccountSharing
+{
+    /// <summary>Alle Mitglieder des Haushalts.</summary>
+    Household = 0,
+
+    /// <summary>Privat — nur der Eigentümer.</summary>
+    Private = 1,
+
+    /// <summary>Namentlich für einzelne Mitglieder freigegeben.</summary>
+    Named = 2,
+}
+
 /// <summary>Art einer Immobilie. Steht in der Zeile unter dem Namen.</summary>
 public enum PropertyKind
 {

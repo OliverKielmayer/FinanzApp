@@ -197,7 +197,12 @@ app.Use(async (context, next) =>
     var current = context.RequestServices.GetRequiredService<CurrentUser>();
     if (current.HouseholdId is { } householdId)
     {
-        context.RequestServices.GetRequiredService<FinanzAppDbContext>().CurrentHouseholdId = householdId;
+        var db = context.RequestServices.GetRequiredService<FinanzAppDbContext>();
+        db.CurrentHouseholdId = householdId;
+
+        // Zweite Stufe: welche Konten dieser Benutzer sehen darf. Ohne ihn bleibt der Wert 0,
+        // und der Filter zeigt nur, was auf „Haushalt“ steht — weniger, nie mehr.
+        db.CurrentUserId = current.UserId ?? 0;
     }
 
     await next();

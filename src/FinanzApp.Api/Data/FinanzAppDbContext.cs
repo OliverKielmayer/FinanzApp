@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using FinanzApp.Api.Data.Entities;
+using FinanzApp.Shared.Contracts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
@@ -18,6 +19,15 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
     /// </remarks>
     public int CurrentHouseholdId { get; set; }
 
+    /// <summary>
+    /// Der angemeldete Benutzer. Entscheidet, welche Konten sichtbar sind.
+    /// </summary>
+    /// <remarks>
+    /// Wie beim Haushalt gilt: bleibt der Wert 0, sieht der Filter nur, was auf „Haushalt“ steht.
+    /// Ein vergessenes Setzen zeigt damit weniger, nie mehr.
+    /// </remarks>
+    public int CurrentUserId { get; set; }
+
     public DbSet<Household> Households => Set<Household>();
     public DbSet<User> Users => Set<User>();
     public DbSet<UserSession> UserSessions => Set<UserSession>();
@@ -25,6 +35,7 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
 
     public DbSet<Account> Accounts => Set<Account>();
+    public DbSet<AccountShare> AccountShares => Set<AccountShare>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<CategorizationRule> CategorizationRules => Set<CategorizationRule>();
@@ -77,7 +88,59 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
         ConfigureFinance(b);
         ConfigureDocuments(b);
         ConfigureDomain(b);
+        ConfigureSharing(b);
         ApplyHouseholdFilter(b);
+        ApplyAccountVisibility(b);
+    }
+
+    /// <summary>
+    /// Die zweite Stufe der Mandantentrennung: nicht freigegebene Konten und deren Buchungen.
+    /// </summary>
+    /// <remarks>
+    /// <para>Sichtbar ist ein Konto, wenn der angemeldete Benutzer Eigentümer ist, die Freigabe
+    /// auf „Haushalt“ steht oder er namentlich benannt ist. Steht der Filter hier statt in den
+    /// einzelnen Diensten, kann ihn kein Dienst vergessen — und ein direkter API-Aufruf umgeht
+    /// ihn nicht.</para>
+    /// <para>Buchungen tragen die Bedingung ihres Kontos noch einmal ausdrücklich. Sich darauf zu
+    /// verlassen, dass EF den Filter über die Navigation mitzieht, wäre genau die Annahme, an der
+    /// so ein Leck entsteht.</para>
+    /// <para>Diese beiden Aufrufe müssen die Haushaltsbedingung wiederholen: <c>HasQueryFilter</c>
+    /// ersetzt, was die Schleife zuvor gesetzt hat.</para>
+    /// </remarks>
+    private void ApplyAccountVisibility(ModelBuilder b)
+    {
+        b.Entity<Account>().HasQueryFilter(a =>
+            a.HouseholdId == CurrentHouseholdId
+            && (a.OwnerUserId == CurrentUserId
+                || a.Sharing == AccountSharing.Household
+                || (a.Sharing == AccountSharing.Named
+                    && a.Shares.Any(s => s.UserId == CurrentUserId))));
+
+        b.Entity<Transaction>().HasQueryFilter(t =>
+            t.HouseholdId == CurrentHouseholdId
+            && (t.Account!.OwnerUserId == CurrentUserId
+                || t.Account.Sharing == AccountSharing.Household
+                || (t.Account.Sharing == AccountSharing.Named
+                    && t.Account.Shares.Any(s => s.UserId == CurrentUserId))));
+    }
+
+    private static void ConfigureSharing(ModelBuilder b)
+    {
+        b.Entity<AccountShare>(e =>
+        {
+            e.HasOne(x => x.Account).WithMany(a => a.Shares)
+                .HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.User).WithMany()
+                .HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+
+            // Zweimal dieselbe Freigabe waere keine zweite Berechtigung, nur eine zweite Zeile.
+            e.HasIndex(x => new { x.AccountId, x.UserId }).IsUnique();
+        });
+
+        b.Entity<Account>()
+            .HasOne(a => a.Owner).WithMany()
+            .HasForeignKey(a => a.OwnerUserId).OnDelete(DeleteBehavior.SetNull);
     }
 
     private static void ConfigureAuth(ModelBuilder b)

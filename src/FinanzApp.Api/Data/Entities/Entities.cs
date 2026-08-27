@@ -31,6 +31,22 @@ public class Account : IHouseholdOwned
 
     public AccountKind Kind { get; set; }
     public string? Iban { get; set; }
+
+    /// <summary>
+    /// Wem das Konto gehört. <c>null</c> bei Konten aus der Zeit vor den Freigaben.
+    /// </summary>
+    /// <remarks>
+    /// Neu angelegte Konten gehören dem Anmeldenden. Ein Konto ohne Eigentümer steht auf
+    /// „Haushalt“ und bleibt damit für alle sichtbar — ein Bestandskonto soll durch die Umstellung
+    /// niemandem verschwinden.
+    /// </remarks>
+    public int? OwnerUserId { get; set; }
+    public User? Owner { get; set; }
+
+    public AccountSharing Sharing { get; set; } = AccountSharing.Household;
+
+    /// <summary>Die namentlich Berechtigten, wenn <see cref="Sharing"/> auf Named steht.</summary>
+    public List<AccountShare> Shares { get; set; } = [];
     public decimal? InterestRatePercent { get; set; }
     public decimal? InterestYearToDate { get; set; }
 
@@ -43,6 +59,23 @@ public class Account : IHouseholdOwned
     public DateOnly BalanceAsOf { get; set; }
 
     public List<Transaction> Transactions { get; set; } = [];
+}
+
+/// <summary>Ein namentlich Berechtigter an einem Konto.</summary>
+/// <remarks>
+/// Eigene Tabelle statt einer Liste am Konto: die Freigabe ist eine Beziehung zwischen zwei
+/// Datensätzen, und nur so lässt sie sich im Abfragefilter auswerten, ohne Text zu zerlegen.
+/// </remarks>
+public class AccountShare : IHouseholdOwned
+{
+    public int Id { get; set; }
+    public int HouseholdId { get; set; }
+
+    public int AccountId { get; set; }
+    public Account? Account { get; set; }
+
+    public int UserId { get; set; }
+    public User? User { get; set; }
 }
 
 public class Category : IHouseholdOwned
