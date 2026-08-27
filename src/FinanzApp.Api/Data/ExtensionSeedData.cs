@@ -370,8 +370,8 @@ public static class ExtensionSeedData
         await db.SaveChangesAsync(ct);
 
         var strom = property.Contracts.First(c => c.Name == "Strom");
-        var paidTransaction = await db.Transactions
-            .Where(t => t.Payee.StartsWith("Stadtwerke"))
+        var paidTransaction = await db.Transactions.IgnoreQueryFilters()
+            .Where(t => t.HouseholdId == db.CurrentHouseholdId && t.Payee.StartsWith("Stadtwerke"))
             .Select(t => (int?)t.Id)
             .FirstOrDefaultAsync(ct);
 
@@ -406,8 +406,8 @@ public static class ExtensionSeedData
     private static async Task<List<MedicalBill>> SeedMedicalBillsAsync(
         FinanzAppDbContext db, CancellationToken ct)
     {
-        var dentist = await db.Transactions
-            .Where(t => t.Payee.StartsWith("Zahnarzt"))
+        var dentist = await db.Transactions.IgnoreQueryFilters()
+            .Where(t => t.HouseholdId == db.CurrentHouseholdId && t.Payee.StartsWith("Zahnarzt"))
             .Select(t => (int?)t.Id)
             .FirstOrDefaultAsync(ct);
 

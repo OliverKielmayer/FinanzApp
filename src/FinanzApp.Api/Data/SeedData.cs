@@ -270,7 +270,11 @@ public static class SeedData
         var accounts = await db.Accounts.IgnoreQueryFilters()
             .Where(a => a.HouseholdId == db.CurrentHouseholdId)
             .ToListAsync(ct);
-        var booked = (await db.Transactions.AsNoTracking()
+        // Auch die Buchungen ohne Sichtbarkeitsfilter, nicht nur die Konten. Sonst zählt ein
+        // privates Konto mit null Buchungen — sein Anfangsbestand bliebe unausgeglichen, und
+        // der Saldo verfehlte den Demo-Stand um genau die Summe seiner Buchungen.
+        var booked = (await db.Transactions.IgnoreQueryFilters().AsNoTracking()
+                .Where(t => t.HouseholdId == db.CurrentHouseholdId)
                 .Select(t => new { t.AccountId, t.Amount })
                 .ToListAsync(ct))
             .GroupBy(t => t.AccountId)
