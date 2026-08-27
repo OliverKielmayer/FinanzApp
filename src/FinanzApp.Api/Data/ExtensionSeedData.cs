@@ -153,13 +153,17 @@ public static class ExtensionSeedData
     }
 
     /// <summary>
-    /// Fünf Monate Vorgeschichte (März bis Juli 2026).
+    /// Zwei Jahre Vorgeschichte — September 2024 bis Juli 2026.
     /// </summary>
     /// <remarks>
-    /// Ohne Historie kann „Wohin fließt es“ nicht zwischen fix und variabel unterscheiden und das
-    /// Sparpotential nichts erkennen — beides braucht mehrere Monate, um überhaupt ein Muster zu
-    /// sehen. Der August bleibt unberührt, damit die Monatssummen des ersten Handoffs
-    /// (5.240 € / 3.612 €) weiterhin genau herauskommen.
+    /// <para>Ohne Historie kann „Wohin fließt es“ nicht zwischen fix und variabel unterscheiden
+    /// und das Sparpotential nichts erkennen. Der Auswertungsbereich braucht mehr: er zeigt eine
+    /// 24-Monats-Sparkline und vergleicht gegen das Vorjahr. Mit acht Monaten Bestand stünde
+    /// dort „kein Vergleichszeitraum“ — richtig, aber nichts zum Ansehen.</para>
+    /// <para>Die fünf Monate März bis Juli 2026 sind auf die Wireframes kalibriert und stehen
+    /// weiter als Tabelle. Davor liegen achtzehn gerechnete Monate.</para>
+    /// <para>Der August bleibt unberührt, damit die Monatssummen des ersten Handoffs
+    /// (5.240 € / 3.612 €) weiterhin genau herauskommen.</para>
     /// </remarks>
     private static async Task SeedHistoryAsync(FinanzAppDbContext db, CancellationToken ct)
     {
@@ -217,10 +221,103 @@ public static class ExtensionSeedData
             Add(12, "Freizeit und Kultur", "Freizeit", CategoryDirection.Expense, -month.Leisure, sparkasse);
             Add(13, "ARAL Tankstelle", "Auto", CategoryDirection.Expense, -month.Car, sparkasse);
 
+            // Gesundheit gehört zu den Kategorien, die im Kostentrend steigen. Ohne einen Posten
+            // in diesen fünf Monaten kläffte zwischen Februar und August ein Loch in der Kurve.
+            Add(20, "Apotheke am Markt", "Gesundheit", CategoryDirection.Expense, -47m, sparkasse);
+
             // Zwei wiederkehrende Buchungen ohne hinterlegten Vertrag — der Fall „Abos“ aus
             // Wireframe 1g.
             Add(5, "Streaming Abo", "Sonstiges", CategoryDirection.Expense, -17.99m, sparkasse);
             Add(5, "Cloud-Speicher", "Sonstiges", CategoryDirection.Expense, -9.99m, sparkasse);
+        }
+
+        SeedDeepHistory(db, Category, sparkasse, raiffeisen);
+    }
+
+    /// <summary>
+    /// Der Saisonfaktor je Kalendermonat, Januar bis Dezember.
+    /// </summary>
+    /// <remarks>
+    /// Er hängt am <b>Kalendermonat</b> und ist damit jahresperiodisch — im Vorjahresvergleich
+    /// kürzt er sich exakt heraus. Genau das verlangt die zweite Regel, die der Handoff zu
+    /// Abschnitt 10b aus dem Prototypenbau mitgibt: dort hatte der Saisonterm eine beliebige
+    /// Periode, „August gegen August“ verglich Rauschen statt Trend, und <em>jede</em> Kategorie
+    /// galt als steigend. Die Amplitude bleibt zudem unter dem Jahrestrend, damit auch der
+    /// Vergleich mit dem Vormonat nicht kippt.
+    /// </remarks>
+    private static readonly decimal[] Season =
+    [
+        1.06m, 1.04m, 1.00m, 0.97m, 0.95m, 0.96m,
+        0.98m, 1.01m, 0.99m, 1.00m, 1.02m, 1.05m,
+    ];
+
+    /// <summary>
+    /// Achtzehn gerechnete Monate: September 2024 bis Februar 2026.
+    /// </summary>
+    /// <remarks>
+    /// Der Trend steckt in den Jahreswerten, nicht im Zufall: Wohnen, Freizeit und Gesundheit
+    /// steigen spürbar, Lebensmittel mäßig, Auto und Versicherung kaum. Der Bericht findet
+    /// damit etwas, das sich nachrechnen lässt — und die drei Namen in seiner Kopfzeile sind
+    /// dieselben, die der Handoff als Beispiel nennt.
+    /// </remarks>
+    private static void SeedDeepHistory(
+        FinanzAppDbContext db, Func<string, CategoryDirection, int?> category,
+        int sparkasse, int raiffeisen)
+    {
+        var reference = 4600;
+
+        for (var i = 0; i < 18; i++)
+        {
+            var monat = new DateOnly(2024, 9, 1).AddMonths(i);
+            var saison = Season[monat.Month - 1];
+
+            decimal Jahr(decimal y2024, decimal y2025, decimal y2026)
+                => monat.Year == 2024 ? y2024 : monat.Year == 2025 ? y2025 : y2026;
+
+            void Add(int day, string payee, string cat, CategoryDirection direction,
+                decimal amount, int accountId)
+            {
+                db.Transactions.Add(new Transaction
+                {
+                    BookingDate = new DateOnly(monat.Year, monat.Month, day),
+                    Payee = payee,
+                    Kind = amount >= 0 ? TransactionKind.Income : TransactionKind.Expense,
+                    Amount = decimal.Round(amount, 2),
+                    AccountId = accountId,
+                    CategoryId = category(cat, direction),
+                    ImportReference = "SEED-" + reference++,
+                    CreatedAt = new DateTime(monat.Year, monat.Month, day, 6, 0, 0, DateTimeKind.Local),
+                });
+            }
+
+            Add(1, "Gehalt EWV", "Gehalt", CategoryDirection.Income,
+                Jahr(4980m, 5100m, 5240m), sparkasse);
+
+            // Fixe Posten ohne Saison — eine Miete schwankt nicht mit dem Monat.
+            Add(1, "Miete Wohnung Heidelberg", "Wohnen", CategoryDirection.Expense,
+                -Jahr(1380m, 1420m, 1480m), sparkasse);
+            Add(15, "Telekom Internet und Mobilfunk", "Wohnen", CategoryDirection.Expense,
+                -Jahr(54.90m, 54.90m, 59.90m), sparkasse);
+            Add(17, "KFZ-Versicherung Allianz", "Versicherung", CategoryDirection.Expense,
+                -Jahr(72.40m, 75.40m, 78.40m), raiffeisen);
+            Add(18, "Heidelberger Leben Beitrag", "Versicherung", CategoryDirection.Expense,
+                -212m, raiffeisen);
+            Add(5, "Streaming Abo", "Sonstiges", CategoryDirection.Expense,
+                -Jahr(12.99m, 14.99m, 17.99m), sparkasse);
+            Add(5, "Cloud-Speicher", "Sonstiges", CategoryDirection.Expense, -9.99m, sparkasse);
+
+            // Saisonabhängige Posten — Heizkosten im Winter, Sprit im Sommer, und was der
+            // Haushalt über das Jahr verschieden oft kauft.
+            Add(1, "Nebenkosten Hausgeld", "Wohnen", CategoryDirection.Expense,
+                -Jahr(225m, 235m, 245m) * saison, sparkasse);
+            Add(10, "REWE Markt Heidelberg", "Lebensmittel", CategoryDirection.Expense,
+                -Jahr(372m, 398m, 425m) * saison, sparkasse);
+            Add(12, "Freizeit und Kultur", "Freizeit", CategoryDirection.Expense,
+                -Jahr(178m, 214m, 252m) * saison, sparkasse);
+            Add(13, "ARAL Tankstelle", "Auto", CategoryDirection.Expense,
+                -Jahr(152m, 158m, 162m) * saison, sparkasse);
+            Add(20, "Apotheke am Markt", "Gesundheit", CategoryDirection.Expense,
+                -Jahr(21m, 33m, 47m) * saison, sparkasse);
         }
     }
 
