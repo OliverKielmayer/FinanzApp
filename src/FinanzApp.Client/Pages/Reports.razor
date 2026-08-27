@@ -1,0 +1,482 @@
+@page "/auswertungen"
+@attribute [Authorize]
+@inherits AppPage
+@using System.Globalization
+
+@*
+    Abschnitt 10b. Der Bereich beantwortet drei Fragen: wo sind Einsparpotentiale, welche
+    Kosten steigen, wie steht ein Depot.
+
+    Alles Rechnen liegt auf dem Server — auch nach jedem Aus- und Zuschalten einer Buchung.
+    Zwei Rechnungen für dieselbe Zahl waren im Prototyp der Grund für zwei Angaben, die sich
+    widersprachen; hier gibt es nur eine.
+*@
+
+<PageTitle>Auswertungen — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (data is { } bericht)
+    {
+        @*
+            Die Kopfleiste bleibt oben stehen: bei zwanzig Kategorien mit aufgeklapptem
+            Drilldown läge die Einstellung sonst unerreichbar weit oben, und man läse Zahlen,
+            ohne zu sehen, wogegen sie gerechnet sind.
+        *@
+        <div class="report-head">
+            <div class="report-setting">
+                <span class="label-muted">Zeitraum</span>
+                <div class="segmented bordered">
+                    @foreach (var (wert, text) in Periods)
+                    {
+                        var gewaehlt = wert;
+                        <button type="button" class="segmented-opt @(period == wert ? "active" : null)"
+                                disabled="@busy" @onclick="() => SetPeriodAsync(gewaehlt)">@text</button>
+                    }
+                </div>
+
+                <span class="label-muted">Vergleich</span>
+                <div class="segmented bordered">
+                    @foreach (var (wert, text) in Comparisons)
+                    {
+                        var gewaehlt = wert;
+                        <button type="button" class="segmented-opt @(comparison == wert ? "active" : null)"
+                                disabled="@busy" @onclick="() => SetComparisonAsync(gewaehlt)">@text</button>
+                    }
+                </div>
+            </div>
+
+            <div class="report-line">
+                <span class="meta">@bericht.Range.Line</span>
+            </div>
+        </div>
+
+        <div class="report-tabs">
+            @foreach (var (kind, text, fertig) in Available)
+            {
+                <button type="button" class="chip @(report == kind ? "active" : null)"
+                        disabled="@(!fertig)" title="@(fertig ? null : "Noch nicht gebaut")">
+                    @text@(fertig ? null : " · folgt")
+                </button>
+            }
+        </div>
+
+        @* ── Kostentrend ───────────────────────────────────────────────────────────────── *@
+        <div class="report-hero">
+            <span class="kicker">Ausgaben @bericht.Range.PeriodLabel</span>
+            <span class="hero-value medium num">@State.Euro(bericht.Total)</span>
+            <span class="report-delta @(Rising(bericht.ChangePercent) ? "up" : null)">@DeltaLine(bericht)</span>
+            <span class="meta">@bericht.RisingLine</span>
+
+            @if (bericht.UncategorisedCount > 0)
+            {
+                @*
+                    Die Summe oben zählt nur, was eine Kategorie hat — sonst stünde in den
+                    Zeilen weniger als im Kopf, ohne dass jemand sagen könnte warum.
+                *@
+                <span class="meta">
+                    Nicht enthalten: @bericht.UncategorisedCount
+                    @(bericht.UncategorisedCount == 1 ? "Ausgabe" : "Ausgaben") ohne Kategorie
+                    über @State.Euro(bericht.UncategorisedAmount) ·
+                    <a href="/vorgaenge">zuordnen</a>
+                </span>
+            }
+        </div>
+
+        <div class="report-sort">
+            <span class="label-muted">Sortierung</span>
+            <div class="segmented bordered">
+                @foreach (var (wert, text) in Sorts)
+                {
+                    var gewaehlt = wert;
+                    <button type="button" class="segmented-opt @(sort == wert ? "active" : null)"
+                            disabled="@busy" @onclick="() => SetSortAsync(gewaehlt)">@text</button>
+                }
+            </div>
+        </div>
+
+        @if (bericht.Rows.Count == 0)
+        {
+            <div class="import-nothing">
+                <span class="label-strong">Keine Ausgaben mit Kategorie in diesem Zeitraum</span>
+                <span class="create-help">
+                    Ein anderer Zeitraum zeigt vielleicht mehr — oder es fehlen noch Zuordnungen.
+                </span>
+            </div>
+        }
+
+        @foreach (var zeile in bericht.Rows)
+        {
+            var kategorie = zeile;
+            var aufgeklappt = openCategory == zeile.CategoryId;
+
+            <div class="report-row @(aufgeklappt ? "open" : null)">
+                <button type="button" class="report-row-head" disabled="@busy"
+                        @onclick="() => ToggleAsync(kategorie.CategoryId)">
+                    <span class="stack">
+                        <span class="report-row-title">
+                            <span class="report-row-name">@zeile.Name</span>
+                            <span class="tag @StatusClass(zeile.Status)">@StatusLabel(zeile.Status)</span>
+                        </span>
+                        <span class="meta num">@MetaLine(bericht, zeile)</span>
+                    </span>
+
+                    @* Zwei Jahre in neunzig Pixeln — die Kurve sagt, ob der Wert schwankt
+                       oder wirklich steigt. Eine einzelne Prozentzahl kann das nicht. *@
+                    <svg class="report-spark" viewBox="0 0 90 26" preserveAspectRatio="none"
+                         role="img" aria-label="@SparkLabel(zeile)">
+                        <polyline fill="none" stroke-width="1.5" points="@SparkPoints(zeile.Spark)"
+                                  class="@(zeile.Status == CostTrendStatus.Rising ? "up" : null)" />
+                    </svg>
+
+                    <span class="stack-end">
+                        <span class="report-row-amount num">@State.Euro(zeile.Amount)</span>
+                        <span class="report-row-delta @(Rising(zeile.ChangePercent) ? "up" : null)">
+                            @Percent(zeile.ChangePercent)
+                        </span>
+                    </span>
+                </button>
+
+                @if (aufgeklappt)
+                {
+                    <div class="report-drill">
+                        <div class="list-head">
+                            <span class="kicker">Empfänger im Zeitraum</span>
+                            <span class="label-muted num">@DrillLine(zeile)</span>
+                        </div>
+
+                        <div class="blueprint report-payees">
+                            <i class="corner tl" aria-hidden="true"></i>
+                            <i class="corner tr" aria-hidden="true"></i>
+                            <i class="corner bl" aria-hidden="true"></i>
+                            <i class="corner br" aria-hidden="true"></i>
+
+                            @foreach (var empfaenger in zeile.Payees)
+                            {
+                                <div class="report-payee">
+                                    <span class="report-payee-name">@empfaenger.Payee</span>
+                                    <span class="meta num">@empfaenger.Count×</span>
+                                    <span class="report-payee-sum num">@State.Euro(empfaenger.Amount)</span>
+                                </div>
+                            }
+
+                            @if (zeile.Payees.Count == 0)
+                            {
+                                <div class="report-payee">
+                                    <span class="meta">Alle Buchungen dieser Kategorie sind ausgeschlossen.</span>
+                                </div>
+                            }
+                        </div>
+
+                        <span class="label-muted">Buchungen · abwählen schließt sie aus</span>
+
+                        @foreach (var satz in zeile.Entries)
+                        {
+                            var buchung = satz;
+                            <label class="report-entry @(satz.Excluded ? "out" : null)">
+                                <input type="checkbox" checked="@(!satz.Excluded)" disabled="@busy"
+                                       @onchange="() => ToggleEntryAsync(buchung.Id)"
+                                       aria-label="@($"{satz.Payee} mitrechnen")" />
+                                <span class="meta num report-entry-date">
+                                    @GermanFormat.Date(satz.BookingDate)
+                                </span>
+                                <span class="report-entry-payee">@satz.Payee</span>
+                                <span class="meta report-entry-account">@satz.AccountName</span>
+                                <span class="report-entry-amount num">@State.Euro(Math.Abs(satz.Amount))</span>
+                            </label>
+                        }
+
+                        <div class="doc-actions">
+                            <a class="btn btn-secondary" href="@($"/vorgaenge?category={zeile.CategoryId}")">
+                                In Buchungen zeigen
+                            </a>
+                            <a class="btn btn-ghost" href="/budgets">
+                                @(zeile.HasBudget ? "Budget prüfen" : "Budget anlegen")
+                            </a>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
+        @if (excluded.Count > 0)
+        {
+            <div class="report-excluded">
+                <span>@ExcludedLine()</span>
+                <button type="button" class="btn btn-ghost" disabled="@busy"
+                        @onclick="ClearExclusionsAsync">zurücksetzen</button>
+            </div>
+        }
+
+        <div class="tx-totals-note">@Note(bericht)</div>
+        <div class="spacer"></div>
+    }
+</AsyncView>
+
+@code {
+    private CostTrendDto? data;
+
+    private PeriodScope period = PeriodScope.Month;
+    private ComparisonBasis comparison = ComparisonBasis.PreviousYear;
+    private CostTrendSort sort = CostTrendSort.Increase;
+    private ReportKind report = ReportKind.CostTrend;
+
+    private int? openCategory;
+    private bool busy;
+
+    /// <summary>
+    /// Die abgewählten Buchungen.
+    /// </summary>
+    /// <remarks>
+    /// Sie gehen als Parameter an den Server und nirgends in den Bestand: der Ausschluss ist
+    /// eine Eigenschaft der Auswertung, keine der Buchung.
+    /// </remarks>
+    private readonly HashSet<int> excluded = [];
+
+    private static readonly (PeriodScope Value, string Label)[] Periods =
+    [
+        (PeriodScope.Month, "Monat"),
+        (PeriodScope.Quarter, "Quartal"),
+        (PeriodScope.Year, "Jahr"),
+    ];
+
+    private static readonly (ComparisonBasis Value, string Label)[] Comparisons =
+    [
+        (ComparisonBasis.PreviousPeriod, "Vorperiode"),
+        (ComparisonBasis.PreviousYear, "Vorjahr"),
+        (ComparisonBasis.TwelveMonthAverage, "Ø 12 Monate"),
+    ];
+
+    private static readonly (CostTrendSort Value, string Label)[] Sorts =
+    [
+        (CostTrendSort.Increase, "stärkster Anstieg"),
+        (CostTrendSort.Amount, "höchster Betrag"),
+        (CostTrendSort.Name, "Name"),
+    ];
+
+    /// <summary>Die vier Berichte. Drei davon kommen noch — sie stehen da, aber als „folgt“.</summary>
+    private static readonly (ReportKind Kind, string Label, bool Ready)[] Available =
+    [
+        (ReportKind.CostTrend, "Kostentrend", true),
+        (ReportKind.FixedCosts, "Fixkosten", false),
+        (ReportKind.PortfolioGainLoss, "Depot G/V", false),
+        (ReportKind.DataQuality, "Datenqualität", false),
+    ];
+
+    protected override async Task LoadAsync() => data = await FetchAsync();
+
+    private Task<CostTrendDto> FetchAsync()
+        => Api.GetCostTrendAsync(new CostTrendRequest(
+            period, comparison, sort, [.. excluded], openCategory));
+
+    /// <summary>
+    /// Holt den Bericht neu.
+    /// </summary>
+    /// <remarks>
+    /// Nach jeder Änderung, auch nach einem einzelnen Häkchen. Die Zahlen im Kopf, in der Zeile
+    /// und im Drilldown kommen so aus demselben Lauf und können nicht auseinanderlaufen.
+    /// </remarks>
+    private Task RefreshAsync() => RunAsync(async () =>
+    {
+        busy = true;
+        try
+        {
+            data = await FetchAsync();
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    private Task SetPeriodAsync(PeriodScope value)
+    {
+        if (period == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        period = value;
+
+        // Der Ausschluss galt Buchungen des alten Zeitraums. Im neuen sind es andere, und ein
+        // stiller Rest davon wäre eine Auswertung, die anders rechnet, als sie aussieht.
+        excluded.Clear();
+        openCategory = null;
+
+        return RefreshAsync();
+    }
+
+    private Task SetComparisonAsync(ComparisonBasis value)
+    {
+        if (comparison == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        comparison = value;
+        return RefreshAsync();
+    }
+
+    private Task SetSortAsync(CostTrendSort value)
+    {
+        if (sort == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        sort = value;
+        return RefreshAsync();
+    }
+
+    private Task ToggleAsync(int categoryId)
+    {
+        openCategory = openCategory == categoryId ? null : categoryId;
+        return RefreshAsync();
+    }
+
+    private Task ToggleEntryAsync(int transactionId)
+    {
+        if (!excluded.Add(transactionId))
+        {
+            excluded.Remove(transactionId);
+        }
+
+        return RefreshAsync();
+    }
+
+    private Task ClearExclusionsAsync()
+    {
+        excluded.Clear();
+        return RefreshAsync();
+    }
+
+    // ── Beschriftungen ─────────────────────────────────────────────────────────────────────
+
+    private static bool Rising(decimal? change) => change is > 0m;
+
+    /// <summary>„+184,20 € gegen August 2025 · +12,4 %“ — oder der Grund, warum nicht.</summary>
+    private string DeltaLine(CostTrendDto bericht)
+    {
+        if (!bericht.Range.HasComparison)
+        {
+            return $"Kein Vergleich mit {bericht.Range.ComparisonLabel}";
+        }
+
+        var unterschied = bericht.Total - bericht.ComparisonTotal;
+        var vorzeichen = unterschied >= 0 ? "+" : "−";
+
+        return $"{vorzeichen}{State.Euro(Math.Abs(unterschied))} gegen "
+               + $"{bericht.Range.ComparisonLabel} · {Percent(bericht.ChangePercent)}";
+    }
+
+    private static string Percent(decimal? change)
+        => change is not { } wert
+            ? "—"
+            : (wert >= 0 ? "+" : "−") + GermanFormat.Percent(Math.Abs(wert), 1);
+
+    /// <summary>
+    /// Vergleichswert und Zwölfmonatsmittel unter der Zeile.
+    /// </summary>
+    /// <remarks>
+    /// Ist das Mittel selbst der Vergleich, steht es nur einmal da — mit seiner Hochrechnung
+    /// offen daneben. Sonst stünde „Ø 12 Monate: 1.267,20 €“ neben „Ø 12 M 158,40 €“: dieselbe
+    /// Größe unter demselben Namen mit verschiedenem Wert.
+    /// </remarks>
+    private string MetaLine(CostTrendDto bericht, CostTrendRowDto zeile)
+    {
+        var mittel = State.Euro(zeile.TwelveMonthAverage);
+
+        if (bericht.Range.Comparison == ComparisonBasis.TwelveMonthAverage)
+        {
+            return bericht.Range.Months == 1
+                ? $"Ø 12 M {mittel}"
+                : $"Ø 12 M {mittel} × {bericht.Range.Months} Monate "
+                  + $"= {State.Euro(zeile.ComparisonAmount)}";
+        }
+
+        var teile = new List<string>();
+
+        if (bericht.Range.HasComparison)
+        {
+            teile.Add($"{bericht.Range.ComparisonLabel}: {State.Euro(zeile.ComparisonAmount)}");
+        }
+
+        teile.Add($"Ø 12 M {mittel}");
+
+        return string.Join(" · ", teile);
+    }
+
+    /// <summary>
+    /// Eine Aussage, beide Anteile.
+    /// </summary>
+    /// <remarks>
+    /// Im Prototyp stand hier „1 Buchung im Bestand“ und darunter „keine erfasste Buchung“,
+    /// weil eine der beiden Zahlen die Ausschlüsse überging. Zwei Zahlen über dieselbe Menge
+    /// müssen dieselbe Menge zählen — also nennt eine Zeile beides.
+    /// </remarks>
+    private static string DrillLine(CostTrendRowDto zeile)
+    {
+        var zaehlt = zeile.TransactionCount - zeile.ExcludedCount;
+        var text = $"{zaehlt} {(zaehlt == 1 ? "Buchung" : "Buchungen")}";
+
+        return zeile.ExcludedCount == 0 ? text : $"{text} · {zeile.ExcludedCount} ausgeschlossen";
+    }
+
+    private string ExcludedLine()
+        => $"{excluded.Count} {(excluded.Count == 1 ? "Buchung ist" : "Buchungen sind")} "
+           + "aus der Auswertung ausgeschlossen";
+
+    private static string StatusLabel(CostTrendStatus status) => status switch
+    {
+        CostTrendStatus.Rising => "steigt",
+        CostTrendStatus.Falling => "sinkt",
+        CostTrendStatus.Stable => "stabil",
+        _ => "kein Vergleich",
+    };
+
+    private static string StatusClass(CostTrendStatus status) => status switch
+    {
+        CostTrendStatus.Rising => "tag-accent",
+        CostTrendStatus.Falling => "tag-outline",
+        _ => "tag-neutral",
+    };
+
+    /// <summary>
+    /// Die 24 Monatswerte als Polylinie im Feld 90 × 26.
+    /// </summary>
+    /// <remarks>
+    /// Skaliert wird auf den eigenen Höchstwert der Kategorie, nicht auf einen gemeinsamen:
+    /// die Kurve zeigt den Verlauf <em>dieser</em> Kategorie, und über alle skaliert wäre jede
+    /// kleine Kategorie eine flache Linie am Boden. Ohne jeden Wert gibt es keine Linie.
+    /// </remarks>
+    private static string SparkPoints(IReadOnlyList<decimal> werte)
+    {
+        if (werte.Count < 2)
+        {
+            return string.Empty;
+        }
+
+        var hoechst = werte.Max();
+        if (hoechst <= 0m)
+        {
+            return string.Empty;
+        }
+
+        var schritt = 90d / (werte.Count - 1);
+        var punkte = werte.Select((wert, i) =>
+        {
+            var x = (i * schritt).ToString("0.##", CultureInfo.InvariantCulture);
+            var y = (24d - ((double)(wert / hoechst) * 22d)).ToString("0.##", CultureInfo.InvariantCulture);
+            return $"{x},{y}";
+        });
+
+        return string.Join(" ", punkte);
+    }
+
+    private static string SparkLabel(CostTrendRowDto zeile)
+        => $"Verlauf {zeile.Name} über 24 Monate";
+
+    private static string Note(CostTrendDto bericht)
+        => $"Gerechnet über {bericht.Range.VisibleAccountCount} "
+           + (bericht.Range.VisibleAccountCount == 1 ? "freigegebenes Konto" : "freigegebene Konten")
+           + ". Umbuchungen zählen nicht mit; Einnahmen stehen in keiner Ausgabenauswertung.";
+}

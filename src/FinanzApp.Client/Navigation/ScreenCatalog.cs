@@ -53,6 +53,7 @@ public static class ScreenCatalog
         new("/budgets", "Planung", "Budgets", IsDetail: true, InAreaList: true),
         new("/depot", "Investments", "Depot", IsDetail: true, InAreaList: true),
         new("/darlehen", "Finanzierungen", "Darlehen", IsDetail: true, InAreaList: true),
+        new("/auswertungen", "Analyse", "Auswertungen", IsDetail: true, InAreaList: true),
         new("/import", "Import", "Import\u00advorschau", IsDetail: true, InAreaList: true),
         new("/vorsorge", "Finanzen", "Vorsorge & Kapital", IsDetail: true, InAreaList: true),
         new("/absicherung", "Absicherung", "Versicherungen", IsDetail: true, InAreaList: true),
@@ -91,7 +92,7 @@ public static class ScreenCatalog
     /// Abschnitt 3 — nicht die Reihenfolge der Tab-Bar.
     /// </summary>
     /// <remarks>
-    /// Alle fünfzehn Bereiche des Handoffs, in seiner Reihenfolge.
+    /// Alle Bereiche des Handoffs, in seiner Reihenfolge.
     /// </remarks>
     public static IReadOnlyList<Screen> SideNav { get; } =
     [
@@ -100,7 +101,8 @@ public static class ScreenCatalog
             "/", "/vorgaenge", "/konten", "/budgets", "/depot",
             "/vorsorge", "/absicherung",
             "/dokumente", "/scaneingang", "/gesundheit", "/wohnen", "/fahrzeuge",
-            "/darlehen", "/import", "/kategorien", "/kategorieregeln", "/benutzer",
+            "/darlehen", "/auswertungen", "/import", "/kategorien", "/kategorieregeln",
+            "/benutzer",
         }
         .Select(route => All.First(s => s.Route == route)),
     ];

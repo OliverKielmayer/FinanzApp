@@ -236,6 +236,14 @@ public sealed class FinanzAppApi(HttpClient http)
         => SendAsync<object?, CategoryChangeResultDto>(
             HttpMethod.Delete, $"api/categories/{id}", null, ct);
 
+    /// <summary>
+    /// Der Kostentrend. Alles Rechnen liegt beim Server — auch nach jedem Aus- und Zuschalten
+    /// einer Buchung, damit es nur eine Rechnung gibt.
+    /// </summary>
+    public Task<CostTrendDto> GetCostTrendAsync(
+        CostTrendRequest request, CancellationToken ct = default)
+        => PostAsync<CostTrendRequest, CostTrendDto>("api/reports/cost-trend", request, ct);
+
     /// <summary>Die gelernten Kategorieregeln.</summary>
     public Task<IReadOnlyList<CategorizationRuleDto>> GetRulesAsync(CancellationToken ct = default)
         => GetAsync<IReadOnlyList<CategorizationRuleDto>>("api/rules", ct);
