@@ -157,7 +157,7 @@ public sealed class FinanzAppApi(HttpClient http)
         => GetAsync<IReadOnlyList<CategoryDto>>(
             direction is null ? "api/categories" : "api/categories?direction=" + direction, ct);
 
-    public Task<BudgetOverviewDto> GetBudgetsAsync(BudgetPeriod period, CancellationToken ct = default)
+    public Task<BudgetOverviewDto> GetBudgetsAsync(PeriodScope period, CancellationToken ct = default)
         => GetAsync<BudgetOverviewDto>("api/budgets?period=" + period, ct);
 
     public Task<PortfolioDto> GetPortfolioAsync(CancellationToken ct = default)

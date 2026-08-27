@@ -14,7 +14,7 @@ public sealed class BudgetService(FinanzAppDbContext db, IClock clock)
     /// Ausgaben der zugeordneten Kategorie im Zeitraum. Umbuchungen zählen nicht mit.
     /// </summary>
     public async Task<BudgetOverviewDto> GetOverviewAsync(
-        BudgetPeriod period, CancellationToken ct = default)
+        PeriodScope period, CancellationToken ct = default)
     {
         var (from, to, months, label) = ResolvePeriod(period, clock.Today);
 
@@ -52,21 +52,21 @@ public sealed class BudgetService(FinanzAppDbContext db, IClock clock)
 
     /// <summary>Die ersten Budgets der Liste — das Dashboard zeigt davon drei.</summary>
     public async Task<IReadOnlyList<BudgetDto>> GetTopAsync(int count, CancellationToken ct = default)
-        => [.. (await GetOverviewAsync(BudgetPeriod.Month, ct)).Items.Take(count)];
+        => [.. (await GetOverviewAsync(PeriodScope.Month, ct)).Items.Take(count)];
 
     /// <summary>Zeitraumgrenzen, Monatszahl für die Hochrechnung und Beschriftung.</summary>
     public static (DateOnly From, DateOnly To, int Months, string Label) ResolvePeriod(
-        BudgetPeriod period, DateOnly today) => period switch
+        PeriodScope period, DateOnly today) => period switch
     {
-        BudgetPeriod.Month => (
+        PeriodScope.Month => (
             new DateOnly(today.Year, today.Month, 1),
             new DateOnly(today.Year, today.Month, DateTime.DaysInMonth(today.Year, today.Month)),
             1,
             GermanFormat.MonthName(today.Month) + " " + today.Year),
 
-        BudgetPeriod.Quarter => QuarterOf(today),
+        PeriodScope.Quarter => QuarterOf(today),
 
-        BudgetPeriod.Year => (
+        PeriodScope.Year => (
             new DateOnly(today.Year, 1, 1),
             new DateOnly(today.Year, 12, 31),
             12,

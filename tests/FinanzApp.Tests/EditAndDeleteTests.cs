@@ -240,7 +240,7 @@ public sealed class EditAndDeleteTests : IDisposable
                 Name = category.Name,
                 CategoryId = category.Id,
                 PlannedPerMonth = 300m,
-                Period = BudgetPeriod.Quarter,
+                Period = PeriodScope.Quarter,
             };
             context.Budgets.Add(budget);
             context.SaveChanges();
@@ -252,7 +252,7 @@ public sealed class EditAndDeleteTests : IDisposable
         // Intern je Monat gefuehrt, im Formular im gewaehlten Zeitraum gezeigt — sonst wuerde
         // ein blosses Oeffnen und Speichern den Betrag dritteln.
         Assert.Equal("900,00", form!.Values["amount"]);
-        Assert.Equal(nameof(BudgetPeriod.Quarter), form.Values["period"]);
+        Assert.Equal(nameof(PeriodScope.Quarter), form.Values["period"]);
 
         Assert.True((await Service().UpdateAsync(
             CreateObjectType.Budget, budgetId, new Dictionary<string, string?>(form.Values))).Ok);

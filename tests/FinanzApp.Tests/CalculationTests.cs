@@ -47,10 +47,10 @@ public sealed class CalculationTests
     }
 
     [Theory]
-    [InlineData(BudgetPeriod.Month, 1, "August 2026")]
-    [InlineData(BudgetPeriod.Quarter, 3, "Q3 2026")]
-    [InlineData(BudgetPeriod.Year, 12, "2026")]
-    public void Budgetzeitraum_rechnet_richtig_hoch(BudgetPeriod period, int months, string label)
+    [InlineData(PeriodScope.Month, 1, "August 2026")]
+    [InlineData(PeriodScope.Quarter, 3, "Q3 2026")]
+    [InlineData(PeriodScope.Year, 12, "2026")]
+    public void Budgetzeitraum_rechnet_richtig_hoch(PeriodScope period, int months, string label)
     {
         var (from, to, resolvedMonths, resolvedLabel) =
             BudgetService.ResolvePeriod(period, new DateOnly(2026, 8, 23));

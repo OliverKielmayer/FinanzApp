@@ -84,19 +84,19 @@
         }
     }
 
-    private static readonly (BudgetPeriod Period, string Label)[] Periods =
+    private static readonly (PeriodScope Period, string Label)[] Periods =
     [
-        (BudgetPeriod.Month, "Monat"),
-        (BudgetPeriod.Quarter, "Quartal"),
-        (BudgetPeriod.Year, "Jahr"),
+        (PeriodScope.Month, "Monat"),
+        (PeriodScope.Quarter, "Quartal"),
+        (PeriodScope.Year, "Jahr"),
     ];
 
     private BudgetOverviewDto? data;
-    private BudgetPeriod period = BudgetPeriod.Month;
+    private PeriodScope period = PeriodScope.Month;
 
     protected override async Task LoadAsync() => data = await Api.GetBudgetsAsync(period);
 
-    private async Task SwitchPeriod(BudgetPeriod next)
+    private async Task SwitchPeriod(PeriodScope next)
     {
         if (next == period)
         {

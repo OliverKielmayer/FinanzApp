@@ -189,7 +189,7 @@ public class Budget : IHouseholdOwned
     public int SortOrder { get; set; }
 
     /// <summary>Bezugszeitraum. Der Plan wird intern immer je Monat geführt und hochgerechnet.</summary>
-    public BudgetPeriod Period { get; set; } = BudgetPeriod.Month;
+    public PeriodScope Period { get; set; } = PeriodScope.Month;
 
     /// <summary>Ab wann das Budget gilt. Vorher zählt es nicht mit.</summary>
     public DateOnly? ValidFrom { get; set; }

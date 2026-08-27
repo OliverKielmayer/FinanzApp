@@ -141,7 +141,7 @@ public sealed class CategoryTests : IDisposable
         {
             context.Budgets.Add(new Budget
             {
-                Name = "Wohnen", CategoryId = wohnen, Period = BudgetPeriod.Month,
+                Name = "Wohnen", CategoryId = wohnen, Period = PeriodScope.Month,
                 PlannedPerMonth = 900m, ValidFrom = new DateOnly(2026, 1, 1),
             });
 

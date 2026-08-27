@@ -18,7 +18,7 @@ public sealed record BudgetDto
 
 public sealed record BudgetOverviewDto
 {
-    public required BudgetPeriod Period { get; init; }
+    public required PeriodScope Period { get; init; }
 
     /// <summary>Bezeichnung des Zeitraums, z. B. „August 2026“.</summary>
     public required string PeriodLabel { get; init; }

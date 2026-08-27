@@ -453,8 +453,8 @@ public sealed class CreateFormService(
                 // Der Plan liegt je Monat; das Formular zeigt ihn im gewählten Zeitraum.
                 var shown = x.Period switch
                 {
-                    BudgetPeriod.Quarter => x.PlannedPerMonth * 3m,
-                    BudgetPeriod.Year => x.PlannedPerMonth * 12m,
+                    PeriodScope.Quarter => x.PlannedPerMonth * 3m,
+                    PeriodScope.Year => x.PlannedPerMonth * 12m,
                     _ => x.PlannedPerMonth,
                 };
 
@@ -690,17 +690,17 @@ public sealed class CreateFormService(
             return Fail("category", $"Budget für {category.Name} besteht bereits");
         }
 
-        var period = Enum.TryParse<BudgetPeriod>(Value(values, "period"), out var parsed)
+        var period = Enum.TryParse<PeriodScope>(Value(values, "period"), out var parsed)
             ? parsed
-            : BudgetPeriod.Month;
+            : PeriodScope.Month;
 
         budget.Name = category.Name;
         budget.CategoryId = categoryId;
         budget.Period = period;
         budget.PlannedPerMonth = Math.Round(period switch
         {
-            BudgetPeriod.Quarter => amount / 3m,
-            BudgetPeriod.Year => amount / 12m,
+            PeriodScope.Quarter => amount / 3m,
+            PeriodScope.Year => amount / 12m,
             _ => amount,
         }, 2, MidpointRounding.AwayFromZero);
         budget.ValidFrom = ParseDate(Value(values, "validFrom"));
@@ -1284,10 +1284,10 @@ public sealed class CreateFormService(
                 Money("amount", "Betrag", required: true),
                 Choice("period", "Zeitraum", required: false,
                 [
-                    new() { Value = nameof(BudgetPeriod.Month), Label = "je Monat" },
-                    new() { Value = nameof(BudgetPeriod.Quarter), Label = "je Quartal" },
-                    new() { Value = nameof(BudgetPeriod.Year), Label = "je Jahr" },
-                ], defaultValue: nameof(BudgetPeriod.Month)),
+                    new() { Value = nameof(PeriodScope.Month), Label = "je Monat" },
+                    new() { Value = nameof(PeriodScope.Quarter), Label = "je Quartal" },
+                    new() { Value = nameof(PeriodScope.Year), Label = "je Jahr" },
+                ], defaultValue: nameof(PeriodScope.Month)),
                 Date("validFrom", "Gilt ab", required: false, defaultValue: FirstOfMonth(clock.Today)),
                 Choice("warn", "Warnschwelle", required: false,
                 [
@@ -1324,15 +1324,15 @@ public sealed class CreateFormService(
             return Fail("category", $"Budget für {category.Name} besteht bereits");
         }
 
-        var period = Enum.TryParse<BudgetPeriod>(Value(values, "period"), out var parsed)
+        var period = Enum.TryParse<PeriodScope>(Value(values, "period"), out var parsed)
             ? parsed
-            : BudgetPeriod.Month;
+            : PeriodScope.Month;
 
         // Intern wird immer je Monat geführt; Quartal und Jahr rechnen herunter.
         var perMonth = period switch
         {
-            BudgetPeriod.Quarter => amount / 3m,
-            BudgetPeriod.Year => amount / 12m,
+            PeriodScope.Quarter => amount / 3m,
+            PeriodScope.Year => amount / 12m,
             _ => amount,
         };
 

@@ -168,8 +168,8 @@ public static class ApiEndpoints
         api.MapGet("/rules", async (CatalogService service, CancellationToken ct)
             => Results.Ok(await service.GetRulesAsync(ct)));
 
-        api.MapGet("/budgets", async (BudgetPeriod? period, BudgetService service, CancellationToken ct)
-            => Results.Ok(await service.GetOverviewAsync(period ?? BudgetPeriod.Month, ct)));
+        api.MapGet("/budgets", async (PeriodScope? period, BudgetService service, CancellationToken ct)
+            => Results.Ok(await service.GetOverviewAsync(period ?? PeriodScope.Month, ct)));
 
         api.MapGet("/portfolio", async (PortfolioService service, CancellationToken ct) =>
         {

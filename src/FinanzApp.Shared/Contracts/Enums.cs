@@ -44,8 +44,15 @@ public enum PropertyKind
     Other = 9,
 }
 
-/// <summary>Zeitraum eines Budgets.</summary>
-public enum BudgetPeriod
+/// <summary>
+/// Der Zeitraum, über den gerechnet wird — für Budgets wie für Auswertungen derselbe.
+/// </summary>
+/// <remarks>
+/// Hieß früher <c>BudgetPeriod</c>. Der Auswertungsbereich braucht dieselben drei Stufen und
+/// dieselbe Auflösung in Grenzen; ein zweiter Aufzählungstyp daneben wäre dieselbe Größe
+/// zweimal, und genau davon handelt die erste Regel aus Abschnitt 10b.
+/// </remarks>
+public enum PeriodScope
 {
     Month = 0,
     Quarter = 1,

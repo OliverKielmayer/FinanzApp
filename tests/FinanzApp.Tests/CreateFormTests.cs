@@ -128,13 +128,13 @@ public sealed class CreateFormTests : IDisposable
         {
             ["category"] = categoryId.ToString(),
             ["amount"] = "900",
-            ["period"] = nameof(BudgetPeriod.Quarter),
+            ["period"] = nameof(PeriodScope.Quarter),
         });
 
         using var check = database.Context();
         var budget = Assert.Single(check.Budgets);
         Assert.Equal(300m, budget.PlannedPerMonth);
-        Assert.Equal(BudgetPeriod.Quarter, budget.Period);
+        Assert.Equal(PeriodScope.Quarter, budget.Period);
     }
 
     [Fact]
