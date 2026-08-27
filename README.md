@@ -460,6 +460,41 @@ einer Zurückweisung, die den Nutzer aus dem Fluss wirft.
 Derselbe Gedanke gilt allgemein: jeder Fluss, der eine fehlende Stammdatenzeile braucht, muss
 sie an der Stelle anlegen können, an der sie fehlt.
 
+## Kontofreigaben — die zweite Stufe der Mandantentrennung
+
+Konten gehören **einem Benutzer** und sind freigebbar: Haushalt, „Nur ich“ oder namentlich.
+Sichtbar ist ein Konto, wenn der Angemeldete Eigentümer ist, die Freigabe auf Haushalt steht
+oder er namentlich benannt ist.
+
+Der Filter sitzt im `DbContext` neben dem Haushaltsfilter, nicht in den Diensten — dort kann ihn
+keiner vergessen, und ein direkter API-Aufruf umgeht ihn nicht. Buchungen tragen die Bedingung
+ihres Kontos noch einmal ausdrücklich: sich darauf zu verlassen, dass EF den Filter über die
+Navigation mitzieht, wäre genau die Annahme, an der so ein Leck entsteht.
+
+`CurrentUserId` kommt wie der Haushalt aus dem Anmelde-Cookie und bleibt sonst 0 — dann zeigt der
+Filter nur, was auf Haushalt steht. **Weniger, nie mehr.**
+
+Was daraus folgt, gilt für alles: Kontenliste, Buchungen, Suche, Filter, Zähler und Summen. Neun
+Tests prüfen das über die Dienste statt über die Tabellen — ein Test, der direkt hineinsieht,
+umginge den Filter und prüfte damit nicht, worum es geht.
+
+Das **Schreiben** ist eigens geschützt: die Freigabe ändert nur der Eigentümer. Der Filter
+schützt das Lesen, diese Prüfung das Schreiben — sonst könnte sich jedes Mitglied selbst Zugang
+verschaffen. Ein Bestandskonto ohne Eigentümer bleibt beim Haushalt und für alle sichtbar; die
+Umstellung nimmt niemandem etwas weg.
+
+Der Tag an der Kontozeile ist **perspektivisch**, nie der Rohwert: dasselbe Konto heißt für den
+Eigentümer „geteilt mit Sabine K.“ und für Sabine „geteilt von Oliver W.“. Ein fremdes Konto
+führt gar nicht erst zum Bearbeiten.
+
+Eine Folge, die beim Bauen auffiel: **das Seeden liest durch den Filter**. Beim Seeden gibt es
+keinen angemeldeten Benutzer, also ist ein privates Konto unsichtbar und eine Nachschlagetabelle
+findet es nicht. Die Seed-Pfade lesen deshalb mit `IgnoreQueryFilters` — Seeden ist keine
+Benutzeranfrage.
+
+Die Freigabe ist **reine Lesefreigabe**; Änderungen bleiben beim Eigentümer. Der Handoff stellt
+das ausdrücklich zur Entscheidung und der Prototyp beantwortet es so.
+
 ## Anmeldung und Mehrbenutzerbetrieb
 
 Ein **Haushalt** besitzt die Daten. Ein **Benutzer** meldet sich mit eigenen Zugangsdaten an und

@@ -74,6 +74,7 @@ public static class SeedData
         var depot = SeedPortfolio(db);
         await db.SaveChangesAsync(ct);
 
+        SeedSharing(db, accounts);
         SeedTransactions(db, accounts, categories);
         SeedBudgets(db, categories);
         SeedRules(db, categories);
@@ -204,6 +205,36 @@ public static class SeedData
         return map;
     }
 
+    /// <summary>
+    /// Gibt den Demo-Konten einen Eigentümer und führt alle drei Freigabestufen vor.
+    /// </summary>
+    /// <remarks>
+    /// Ohne Eigentümer stünden alle Konten auf „Haushalt“ und der Screen zeigte nichts. Die
+    /// Verteilung ist so gewählt, dass jede Stufe einmal vorkommt — sonst lässt sich die Wirkung
+    /// nicht ansehen, sondern nur nachlesen.
+    /// </remarks>
+    private static void SeedSharing(FinanzAppDbContext db, Dictionary<string, Account> accounts)
+    {
+        var oliver = db.Users.OrderBy(u => u.Id).First();
+        var sabine = db.Users.OrderBy(u => u.Id).Skip(1).FirstOrDefault();
+
+        foreach (var account in accounts.Values)
+        {
+            account.OwnerUserId = oliver.Id;
+        }
+
+        if (accounts.TryGetValue("Raiffeisenbank Giro", out var privat))
+        {
+            privat.Sharing = AccountSharing.Private;
+        }
+
+        if (sabine is not null && accounts.TryGetValue("Tagesgeld Raiffeisen", out var tagesgeld))
+        {
+            tagesgeld.Sharing = AccountSharing.Named;
+            db.AccountShares.Add(new AccountShare { AccountId = tagesgeld.Id, UserId = sabine.Id });
+        }
+    }
+
     private static Dictionary<string, Account> SeedAccounts(FinanzAppDbContext db)
     {
         List<Account> accounts =
@@ -235,7 +266,10 @@ public static class SeedData
     /// <summary>Richtet die Anfangsbestände am Bestand der Datenbank neu aus.</summary>
     private static async Task RealignOpeningBalancesAsync(FinanzAppDbContext db, CancellationToken ct)
     {
-        var accounts = await db.Accounts.ToListAsync(ct);
+        // Auch hier ohne Sichtbarkeitsfilter — siehe ExtensionSeedData.
+        var accounts = await db.Accounts.IgnoreQueryFilters()
+            .Where(a => a.HouseholdId == db.CurrentHouseholdId)
+            .ToListAsync(ct);
         var booked = (await db.Transactions.AsNoTracking()
                 .Select(t => new { t.AccountId, t.Amount })
                 .ToListAsync(ct))

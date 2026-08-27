@@ -163,7 +163,12 @@ public static class ExtensionSeedData
     /// </remarks>
     private static async Task SeedHistoryAsync(FinanzAppDbContext db, CancellationToken ct)
     {
-        var accounts = await db.Accounts.ToDictionaryAsync(a => a.Name, ct);
+        // Seeden ist keine Benutzeranfrage: der Sichtbarkeitsfilter haengt am angemeldeten
+        // Benutzer, und den gibt es hier nicht. Ohne IgnoreQueryFilters faende diese Tabelle
+        // jedes private Konto nicht — und das Seeden braeche an einem fehlenden Schluessel.
+        var accounts = await db.Accounts.IgnoreQueryFilters()
+            .Where(a => a.HouseholdId == db.CurrentHouseholdId)
+            .ToDictionaryAsync(a => a.Name, ct);
         var categories = await db.Categories.ToListAsync(ct);
 
         int? Category(string name, CategoryDirection direction)
@@ -223,7 +228,7 @@ public static class ExtensionSeedData
         FinanzAppDbContext db, Dictionary<string, Policy> policies, CancellationToken ct)
     {
         var loan = await db.Loans.OrderBy(l => l.Id).FirstOrDefaultAsync(ct);
-        var account = await db.Accounts.FirstOrDefaultAsync(a => a.Name == "Sparkasse Giro", ct);
+        var account = await db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.Name == "Sparkasse Giro", ct);
 
         var property = new Property
         {
@@ -309,7 +314,7 @@ public static class ExtensionSeedData
             .Select(t => (int?)t.Id)
             .FirstOrDefaultAsync(ct);
 
-        var account = await db.Accounts.FirstOrDefaultAsync(a => a.Name == "Sparkasse Giro", ct);
+        var account = await db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.Name == "Sparkasse Giro", ct);
         var incomeCategory = await db.Categories
             .FirstOrDefaultAsync(c => c.Direction == CategoryDirection.Income && c.Name == "Sonstiges", ct);
 
@@ -424,7 +429,7 @@ public static class ExtensionSeedData
                 Usage = "Dienstwagen · 1 % Regelung",
             });
 
-        var account = await db.Accounts.FirstAsync(a => a.Name == "Sparkasse Giro", ct);
+        var account = await db.Accounts.IgnoreQueryFilters().FirstAsync(a => a.Name == "Sparkasse Giro", ct);
         var autoCategory = await db.Categories
             .Where(c => c.Name == "Auto" && c.Direction == CategoryDirection.Expense)
             .Select(c => (int?)c.Id)

@@ -44,6 +44,7 @@ public enum PropertyKind
     Other = 9,
 }
 
+/// <summary>Zeitraum eines Budgets.</summary>
 public enum BudgetPeriod
 {
     Month = 0,

@@ -346,6 +346,29 @@ ausschließlich dessen Bestand.
   Unterschied: **Benutzer wechseln** lässt das Profil in der Geräteliste stehen, **Abmelden**
   vergisst es. Beides wirkt sofort — die Sitzung liegt auf dem Server, nicht nur im Browser.
 
+## 10b. Wer welches Konto sieht
+
+Jedes Konto gehört einem Benutzer. Unter **Benutzer & Anmeldung → Kontofreigaben** stellen Sie
+für Ihre eigenen Konten ein, wer sie sehen darf:
+
+- **Haushalt** — alle Mitglieder.
+- **Nur ich** — niemand sonst. Das Konto erscheint bei den anderen nirgends und zählt in keiner
+  ihrer Summen.
+- **Ein Name** — antippen gibt frei, noch einmal antippen nimmt zurück. Bleibt kein Name übrig,
+  ist das Konto wieder privat.
+
+Unter jedem Konto steht in Klartext, wen es erreicht: „alle 3 Benutzer“, „nur Oliver W.“,
+„Oliver W. + Sabine K.“.
+
+Fremde Konten stehen nicht in dieser Liste — ihre Freigabe verwaltet der jeweilige Eigentümer.
+Haben Sie selbst keine eigenen Konten, sagt der Block genau das.
+
+In der Kontenliste trägt jede Zeile, wie sie zu Ihnen steht: bei eigenen „privat“, „Haushalt“
+oder „geteilt mit …“, bei fremden „geteilt von …“. Ein fremdes Konto lässt sich nicht
+bearbeiten.
+
+In der Mitgliederliste steht je Person, wie viele Konten sie sieht.
+
 ## 11. Was noch nicht geht
 
 Diese Schalter sind vorhanden, aber noch nicht hinterlegt — sie melden es beim Antippen:
