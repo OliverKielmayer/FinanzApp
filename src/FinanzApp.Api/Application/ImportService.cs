@@ -99,12 +99,11 @@ public sealed class ImportService(
         ImportCommitRequest request, CancellationToken ct = default)
     {
         var batch = Recall(request.PreviewId)
-                    ?? throw new ArgumentException(
-                        "Diese Vorschau gibt es nicht mehr. Bitte die Datei noch einmal einlesen.",
-                        nameof(request));
+                    ?? throw new RuleViolationException(
+                        "Diese Vorschau gibt es nicht mehr. Bitte die Datei noch einmal einlesen.");
 
         var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == request.AccountId, ct)
-                      ?? throw new ArgumentException("Unbekanntes Zielkonto.", nameof(request));
+                      ?? throw new RuleViolationException("Unbekanntes Zielkonto.");
 
         var rows = await ClassifyAsync(batch, ct);
         var chosen = request.Indexes.ToHashSet();

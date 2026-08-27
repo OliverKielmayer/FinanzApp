@@ -40,7 +40,7 @@ public static class ApiEndpoints
                 var created = await service.CreateAsync(request, ct);
                 return Results.Created($"/api/transactions/{created.Id}", created);
             }
-            catch (ArgumentException ex)
+            catch (RuleViolationException ex)
             {
                 return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
             }
@@ -63,7 +63,7 @@ public static class ApiEndpoints
             {
                 return Results.Ok(await service.AssignCategoryBatchAsync(request, ct));
             }
-            catch (ArgumentException ex)
+            catch (RuleViolationException ex)
             {
                 return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
             }
@@ -77,7 +77,7 @@ public static class ApiEndpoints
                 var updated = await service.AssignCategoryAsync(id, request, ct);
                 return updated is null ? Results.NotFound() : Results.Ok(updated);
             }
-            catch (ArgumentException ex)
+            catch (RuleViolationException ex)
             {
                 return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
             }
@@ -164,7 +164,7 @@ public static class ApiEndpoints
             {
                 return Results.Ok(await service.CommitAsync(request, ct));
             }
-            catch (ArgumentException ex)
+            catch (RuleViolationException ex)
             {
                 return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
             }

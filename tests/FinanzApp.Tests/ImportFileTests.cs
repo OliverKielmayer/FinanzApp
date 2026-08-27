@@ -161,7 +161,7 @@ public sealed class ImportFileTests : IDisposable
         });
 
         // Ein zweiter Klick auf denselben Schalter darf die Sätze nicht noch einmal buchen.
-        var problem = await Assert.ThrowsAsync<ArgumentException>(
+        var problem = await Assert.ThrowsAsync<RuleViolationException>(
             () => Service().CommitAsync(new ImportCommitRequest
             {
                 PreviewId = preview.Id, AccountId = sparkasse, Indexes = chosen,

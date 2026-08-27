@@ -102,11 +102,11 @@ public sealed class TransactionService(FinanzAppDbContext db, IClock clock)
 
         if (request.CategoryId is not { } categoryId)
         {
-            throw new ArgumentException("Ohne Kategorie lässt sich nichts zuweisen.", nameof(request));
+            throw new RuleViolationException("Ohne Kategorie lässt sich nichts zuweisen.");
         }
 
         var category = await db.Categories.AsNoTracking().FirstOrDefaultAsync(c => c.Id == categoryId, ct)
-                       ?? throw new ArgumentException("Unbekannte Kategorie.", nameof(request));
+                       ?? throw new RuleViolationException("Unbekannte Kategorie.");
 
         var (targets, transfers) = (
             rows.Where(t => t.Kind != TransactionKind.Transfer).ToList(),
@@ -172,12 +172,12 @@ public sealed class TransactionService(FinanzAppDbContext db, IClock clock)
 
         if (request.Amount <= 0)
         {
-            throw new ArgumentException("Der Betrag muss größer als null sein.", nameof(request));
+            throw new RuleViolationException("Der Betrag muss größer als null sein.");
         }
 
         if (!await db.Accounts.AnyAsync(a => a.Id == request.AccountId, ct))
         {
-            throw new ArgumentException("Unbekanntes Konto.", nameof(request));
+            throw new RuleViolationException("Unbekanntes Konto.");
         }
 
         // Umbuchungen tragen keine Kategorie — sie sind weder Einnahme noch Ausgabe.
@@ -225,7 +225,7 @@ public sealed class TransactionService(FinanzAppDbContext db, IClock clock)
 
         if (request.CategoryId is { } categoryId && !await db.Categories.AnyAsync(c => c.Id == categoryId, ct))
         {
-            throw new ArgumentException("Unbekannte Kategorie.", nameof(request));
+            throw new RuleViolationException("Unbekannte Kategorie.");
         }
 
         entity.CategoryId = request.CategoryId;
