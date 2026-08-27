@@ -244,6 +244,29 @@ public sealed class FinanzAppApi(HttpClient http)
         CostTrendRequest request, CancellationToken ct = default)
         => PostAsync<CostTrendRequest, CostTrendDto>("api/reports/cost-trend", request, ct);
 
+    /// <summary>Fixkosten und vertragliche Bindung — auf derselben Monatsbasis.</summary>
+    public Task<FixedCostsDto> GetFixedCostsAsync(
+        FixedCostsRequest request, CancellationToken ct = default)
+        => PostAsync<FixedCostsRequest, FixedCostsDto>("api/reports/fixed-costs", request, ct);
+
+    /// <summary>Gewinn und Verlust eines Depots. <c>null</c>, wenn keines erfasst ist.</summary>
+    public async Task<PortfolioGainDto?> GetPortfolioGainAsync(
+        int? depotId = null, CancellationToken ct = default)
+    {
+        var url = depotId is { } id
+            ? $"api/reports/portfolio-gain?depot={id}"
+            : "api/reports/portfolio-gain";
+
+        try
+        {
+            return await GetAsync<PortfolioGainDto>(url, ct);
+        }
+        catch (ApiException)
+        {
+            return null;
+        }
+    }
+
     /// <summary>Die gelernten Kategorieregeln.</summary>
     public Task<IReadOnlyList<CategorizationRuleDto>> GetRulesAsync(CancellationToken ct = default)
         => GetAsync<IReadOnlyList<CategorizationRuleDto>>("api/rules", ct);

@@ -178,6 +178,18 @@ public static class ApiEndpoints
                 CostTrendRequest request, ReportService service, CancellationToken ct)
             => Results.Ok(await service.GetCostTrendAsync(request, ct)));
 
+        api.MapPost("/reports/fixed-costs", async (
+                FixedCostsRequest request, ReportService service, CancellationToken ct)
+            => Results.Ok(await service.GetFixedCostsAsync(request, ct)));
+
+        // Ohne Depot im Bestand gibt es nichts zu berichten — 404 statt einer Hülle aus Nullen.
+        api.MapGet("/reports/portfolio-gain", async (
+            int? depot, ReportService service, CancellationToken ct) =>
+        {
+            var gewinn = await service.GetPortfolioGainAsync(depot, ct);
+            return gewinn is null ? Results.NotFound() : Results.Ok(gewinn);
+        });
+
         api.MapGet("/portfolio", async (PortfolioService service, CancellationToken ct) =>
         {
             var portfolio = await service.GetAsync(ct);

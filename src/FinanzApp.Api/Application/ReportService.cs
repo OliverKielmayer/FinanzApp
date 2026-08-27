@@ -52,8 +52,10 @@ public sealed class ReportService(FinanzAppDbContext db, IClock clock)
 
         var gezaehlt = alle.Where(e => !excluded.Contains(e.Id)).ToList();
 
+        // Alle Kategorien, nicht nur die der Ausgabenrichtung. Eine Ausgabe auf einer
+        // Einnahmekategorie ist nicht vorgesehen, kommt aber vor — und fiele sonst aus den
+        // Zeilen, während sie in der Monatsbasis steht. Zwei Zahlen über dieselbe Menge.
         var namen = await db.Categories.AsNoTracking()
-            .Where(c => c.Direction == CategoryDirection.Expense)
             .ToDictionaryAsync(c => c.Id, c => c.Name, ct);
 
         var budgets = (await db.Budgets.AsNoTracking().Select(b => b.CategoryId).ToListAsync(ct))
@@ -218,6 +220,255 @@ public sealed class ReportService(FinanzAppDbContext db, IClock clock)
             VisibleAccountCount = konten,
             HasComparison = fenster.HasComparison,
             MonthlyExpenseBase = fenster.Months == 0 ? 0m : Math.Round(summe / fenster.Months, 2),
+        };
+    }
+
+    /// <summary>
+    /// Die Ausgaben des Zeitraums mit Kategorie, ohne die ausgeschlossenen.
+    /// </summary>
+    /// <remarks>
+    /// Die eine Zahl, aus der die Monatsbasis wird. Kostentrend und Fixkosten holen sie hier
+    /// und rechnen sie nicht jeder für sich — das ist die erste Regel des Handoffs, und sie
+    /// fällt sonst genau zwischen diesen beiden Berichten auseinander.
+    /// </remarks>
+    private async Task<decimal> PeriodExpensesAsync(
+        Window fenster, HashSet<int> excluded, CancellationToken ct)
+    {
+        var saetze = await db.Transactions.AsNoTracking()
+            .Where(t => t.Kind == TransactionKind.Expense
+                        && t.CategoryId != null
+                        && t.BookingDate >= fenster.From
+                        && t.BookingDate <= fenster.To)
+            .Select(t => new { t.Id, t.Amount })
+            .ToListAsync(ct);
+
+        return Math.Abs(saetze.Where(t => !excluded.Contains(t.Id)).Sum(t => t.Amount));
+    }
+
+    // ── Fixkosten & vertragliche Bindung ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// Was fest liegt, gegen das, was frei ist.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die gebundenen Posten kommen aus Darlehen, Verträgen und Policen — aus den
+    /// <b>Rohfeldern</b>, nie aus einer Anzeigezeile. Ein Takt ist ein Aufzählungswert und
+    /// keine Zeichenkette, aus der man „vierteljährlich“ herauslesen müsste.</para>
+    /// <para>Die freie Seite ist ein Restwert: Monatsbasis minus gebunden. Beide Seiten stammen
+    /// aus verschiedenen Quellen — die eine aus Verträgen, die andere aus Buchungen — und
+    /// müssen darum nicht aufgehen. Wo sie es nicht tun, sagt es die Anmerkung, statt eine
+    /// negative Zahl als „frei verfügbar“ auszugeben.</para>
+    /// </remarks>
+    public async Task<FixedCostsDto> GetFixedCostsAsync(
+        FixedCostsRequest request, CancellationToken ct = default)
+    {
+        var fenster = await ResolveAsync(request.Period, request.Comparison, ct);
+        var excluded = request.ExcludedTransactionIds?.ToHashSet() ?? [];
+
+        var basis = await PeriodExpensesAsync(fenster, excluded, ct);
+        var range = await RangeAsync(fenster, basis, ct);
+
+        var zeilen = new List<FixedCostRowDto>();
+
+        foreach (var darlehen in await db.Loans.AsNoTracking().OrderBy(l => l.Id).ToListAsync(ct))
+        {
+            zeilen.Add(new FixedCostRowDto
+            {
+                Name = darlehen.Name,
+                MonthlyAmount = darlehen.Installment,
+                Note = $"{darlehen.Lender} · "
+                       + $"{GermanFormat.Percent(darlehen.InterestRatePercent, 2)} · nicht kündbar",
+                Binding = FixedCostBinding.Fixed,
+                NoticeDue = false,
+            });
+        }
+
+        foreach (var vertrag in await db.Contracts.AsNoTracking().OrderBy(c => c.Id).ToListAsync(ct))
+        {
+            zeilen.Add(new FixedCostRowDto
+            {
+                Name = vertrag.Name,
+                MonthlyAmount = vertrag.MonthlyAmount,
+                Note = $"{AreaLabel(vertrag.Area)} · "
+                       + Notice(vertrag.NoticePeriodWeeks, "Woche", "Wochen", vertrag.NoticeToDate),
+                Binding = FixedCostBinding.Cancellable,
+                NoticeDue = false,
+            });
+        }
+
+        foreach (var police in await db.Policies.AsNoTracking().OrderBy(p => p.Id).ToListAsync(ct))
+        {
+            zeilen.Add(new FixedCostRowDto
+            {
+                Name = police.Name,
+                MonthlyAmount = PerMonth(police.Premium, police.PremiumInterval),
+
+                // Ein kapitalbildender Beitrag fließt ab wie jeder andere, verschwindet aber
+                // nicht: er wird Vermögen. Ihn unter „Kündigungsfrist“ zu führen, hieße ihn
+                // als Kostenposten auszugeben.
+                Note = police.IsCapitalForming
+                    ? "kapitalbildend · zählt als Sparen"
+                    : "Absicherung · "
+                      + Notice(police.NoticePeriodMonths, "Monat", "Monate", police.EndsOn),
+                Binding = police.IsCapitalForming
+                    ? FixedCostBinding.Saving
+                    : FixedCostBinding.Cancellable,
+                NoticeDue = police.NoticeReminderOn is { } tag && tag <= clock.Today,
+            });
+        }
+
+        // Posten ohne Beitrag stehen in keiner Zeile. Eine Null in einer Kostenliste ist kein
+        // Eintrag, sondern eine Lücke im Bestand — sie wird gezählt, nicht gezeigt.
+        var mitBetrag = zeilen.Where(z => z.MonthlyAmount != 0m).ToList();
+
+        var fix = decimal.Round(mitBetrag.Sum(z => z.MonthlyAmount), 2);
+        var monatsbasis = range.MonthlyExpenseBase;
+
+        return new FixedCostsDto
+        {
+            Range = range,
+            MonthlyFixed = fix,
+            MonthlyFree = decimal.Round(monatsbasis - fix, 2),
+            FixedSharePercent = monatsbasis <= 0m
+                ? 0m
+                : decimal.Round(fix / monatsbasis * 100m, 1),
+            Note = Bound(fix, monatsbasis),
+            Rows = [.. mitBetrag.OrderByDescending(z => z.MonthlyAmount)],
+            WithoutAmountCount = zeilen.Count - mitBetrag.Count,
+        };
+    }
+
+    /// <summary>Ein Beitrag auf den Monat gerechnet, egal in welchem Takt er fällt.</summary>
+    private static decimal PerMonth(decimal amount, PremiumInterval interval) => interval switch
+    {
+        PremiumInterval.Monthly => amount,
+        PremiumInterval.Quarterly => decimal.Round(amount / 3m, 2),
+        PremiumInterval.HalfYearly => decimal.Round(amount / 6m, 2),
+        _ => decimal.Round(amount / 12m, 2),
+    };
+
+    /// <summary>
+    /// Die Kündigungsfrist im Klartext.
+    /// </summary>
+    /// <remarks>
+    /// Steht keine Frist im Vertrag, heißt das „unbekannt“ und nicht „null Wochen“ — sonst
+    /// läse sich eine fehlende Angabe wie eine jederzeitige Kündbarkeit. Ist dann trotzdem ein
+    /// Datum hinterlegt, ist es das <em>Vertragsende</em> und keine Frist: „unbekannt zum
+    /// 31.12.2027“ wäre ein Satz, der sich selbst widerspricht.
+    /// </remarks>
+    private static string Notice(int laenge, string einzahl, string mehrzahl, DateOnly? termin)
+    {
+        if (laenge <= 0)
+        {
+            return termin is { } ende
+                ? $"Kündigungsfrist unbekannt · Ende {GermanFormat.Date(ende)}"
+                : "Kündigungsfrist unbekannt";
+        }
+
+        var frist = $"Kündigungsfrist {laenge} {(laenge == 1 ? einzahl : mehrzahl)}";
+
+        return termin is { } tag ? $"{frist} zum {GermanFormat.Date(tag)}" : frist;
+    }
+
+    /// <summary>
+    /// Der Bereich eines Vertrags im Klartext.
+    /// </summary>
+    /// <remarks>
+    /// Bewusst nicht der Ordnername aus der Dokumentablage: der muss auf der Platte stabil
+    /// bleiben, diese Zeile darf jederzeit umformuliert werden.
+    /// </remarks>
+    private static string AreaLabel(DocumentArea area) => area switch
+    {
+        DocumentArea.Insurance => "Versicherung",
+        DocumentArea.Health => "Gesundheit",
+        DocumentArea.Housing => "Wohnen",
+        DocumentArea.Work => "Arbeit",
+        DocumentArea.Finance => "Finanzen",
+        _ => "Sonstiges",
+    };
+
+    private static string Bound(decimal fix, decimal basis)
+    {
+        const string kern = "Gebunden heißt: erst nach Ablauf der Kündigungsfrist veränderbar. "
+                            + "Die Fristen stammen aus den Verträgen.";
+
+        if (basis <= 0m)
+        {
+            return kern + " Im Zeitraum sind keine Ausgaben gebucht — es gibt nichts, wogegen "
+                   + "sich der Anteil rechnen ließe.";
+        }
+
+        return fix <= basis
+            ? kern
+            : kern + " Die gebundenen Beträge übersteigen die gebuchten Ausgaben des Zeitraums: "
+              + "sie stammen aus den Verträgen, nicht aus dem Kontoauszug, und nicht jeder "
+              + "Vertrag wurde in diesem Zeitraum abgebucht.";
+    }
+
+    // ── Depot: Gewinn und Verlust ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Gewinn und Verlust eines Depots — unrealisiert, ohne Steuern und Gebühren.
+    /// </summary>
+    /// <remarks>
+    /// Ohne Depot im Bestand gibt es <c>null</c> und keine leere Hülle mit Nullwerten: „0 €
+    /// Gewinn“ ist eine Aussage über ein Depot, und es gibt keines.
+    /// </remarks>
+    public async Task<PortfolioGainDto?> GetPortfolioGainAsync(
+        int? depotId = null, CancellationToken ct = default)
+    {
+        var depots = await db.Depots.AsNoTracking()
+            .OrderBy(d => d.Id)
+            .Select(d => new DepotChoiceDto(d.Id, d.Name))
+            .ToListAsync(ct);
+
+        if (depots.Count == 0)
+        {
+            return null;
+        }
+
+        var gewaehlt = depots.FirstOrDefault(d => d.Id == depotId) ?? depots[0];
+
+        var positionen = await db.PortfolioPositions.AsNoTracking()
+            .Where(p => p.DepotId == gewaehlt.Id)
+            .OrderBy(p => p.Name)
+            .ToListAsync(ct);
+
+        var zeilen = positionen.Select(p =>
+        {
+            var wert = decimal.Round(p.Quantity * p.Price, 2);
+            var gewinn = decimal.Round(wert - p.CostBasis, 2);
+
+            return new PortfolioGainRowDto
+            {
+                Name = p.Name,
+                Isin = p.Isin,
+                Quantity = p.Quantity,
+                CostPerUnit = p.Quantity == 0m ? null : decimal.Round(p.CostBasis / p.Quantity, 2),
+                Price = p.Price,
+                Value = wert,
+                Gain = gewinn,
+                GainPercent = Change(wert, p.CostBasis),
+            };
+        }).ToList();
+
+        var einstand = zeilen.Sum(z => z.Value) - zeilen.Sum(z => z.Gain);
+        var wertJetzt = zeilen.Sum(z => z.Value);
+
+        return new PortfolioGainDto
+        {
+            Depots = depots,
+            DepotId = gewaehlt.Id,
+            DepotName = gewaehlt.Name,
+            CostBasis = einstand,
+            CurrentValue = wertJetzt,
+            Gain = decimal.Round(wertJetzt - einstand, 2),
+            GainPercent = Change(wertJetzt, einstand),
+
+            // Der älteste Stichtag, nicht der jüngste: die Summe ist nur so frisch wie ihr
+            // ältester Bestandteil.
+            PricesAsOf = positionen.Count == 0 ? null : positionen.Min(p => p.PriceAsOf),
+            Positions = zeilen,
         };
     }
 

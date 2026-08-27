@@ -153,3 +153,134 @@ public sealed record CostTrendPayeeDto(string Payee, int Count, decimal Amount);
 /// <summary>Eine Einzelbuchung im Drilldown.</summary>
 public sealed record CostTrendEntryDto(
     int Id, DateOnly BookingDate, string Payee, decimal Amount, string AccountName, bool Excluded);
+
+
+// ── Fixkosten & vertragliche Bindung ────────────────────────────────────────────────────────
+
+/// <summary>Was der Fixkostenbericht abfragt.</summary>
+/// <remarks>
+/// Zeitraum, Vergleich und Ausschlüsse wie beim Kostentrend — die Monatsbasis unten ist
+/// dieselbe Zahl, und sie muss auf dieselben Eingaben hören.
+/// </remarks>
+public sealed record FixedCostsRequest(
+    PeriodScope Period = PeriodScope.Month,
+    ComparisonBasis Comparison = ComparisonBasis.PreviousYear,
+    IReadOnlyList<int>? ExcludedTransactionIds = null);
+
+/// <summary>Wie fest ein Posten liegt.</summary>
+public enum FixedCostBinding
+{
+    /// <summary>Kündbar — mit Frist.</summary>
+    Cancellable = 0,
+
+    /// <summary>Nicht kündbar, etwa ein laufendes Darlehen.</summary>
+    Fixed = 1,
+
+    /// <summary>Kapitalbildend: der Betrag fließt ab, bleibt aber Vermögen.</summary>
+    Saving = 2,
+}
+
+public sealed record FixedCostsDto
+{
+    public required ReportRangeDto Range { get; init; }
+
+    /// <summary>Summe der gebundenen Posten je Monat.</summary>
+    public required decimal MonthlyFixed { get; init; }
+
+    /// <summary>
+    /// Was von der Monatsbasis übrig bleibt.
+    /// </summary>
+    /// <remarks>
+    /// Ein Restwert, keine eigene Erhebung: Basis minus gebunden. Er kann negativ werden, wenn
+    /// die Verträge mehr ausweisen, als im Zeitraum tatsächlich gebucht wurde — dann sagt
+    /// <see cref="Note"/>, dass die beiden Seiten aus verschiedenen Quellen kommen.
+    /// </remarks>
+    public required decimal MonthlyFree { get; init; }
+
+    /// <summary>Anteil der gebundenen Kosten an der Monatsbasis, 0…100.</summary>
+    public required decimal FixedSharePercent { get; init; }
+
+    /// <summary>
+    /// Was zu den Zahlen zu sagen ist — auch, wenn etwas nicht aufgeht.
+    /// </summary>
+    /// <remarks>
+    /// Ohne Beträge. Die Bezugsgröße gehört in den Balkentext, aber der entsteht in der
+    /// Anzeige: ein hier fertig formatierter Euro-Betrag käme an „Beträge verbergen“ vorbei.
+    /// </remarks>
+    public required string Note { get; init; }
+
+    public required IReadOnlyList<FixedCostRowDto> Rows { get; init; }
+
+    /// <summary>
+    /// Verträge, die keinen Beitrag ausweisen — sie stehen in keiner Zeile.
+    /// </summary>
+    /// <remarks>
+    /// Ein Posten über 0,00 € ist in einer Kostenliste kein Eintrag, sondern eine Lücke im
+    /// Bestand. Er gehört gezählt und benannt, nicht als Nullzeile zwischen die Beträge
+    /// gesetzt — dort sagt er nichts und verdeckt, was etwas sagt.
+    /// </remarks>
+    public required int WithoutAmountCount { get; init; }
+}
+
+public sealed record FixedCostRowDto
+{
+    public required string Name { get; init; }
+
+    /// <summary>Auf den Monat umgerechnet, egal in welchem Takt gezahlt wird.</summary>
+    public required decimal MonthlyAmount { get; init; }
+
+    /// <summary>Bereich und Kündigungsfrist im Klartext.</summary>
+    public required string Note { get; init; }
+
+    public required FixedCostBinding Binding { get; init; }
+
+    /// <summary>Ob die Frist jetzt auf den Tisch gehört.</summary>
+    public required bool NoticeDue { get; init; }
+}
+
+// ── Depot: Gewinn und Verlust ───────────────────────────────────────────────────────────────
+
+public sealed record DepotChoiceDto(int Id, string Name);
+
+/// <summary>
+/// Gewinn und Verlust eines Depots — <b>unrealisiert</b>.
+/// </summary>
+/// <remarks>
+/// Ohne Steuern und Gebühren. Realisierte Gewinne brauchen Wertpapiertransaktionen; die gibt
+/// es noch nicht, und eine Zahl, die so tut, als gäbe es sie, wäre schlimmer als keine.
+/// </remarks>
+public sealed record PortfolioGainDto
+{
+    /// <summary>Alle Depots — die Auswahl steht als Chipreihe über dem Bericht.</summary>
+    public required IReadOnlyList<DepotChoiceDto> Depots { get; init; }
+
+    public required int DepotId { get; init; }
+    public required string DepotName { get; init; }
+
+    public required decimal CostBasis { get; init; }
+    public required decimal CurrentValue { get; init; }
+    public required decimal Gain { get; init; }
+
+    /// <summary>Bezogen auf den Einstand. <c>null</c>, wenn kein Einstand hinterlegt ist.</summary>
+    public required decimal? GainPercent { get; init; }
+
+    /// <summary>Stand der Kurse — der älteste, nicht der jüngste.</summary>
+    public required DateTime? PricesAsOf { get; init; }
+
+    public required IReadOnlyList<PortfolioGainRowDto> Positions { get; init; }
+}
+
+public sealed record PortfolioGainRowDto
+{
+    public required string Name { get; init; }
+    public required string Isin { get; init; }
+    public required decimal Quantity { get; init; }
+
+    /// <summary>Einstand je Stück. <c>null</c> bei Stückzahl null.</summary>
+    public required decimal? CostPerUnit { get; init; }
+
+    public required decimal Price { get; init; }
+    public required decimal Value { get; init; }
+    public required decimal Gain { get; init; }
+    public required decimal? GainPercent { get; init; }
+}
