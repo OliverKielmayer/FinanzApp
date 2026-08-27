@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @inherits AppPage
 @using System.Globalization
+@inject IJSRuntime JS
 
 @*
     Abschnitt 10b. Der Bereich beantwortet drei Fragen: wo sind Einsparpotentiale, welche
@@ -73,6 +74,7 @@
                herunter, ohne dass dafür JavaScript nötig wäre. Und weil die Datei aus
                denselben Daten entsteht wie die Anzeige, kann sie nicht davon abweichen. *@
             <a class="section-link" href="@CsvHref" download="@CsvName">CSV</a>
+            <button type="button" class="section-link" @onclick="PrintAsync">PDF</button>
         </div>
 
         @if (views.Count > 0)
@@ -93,6 +95,19 @@
                     </span>
                 }
             </div>
+        }
+    </div>
+
+    @*
+        Nur im Druck. Die Kopfzeile der Anwendung steht dort nicht mehr, und ein Blatt ohne
+        Überschrift ist kein Bericht, sondern eine Tabelle ohne Anlass.
+    *@
+    <div class="print-head">
+        <span class="kicker">FinanzApp · Auswertungen</span>
+        <h2 class="print-title">@ReportLabel</h2>
+        @if (range is { } kopf)
+        {
+            <span class="meta">@kopf.Line</span>
         }
     </div>
 
@@ -157,7 +172,7 @@
                     Nicht enthalten: @bericht.UncategorisedCount
                     @(bericht.UncategorisedCount == 1 ? "Ausgabe" : "Ausgaben") ohne Kategorie
                     über @State.Euro(bericht.UncategorisedAmount) ·
-                    <a href="/konten?offen=1">zuordnen</a>
+                    <a href="/konten?offen=true">zuordnen</a>
                 </span>
             }
         </div>
@@ -567,6 +582,23 @@
         excluded.Clear();
         return RefreshAsync();
     }
+
+    // ── Druck ──────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Öffnet den Druckdialog des Browsers.
+    /// </summary>
+    /// <remarks>
+    /// Statt einer zweiten Layoutstrecke auf dem Server: gedruckt wird, was auf dem Schirm
+    /// steht. Eine eigene PDF-Erzeugung hätte dasselbe zweimal gesetzt, und die beiden wären
+    /// irgendwann auseinandergelaufen — wie die Monatssummen im Prototyp.
+    ///
+    /// Anders als beim CSV gilt hier die Maske „Beträge verbergen“: gedruckt wird das Bild,
+    /// nicht der Datenbestand.
+    /// </remarks>
+    private async Task PrintAsync() => await JS.InvokeVoidAsync("print");
+
+    private string ReportLabel => Available.First(a => a.Kind == report).Label;
 
     // ── CSV ────────────────────────────────────────────────────────────────────────────────
 

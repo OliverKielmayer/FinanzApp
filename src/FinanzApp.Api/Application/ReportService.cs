@@ -659,7 +659,7 @@ public sealed class ReportService(
             Gap(ohneKategorie, "Buchung ohne Kategorie", "Buchungen ohne Kategorie",
                 "fehlt in jeder Kategorieauswertung — gezählt über den ganzen Bestand, "
                 + "nicht nur im gewählten Zeitraum",
-                "zuordnen", "/konten?offen=1"),
+                "zuordnen", "/konten?offen=true"),
 
             Gap(ohneDatei, "Dokument ohne Datei", "Dokumente ohne Datei",
                 "der Pfad zeigt ins Leere", "prüfen", "/dokumente"),

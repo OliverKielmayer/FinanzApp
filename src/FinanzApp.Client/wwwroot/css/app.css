@@ -3679,3 +3679,96 @@ body {
 .report-view.active .report-view-drop {
   border-left-color: rgba(255, 255, 255, 0.35);
 }
+
+/* ── Druck ─────────────────────────────────────────────────────────────────────── */
+
+/* Nur auf Papier sichtbar - der Bildschirm hat seine eigene Kopfzeile. */
+.print-head {
+  display: none;
+}
+
+@media print {
+  /* Der Rahmen ist am Bildschirm genau fensterhoch und scrollt innen. Gedruckt gaebe das
+     die erste Bildschirmseite und sonst nichts. */
+  .app {
+    display: block;
+    height: auto;
+  }
+
+  .app-body,
+  .app-main,
+  .app-content {
+    display: block;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+  }
+
+  /* Navigation, Kopfzeile und Bedienelemente gehoeren nicht aufs Blatt: sie fuehren
+     woandershin, und dorthin fuehrt Papier nicht. */
+  .sidenav,
+  .app-header,
+  .tabbar,
+  .toast,
+  .report-tabs,
+  .report-setting,
+  .report-views,
+  .report-sort,
+  .section-link,
+  .doc-actions,
+  .report-entry input,
+  .btn {
+    display: none !important;
+  }
+
+  .print-head {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0 0 12px;
+    border-bottom: 1px solid var(--color-text);
+  }
+
+  .print-title {
+    font-family: var(--font-heading);
+    font-weight: var(--font-heading-weight);
+    font-size: 24px;
+    margin: 0;
+  }
+
+  /* Die Sparkline und die Balken tragen ihre Aussage in der Farbe. Ohne diese Zeile
+     druckt der Browser sie weiss. */
+  .report-spark,
+  .report-bar,
+  .report-bar-fix,
+  .tag {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Eine Zeile, die ueber den Seitenwechsel faellt, ist zweimal halb da. */
+  .report-row,
+  .report-fix-row,
+  .report-position,
+  .report-gap,
+  .report-hero,
+  .detail-block {
+    break-inside: avoid;
+  }
+
+  .report-head {
+    position: static;
+    border-bottom: 0;
+    padding: 0;
+  }
+
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
+
+  @page {
+    margin: 16mm;
+  }
+}

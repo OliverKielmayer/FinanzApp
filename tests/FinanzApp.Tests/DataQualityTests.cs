@@ -92,7 +92,7 @@ public sealed class DataQualityTests : IDisposable
         var zeile = Row(await QualityAsync(), "Buchung");
 
         Assert.Equal(2, zeile.Count);
-        Assert.Equal("/konten?offen=1", zeile.Route);
+        Assert.Equal("/konten?offen=true", zeile.Route);
     }
 
     /// <summary>

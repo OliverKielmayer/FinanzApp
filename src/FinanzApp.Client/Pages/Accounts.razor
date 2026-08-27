@@ -308,9 +308,18 @@ else if (sheetTransaction is { } sheet)
     [SupplyParameterFromQuery(Name = "category")]
     public int? CategoryFromQuery { get; set; }
 
-    /// <summary>Nur Buchungen ohne Kategorie — <c>/konten?offen=1</c>.</summary>
+    /// <summary>
+    /// Nur Buchungen ohne Kategorie — <c>/konten?offen=true</c>.
+    /// </summary>
+    /// <remarks>
+    /// Bewusst als Zeichenkette und nicht als <c>bool?</c>. Blazor wirft beim Umwandeln, und
+    /// zwar nicht als Feldfehler, sondern als unbehandelte Ausnahme beim Rendern: die ganze
+    /// Seite steht dann auf „Es ist ein Fehler aufgetreten“. Ein Abfrageparameter kommt aus
+    /// einer Adresszeile — aus einem Lesezeichen, einer Verknüpfung, einem Tippfehler — und
+    /// darf die Seite unter keinen Umständen umbringen. Was nicht „an“ heißt, heißt aus.
+    /// </remarks>
     [SupplyParameterFromQuery(Name = "offen")]
-    public bool? OpenFromQuery { get; set; }
+    public string? OpenFromQuery { get; set; }
 
     private bool HasFilter => !string.IsNullOrWhiteSpace(search)
                               || accountFilter is not null || categoryFilter is not null
@@ -325,7 +334,7 @@ else if (sheetTransaction is { } sheet)
         // Die Adresse setzt den Filter, bevor die Liste zum ersten Mal geholt wird — sonst
         // erschiene kurz die ungefilterte und spränge danach um.
         categoryFilter = CategoryFromQuery;
-        onlyOpen = OpenFromQuery == true;
+        onlyOpen = OpenFromQuery is "true" or "1" or "";
 
         accounts = await Api.GetAccountsAsync();
         categories = await Api.GetCategoriesAsync();
