@@ -75,6 +75,46 @@ public sealed class CatalogService(FinanzAppDbContext db)
     }
 
     /// <summary>
+    /// Legt eine Kategorie an — oder liefert die, die den Namen schon trägt.
+    /// </summary>
+    /// <remarks>
+    /// Für den Import: ein Empfänger ohne passende Kategorie darf nicht dazu zwingen, den Fluss
+    /// zu verlassen. Ein Screenwechsel und Rücksprung köstete alle bisherigen Zuordnungen, und
+    /// das ist Arbeitsverlust. Trifft der Name eine vorhandene Kategorie, ist das kein Fehler,
+    /// sondern der Normalfall bei einem gut geratenen Namen.
+    /// </remarks>
+    public async Task<CategoryEnsureResultDto> EnsureAsync(
+        string name, CategoryDirection direction, CancellationToken ct = default)
+    {
+        var sauber = (name ?? string.Empty).Trim();
+        if (sauber.Length == 0)
+        {
+            throw new RuleViolationException("Bitte einen Namen eingeben.");
+        }
+
+        var vorhanden = await db.Categories
+            .FirstOrDefaultAsync(c => c.Direction == direction && c.Name.ToLower() == sauber.ToLower(), ct);
+
+        if (vorhanden is not null)
+        {
+            return new CategoryEnsureResultDto
+            {
+                Category = new CategoryDto
+                {
+                    Id = vorhanden.Id, Name = vorhanden.Name, Direction = vorhanden.Direction,
+                },
+                Created = false,
+            };
+        }
+
+        return new CategoryEnsureResultDto
+        {
+            Category = await CreateAsync(sauber, direction, ct),
+            Created = true,
+        };
+    }
+
+    /// <summary>
     /// Benennt eine Kategorie um.
     /// </summary>
     /// <remarks>

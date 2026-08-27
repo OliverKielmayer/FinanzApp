@@ -27,6 +27,20 @@ public sealed record CategoryUsageDto
     public bool IsUsed => TransactionCount > 0 || RuleCount > 0 || HasBudget;
 }
 
+/// <summary>
+/// Eine Kategorie, die es jetzt gibt — neu angelegt oder schon vorhanden.
+/// </summary>
+/// <remarks>
+/// Der Unterschied gehört in die Antwort, nicht in einen Fehler: wer im Import eine fehlende
+/// Kategorie anlegt und dabei einen Namen trifft, den es schon gibt, hat nichts falsch gemacht.
+/// Die Meldung sagt dann „bestand bereits“ und ordnet trotzdem zu.
+/// </remarks>
+public sealed record CategoryEnsureResultDto
+{
+    public required CategoryDto Category { get; init; }
+    public required bool Created { get; init; }
+}
+
 public sealed record CategoryNameRequest
 {
     public required string Name { get; init; }

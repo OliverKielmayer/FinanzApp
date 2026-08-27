@@ -215,6 +215,12 @@ public sealed class FinanzAppApi(HttpClient http)
         => PostAsync<CategoryNameRequest, CategoryDto>(
             "api/categories", new CategoryNameRequest { Name = name, Direction = direction }, ct);
 
+    /// <summary>Legt eine Kategorie an oder liefert die, die den Namen schon trägt.</summary>
+    public Task<CategoryEnsureResultDto> EnsureCategoryAsync(
+        string name, CategoryDirection direction, CancellationToken ct = default)
+        => PostAsync<CategoryNameRequest, CategoryEnsureResultDto>(
+            "api/categories/ensure", new CategoryNameRequest { Name = name, Direction = direction }, ct);
+
     public Task<CategoryChangeResultDto> RenameCategoryAsync(
         int id, string name, CancellationToken ct = default)
         => SendAsync<CategoryNameRequest, CategoryChangeResultDto>(

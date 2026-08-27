@@ -2369,6 +2369,18 @@ body {
   padding: 14px;
 }
 
+/* Gestrichelt, damit er nicht wie ein Auswahl-Chip aussieht: er legt etwas an,
+   statt zu waehlen. */
+.chip.chip-new {
+  border: 1px dashed var(--color-accent);
+  color: var(--color-accent);
+  background: none;
+}
+
+.chip.chip-new:hover {
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+
 /* Der CAMT-Elementname als Herkunftsmarke am Feldnamen. Klein und neutral: er belegt,
    woher der Wert stammt, ohne sich vor ihn zu draengen. */
 .camt-element {

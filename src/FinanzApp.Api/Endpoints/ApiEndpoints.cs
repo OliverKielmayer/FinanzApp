@@ -106,6 +106,20 @@ public static class ApiEndpoints
             }
         }).RequireAuthorization(AuthPolicies.Write);
 
+        // Anlegen oder finden — der Import braucht beides in einem Schritt.
+        api.MapPost("/categories/ensure", async (
+            CategoryNameRequest request, CatalogService service, CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(await service.EnsureAsync(request.Name, request.Direction, ct));
+            }
+            catch (RuleViolationException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.Write);
+
         api.MapPatch("/categories/{id:int}", async (
             int id, CategoryNameRequest request, CatalogService service, CancellationToken ct) =>
         {

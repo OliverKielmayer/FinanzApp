@@ -316,6 +316,17 @@ Satz schon gebucht ist. Ohne sie bleibt nur der Vergleich von Tag, Empfänger un
 Nach dem Import bleiben die Felder erreichbar: die Buchung antippen, dann **Auszugsdaten →
 Ansehen**. Was Sie nicht behalten haben, steht dort als **„nicht gespeichert“**.
 
+### Wenn die passende Kategorie fehlt
+
+Neben den Kategorie-Chips steht **„+ Neue Kategorie“** (gestrichelt). Ein Klick, ein Name,
+**„Anlegen & zuordnen“** — fertig: die Kategorie ist angelegt, alle Sätze des Empfängers sind
+zugeordnet, und die Regel ist gemerkt. Sie müssen den Import dafür nicht verlassen; alles bisher
+Zugeordnete bleibt stehen.
+
+Ob eine Ausgaben- oder Einnahmekategorie entsteht, richtet sich nach der Gruppe — das Feld sagt
+es Ihnen. Gibt es den Namen schon, wird er benutzt statt ein zweites Mal angelegt; die Meldung
+lautet dann „bestand bereits“.
+
 > **Der Import ist echt.** Er schreibt die Buchungen tatsächlich, danach stimmen die Demo-Zahlen
 > nicht mehr. Wie sich der Ausgangszustand herstellen lässt, steht unter Punkt 12.
 

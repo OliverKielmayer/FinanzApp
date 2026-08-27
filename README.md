@@ -445,6 +445,21 @@ Einlesen desselben Auszugs von „bereits vorhanden“ auf „mögliches Duplika
 Der gespeicherte Verwendungszweck wird in der Buchungsliste **mitdurchsucht**. Bei einer
 Kartenzahlung steht der Laden dort und sonst nirgends.
 
+### Fehlende Kategorie an Ort und Stelle anlegen
+
+Neben den Chips einer Empfängergruppe steht ein gestrichelter Knopf „+ Neue Kategorie“. Er legt
+an, ordnet allen Sätzen des Empfängers zu und merkt die Regel — in einem Schritt, ohne den
+Import zu verlassen. Ein Screenwechsel und Rücksprung köstete alle bisherigen Zuordnungen, und
+das ist Arbeitsverlust.
+
+Die Richtung folgt dem Vorzeichen der Gruppe; das Feldlabel sagt es. Trifft der Name eine
+vorhandene Kategorie, ist das kein Fehler: sie wird benutzt, die Meldung sagt „bestand
+bereits“, und nichts wird verdoppelt. Dafür gibt es `EnsureAsync` — anlegen oder finden, statt
+einer Zurückweisung, die den Nutzer aus dem Fluss wirft.
+
+Derselbe Gedanke gilt allgemein: jeder Fluss, der eine fehlende Stammdatenzeile braucht, muss
+sie an der Stelle anlegen können, an der sie fehlt.
+
 ## Anmeldung und Mehrbenutzerbetrieb
 
 Ein **Haushalt** besitzt die Daten. Ein **Benutzer** meldet sich mit eigenen Zugangsdaten an und

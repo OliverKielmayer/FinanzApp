@@ -156,5 +156,45 @@ public sealed class CategoryTests : IDisposable
         Assert.Contains(nachher.Categories, c => c.Id == wohnen);
     }
 
+    /// <summary>
+    /// Anlegen oder finden — für den Import, der den Fluss nicht verlassen darf.
+    /// </summary>
+    /// <remarks>
+    /// Ein Screenwechsel und Rücksprung köstete alle bisherigen Zuordnungen. Trifft der Name
+    /// eine vorhandene Kategorie, ist das kein Fehler, sondern der Normalfall bei einem gut
+    /// geratenen Namen.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_neuer_Name_wird_angelegt()
+    {
+        var ergebnis = await Service().EnsureAsync("Abos", CategoryDirection.Expense);
+
+        Assert.True(ergebnis.Created);
+        Assert.Equal("Abos", ergebnis.Category.Name);
+    }
+
+    [Fact]
+    public async Task Ein_vorhandener_Name_wird_gefunden_statt_abgewiesen()
+    {
+        var ergebnis = await Service().EnsureAsync("wohnen", CategoryDirection.Expense);
+
+        Assert.False(ergebnis.Created);
+        Assert.Equal(wohnen, ergebnis.Category.Id);
+
+        // Und nichts wurde verdoppelt.
+        using var context = database.Context();
+        Assert.Single(context.Categories.Where(c => c.Name == "Wohnen"));
+    }
+
+    [Fact]
+    public async Task Die_Richtung_trennt_auch_hier()
+    {
+        // „Wohnen“ gibt es als Ausgabe — als Einnahme ist der Name frei.
+        var ergebnis = await Service().EnsureAsync("Wohnen", CategoryDirection.Income);
+
+        Assert.True(ergebnis.Created);
+        Assert.NotEqual(wohnen, ergebnis.Category.Id);
+    }
+
     public void Dispose() => database.Dispose();
 }

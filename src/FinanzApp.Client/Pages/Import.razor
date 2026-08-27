@@ -292,7 +292,46 @@
                                                         @category.Name
                                                     </button>
                                                 }
+
+                                                @* Gestrichelt, damit er nicht wie eine Auswahl
+                                                   aussieht: er legt etwas an, statt zu wählen. *@
+                                                <button type="button" class="chip chip-new"
+                                                        @onclick="() => StartNewCategory(group)">
+                                                    + Neue Kategorie
+                                                </button>
                                             </div>
+
+                                            @if (creatingFor == group.Key)
+                                            {
+                                                @* Direkt hier, nicht auf einem anderen Screen: ein
+                                                   Wechsel und Rücksprung köstete alle bisherigen
+                                                   Zuordnungen, und das ist Arbeitsverlust. *@
+                                                <div class="field">
+                                                    <label for="neue-kat">
+                                                        @(group.Sum >= 0
+                                                            ? "Neue Einnahmekategorie"
+                                                            : "Neue Ausgabenkategorie")
+                                                    </label>
+                                                    <input id="neue-kat" class="input" value="@freshCategory"
+                                                           placeholder="z. B. Abos"
+                                                           @oninput="e => freshCategory = e.Value?.ToString() ?? string.Empty" />
+                                                </div>
+
+                                                @if (createProblem is { Length: > 0 })
+                                                {
+                                                    <span class="create-problem">@createProblem</span>
+                                                }
+
+                                                <div class="doc-actions">
+                                                    <button type="button" class="btn btn-primary"
+                                                            disabled="@(busy || freshCategory.Trim().Length == 0)"
+                                                            @onclick="() => CreateAndAssignAsync(group)">
+                                                        Anlegen &amp; zuordnen
+                                                    </button>
+                                                    <button type="button" class="btn btn-secondary"
+                                                            @onclick="CancelNewCategory">Abbrechen</button>
+                                                </div>
+                                            }
 
                                             <label class="sheet-rule">
                                                 <input type="checkbox" checked="@remember"
@@ -450,6 +489,11 @@
 
     private IReadOnlyList<CategoryDto> categories = [];
     private ImportRowDto? detail;
+
+    /// <summary>Die Gruppe, für die gerade eine Kategorie angelegt wird.</summary>
+    private string? creatingFor;
+    private string freshCategory = string.Empty;
+    private string? createProblem;
 
     /// <summary>Was standardmäßig behalten wird — und was einzelne Sätze davon abweichen.</summary>
     private ImportKeepFields keep = new();
@@ -618,7 +662,74 @@
             ? CategoryDirection.Income
             : CategoryDirection.Expense));
 
-    private void ToggleGroup(string key) => openGroup = openGroup == key ? null : key;
+    private void ToggleGroup(string key)
+    {
+        openGroup = openGroup == key ? null : key;
+        CancelNewCategory();
+    }
+
+    private void StartNewCategory(PayeeGroup group)
+    {
+        creatingFor = group.Key;
+        freshCategory = string.Empty;
+        createProblem = null;
+    }
+
+    private void CancelNewCategory()
+    {
+        creatingFor = null;
+        freshCategory = string.Empty;
+        createProblem = null;
+    }
+
+    /// <summary>
+    /// Anlegen, zuordnen, merken — in einem Schritt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die Richtung folgt dem Vorzeichen der Gruppe: bei einer Gutschrift entsteht eine
+    /// Einnahmekategorie. Eine Ausgabenkategorie für einen Gehaltseingang wäre von Anfang an
+    /// falsch abgelegt.</para>
+    /// <para>Trifft der Name eine vorhandene Kategorie, ist das kein Fehler — sie wird benutzt,
+    /// und die Meldung sagt es. Die übrigen Zuordnungen bleiben unangetastet; die Vorschau wird
+    /// nicht neu aufgebaut.</para>
+    /// </remarks>
+    private Task CreateAndAssignAsync(PayeeGroup group) => RunAsync(async () =>
+    {
+        busy = true;
+        createProblem = null;
+
+        try
+        {
+            var direction = group.Sum >= 0 ? CategoryDirection.Income : CategoryDirection.Expense;
+            var ergebnis = await Api.EnsureCategoryAsync(freshCategory.Trim(), direction);
+
+            // Die Chipliste kennt die neue Kategorie noch nicht.
+            if (ergebnis.Created)
+            {
+                categories = [.. categories, ergebnis.Category];
+            }
+
+            var anzahl = group.Rows.Count;
+            choices[group.Key] = new ImportCategoryChoice(group.Payee, ergebnis.Category.Id, remember);
+            deferred.Remove(group.Key);
+
+            CancelNewCategory();
+            openGroup = null;
+
+            var was = ergebnis.Created ? "angelegt" : "bestand bereits";
+            Toasts.Show(remember
+                ? $"{ergebnis.Category.Name} {was} · {anzahl}× zugeordnet · Regel gemerkt"
+                : $"{ergebnis.Category.Name} {was} · {anzahl}× zugeordnet");
+        }
+        catch (ApiException ex)
+        {
+            createProblem = ex.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
 
     private ImportKeepFields KeepFor(ImportRowDto row)
         => keepOverrides.TryGetValue(row.Index, out var eigene) ? eigene : keep;
