@@ -1,0 +1,284 @@
+@page "/kategorien"
+@attribute [Authorize]
+@inherits AppPage
+
+@*
+    Kategorien sind Daten, keine Konstante im Code: sie speisen die Chips bei Erfassung,
+    Kategorie-Fenster, Importzuordnung und Budgetanlage.
+
+    Ausgaben und Einnahmen sind zwei getrennte Listen — eine Ausgabenkategorie darf bei einer
+    Gutschrift nicht erscheinen, sonst wird die falsche Zuordnung erst möglich gemacht.
+*@
+
+<PageTitle>Kategorien — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    <section class="hero">
+        <span class="label-muted">Kategorien</span>
+        <span class="hero-value num">@categories.Count</span>
+        <span class="loan-sub">
+            @(direction == CategoryDirection.Expense ? "Ausgaben" : "Einnahmen") ·
+            @categories.Count(c => !c.IsUsed) noch nicht verwendet
+        </span>
+    </section>
+
+    <div class="segmented bordered">
+        <button type="button" class="segmented-opt @(direction == CategoryDirection.Expense ? "active" : null)"
+                @onclick="() => SwitchAsync(CategoryDirection.Expense)">Ausgaben</button>
+        <button type="button" class="segmented-opt @(direction == CategoryDirection.Income ? "active" : null)"
+                @onclick="() => SwitchAsync(CategoryDirection.Income)">Einnahmen</button>
+    </div>
+
+    <AuthorizeView Roles="Owner,Member" Context="write">
+        <div class="field">
+            <label for="neue-kategorie">Neue Kategorie</label>
+            <div class="rule-actions">
+                <input id="neue-kategorie" class="input" value="@fresh"
+                       placeholder="@(direction == CategoryDirection.Expense ? "z. B. Bildung" : "z. B. Nebenjob")"
+                       @oninput="e => fresh = e.Value?.ToString() ?? string.Empty" />
+                <button type="button" class="btn btn-primary"
+                        disabled="@(busy || fresh.Trim().Length == 0)" @onclick="AddAsync">Hinzufügen</button>
+            </div>
+        </div>
+    </AuthorizeView>
+
+    @if (problem is { Length: > 0 })
+    {
+        <span class="create-problem">@problem</span>
+    }
+
+    <div class="list-head">
+        <span class="label-strong">Name · Verwendung</span>
+    </div>
+
+    @foreach (var category in categories)
+    {
+        var id = category.Id;
+
+        <div class="import-row @(pending == id ? "picked" : null)">
+            @if (editing == id)
+            {
+                @* Inline umbenennen: der Name bleibt an seinem Platz, statt in ein Fenster zu wandern. *@
+                <span class="stack">
+                    <input class="input" value="@draft" aria-label="Neuer Name"
+                           @oninput="e => draft = e.Value?.ToString() ?? string.Empty" />
+                </span>
+                <span class="rule-actions">
+                    <button type="button" class="btn btn-primary" disabled="@busy"
+                            @onclick="() => RenameAsync(id)">Speichern</button>
+                    <button type="button" class="btn btn-secondary" disabled="@busy"
+                            @onclick="CancelEdit">Abbrechen</button>
+                </span>
+            }
+            else
+            {
+                <span class="stack">
+                    <span class="import-row-payee">@category.Name</span>
+                    <span class="meta">@Usage(category)</span>
+                </span>
+
+                <AuthorizeView Roles="Owner,Member" Context="row">
+                    @if (pending == id)
+                    {
+                        <span class="rule-actions">
+                            <button type="button" class="btn btn-primary delete-confirm" disabled="@busy"
+                                    @onclick="() => DeleteAsync(id)">Wirklich löschen</button>
+                            <button type="button" class="btn btn-secondary" disabled="@busy"
+                                    @onclick="@(() => pending = null)">Behalten</button>
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="rule-actions">
+                            <button type="button" class="btn btn-secondary" disabled="@busy"
+                                    @onclick="() => StartEdit(category)">Umbenennen</button>
+                            <button type="button" class="btn btn-secondary" disabled="@busy"
+                                    @onclick="() => pending = id">Löschen</button>
+                        </span>
+                    }
+                </AuthorizeView>
+            }
+        </div>
+    }
+
+    <div class="tx-totals-note">
+        Beim Löschen fallen die betroffenen Buchungen auf „Nicht zugeordnet“ und erscheinen im
+        Triage-Banner der Buchungsliste; Regeln auf diese Kategorie werden entfernt. Läuft ein
+        Budget darauf, wird nicht gelöscht — dann ist erst das Budget dran.
+    </div>
+
+    <div class="spacer"></div>
+</AsyncView>
+
+@code {
+    private IReadOnlyList<CategoryUsageDto> categories = [];
+    private CategoryDirection direction = CategoryDirection.Expense;
+
+    private string fresh = string.Empty;
+    private string draft = string.Empty;
+    private int? editing;
+    private int? pending;
+    private string? problem;
+    private bool busy;
+
+    protected override async Task LoadAsync()
+    {
+        categories = await Api.GetCategoryUsageAsync(direction);
+        editing = null;
+        pending = null;
+    }
+
+    private async Task SwitchAsync(CategoryDirection wanted)
+    {
+        direction = wanted;
+        problem = null;
+        fresh = string.Empty;
+
+        await LoadAsync();
+    }
+
+    /// <summary>
+    /// Was an der Kategorie hängt — gezählt, nicht behauptet.
+    /// </summary>
+    /// <remarks>
+    /// Das ist die Entscheidungsgrundlage vor dem Löschen. Wer nicht sieht, was dranhängt, löscht
+    /// entweder blind oder gar nicht.
+    /// </remarks>
+    private static string Usage(CategoryUsageDto category)
+    {
+        if (!category.IsUsed)
+        {
+            return "noch nicht verwendet";
+        }
+
+        var teile = new List<string>();
+
+        if (category.TransactionCount > 0)
+        {
+            teile.Add($"{category.TransactionCount} {(category.TransactionCount == 1 ? "Buchung" : "Buchungen")}");
+        }
+
+        if (category.RuleCount > 0)
+        {
+            teile.Add($"{category.RuleCount} {(category.RuleCount == 1 ? "Regel" : "Regeln")}");
+        }
+
+        if (category.HasBudget)
+        {
+            teile.Add("Budget");
+        }
+
+        return string.Join(" · ", teile);
+    }
+
+    private void StartEdit(CategoryUsageDto category)
+    {
+        editing = category.Id;
+        draft = category.Name;
+        pending = null;
+        problem = null;
+    }
+
+    private void CancelEdit()
+    {
+        editing = null;
+        draft = string.Empty;
+        problem = null;
+    }
+
+    private Task AddAsync() => RunAsync(async () =>
+    {
+        busy = true;
+        problem = null;
+
+        try
+        {
+            var angelegt = await Api.CreateCategoryAsync(fresh.Trim(), direction);
+
+            fresh = string.Empty;
+            await LoadAsync();
+
+            Toasts.Show($"„{angelegt.Name}“ angelegt");
+        }
+        catch (ApiException ex)
+        {
+            // Der Grund bleibt stehen — doppelte Namen erkennt man erst an der Meldung.
+            problem = ex.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    private Task RenameAsync(int id) => RunAsync(async () =>
+    {
+        var vorher = categories.FirstOrDefault(c => c.Id == id)?.Name;
+        var nachher = draft.Trim();
+
+        busy = true;
+        problem = null;
+
+        try
+        {
+            var wirkung = await Api.RenameCategoryAsync(id, nachher);
+
+            CancelEdit();
+            await LoadAsync();
+
+            // Die Meldung nennt die Reichweite: Buchungen und Regeln zeigen per Id auf die
+            // Kategorie, deshalb wirkt die Umbenennung überall zugleich.
+            Toasts.Show(wirkung.TransactionCount == 0
+                ? $"{vorher} → {nachher}"
+                : $"{vorher} → {nachher} · {wirkung.TransactionCount} "
+                  + (wirkung.TransactionCount == 1 ? "Buchung angepasst" : "Buchungen angepasst"));
+        }
+        catch (ApiException ex)
+        {
+            problem = ex.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    private Task DeleteAsync(int id) => RunAsync(async () =>
+    {
+        var name = categories.FirstOrDefault(c => c.Id == id)?.Name;
+
+        busy = true;
+        problem = null;
+
+        try
+        {
+            var wirkung = await Api.DeleteCategoryAsync(id);
+            await LoadAsync();
+
+            var teile = new List<string> { $"„{name}“ gelöscht" };
+
+            if (wirkung.TransactionCount > 0)
+            {
+                teile.Add($"{wirkung.TransactionCount} "
+                          + (wirkung.TransactionCount == 1 ? "Buchung" : "Buchungen")
+                          + " ohne Kategorie");
+            }
+
+            if (wirkung.RuleCount > 0)
+            {
+                teile.Add($"{wirkung.RuleCount} {(wirkung.RuleCount == 1 ? "Regel" : "Regeln")} entfernt");
+            }
+
+            Toasts.Show(string.Join(" · ", teile));
+        }
+        catch (ApiException ex)
+        {
+            pending = null;
+            problem = ex.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+}

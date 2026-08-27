@@ -7,6 +7,40 @@ public sealed record CategoryDto
     public required CategoryDirection Direction { get; init; }
 }
 
+/// <summary>
+/// Eine Kategorie samt dem, was an ihr hängt.
+/// </summary>
+/// <remarks>
+/// Der Verwendungsnachweis ist die Entscheidungsgrundlage vor dem Löschen — gezählt, nicht
+/// behauptet. Wer nicht sieht, was dranhängt, löscht entweder blind oder gar nicht.
+/// </remarks>
+public sealed record CategoryUsageDto
+{
+    public required int Id { get; init; }
+    public required string Name { get; init; }
+    public required CategoryDirection Direction { get; init; }
+
+    public required int TransactionCount { get; init; }
+    public required int RuleCount { get; init; }
+    public required bool HasBudget { get; init; }
+
+    public bool IsUsed => TransactionCount > 0 || RuleCount > 0 || HasBudget;
+}
+
+public sealed record CategoryNameRequest
+{
+    public required string Name { get; init; }
+    public CategoryDirection Direction { get; init; }
+}
+
+/// <summary>Was das Umbenennen oder Löschen tatsächlich angefasst hat.</summary>
+public sealed record CategoryChangeResultDto
+{
+    public required int TransactionCount { get; init; }
+    public required int RuleCount { get; init; }
+    public required bool HadBudget { get; init; }
+}
+
 public sealed record CategorizationRuleDto
 {
     public required int Id { get; init; }

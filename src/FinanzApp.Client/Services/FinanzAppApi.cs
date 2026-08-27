@@ -201,6 +201,25 @@ public sealed class FinanzAppApi(HttpClient http)
     public Task DeleteRuleAsync(int id, CancellationToken ct = default)
         => SendWithoutResultAsync<object?>(HttpMethod.Delete, $"api/rules/{id}", null, ct);
 
+    /// <summary>Die Kategorien einer Richtung samt Verwendungsnachweis.</summary>
+    public Task<IReadOnlyList<CategoryUsageDto>> GetCategoryUsageAsync(
+        CategoryDirection direction, CancellationToken ct = default)
+        => GetAsync<IReadOnlyList<CategoryUsageDto>>("api/categories/usage?direction=" + direction, ct);
+
+    public Task<CategoryDto> CreateCategoryAsync(
+        string name, CategoryDirection direction, CancellationToken ct = default)
+        => PostAsync<CategoryNameRequest, CategoryDto>(
+            "api/categories", new CategoryNameRequest { Name = name, Direction = direction }, ct);
+
+    public Task<CategoryChangeResultDto> RenameCategoryAsync(
+        int id, string name, CancellationToken ct = default)
+        => SendAsync<CategoryNameRequest, CategoryChangeResultDto>(
+            HttpMethod.Patch, $"api/categories/{id}", new CategoryNameRequest { Name = name }, ct);
+
+    public Task<CategoryChangeResultDto> DeleteCategoryAsync(int id, CancellationToken ct = default)
+        => SendAsync<object?, CategoryChangeResultDto>(
+            HttpMethod.Delete, $"api/categories/{id}", null, ct);
+
     /// <summary>Die gelernten Kategorieregeln.</summary>
     public Task<IReadOnlyList<CategorizationRuleDto>> GetRulesAsync(CancellationToken ct = default)
         => GetAsync<IReadOnlyList<CategorizationRuleDto>>("api/rules", ct);

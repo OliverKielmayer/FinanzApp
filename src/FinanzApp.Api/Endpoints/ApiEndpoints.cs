@@ -87,6 +87,51 @@ public static class ApiEndpoints
                 CategoryDirection? direction, CatalogService service, CancellationToken ct)
             => Results.Ok(await service.GetCategoriesAsync(direction, ct)));
 
+        // Kategorien sind Daten, keine Konstante im Code: sie speisen die Chips bei Erfassung,
+        // Kategorie-Sheet, Import und Budgetanlage.
+        api.MapGet("/categories/usage", async (
+                CategoryDirection direction, CatalogService service, CancellationToken ct)
+            => Results.Ok(await service.GetUsageAsync(direction, ct)));
+
+        api.MapPost("/categories", async (
+            CategoryNameRequest request, CatalogService service, CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(await service.CreateAsync(request.Name, request.Direction, ct));
+            }
+            catch (RuleViolationException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.Write);
+
+        api.MapPatch("/categories/{id:int}", async (
+            int id, CategoryNameRequest request, CatalogService service, CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(await service.RenameAsync(id, request.Name, ct));
+            }
+            catch (RuleViolationException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.Write);
+
+        api.MapDelete("/categories/{id:int}", async (
+            int id, CatalogService service, CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(await service.DeleteAsync(id, ct));
+            }
+            catch (RuleViolationException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.Write);
+
         api.MapDelete("/rules/{id:int}", async (int id, CatalogService service, CancellationToken ct)
                 => await service.DeleteRuleAsync(id, ct) ? Results.NoContent() : Results.NotFound())
             .RequireAuthorization(AuthPolicies.Write);

@@ -63,6 +63,8 @@ public static class ScreenCatalog
         new("/fahrzeuge", "Mobilität", "Fahrzeuge", IsDetail: true, InAreaList: true,
             DetailTitle: "Fahrzeug"),
         new("/scaneingang", "Eingang", "Scaneingang", IsDetail: true, InAreaList: true),
+        new("/kategorien", "Ordnung", "Kategorien", IsDetail: true, InAreaList: true),
+        new("/kategorieregeln", "Ordnung", "Kategorieregeln", IsDetail: true, InAreaList: true),
         new("/benutzer", "Konto", "Benutzer & Anmeldung", IsDetail: true, InAreaList: true),
 
         // Detailscreens, die aus einem Bereich heraus geöffnet werden.
@@ -98,7 +100,7 @@ public static class ScreenCatalog
             "/", "/vorgaenge", "/konten", "/budgets", "/depot",
             "/vorsorge", "/absicherung",
             "/dokumente", "/scaneingang", "/gesundheit", "/wohnen", "/fahrzeuge",
-            "/darlehen", "/import", "/benutzer",
+            "/darlehen", "/import", "/kategorien", "/kategorieregeln", "/benutzer",
         }
         .Select(route => All.First(s => s.Route == route)),
     ];

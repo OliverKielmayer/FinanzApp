@@ -92,8 +92,14 @@
             "/liquiditaet");
 
         yield return new AreaRow(
-            "Kategorien & Regeln",
-            $"{overview.CategoryCount} Kategorien · {overview.RuleCount} Regeln",
+            "Kategorien",
+            $"{overview.CategoryCount} Kategorien · Ausgaben und Einnahmen",
+            string.Empty,
+            "/kategorien");
+
+        yield return new AreaRow(
+            "Kategorieregeln",
+            $"{overview.RuleCount} Regeln · gelernt beim Import",
             string.Empty,
             "/kategorieregeln");
 
