@@ -11,20 +11,53 @@ public sealed record DashboardDto
     public required IReadOnlyList<BudgetDto> TopBudgets { get; init; }
 }
 
+/// <summary>
+/// Das Vermögen in drei Größen.
+/// </summary>
+/// <remarks>
+/// <para>Früher stand hier ein einziges „Brutto“ — und das waren nur die Finanzwerte. Solange
+/// Immobilien auf einem eigenen Bildschirm lagen, fiel das nicht auf. In <em>einer</em> Liste
+/// unter <em>einer</em> Kennzahl wird daraus ein Widerspruch: der Kopf nannte 99.880 €, und in
+/// den Zeilen darunter stand ein Haus mit 395.000 €. Wer nachrechnet, kommt auf 495 T€.</para>
+/// <para>Darum drei Größen und keine zusammengeworfene. Dashboard, Navigationskennzahl und
+/// Bestandskopf rechnen aus derselben Quelle — v5-Handoff, Abschnitt 3(b).</para>
+/// </remarks>
 public sealed record NetWorthDto
 {
-    /// <summary>Summe aller Vermögenswerte.</summary>
-    public required decimal Gross { get; init; }
+    /// <summary>
+    /// Konten, Depot und kapitalbildende Verträge — was sich zu Geld machen lässt.
+    /// </summary>
+    public required decimal FinancialAssets { get; init; }
+
+    /// <summary>
+    /// Sachwerte: Immobilien.
+    /// </summary>
+    /// <remarks>
+    /// Fahrzeuge stehen hier nicht. Sie tragen in diesem Bestand keinen Wert, sondern
+    /// Jahreskosten — einen Vermögenswert für sie zu erfinden wäre schlimmer als keiner.
+    /// </remarks>
+    public required decimal TangibleAssets { get; init; }
 
     /// <summary>Summe aller Verbindlichkeiten, positiv geführt.</summary>
     public required decimal Liabilities { get; init; }
 
-    public decimal Net => Gross - Liabilities;
+    /// <summary>Alles zusammen.</summary>
+    public decimal Net => FinancialAssets + TangibleAssets - Liabilities;
 
-    /// <summary>Veränderung gegenüber dem Vormonat, vorzeichenbehaftet.</summary>
+    /// <summary>
+    /// Finanzvermögen abzüglich Verbindlichkeiten.
+    /// </summary>
+    /// <remarks>
+    /// Die Größe, die die Verlaufskurve zeichnet: für Sachwerte gibt es keine Monatsreihe, und
+    /// einen konstanten Immobilienwert in jeden Punkt zu addieren verschiebt die Kurve nur nach
+    /// oben, ohne etwas zu zeigen. Die Kurve sagt darum ausdrücklich, was sie zeichnet.
+    /// </remarks>
+    public decimal FinancialNet => FinancialAssets - Liabilities;
+
+    /// <summary>Veränderung des Finanzvermögens gegenüber dem Vormonat, vorzeichenbehaftet.</summary>
     public required decimal DeltaPreviousMonth { get; init; }
 
-    /// <summary>Veränderung im laufenden Jahr in Prozent, vorzeichenbehaftet.</summary>
+    /// <summary>Veränderung des Finanzvermögens im laufenden Jahr in Prozent.</summary>
     public required decimal DeltaYearPercent { get; init; }
 }
 
@@ -35,8 +68,8 @@ public sealed record AssetSliceDto
     public required string Subtitle { get; init; }
     public required decimal Value { get; init; }
 
-    /// <summary>Anteil am Bruttovermögen, 0…1.</summary>
-    public required decimal ShareOfGross { get; init; }
+    /// <summary>Anteil am Finanzvermögen, 0…1.</summary>
+    public required decimal ShareOfFinancialAssets { get; init; }
 
     /// <summary>Zielroute für den Tap auf die Kachel.</summary>
     public required string Route { get; init; }

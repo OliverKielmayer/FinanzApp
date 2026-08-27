@@ -34,6 +34,10 @@ public sealed class DashboardService(
         var debt = await loans.GetTotalDebtAsync(ct);
 
         var gross = checking + savings + depotValue + pension;
+
+        // Sachwerte kommen aus den Immobilien. Sie gehören ins Vermögen, aber nicht in
+        // dieselbe Summe wie das, was auf Konten liegt.
+        var tangible = await db.Properties.AsNoTracking().SumAsync(p => p.MarketValue, ct);
         var history = await db.NetWorthSnapshots.AsNoTracking()
             .OrderBy(s => s.Month)
             .Select(s => new TimeSeriesPointDto { Month = s.Month, Value = s.Value })
@@ -43,7 +47,8 @@ public sealed class DashboardService(
         {
             NetWorth = new NetWorthDto
             {
-                Gross = gross,
+                FinancialAssets = gross,
+                TangibleAssets = tangible,
                 Liabilities = debt,
                 DeltaPreviousMonth = DeltaPreviousMonth(history),
                 DeltaYearPercent = DeltaYearPercent(history),
@@ -96,7 +101,7 @@ public sealed class DashboardService(
             Label = label,
             Subtitle = subtitle,
             Value = value,
-            ShareOfGross = gross == 0 ? 0 : value / gross,
+            ShareOfFinancialAssets = gross == 0 ? 0 : value / gross,
             Route = route,
         };
 

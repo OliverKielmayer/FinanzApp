@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link href="https://fonts.googleapis.com/css2?family=Kalam:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#f0eee9;font-family:Kalam,system-ui,sans-serif}
+a{color:#2b6087}a:hover{color:#1d4360}
+.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}
+.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 20px}
+.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px;text-decoration:none}
+.dv-tname{font:700 15px/1.2 Kalam,sans-serif;color:#1a1a1a}
+.dv-opts{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}
+.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none}
+.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 13px/1.3 Kalam,sans-serif;color:rgba(0,0,0,.6)}
+.dv-card{max-width:100%;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden;padding:18px}
+.dv-opt:target .dv-oid{background:#5980a6;color:#fff}
+.dv-next{margin:22px 0 0;font:13px/1.5 Kalam,sans-serif;color:rgba(0,0,0,.55)}
+.row{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.ph{width:250px;flex:none;border:2px solid #2b2b2b;background:#fff;display:flex;flex-direction:column;overflow:hidden}
+.ph-w{width:520px}
+.ph-t{font:700 13px Kalam;padding:7px 10px;border-bottom:2px solid #2b2b2b;background:#f4f2ee;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.ph-b{padding:9px 10px;display:flex;flex-direction:column;gap:8px;flex:1}
+.sec{font:700 11px Kalam;letter-spacing:.04em;color:#5b5b5b;text-transform:uppercase}
+.bx{border:1.5px solid #9a9a9a;padding:7px 8px;display:flex;flex-direction:column;gap:4px;font:400 12px/1.25 Kalam;color:#2b2b2b}
+.bx-a{border-color:#2b6087;background:#eef3f8}
+.bx-g{background:#f2f1ee}
+.ln{height:7px;background:#dedbd5}
+.hd{font:700 15px Kalam;color:#1a1a1a}
+.big{font:700 26px Kalam;color:#1a1a1a;line-height:1}
+.sm{font:400 11px Kalam;color:#6a6a6a}
+.acc{color:#2b6087}
+.btn{border:1.5px solid #2b2b2b;padding:7px 9px;font:700 12px Kalam;text-align:left}
+.btn-p{background:#2b2b2b;color:#fff}
+.tabs{margin-top:auto;border-top:2px solid #2b2b2b;display:grid;grid-template-columns:repeat(4,1fr);font:400 10px Kalam;text-align:center}
+.tabs > span{padding:7px 2px;border-right:1px solid #cfcbc4;color:#6a6a6a}
+.tabs5{grid-template-columns:repeat(5,1fr)}
+.on{color:#2b6087;font-weight:700;background:#eef3f8}
+.chips{display:flex;flex-wrap:wrap;gap:5px;font:400 11px Kalam}
+.chip{border:1.5px solid #9a9a9a;padding:3px 8px}
+.chip-a{border-color:#2b6087;background:#2b6087;color:#fff}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px}
+.note{font:400 12px/1.45 Kalam;color:#5b5b5b}
+.side{display:flex;gap:0;align-items:stretch}
+.nav{width:130px;flex:none;border-right:2px solid #2b2b2b;padding:8px 8px;display:flex;flex-direction:column;gap:3px;font:400 11px Kalam;background:#f8f7f4}
+.nav > span{padding:5px 6px;color:#4a4a4a}
+.nav .on{background:#eef3f8;color:#2b6087;font-weight:700}
+.cnt{flex:1;padding:9px 10px;display:flex;flex-direction:column;gap:8px}
+.old{border:1.5px solid #c0392b;background:#fdf1ef;padding:7px 8px;font:400 12px Kalam;color:#7c1405}
+</style>
+</helmet>
+
+<section class="dv-turn" id="t3">
+<div class="dv-thd"><a class="dv-tid" href="#t3">3</a><span class="dv-tname">Navigation v5 — 19 Bereiche auf 6 zusammenlegen</span></div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="3a">
+  <div class="dv-olabel"><a class="dv-oid" href="#3a">3a</a>Der Befund — was heute nebeneinander steht</div>
+  <div class="dv-card">
+    <div class="row">
+      <div class="ph">
+        <div class="ph-t"><span>Heute: Seitennav</span><span class="sm">19</span></div>
+        <div class="ph-b" style="gap:3px;font:400 11px Kalam">
+          <div class="bx-g" style="padding:4px 7px">Vermögen · Vorgänge</div>
+          <div class="old">Konten &amp; Buchungen<br>Budgets · Depot<br>Vorsorge &amp; Kapital<br>Absicherung<br>Wohnen · Fahrzeuge<br>Darlehen<br><b>7 × dasselbe Muster</b></div>
+          <div class="old">Dokumente<br>Scaneingang<br>Import<br><b>3 × „Daten herein"</b></div>
+          <div class="old">Kategorien · Regeln<br>Benutzer<br><b>3 × Stammdaten</b></div>
+          <div class="bx-g" style="padding:4px 7px">Auswertungen</div>
+          <div class="bx-g" style="padding:4px 7px">Gesundheit / PKV</div>
+        </div>
+      </div>
+      <div class="ph" style="width:280px">
+        <div class="ph-t"><span>Warum das bricht</span><span class="sm">Diagnose</span></div>
+        <div class="ph-b">
+          <div class="bx"><b>Objekte sind formgleich</b><span class="sm">Konto, Depot, Vertrag, Immobilie, Fahrzeug: alle → Liste, Kennzahl, Verträge, Dokumente, Kosten. Sieben Einträge für ein Muster.</span></div>
+          <div class="bx"><b>Ein Vorgang, drei Türen</b><span class="sm">Scannen, Auszug einlesen, Buchung tippen sind dasselbe Ziel: Daten herein. Der Nutzer sucht die Tür, nicht das Format.</span></div>
+          <div class="bx"><b>Selten neben ständig</b><span class="sm">Kategorien pflegt man dreimal im Jahr, Liquidität sieht man täglich. Gleichrangig ist falsch.</span></div>
+          <div class="bx bx-a"><b>„Mehr" ist das Symptom</b><span class="sm">Nicht die Ursache. Umbenennen in „Auswerten" verschiebt nur den Haufen.</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="dv-opt" id="3b">
+  <div class="dv-olabel"><a class="dv-oid" href="#3b">3b</a>Vorschlag A — 4 Tabs, Bestand als eine Liste (empfohlen)</div>
+  <div class="dv-card">
+    <div class="row">
+      <div class="ph">
+        <div class="ph-t"><span>Heute</span><span class="sm">🔍 •••</span></div>
+        <div class="ph-b">
+          <div class="bx"><span class="sm">Bleibt übrig · August</span><span class="big">+1.628 €</span><span class="sm">Sparquote 31 %</span></div>
+          <div class="bx bx-a"><b>3 offene Vorgänge</b><span class="sm">Erstattung 680 € überfällig</span></div>
+          <div class="sec">Vermögen</div>
+          <div class="bx bx-g"><span class="sm">Netto</span><b>125.840 €</b></div>
+          <div class="grid2">
+            <div class="bx bx-g"><span class="sm">Konten</span><b>6.760</b></div>
+            <div class="bx bx-g"><span class="sm">Depot</span><b>132.480</b></div>
+          </div>
+          <div class="bx bx-g"><span class="sm">Kosten steigen</span><b>3 Kategorien</b></div>
+        </div>
+        <div class="tabs"><span class="on">Heute</span><span>Vorgänge</span><span>Bestand</span><span>＋</span></div>
+      </div>
+      <div class="ph">
+        <div class="ph-t"><span>Bestand</span><span class="sm">🔍 +</span></div>
+        <div class="ph-b">
+          <div class="chips"><span class="chip chip-a">Alle 26</span><span class="chip">Konten</span><span class="chip">Depot</span><span class="chip">Vorsorge</span><span class="chip">Absicherung</span><span class="chip">Wohnen</span><span class="chip">Fahrzeuge</span><span class="chip">Darlehen</span></div>
+          <div class="bx bx-g"><span class="sm">Bruttovermögen · Verbindlichkeiten</span><b>274.140 € · −148.300 €</b></div>
+          <div class="bx">Sparkasse Giro <span class="sm">Konto · Haushalt · 4.812,60 €</span></div>
+          <div class="bx">Trade Republic <span class="sm">Depot · 132.480 € · heute</span></div>
+          <div class="bx">Heidelberger Leben <span class="sm">Vorsorge · 20.482 € · Stand 07/25</span></div>
+          <div class="bx bx-a">Hausrat HUK <span class="sm">Absicherung · Frist in 18 Tagen</span></div>
+          <div class="bx">Kammerstatter Str. 10 <span class="sm">Immobilie · 395.000 €</span></div>
+          <div class="bx">VW Passat L-2905 <span class="sm">Fahrzeug · 2.840 €/Jahr</span></div>
+          <div class="sm">Ein Muster, eine Liste — 7 Navigationspunkte weniger.</div>
+        </div>
+        <div class="tabs"><span>Heute</span><span>Vorgänge</span><span class="on">Bestand</span><span>＋</span></div>
+      </div>
+      <div class="ph">
+        <div class="ph-t"><span>Bestand · Vorsorge</span><span class="sm">+</span></div>
+        <div class="ph-b">
+          <div class="chips"><span class="chip">Alle</span><span class="chip">Konten</span><span class="chip">Depot</span><span class="chip chip-a">Vorsorge</span><span class="chip">Absicherung</span></div>
+          <div class="bx bx-a"><span class="sm">Erreichter Wert · 4 Verträge</span><span class="big">58.940 €</span><span class="sm">Stichtage 07/2025 – 01/2026</span></div>
+          <div class="bx">Heidelberger Leben <span class="sm">Kapital-LV · 20.482 € · 07/25</span></div>
+          <div class="bx">Raiffeisenbank LV <span class="sm">Kapital-LV · 18.940 € · 12/25</span></div>
+          <div class="bx">Riester Debeka <span class="sm">Riester · 12.310 € · 01/26</span></div>
+          <div class="bx bx-a">Bausparen BSK <span class="sm">zuteilungsreif · 7.208 €</span></div>
+          <div class="sm">Der Klassenfilter setzt die Kopfkennzahl. Keine Kennzahl geht verloren.</div>
+        </div>
+        <div class="tabs"><span>Heute</span><span>Vorgänge</span><span class="on">Bestand</span><span>＋</span></div>
+      </div>
+      <div class="ph">
+        <div class="ph-t"><span>Erfassen</span><span class="sm">✕</span></div>
+        <div class="ph-b">
+          <div class="bx bx-a"><b>4 Belege warten</b><span class="sm">Scaneingang · 2 erkannt</span></div>
+          <div class="btn btn-p">📷 Beleg scannen</div>
+          <div class="btn">Kontoauszug einlesen</div>
+          <div class="btn">Buchung erfassen</div>
+          <div class="btn">Arztrechnung / PKV</div>
+          <div class="btn">Rechnung</div>
+          <div class="btn">Objekt oder Vertrag anlegen</div>
+          <div class="sm">Scaneingang und Import sind Zustände dieses Flusses, keine Bereiche.</div>
+        </div>
+        <div class="tabs"><span>Heute</span><span>Vorgänge</span><span>Bestand</span><span class="on">＋</span></div>
+      </div>
+      <div class="ph">
+        <div class="ph-t"><span>🔍 „hausrat"</span><span class="sm">✕</span></div>
+        <div class="ph-b">
+          <div class="chips"><span class="chip chip-a">Alles</span><span class="chip">Objekte</span><span class="chip">Dokumente</span><span class="chip">Buchungen</span></div>
+          <div class="bx">Hausrat HUK <span class="sm">Absicherung · Vertrag</span></div>
+          <div class="bx">Versicherungsschein 2024 <span class="sm">Dokument · PDF</span></div>
+          <div class="bx">Beitragsanpassung 2026 <span class="sm">Dokument · PDF</span></div>
+          <div class="bx">156 € · 04.02.2026 <span class="sm">Buchung · Sparkasse</span></div>
+          <div class="bx bx-g">Kündigungsfrist 30.09.2027 <span class="sm">Vorgang</span></div>
+          <div class="sm">Lupe im Kopf jedes Screens. Niemand sucht „ein Dokument" — man sucht eine Sache.</div>
+        </div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <div class="note" style="max-width:250px"><b>Tabs (4):</b> Heute · Vorgänge · Bestand · Erfassen.<br><b>Kopf:</b> Lupe = Suche über alles, „•••" = Auswertungen und Einstellungen.</div>
+      <div class="note" style="max-width:250px"><b>Aufgelöst:</b> 7 Objektbereiche → Bestand. Scaneingang + Import → Erfassen. Dokumente → Suche. Kategorien, Regeln, Benutzer → Einstellungen.</div>
+      <div class="note" style="max-width:250px"><b>Preis:</b> Bestand braucht den Klassenfilter zwingend. Und Auswertungen liegt einen Tap tiefer als heute.</div>
+    </div>
+  </div>
+</div>
+
+<div class="dv-opt" id="3c">
+  <div class="dv-olabel"><a class="dv-oid" href="#3c">3c</a>Vorschlag B — deine Verb-Achse, konsequent durchgezogen</div>
+  <div class="dv-card">
+    <div class="row">
+      <div class="ph">
+        <div class="ph-t"><span>Übersicht</span><span class="sm">•••</span></div>
+        <div class="ph-b">
+          <div class="bx"><span class="sm">Bleibt übrig</span><span class="big">+1.628 €</span></div>
+          <div class="bx bx-a"><b>3 offene Vorgänge</b></div>
+          <div class="bx bx-g"><span class="sm">Netto</span><b>125.840 €</b></div>
+          <div class="ln"></div><div class="ln" style="width:64%"></div>
+        </div>
+        <div class="tabs tabs5"><span class="on">Übersicht</span><span>Aufgaben</span><span>Erfassen</span><span>Auswerten</span><span>Einrichten</span></div>
+      </div>
+      <div class="ph">
+        <div class="ph-t"><span>Auswerten</span><span class="sm">🔍</span></div>
+        <div class="ph-b">
+          <div class="sec">Mein Bestand</div>
+          <div class="bx-g" style="padding:5px 7px;font:400 11px Kalam">Konten · Depot · Vorsorge · Absicherung · Wohnen · Fahrzeuge · Darlehen</div>
+          <div class="sec">Berichte</div>
+          <div class="bx-g" style="padding:5px 7px;font:400 11px Kalam">Kostentrend · Fixkosten · Depot G/V · Budgets · Datenqualität</div>
+          <div class="sec">Suchen</div>
+          <div class="bx-g" style="padding:5px 7px;font:400 11px Kalam">Dokumente · Buchungen</div>
+          <div class="old"><b>14 Einträge in einem Tab.</b><br>Das ist „Mehr" mit neuem Namen.</div>
+        </div>
+        <div class="tabs tabs5"><span>Übersicht</span><span>Aufgaben</span><span>Erfassen</span><span class="on">Auswerten</span><span>Einrichten</span></div>
+      </div>
+      <div class="ph">
+        <div class="ph-t"><span>Einrichten</span><span class="sm">•••</span></div>
+        <div class="ph-b">
+          <div class="bx">Kategorien <span class="sm">21 · Ausgaben und Einnahmen</span></div>
+          <div class="bx">Kategorieregeln <span class="sm">6 · greifen beim Import</span></div>
+          <div class="bx">Benutzer &amp; Freigaben <span class="sm">3 Benutzer</span></div>
+          <div class="bx">Dokumenttypen <span class="sm">12</span></div>
+          <div class="bx">Importprofile <span class="sm">CAMT · CSV</span></div>
+          <div class="bx">Sicherung <span class="sm">täglich 03:00</span></div>
+          <div class="sm">Dieser Tab funktioniert — aber er kostet einen von fünf Plätzen für etwas, das man vierteljährlich braucht.</div>
+        </div>
+        <div class="tabs tabs5"><span>Übersicht</span><span>Aufgaben</span><span>Erfassen</span><span>Auswerten</span><span class="on">Einrichten</span></div>
+      </div>
+    </div>
+    <p class="note" style="margin:14px 0 0">Sauber im Modell, unwuchtig in der Praxis: „Auswerten" trägt 14 Einträge, „Einrichten" belegt einen Dauerplatz für seltene Arbeit. Die Verben sind trotzdem nützlich — in <a class="dv-oid" href="#3b">3b</a> stecken sie in „Erfassen" und in „Einstellungen", nur nicht symmetrisch.</p>
+  </div>
+</div>
+
+<div class="dv-opt" id="3d">
+  <div class="dv-olabel"><a class="dv-oid" href="#3d">3d</a>Vorschlag C — Bestand nach Lebensbereich statt nach Anlageklasse</div>
+  <div class="dv-card">
+    <div class="row">
+      <div class="ph">
+        <div class="ph-t"><span>Bestand</span><span class="sm">🔍 +</span></div>
+        <div class="ph-b">
+          <div class="chips"><span class="chip chip-a">Alle</span><span class="chip">Geld</span><span class="chip">Wohnen</span><span class="chip">Mobilität</span><span class="chip">Gesundheit</span><span class="chip">Vorsorge</span></div>
+          <div class="bx bx-g"><span class="sm">Netto</span><b>125.840 €</b></div>
+          <div class="bx">Geld <span class="sm">3 Konten · Depot · 189.240 €</span></div>
+          <div class="bx">Wohnen <span class="sm">Immobilie · Darlehen · 6 Verträge · Wohngebäude</span></div>
+          <div class="bx">Mobilität <span class="sm">2 Fahrzeuge · Kfz-Versicherung · 4.180 €/Jahr</span></div>
+          <div class="bx">Gesundheit <span class="sm">PKV · 4 offene Erstattungen</span></div>
+          <div class="bx">Vorsorge <span class="sm">4 Verträge · 58.940 €</span></div>
+          <div class="sm">Folgt der Ordnerstruktur des Nutzers: Fahrzeug und seine Versicherung liegen zusammen.</div>
+        </div>
+        <div class="tabs"><span>Heute</span><span>Vorgänge</span><span class="on">Bestand</span><span>＋</span></div>
+      </div>
+      <div class="ph">
+        <div class="ph-t"><span>Wohnen</span><span class="sm">+</span></div>
+        <div class="ph-b">
+          <div class="bx"><span class="sm">Objektwert · Restschuld</span><span class="big">395.000 €</span><span class="sm">−148.300 € · netto 246.700 €</span></div>
+          <div class="bx bx-g"><span class="sm">Kosten 12 Monate</span><b>18.420 €</b></div>
+          <div class="sec">Gehört dazu</div>
+          <div class="bx">Darlehen Sparkasse <span class="sm">Rate 1.180 € · bis 2031</span></div>
+          <div class="bx">Wohngebäude WGV <span class="sm">412 €/Jahr</span></div>
+          <div class="bx">Strom Stadtwerke <span class="sm">142,50 € · Rechnung offen</span></div>
+          <div class="bx bx-g">23 Dokumente</div>
+          <div class="sm">Ein Lebensbereich zeigt Wert, Schuld, Kosten und Verträge zusammen.</div>
+        </div>
+      </div>
+      <div class="ph">
+        <div class="ph-t"><span>Problem</span><span class="sm">Abwägung</span></div>
+        <div class="ph-b">
+          <div class="old"><b>Wo liegt die Kapital-LV?</b><br>Vorsorge (Wert) oder Gesundheit (Risikoschutz)? Beides plausibel — der Nutzer muss raten.</div>
+          <div class="old"><b>Wo liegt das Tagesgeld?</b><br>„Geld" — aber der Bausparvertrag? Der ist Geld <i>und</i> Wohnen.</div>
+          <div class="bx bx-a"><b>Anlageklasse ist eindeutig</b><span class="sm">Konto, Depot, Vertrag, Objekt — keine Zuordnungsfrage. Lebensbereich ist eine <i>Sicht</i>, nicht die Ordnung.</span></div>
+          <div class="bx"><b>Kompromiss</b><span class="sm">Klassenfilter als Ordnung (3b), Lebensbereich als zweite Chip-Reihe „Sicht: Wohnen" — dieselbe Liste, anders gruppiert.</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="dv-opt" id="3e">
+  <div class="dv-olabel"><a class="dv-oid" href="#3e">3e</a>Desktop — dieselbe Struktur, ohne Kompromiss</div>
+  <div class="dv-card">
+    <div class="row">
+      <div class="ph ph-w">
+        <div class="ph-t"><span>Bestand · Absicherung</span><span class="sm">🔍 Suche · Oliver W.</span></div>
+        <div class="side" style="min-height:270px">
+          <div class="nav">
+            <span class="sm" style="padding:2px 6px">ALLTAG</span>
+            <span>Heute</span><span>Vorgänge <span class="sm">3</span></span>
+            <span class="sm" style="padding:6px 6px 2px">BESTAND</span>
+            <span class="on">Alle Objekte <span class="sm">26</span></span>
+            <span>Konten · Depot</span><span>Vorsorge</span><span>Absicherung</span><span>Wohnen · Fahrzeuge</span>
+            <span class="sm" style="padding:6px 6px 2px">ANALYSE</span>
+            <span>Auswertungen</span><span>Budgets</span>
+            <span class="sm" style="padding:6px 6px 2px">SYSTEM</span>
+            <span>Einstellungen</span>
+          </div>
+          <div class="cnt">
+            <div class="row" style="gap:8px">
+              <div class="bx" style="flex:1"><span class="sm">Jahresbeitrag</span><b style="font-size:19px">12.330 €</b></div>
+              <div class="bx" style="flex:1"><span class="sm">Verträge</span><b style="font-size:19px">8</b></div>
+              <div class="bx bx-a" style="flex:1"><span class="sm">Fristen offen</span><b style="font-size:19px">2</b></div>
+            </div>
+            <div class="row" style="gap:8px;align-items:stretch">
+              <div style="flex:1;display:flex;flex-direction:column;gap:5px">
+                <div class="bx" style="padding:5px 7px">Privathaftpflicht <span class="sm">89 €/Jahr</span></div>
+                <div class="bx bx-a" style="padding:5px 7px">Hausrat HUK <span class="sm">Frist in 18 Tagen</span></div>
+                <div class="bx" style="padding:5px 7px">Wohngebäude WGV <span class="sm">412 €/Jahr</span></div>
+                <div class="bx" style="padding:5px 7px">Risikoleben <span class="sm">42 €/Monat</span></div>
+                <div class="bx" style="padding:5px 7px">Berufsunfähigkeit <span class="sm">118 €/Monat</span></div>
+              </div>
+              <div style="width:180px;flex:none;border-left:1.5px solid #cfcbc4;padding-left:8px;display:flex;flex-direction:column;gap:5px">
+                <div class="sec">Hausrat HUK</div>
+                <div class="bx bx-g" style="padding:5px 7px"><span class="sm">Nr. HR-88 421 · 156 €/Jahr</span></div>
+                <div class="bx bx-a" style="padding:5px 7px"><span class="sm">Kündigung bis 30.09.2027</span></div>
+                <div class="sec">Dokumente 4</div>
+                <div class="bx" style="padding:5px 7px"><span class="sm">Versicherungsschein 2024</span></div>
+                <div class="bx" style="padding:5px 7px"><span class="sm">Beitragsanpassung 2026</span></div>
+                <div class="btn" style="font-size:11px">Bearbeiten</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="note" style="max-width:230px"><b>Auf Desktop</b> ist Platz für Gruppen mit Überschriften — der Klassenfilter aus <a class="dv-oid" href="#3b">3b</a> wird dort zur zweiten Navigationsebene, ohne dass die Struktur abweicht.<br><br>Master/Detail wie schon bei Dokumenten: Liste links, Objekt rechts.<br><br>Vier Gruppen: Alltag, Bestand, Analyse, System — das ist deine Verb-Achse, nur als Gliederung statt als Tabs.</div>
+    </div>
+  </div>
+</div>
+
+</div>
+<p class="dv-next">Nächster Schritt: „<a class="dv-oid" href="#3b">3b</a> als v5 bauen" · „<a class="dv-oid" href="#3b">3b</a> mit der Lebensbereich-Sicht aus <a class="dv-oid" href="#3d">3d</a> als zweiter Chip-Reihe" · „erst die Bestand-Liste hochauflösend sehen"</p>
+</section>
+
+</x-dc>
+</body>
+</html>

@@ -46,10 +46,18 @@
             <span class="label-muted">Nettovermögen</span>
             <span class="hero-value num">@State.Euro(dashboard.NetWorth.Net)</span>
             <div class="hero-deltas">
-                <span class="hero-delta-primary num">
-                    @State.Euro(dashboard.NetWorth.DeltaPreviousMonth, withPlusSign: true) zum Vormonat
-                </span>
+                @* Die Aufteilung gehört unter die Summe. Ohne sie steht eine Zahl da, die
+                   Konten und ein Haus in einen Topf wirft, ohne es zu sagen. *@
                 <span class="hero-delta-secondary num">
+                    Finanzvermögen @State.Euro(dashboard.NetWorth.FinancialAssets) ·
+                    Sachwerte @State.Euro(dashboard.NetWorth.TangibleAssets)
+                </span>
+
+                @* Die Veränderung stammt aus der Reihe des Finanzvermögens — und sagt es.
+                   Für Sachwerte gibt es keine Monatsreihe. *@
+                <span class="hero-delta-primary num">
+                    @State.Euro(dashboard.NetWorth.DeltaPreviousMonth, withPlusSign: true)
+                    Finanzvermögen zum Vormonat ·
                     @GermanFormat.Percent(dashboard.NetWorth.DeltaYearPercent, 1, withPlusSign: true) im Jahr
                 </span>
             </div>
@@ -63,6 +71,11 @@
                     <span class="label-strong">Vermögensentwicklung</span>
                     <span class="meta">@MonthSpanLabel(dashboard.History)</span>
                 </div>
+
+                @* Die Kurve zeichnet das Finanzvermögen nach Verbindlichkeiten, nicht die
+                   Summe im Kopf. Ohne diesen Satz wäre sie eine zweite Zahl unter demselben
+                   Wort. *@
+                <span class="meta">Finanzvermögen abzüglich Verbindlichkeiten</span>
                 <Sparkline Values="dashboard.History" Height="96" Top="10" Bottom="88" ShowMidline="true"
                            Label="Vermögensentwicklung der letzten Monate" />
                 <div class="chart-axis">
@@ -79,8 +92,13 @@
                 <span class="label-strong">Bilanz</span>
 
                 <div class="balance-row">
-                    <span class="balance-label">Bruttovermögen</span>
-                    <span class="balance-value num">@State.Euro(dashboard.NetWorth.Gross)</span>
+                    <span class="balance-label">Finanzvermögen</span>
+                    <span class="balance-value num">@State.Euro(dashboard.NetWorth.FinancialAssets)</span>
+                </div>
+
+                <div class="balance-row">
+                    <span class="balance-label">Sachwerte</span>
+                    <span class="balance-value num">@State.Euro(dashboard.NetWorth.TangibleAssets)</span>
                 </div>
 
                 <button type="button" class="tap balance-row" @onclick="OpenLoan">
@@ -100,7 +118,7 @@
 
         <div class="list-head">
             <span class="label-strong">Vermögenswerte</span>
-            <span class="label-muted num">Anteil am Bruttovermögen</span>
+            <span class="label-muted num">Anteil am Finanzvermögen</span>
         </div>
 
         <div class="asset-grid">
@@ -110,8 +128,8 @@
                     <span class="asset-tile-label">@asset.Label</span>
                     <span class="asset-tile-value num">@State.Euro(asset.Value)</span>
                     <span class="meta">@asset.Subtitle</span>
-                    <ProgressBar Ratio="asset.ShareOfGross" Height="4"
-                                 Label="@($"Anteil {asset.Label} am Bruttovermögen")" />
+                    <ProgressBar Ratio="asset.ShareOfFinancialAssets" Height="4"
+                                 Label="@($"Anteil {asset.Label} am Finanzvermögen")" />
                 </button>
             }
         </div>
