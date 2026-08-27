@@ -1,5 +1,18 @@
 namespace FinanzApp.Shared.Contracts;
 
+/// <summary>
+/// Wie lange eine gelesene Vorschau auf dem Server liegen bleibt.
+/// </summary>
+/// <remarks>
+/// Steht im gemeinsamen Vertrag, weil beide Seiten dieselbe Zahl brauchen: der Server räumt
+/// danach auf, der Client darf einen begonnenen Import danach nicht mehr anbieten. Zwei getrennte
+/// Zahlen liefen auseinander, und das Ergebnis wäre ein Entwurf, der beim Klick ins Leere greift.
+/// </remarks>
+public static class ImportPreviewCache
+{
+    public static readonly TimeSpan Lifetime = TimeSpan.FromMinutes(30);
+}
+
 /// <summary>Zustand eines Satzes aus dem Auszug.</summary>
 public enum ImportRowState
 {

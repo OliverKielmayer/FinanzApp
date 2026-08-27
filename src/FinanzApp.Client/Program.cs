@@ -16,6 +16,12 @@ builder.Services.AddScoped<ToastService>();
 builder.Services.AddScoped<NavigationHistory>();
 builder.Services.AddScoped<DeviceProfileStore>();
 
+builder.Services.AddSingleton(TimeProvider.System);
+
+// Ein begonnener Import überdauert den Bereichswechsel: im Browser lebt Scoped so lange wie
+// die Anwendung, während die Seite bei jeder Navigation neu entsteht.
+builder.Services.AddScoped<ImportDraft>();
+
 // Der Anmeldezustand kommt aus dem Cookie und wird über /api/auth/me gelesen.
 builder.Services.AddScoped<FinanzAppAuthStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(

@@ -31,9 +31,6 @@ public sealed class ImportService(
     IMemoryCache cache,
     CurrentUser current)
 {
-    /// <summary>Wie lange eine Vorschau gültig bleibt, wenn niemand sie übernimmt.</summary>
-    private static readonly TimeSpan PreviewLifetime = TimeSpan.FromMinutes(30);
-
     /// <summary>Der Text, der das Kriterium benennt — er gehört sichtbar an die Prüfung.</summary>
     private const string Criterion =
         "Geprüft gegen den Bestand: gleiche Importreferenz gilt als vorhanden, "
@@ -76,7 +73,7 @@ public sealed class ImportService(
 
         cache.Set(KeyOf(batch.Id), batch, new MemoryCacheEntryOptions
         {
-            SlidingExpiration = PreviewLifetime,
+            SlidingExpiration = ImportPreviewCache.Lifetime,
             Size = batch.Records.Count,
         });
 

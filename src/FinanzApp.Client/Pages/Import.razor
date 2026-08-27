@@ -1,6 +1,7 @@
 @page "/import"
 @attribute [Authorize]
 @inherits AppPage
+@inject ImportDraft Draft
 
 @*
     Der Import ist ein Flow, keine feste Zusammenfassung: leer → liest → prüfen → übernommen.
@@ -149,7 +150,7 @@
                     <div class="import-bar">
                         <div class="import-bar-text">
                             <span class="kicker">
-                                @selected.Count von @preview.RecordCount
+                                @Draft.Selected.Count von @preview.RecordCount
                                 @(preview.RecordCount == 1 ? "Satz" : "Sätzen") gewählt
                             </span>
                             <span class="import-bar-status @(StatusIsWarning ? "warn" : null)">
@@ -160,10 +161,10 @@
                         <AuthorizeView Roles="Owner,Member" Context="bar">
                             <div class="import-bar-actions">
                                 <button type="button" class="btn btn-primary"
-                                        disabled="@(busy || selected.Count == 0)" @onclick="CommitAsync">
-                                    @(selected.Count == 0
+                                        disabled="@(busy || Draft.Selected.Count == 0)" @onclick="CommitAsync">
+                                    @(Draft.Selected.Count == 0
                                         ? "Nichts ausgewählt"
-                                        : $"{selected.Count} {(selected.Count == 1 ? "Buchung" : "Buchungen")} importieren")
+                                        : $"{Draft.Selected.Count} {(Draft.Selected.Count == 1 ? "Buchung" : "Buchungen")} importieren")
                                 </button>
                                 <button type="button" class="btn btn-ghost" disabled="@busy"
                                         @onclick="Cancel">Verwerfen</button>
@@ -177,8 +178,8 @@
                             @foreach (var account in preview.Accounts)
                             {
                                 var id = account.Id;
-                                <button type="button" class="chip @(accountId == id ? "active" : null)"
-                                        @onclick="() => accountId = id">
+                                <button type="button" class="chip @(Draft.AccountId == id ? "active" : null)"
+                                        @onclick="() => Draft.AccountId = id">
                                     @account.Name
                                     @if (account.Id == preview.SuggestedAccountId)
                                     {
@@ -216,7 +217,7 @@
                     <section class="tx-totals">
                         <div class="tx-total">
                             <span class="label-muted">Übernehmen</span>
-                            <span class="tx-total-value num">@selected.Count</span>
+                            <span class="tx-total-value num">@Draft.Selected.Count</span>
                         </div>
                         <div class="tx-total">
                             <span class="label-muted">Duplikat</span>
@@ -244,13 +245,13 @@
                     }
 
                     <div class="segmented bordered">
-                        <button type="button" class="segmented-opt @(grouped ? "active" : null)"
-                                @onclick="() => grouped = true">Gruppen</button>
-                        <button type="button" class="segmented-opt @(grouped ? null : "active")"
-                                @onclick="() => grouped = false">Alle Zeilen</button>
+                        <button type="button" class="segmented-opt @(Draft.Grouped ? "active" : null)"
+                                @onclick="() => Draft.Grouped = true">Gruppen</button>
+                        <button type="button" class="segmented-opt @(Draft.Grouped ? null : "active")"
+                                @onclick="() => Draft.Grouped = false">Alle Zeilen</button>
                     </div>
 
-                    @if (grouped)
+                    @if (Draft.Grouped)
                     {
                         var offen = OpenGroups;
 
@@ -265,7 +266,7 @@
                             @foreach (var group in offen)
                             {
                                 var key = group.Key;
-                                var aufgeklappt = openGroup == key;
+                                var aufgeklappt = Draft.OpenGroup == key;
 
                                 <div class="import-group @(aufgeklappt ? "open" : null)">
                                     <button type="button" class="import-group-head"
@@ -301,7 +302,7 @@
                                                 </button>
                                             </div>
 
-                                            @if (creatingFor == group.Key)
+                                            @if (Draft.CreatingFor == group.Key)
                                             {
                                                 @* Direkt hier, nicht auf einem anderen Screen: ein
                                                    Wechsel und Rücksprung köstete alle bisherigen
@@ -312,9 +313,9 @@
                                                             ? "Neue Einnahmekategorie"
                                                             : "Neue Ausgabenkategorie")
                                                     </label>
-                                                    <input id="neue-kat" class="input" value="@freshCategory"
+                                                    <input id="neue-kat" class="input" value="@Draft.FreshCategory"
                                                            placeholder="z. B. Abos"
-                                                           @oninput="e => freshCategory = e.Value?.ToString() ?? string.Empty" />
+                                                           @oninput="e => Draft.FreshCategory = e.Value?.ToString() ?? string.Empty" />
                                                 </div>
 
                                                 @if (createProblem is { Length: > 0 })
@@ -324,7 +325,7 @@
 
                                                 <div class="doc-actions">
                                                     <button type="button" class="btn btn-primary"
-                                                            disabled="@(busy || freshCategory.Trim().Length == 0)"
+                                                            disabled="@(busy || Draft.FreshCategory.Trim().Length == 0)"
                                                             @onclick="() => CreateAndAssignAsync(group)">
                                                         Anlegen &amp; zuordnen
                                                     </button>
@@ -334,8 +335,8 @@
                                             }
 
                                             <label class="sheet-rule">
-                                                <input type="checkbox" checked="@remember"
-                                                       @onchange="e => remember = e.Value is true" />
+                                                <input type="checkbox" checked="@Draft.Remember"
+                                                       @onchange="e => Draft.Remember = e.Value is true" />
                                                 <span class="sheet-rule-text">
                                                     Regel merken: „@Categorization.RulePatternFor(group.Payee)“
                                                     → künftig automatisch
@@ -382,7 +383,7 @@
                             <div class="list-head">
                                 <span class="label-strong">Automatisch zugeordnet</span>
                                 <span class="label-muted num">
-                                    @zugeordnet.Sum(g => g.Rows.Count) von @selected.Count Sätzen
+                                    @zugeordnet.Sum(g => g.Rows.Count) von @Draft.Selected.Count Sätzen
                                 </span>
                             </div>
 
@@ -411,9 +412,9 @@
                     {
                         @foreach (var row in preview.Rows)
                         {
-                            <div class="import-row @StateClass(row) @(selected.Contains(row.Index) ? "picked" : null)">
+                            <div class="import-row @StateClass(row) @(Draft.Selected.Contains(row.Index) ? "picked" : null)">
                                 <label class="tx-check import-check">
-                                    <input type="checkbox" checked="@selected.Contains(row.Index)"
+                                    <input type="checkbox" checked="@Draft.Selected.Contains(row.Index)"
                                            disabled="@(row.State == ImportRowState.Error)"
                                            @onchange="e => Toggle(row, e)"
                                            aria-label="@($"{row.Payee} übernehmen")" />
@@ -452,7 +453,7 @@
                     Amount="@offen.Amount"
                     Details="@offen.Details"
                     Reference="@offen.Reference"
-                    AccountName="@(data?.Accounts.FirstOrDefault(a => a.Id == accountId)?.Name)"
+                    AccountName="@(data?.Accounts.FirstOrDefault(a => a.Id == Draft.AccountId)?.Name)"
                     ForImport="true"
                     Keep="@KeepFor(offen)"
                     KeepChanged="wahl => SetKeep(offen, wahl)"
@@ -490,35 +491,19 @@
     private IReadOnlyList<CategoryDto> categories = [];
     private ImportRowDto? detail;
 
-    /// <summary>Die Gruppe, für die gerade eine Kategorie angelegt wird.</summary>
-    private string? creatingFor;
-    private string freshCategory = string.Empty;
+    /// <summary>Warum das Anlegen einer Kategorie nicht geklappt hat.</summary>
     private string? createProblem;
-
-    /// <summary>Was standardmäßig behalten wird — und was einzelne Sätze davon abweichen.</summary>
-    private ImportKeepFields keep = new();
-    private readonly Dictionary<int, ImportKeepFields> keepOverrides = [];
-
-    private bool grouped = true;
-    private string? openGroup;
-    private bool remember = true;
-
-    /// <summary>Zuordnung je Empfänger, im Import getroffen. Schlägt jede Regel.</summary>
-    private readonly Dictionary<string, ImportCategoryChoice> choices = new(StringComparer.Ordinal);
-
-    /// <summary>Empfänger, die der Nutzer bewusst offengelassen hat.</summary>
-    private readonly HashSet<string> deferred = new(StringComparer.Ordinal);
 
     /// <summary>Die gewählten Sätze, aus denen wirklich eine Buchung wird.</summary>
     private IEnumerable<ImportRowDto> Importable
-        => data?.Rows.Where(r => selected.Contains(r.Index) && r.State != ImportRowState.Error)
+        => data?.Rows.Where(r => Draft.Selected.Contains(r.Index) && r.State != ImportRowState.Error)
            ?? [];
 
     /// <summary>Was noch keine Kategorie hat — weder aus einer Regel noch aus einer Wahl.</summary>
     private List<PayeeGroup> OpenGroups =>
     [
         .. Importable
-            .Where(r => Resolve(r) is null && !deferred.Contains(Categorization.Normalize(r.Payee)))
+            .Where(r => Resolve(r) is null && !Draft.Deferred.Contains(Categorization.Normalize(r.Payee)))
             .GroupBy(r => Categorization.Normalize(r.Payee), StringComparer.Ordinal)
             .Select(g => Build(g.Key, [.. g]))
             .OrderByDescending(g => g.Rows.Count)
@@ -552,7 +537,7 @@
            + LearnedCount;
 
     /// <summary>Wie viele davon erst hier gemerkt werden sollen.</summary>
-    private int LearnedCount => choices.Values.Count(c => c.RememberRule);
+    private int LearnedCount => Draft.Choices.Values.Count(c => c.RememberRule);
 
     /// <summary>Der Fall „alles schon gebucht“ — kein leerer Bildschirm, sondern eine Auskunft.</summary>
     private bool NothingNew => data is { RecordCount: > 0, NewCount: 0 };
@@ -560,7 +545,7 @@
     /// <summary>Sätze, aus denen eine Buchung ohne Kategorie würde.</summary>
     private int Uncategorised => Importable.Count(r => Resolve(r) is null);
 
-    private bool StatusIsWarning => selected.Count == 0 || Uncategorised > 0;
+    private bool StatusIsWarning => Draft.Selected.Count == 0 || Uncategorised > 0;
 
     /// <summary>
     /// Die Statuszeile.
@@ -575,7 +560,7 @@
     {
         get
         {
-            if (selected.Count == 0)
+            if (Draft.Selected.Count == 0)
             {
                 return "Nichts zu übernehmen";
             }
@@ -599,12 +584,12 @@
     {
         var key = Categorization.Normalize(row.Payee);
 
-        if (choices.TryGetValue(key, out var choice))
+        if (Draft.Choices.TryGetValue(key, out var choice))
         {
             return categories.FirstOrDefault(c => c.Id == choice.CategoryId)?.Name;
         }
 
-        return deferred.Contains(key) ? null : row.CategoryName;
+        return Draft.Deferred.Contains(key) ? null : row.CategoryName;
     }
 
     private static PayeeGroup Build(string key, IReadOnlyList<ImportRowDto> rows)
@@ -664,21 +649,21 @@
 
     private void ToggleGroup(string key)
     {
-        openGroup = openGroup == key ? null : key;
+        Draft.OpenGroup = Draft.OpenGroup == key ? null : key;
         CancelNewCategory();
     }
 
     private void StartNewCategory(PayeeGroup group)
     {
-        creatingFor = group.Key;
-        freshCategory = string.Empty;
+        Draft.CreatingFor = group.Key;
+        Draft.FreshCategory = string.Empty;
         createProblem = null;
     }
 
     private void CancelNewCategory()
     {
-        creatingFor = null;
-        freshCategory = string.Empty;
+        Draft.CreatingFor = null;
+        Draft.FreshCategory = string.Empty;
         createProblem = null;
     }
 
@@ -701,7 +686,7 @@
         try
         {
             var direction = group.Sum >= 0 ? CategoryDirection.Income : CategoryDirection.Expense;
-            var ergebnis = await Api.EnsureCategoryAsync(freshCategory.Trim(), direction);
+            var ergebnis = await Api.EnsureCategoryAsync(Draft.FreshCategory.Trim(), direction);
 
             // Die Chipliste kennt die neue Kategorie noch nicht.
             if (ergebnis.Created)
@@ -710,14 +695,14 @@
             }
 
             var anzahl = group.Rows.Count;
-            choices[group.Key] = new ImportCategoryChoice(group.Payee, ergebnis.Category.Id, remember);
-            deferred.Remove(group.Key);
+            Draft.Choices[group.Key] = new ImportCategoryChoice(group.Payee, ergebnis.Category.Id, Draft.Remember);
+            Draft.Deferred.Remove(group.Key);
 
             CancelNewCategory();
-            openGroup = null;
+            Draft.OpenGroup = null;
 
             var was = ergebnis.Created ? "angelegt" : "bestand bereits";
-            Toasts.Show(remember
+            Toasts.Show(Draft.Remember
                 ? $"{ergebnis.Category.Name} {was} · {anzahl}× zugeordnet · Regel gemerkt"
                 : $"{ergebnis.Category.Name} {was} · {anzahl}× zugeordnet");
         }
@@ -732,15 +717,15 @@
     });
 
     private ImportKeepFields KeepFor(ImportRowDto row)
-        => keepOverrides.TryGetValue(row.Index, out var eigene) ? eigene : keep;
+        => Draft.KeepOverrides.TryGetValue(row.Index, out var eigene) ? eigene : Draft.Keep;
 
-    private void SetKeep(ImportRowDto row, ImportKeepFields wahl) => keepOverrides[row.Index] = wahl;
+    private void SetKeep(ImportRowDto row, ImportKeepFields wahl) => Draft.KeepOverrides[row.Index] = wahl;
 
     /// <summary>Überträgt die Wahl eines Satzes auf den ganzen Auszug.</summary>
     private void ApplyKeepToAll(ImportKeepFields wahl)
     {
-        keep = wahl;
-        keepOverrides.Clear();
+        Draft.Keep = wahl;
+        Draft.KeepOverrides.Clear();
 
         Toasts.Show("Gilt jetzt für alle Sätze");
     }
@@ -778,11 +763,11 @@
     /// <summary>Eine Chip-Wahl gilt für alle Sätze des Empfängers.</summary>
     private void Assign(PayeeGroup group, CategoryDto category)
     {
-        choices[group.Key] = new ImportCategoryChoice(group.Payee, category.Id, remember);
-        deferred.Remove(group.Key);
-        openGroup = null;
+        Draft.Choices[group.Key] = new ImportCategoryChoice(group.Payee, category.Id, Draft.Remember);
+        Draft.Deferred.Remove(group.Key);
+        Draft.OpenGroup = null;
 
-        Toasts.Show(remember
+        Toasts.Show(Draft.Remember
             ? $"{group.Rows.Count}× {category.Name} · Regel gemerkt"
             : $"{group.Rows.Count}× {category.Name}");
     }
@@ -800,11 +785,11 @@
 
             if (misc is not null)
             {
-                choices[group.Key] = new ImportCategoryChoice(group.Payee, misc.Id, RememberRule: false);
+                Draft.Choices[group.Key] = new ImportCategoryChoice(group.Payee, misc.Id, RememberRule: false);
             }
         }
 
-        openGroup = null;
+        Draft.OpenGroup = null;
         Toasts.Show($"{betroffen.Count} als „Sonstiges“ übernommen");
     }
 
@@ -818,22 +803,29 @@
 
         foreach (var group in betroffen)
         {
-            deferred.Add(group.Key);
+            Draft.Deferred.Add(group.Key);
         }
 
-        openGroup = null;
+        Draft.OpenGroup = null;
         Toasts.Show($"{betroffen.Count} später zuordnen");
     }
 
+    /// <summary>
+    /// Die Vorschau, die die Seite gerade zeigt.
+    /// </summary>
+    /// <remarks>
+    /// Auf der Prüfstufe ist das die des Entwurfs, auf der leeren die vom Server geholte, die nur
+    /// Konten und den letzten Import kennt. Beides ist eine Vorschau — aber nur die erste ist
+    /// begonnene Arbeit, und darum liegt nur sie im <see cref="ImportDraft"/>.
+    /// </remarks>
     private ImportPreviewDto? data;
+
     private Stage stage = Stage.Empty;
     private string fileName = string.Empty;
     private string? problem;
     private bool dragging;
     private int readStep;
-    private int accountId;
     private bool busy;
-    private readonly HashSet<int> selected = [];
     private CancellationTokenSource? reading;
 
     /// <summary>
@@ -852,15 +844,39 @@
         ("Duplikate geprüft", readStep > 1),
     ];
 
+    /// <summary>
+    /// Setzt die Seite auf den Stand, den sie beim Verlassen hatte.
+    /// </summary>
+    /// <remarks>
+    /// Ein begonnener Import geht der leeren Stufe vor: seine Vorschau ist dieselbe, die der
+    /// Server noch vorhält, und die Zuordnungen darauf sind die Arbeit, die nicht verloren gehen
+    /// soll. Ist er abgelaufen, steht das da — stillschweigend zurückzusetzen sähe aus, als hätte
+    /// die Anwendung ihn schlicht vergessen.
+    /// </remarks>
     protected override async Task LoadAsync()
     {
-        // Beides zugleich: die Chips im Empfänger-Akkordeon brauchen die Kategorien, und ohne
-        // sie stünde die Gruppe offen da, ohne dass sich etwas wählen ließe.
+        // Die Chips im Empfänger-Akkordeon brauchen die Kategorien; ohne sie stünde die Gruppe
+        // offen da, ohne dass sich etwas wählen ließe.
         var laden = Api.GetCategoriesAsync();
-        data = await Api.GetImportPreviewAsync();
-        categories = await laden;
 
-        accountId = data.SuggestedAccountId ?? data.Accounts.FirstOrDefault()?.Id ?? 0;
+        if (Draft.Expired)
+        {
+            Draft.Clear();
+            problem = "Der begonnene Import ist abgelaufen. Bitte die Datei noch einmal einlesen.";
+        }
+
+        if (Draft.Preview is { } begonnen)
+        {
+            data = begonnen;
+            stage = Stage.Check;
+        }
+        else
+        {
+            data = await Api.GetImportPreviewAsync();
+            stage = Stage.Empty;
+        }
+
+        categories = await laden;
     }
 
     private async Task OnFileSelected(InputFileChangeEventArgs e)
@@ -922,27 +938,17 @@
             readStep = 1;
             StateHasChanged();
 
-            data = await read(token);
+            var gelesen = await read(token);
             readStep = 2;
 
-            fileName = data.FileName;
-            accountId = data.SuggestedAccountId ?? data.Accounts.FirstOrDefault()?.Id ?? 0;
+            // Der Entwurf fängt von vorn an: Zuordnungen gehören zu der Datei, für die sie
+            // getroffen wurden, und Vorauswahl wie Zielkonto stehen in der frischen Vorschau.
+            Draft.Start(gelesen);
 
-            selected.Clear();
-            foreach (var row in data.Rows.Where(r => r.PreSelected))
-            {
-                selected.Add(row.Index);
-            }
-
-            // Zuordnungen gehören zu der Datei, für die sie getroffen wurden.
-            choices.Clear();
-            deferred.Clear();
-            keepOverrides.Clear();
-            keep = new ImportKeepFields();
+            data = gelesen;
+            fileName = gelesen.FileName;
             detail = null;
-            openGroup = null;
-            grouped = true;
-            remember = true;
+            CancelNewCategory();
 
             stage = Stage.Check;
         }
@@ -959,13 +965,16 @@
         }
     }
 
+    /// <summary>
+    /// Verwerfen — und zwar ganz: sonst stünde der Entwurf beim nächsten Besuch wieder da.
+    /// </summary>
     private void Cancel()
     {
         reading?.Cancel();
-        selected.Clear();
-        choices.Clear();
-        deferred.Clear();
-        openGroup = null;
+        Draft.Clear();
+        CancelNewCategory();
+
+        detail = null;
         problem = null;
         stage = Stage.Empty;
     }
@@ -979,11 +988,11 @@
 
         if (e.Value is true)
         {
-            selected.Add(row.Index);
+            Draft.Selected.Add(row.Index);
         }
         else
         {
-            selected.Remove(row.Index);
+            Draft.Selected.Remove(row.Index);
         }
     }
 
@@ -993,8 +1002,8 @@
         try
         {
             var result = await Api.CommitImportAsync(
-                data!.Id, accountId, [.. selected], [.. choices.Values],
-                keep, [.. keepOverrides.Select(x => new ImportKeepOverride(x.Key, x.Value))]);
+                Draft.Preview!.Id, Draft.AccountId, [.. Draft.Selected], [.. Draft.Choices.Values],
+                Draft.Keep, [.. Draft.KeepOverrides.Select(x => new ImportKeepOverride(x.Key, x.Value))]);
 
             // Was ohne Kategorie blieb, gehört in die Meldung: diese Zahl ist die Brücke zum
             // Triage-Banner der Buchungsliste. Verschwiegen taucht sie dort unerklärt auf.
@@ -1012,6 +1021,10 @@
             {
                 teile.Add($"{result.WithoutCategory} ohne Kategorie");
             }
+
+            // Die Vorschau ist auf dem Server verbraucht. Bliebe der Entwurf stehen, böte die
+            // Seite beim nächsten Besuch denselben Auszug noch einmal an — und liefe ins Leere.
+            Draft.Clear();
 
             Toasts.Show(string.Join(" · ", teile));
             Navigation.NavigateTo("/konten");
