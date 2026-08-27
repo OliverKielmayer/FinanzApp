@@ -1,0 +1,122 @@
+@*
+    Depot G/V — Abschnitt 10b.
+
+    Unrealisiert, ohne Steuern und Gebühren. Das steht ausdrücklich unter dem Bericht und
+    nicht nur in der Erklärung: eine Gewinnzahl, die niemand als unrealisiert liest, ist eine
+    Zahl über Geld, das nicht da ist.
+*@
+
+@if (Data.Depots.Count > 1)
+{
+    <div class="picker">
+        <span class="label-strong">Depot</span>
+        <div class="chipcloud">
+            @foreach (var depot in Data.Depots)
+            {
+                var wahl = depot;
+                <button type="button" class="chip @(depot.Id == Data.DepotId ? "active" : null)"
+                        disabled="@Busy" @onclick="() => OnPick.InvokeAsync(wahl.Id)">
+                    @depot.Name
+                </button>
+            }
+        </div>
+    </div>
+}
+
+<div class="report-split">
+    <div class="report-hero">
+        <span class="kicker">Gewinn / Verlust</span>
+        <span class="hero-value medium num @(Data.Gain < 0 ? "debt" : null)">
+            @State.Euro(Data.Gain, withPlusSign: true)
+        </span>
+        <span class="meta">@PercentLine</span>
+    </div>
+
+    <div class="report-hero">
+        <span class="kicker">Einstand · Wert</span>
+        <span class="hero-value medium num">
+            @State.Euro(Data.CostBasis) → @State.Euro(Data.CurrentValue)
+        </span>
+        <span class="meta">@AsOfLine</span>
+    </div>
+</div>
+
+@if (Data.Positions.Count == 0)
+{
+    <div class="import-nothing">
+        <span class="label-strong">Keine Positionen in diesem Depot</span>
+        <span class="create-help">Ohne Positionen gibt es weder Einstand noch Wert.</span>
+    </div>
+}
+
+@foreach (var position in Data.Positions)
+{
+    <div class="report-position">
+        <div class="report-position-line">
+            <span class="report-row-name">@position.Name</span>
+            <span class="report-row-amount num @(position.Gain < 0 ? "debt" : null)">
+                @State.Euro(position.Gain, withPlusSign: true)
+            </span>
+        </div>
+        <div class="report-position-line">
+            <span class="meta num">@Describe(position)</span>
+            <span class="report-row-delta num @(position.Gain >= 0 ? "up" : null)">
+                @Percent(position.GainPercent)
+            </span>
+        </div>
+    </div>
+}
+
+<div class="tx-totals-note">
+    Unrealisiert, ohne Steuern und Gebühren. Realisierte Gewinne erscheinen erst mit den
+    Wertpapiertransaktionen.
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public PortfolioGainDto Data { get; set; } = default!;
+
+    [Parameter]
+    public bool Busy { get; set; }
+
+    [Parameter]
+    public EventCallback<int> OnPick { get; set; }
+
+    [Inject] private AppState State { get; set; } = default!;
+
+    private string PercentLine
+        => Data.GainPercent is null
+            ? "Kein Einstand hinterlegt — ohne ihn gibt es keinen Prozentsatz"
+            : $"{Percent(Data.GainPercent)} auf den Einstand";
+
+    /// <summary>
+    /// „Kurse 22.08.2026, 17:35 · finanzen.net ZERO“.
+    /// </summary>
+    /// <remarks>
+    /// Der Stichtag gehört neben die Zahl. Ein Depotwert ohne Kursdatum sieht aus wie ein
+    /// Tageskurs, auch wenn er drei Monate alt ist.
+    /// </remarks>
+    private string AsOfLine
+        => Data.PricesAsOf is { } stand
+            ? $"Kurse {GermanFormat.DateTime(stand)} · {Data.DepotName}"
+            : Data.DepotName;
+
+    private string Describe(PortfolioGainRowDto position)
+    {
+        var teile = new List<string> { $"{GermanFormat.Quantity(position.Quantity)} St." };
+
+        if (position.CostPerUnit is { } einstand)
+        {
+            teile.Add($"Einstand {State.Euro(einstand)}");
+        }
+
+        teile.Add($"aktuell {State.Euro(position.Price)}");
+
+        return string.Join(" · ", teile);
+    }
+
+    private static string Percent(decimal? value)
+        => value is not { } wert
+            ? "—"
+            : (wert >= 0 ? "+" : "−") + GermanFormat.Percent(Math.Abs(wert), 1);
+}

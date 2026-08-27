@@ -1,0 +1,98 @@
+@using System.Globalization
+
+@*
+    Fixkosten & vertragliche Bindung — Abschnitt 10b.
+
+    Die Bezugsgröße steht im Balkentext. Ein Prozentsatz ohne genannte Basis war im Prototyp
+    der Grund, warum zwei Berichte nebeneinander verschiedene Anteile zeigten, ohne dass
+    jemand sehen konnte, worauf sie sich beziehen.
+*@
+
+<div class="report-split">
+    <div class="report-hero">
+        <span class="kicker">Fix pro Monat</span>
+        <span class="hero-value medium num">@State.Euro(Data.MonthlyFixed)</span>
+        <span class="meta">@GermanFormat.Percent(Data.FixedSharePercent, 0) der Monatsbasis</span>
+    </div>
+
+    <div class="report-hero">
+        <span class="kicker">Frei disponibel</span>
+        <span class="hero-value medium num">@State.Euro(Data.MonthlyFree)</span>
+        <span class="meta">Monatsbasis minus gebunden</span>
+    </div>
+</div>
+
+<div class="report-bar-wrap">
+    @* Der Balken deckelt bei hundert Prozent. Ein über den Rand laufender Balken wäre eine
+       Zeichnung, die etwas anderes behauptet als die Anmerkung darunter. *@
+    <div class="report-bar" role="img" aria-label="@BarNote">
+        <div class="report-bar-fix" style="width:@Width"></div>
+    </div>
+    <span class="meta">@BarNote</span>
+</div>
+
+@if (Data.Rows.Count == 0)
+{
+    <div class="import-nothing">
+        <span class="label-strong">Keine gebundenen Kosten erfasst</span>
+        <span class="create-help">
+            Darlehen, Verträge und Policen speisen diesen Bericht — bislang steht keines davon
+            im Bestand.
+        </span>
+    </div>
+}
+
+@foreach (var zeile in Data.Rows)
+{
+    <div class="report-fix-row">
+        <span class="stack">
+            <span class="report-row-name">@zeile.Name</span>
+            <span class="meta @(zeile.NoticeDue ? "due" : null)">@zeile.Note</span>
+        </span>
+        <span class="report-row-amount num">@State.Euro(zeile.MonthlyAmount)</span>
+    </div>
+}
+
+@if (Data.WithoutAmountCount > 0)
+{
+    @* Sie fehlen in der Summe oben. Verschwiegen wäre „Fix pro Monat“ zu klein, ohne dass
+       jemand sagen könnte warum. *@
+    <div class="tx-totals-note">
+        Nicht enthalten: @Data.WithoutAmountCount
+        @(Data.WithoutAmountCount == 1 ? "Vertrag weist" : "Verträge weisen")
+        keinen Beitrag aus · <a href="/vorsorge">nachtragen</a>
+    </div>
+}
+
+<div class="tx-totals-note">@Data.Note</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public FixedCostsDto Data { get; set; } = default!;
+
+    [Inject] private AppState State { get; set; } = default!;
+
+    /// <summary>
+    /// „Fix 45 % · frei 55 % · Basis 3.612 € pro Monat, gerechnet aus August 2026“.
+    /// </summary>
+    /// <remarks>
+    /// Der Satz entsteht hier und nicht auf dem Server: er nennt einen Betrag, und ein dort
+    /// fertig formatierter käme an „Beträge verbergen“ vorbei.
+    /// </remarks>
+    private string BarNote
+    {
+        get
+        {
+            var fix = GermanFormat.Percent(Data.FixedSharePercent, 0);
+            var frei = GermanFormat.Percent(Math.Max(0m, 100m - Data.FixedSharePercent), 0);
+
+            return $"Fix {fix} · frei {frei} · Basis "
+                   + $"{State.Euro(Data.Range.MonthlyExpenseBase)} pro Monat, gerechnet aus "
+                   + Data.Range.PeriodLabel;
+        }
+    }
+
+    private string Width
+        => Math.Clamp(Data.FixedSharePercent, 0m, 100m)
+               .ToString("0.#", CultureInfo.InvariantCulture) + "%";
+}

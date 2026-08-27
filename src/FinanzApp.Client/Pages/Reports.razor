@@ -15,14 +15,30 @@
 <PageTitle>Auswertungen — FinanzApp</PageTitle>
 
 <AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
-    @if (data is { } bericht)
-    {
+    @{
+        @* Der Rahmen des Berichts, der gerade dransteht — nicht der zuletzt geladene. Sonst
+           stünde über dem Depot die Zeitraumleiste des Kostentrends: Schalter, die dort nichts
+           tun, und eine Zeile über einen Zeitraum, den dieser Bericht gar nicht kennt. *@
+        var range = report switch
+        {
+            ReportKind.CostTrend => data?.Range,
+            ReportKind.FixedCosts => fixedCosts?.Range,
+            _ => null,
+        };
+    }
+
+    @*
+        Die Kopfleiste bleibt oben stehen: bei zwanzig Kategorien mit aufgeklapptem Drilldown
+        läge die Einstellung sonst unerreichbar weit oben, und man läse Zahlen, ohne zu sehen,
+        wogegen sie gerechnet sind.
+    *@
+    <div class="report-head">
         @*
-            Die Kopfleiste bleibt oben stehen: bei zwanzig Kategorien mit aufgeklapptem
-            Drilldown läge die Einstellung sonst unerreichbar weit oben, und man läse Zahlen,
-            ohne zu sehen, wogegen sie gerechnet sind.
+            Zeitraum und Vergleich stehen nur da, wo sie wirken. Der Depotbericht kennt keinen
+            Zeitraum — Schalter darüber, die nichts tun, wären schlimmer als keine.
         *@
-        <div class="report-head">
+        @if (range is { } r)
+        {
             <div class="report-setting">
                 <span class="label-muted">Zeitraum</span>
                 <div class="segmented bordered">
@@ -46,19 +62,49 @@
             </div>
 
             <div class="report-line">
-                <span class="meta">@bericht.Range.Line</span>
+                <span class="meta">@r.Line</span>
             </div>
-        </div>
+        }
+    </div>
 
-        <div class="report-tabs">
-            @foreach (var (kind, text, fertig) in Available)
-            {
-                <button type="button" class="chip @(report == kind ? "active" : null)"
-                        disabled="@(!fertig)" title="@(fertig ? null : "Noch nicht gebaut")">
-                    @text@(fertig ? null : " · folgt")
-                </button>
-            }
-        </div>
+    <div class="report-tabs">
+        @foreach (var (kind, text, fertig) in Available)
+        {
+            var gewaehlt = kind;
+            <button type="button" class="chip @(report == kind ? "active" : null)"
+                    disabled="@(busy || !fertig)" title="@(fertig ? null : "Noch nicht gebaut")"
+                    @onclick="() => SetReportAsync(gewaehlt)">
+                @text@(fertig ? null : " · folgt")
+            </button>
+        }
+    </div>
+
+    @if (report == ReportKind.FixedCosts && fixedCosts is { } fix)
+    {
+        <FixedCostsReport Data="fix" />
+        <div class="spacer"></div>
+    }
+    else if (report == ReportKind.PortfolioGainLoss)
+    {
+        @if (gain is { } depot)
+        {
+            <PortfolioGainReport Data="depot" Busy="busy" OnPick="PickDepotAsync" />
+        }
+        else
+        {
+            <div class="import-nothing">
+                <span class="label-strong">Kein Depot erfasst</span>
+                <span class="create-help">
+                    Ohne Depot gibt es weder Einstand noch Wert — und nichts, wovon sich ein
+                    Gewinn ableiten ließe.
+                </span>
+            </div>
+        }
+
+        <div class="spacer"></div>
+    }
+    else if (data is { } bericht)
+    {
 
         @* ── Kostentrend ───────────────────────────────────────────────────────────────── *@
         <div class="report-hero">
@@ -214,6 +260,9 @@
 
 @code {
     private CostTrendDto? data;
+    private FixedCostsDto? fixedCosts;
+    private PortfolioGainDto? gain;
+    private int? depotId;
 
     private PeriodScope period = PeriodScope.Month;
     private ComparisonBasis comparison = ComparisonBasis.PreviousYear;
@@ -253,20 +302,44 @@
         (CostTrendSort.Name, "Name"),
     ];
 
-    /// <summary>Die vier Berichte. Drei davon kommen noch — sie stehen da, aber als „folgt“.</summary>
+    /// <summary>Die vier Berichte. Die Datenqualität kommt noch — sie steht da, aber als „folgt“.</summary>
     private static readonly (ReportKind Kind, string Label, bool Ready)[] Available =
     [
         (ReportKind.CostTrend, "Kostentrend", true),
-        (ReportKind.FixedCosts, "Fixkosten", false),
-        (ReportKind.PortfolioGainLoss, "Depot G/V", false),
+        (ReportKind.FixedCosts, "Fixkosten", true),
+        (ReportKind.PortfolioGainLoss, "Depot G/V", true),
         (ReportKind.DataQuality, "Datenqualität", false),
     ];
 
-    protected override async Task LoadAsync() => data = await FetchAsync();
+    protected override Task LoadAsync() => FetchAsync();
 
-    private Task<CostTrendDto> FetchAsync()
-        => Api.GetCostTrendAsync(new CostTrendRequest(
-            period, comparison, sort, [.. excluded], openCategory));
+    /// <summary>
+    /// Holt den Bericht, der gerade dransteht — und nur den.
+    /// </summary>
+    /// <remarks>
+    /// Alle drei auf einmal zu laden hieße, bei jedem Häkchen im Drilldown auch das Depot neu
+    /// zu rechnen. Kostentrend und Fixkosten teilen sich zwar die Monatsbasis, aber sie teilen
+    /// sie über dieselbe Rechnung auf dem Server, nicht über einen gemeinsamen Abruf hier.
+    /// </remarks>
+    private async Task FetchAsync()
+    {
+        switch (report)
+        {
+            case ReportKind.FixedCosts:
+                fixedCosts = await Api.GetFixedCostsAsync(
+                    new FixedCostsRequest(period, comparison, [.. excluded]));
+                break;
+
+            case ReportKind.PortfolioGainLoss:
+                gain = await Api.GetPortfolioGainAsync(depotId);
+                break;
+
+            default:
+                data = await Api.GetCostTrendAsync(new CostTrendRequest(
+                    period, comparison, sort, [.. excluded], openCategory));
+                break;
+        }
+    }
 
     /// <summary>
     /// Holt den Bericht neu.
@@ -280,13 +353,30 @@
         busy = true;
         try
         {
-            data = await FetchAsync();
+            await FetchAsync();
         }
         finally
         {
             busy = false;
         }
     });
+
+    private Task SetReportAsync(ReportKind kind)
+    {
+        if (report == kind)
+        {
+            return Task.CompletedTask;
+        }
+
+        report = kind;
+        return RefreshAsync();
+    }
+
+    private Task PickDepotAsync(int id)
+    {
+        depotId = id;
+        return RefreshAsync();
+    }
 
     private Task SetPeriodAsync(PeriodScope value)
     {
