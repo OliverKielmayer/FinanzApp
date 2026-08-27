@@ -121,15 +121,26 @@
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Das Anlegeziel je Klasse.
+    /// </summary>
+    /// <remarks>
+    /// Die Anlegeseite nimmt die Art als Pfadabschnitt, nicht als Abfrageparameter — „/neu/account“,
+    /// nicht „/neu?art=konto“. Ein Link mit dem falschen Muster führt zwar auf die Seite, wählt
+    /// dort aber nichts aus: er täte nur so, als spare er einen Schritt.
+    ///
+    /// Für Darlehen gibt es keine Anlegeseite. Dann führt die Zeile auf die Übersicht der Arten,
+    /// statt auf eine Adresse, die es nicht gibt.
+    /// </remarks>
     private static string CreateRoute(HoldingClass klasse) => klasse switch
     {
-        HoldingClass.Accounts => "/neu?art=konto",
-        HoldingClass.Depot => "/neu?art=depot",
-        HoldingClass.Pension => "/neu?art=vorsorge",
-        HoldingClass.Protection => "/neu?art=versicherung",
-        HoldingClass.Housing => "/neu?art=immobilie",
-        HoldingClass.Vehicles => "/neu?art=fahrzeug",
-        _ => "/neu?art=darlehen",
+        HoldingClass.Accounts => "/neu/account",
+        HoldingClass.Depot => "/neu/depot",
+        HoldingClass.Pension => "/neu/pension",
+        HoldingClass.Protection => "/neu/protection",
+        HoldingClass.Housing => "/neu/property",
+        HoldingClass.Vehicles => "/neu/vehicle",
+        _ => "/neu",
     };
 
     private static string AddLabel(HoldingsDto bestand)
