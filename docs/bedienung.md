@@ -284,6 +284,38 @@ fragt nach, der zweite löscht.
 Eine gelöschte Regel lässt bereits importierte Buchungen unverändert; sie greift nur beim
 nächsten Import.
 
+### Kategorien anlegen, umbenennen, löschen
+
+Unter **Mehr → Kategorien**. Oben schalten Sie zwischen **Ausgaben** und **Einnahmen** um —
+das sind zwei getrennte Listen, damit bei einer Gutschrift keine Ausgabenkategorie auftaucht.
+
+Hinter jedem Namen steht, was daran hängt: „19 Buchungen · 2 Regeln · Budget“ oder „noch nicht
+verwendet“. Das ist die Auskunft, die Sie vor dem Löschen brauchen.
+
+- **Umbenennen** ändert den Namen im Feld selbst. Er wirkt sofort überall — in Buchungen,
+  Regeln, Budgets und Filtern. Die Meldung sagt, wie viele Buchungen betroffen waren.
+- **Löschen** fragt einmal nach. Danach stehen die betroffenen Buchungen ohne Kategorie da
+  und erscheinen im Hinweisband der Buchungsliste; Regeln auf diese Kategorie sind weg.
+  Läuft ein Budget auf der Kategorie, löscht die App nicht — dann ist erst das Budget dran.
+- Zwei gleiche Namen gehen nicht. Derselbe Name bei Ausgaben *und* Einnahmen schon.
+
+### Was im Auszug stand
+
+In der Prüfansicht des Imports öffnet **Details** an einem Satz die Felder des Auszugs —
+Buchungstag und Valuta, Betrag, Gegenseite mit IBAN und BIC, Verwendungszweck, Buchungsart,
+Geschäftsvorfallcode, Importreferenz. Neben jedem Feld steht klein, wie es in der Datei heißt.
+Liefert die Datei ein Feld nicht, steht dort **„nicht im Auszug“** — nie ein leeres Feld.
+
+Darunter **„Beim Import behalten“**: Verwendungszweck, IBAN und BIC der Gegenseite,
+Importreferenz. Alle drei sind an. **„Für alle Sätze“** überträgt Ihre Wahl auf den ganzen
+Auszug.
+
+Die Importreferenz sollten Sie anlassen: an ihr erkennt die App beim nächsten Mal, dass ein
+Satz schon gebucht ist. Ohne sie bleibt nur der Vergleich von Tag, Empfänger und Betrag.
+
+Nach dem Import bleiben die Felder erreichbar: die Buchung antippen, dann **Auszugsdaten →
+Ansehen**. Was Sie nicht behalten haben, steht dort als **„nicht gespeichert“**.
+
 > **Der Import ist echt.** Er schreibt die Buchungen tatsächlich, danach stimmen die Demo-Zahlen
 > nicht mehr. Wie sich der Ausgangszustand herstellen lässt, steht unter Punkt 12.
 

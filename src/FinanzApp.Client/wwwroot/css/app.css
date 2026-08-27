@@ -2369,6 +2369,54 @@ body {
   padding: 14px;
 }
 
+/* Der CAMT-Elementname als Herkunftsmarke am Feldnamen. Klein und neutral: er belegt,
+   woher der Wert stammt, ohne sich vor ihn zu draengen. */
+.camt-element {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-neutral-600);
+  margin-left: 6px;
+}
+
+/* Weder ein leeres Feld noch ein erfundener Wert - der Grund steht da. */
+.detail-value.missing {
+  color: var(--color-neutral-600);
+  font-style: italic;
+}
+
+/* Die Vorschauzeile eines Satzes in der aufgeklappten Gruppe. */
+.import-detail {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 0;
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--color-divider);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.import-detail-more,
+.import-detail-link {
+  font-size: 11px;
+  color: var(--color-accent);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.import-detail-link {
+  padding: 0 0 0 10px;
+}
+
 /* Regelscreen: die Schalter je Zeile liegen nebeneinander, damit die zweite Stufe
    die Zeile nicht auseinanderreisst. */
 .rule-actions {

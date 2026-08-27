@@ -302,6 +302,21 @@
                                                     → künftig automatisch
                                                 </span>
                                             </label>
+
+                                            @* Die Vorschau fällt auf das nächste vorhandene Feld
+                                               zurück; ohne jedes Feld erscheint die Zeile gar nicht. *@
+                                            @foreach (var row in group.Rows)
+                                            {
+                                                var satz = row;
+                                                @if (Preview(satz) is { } vorschau)
+                                                {
+                                                    <button type="button" class="import-detail"
+                                                            @onclick="() => detail = satz">
+                                                        <span class="meta num">@vorschau</span>
+                                                        <span class="import-detail-more">Details</span>
+                                                    </button>
+                                                }
+                                            }
                                         </div>
                                     }
                                 </div>
@@ -373,6 +388,13 @@
                                 <span class="import-row-amount num">
                                     @(row.Amount is { } amount ? State.Euro(amount, withPlusSign: true) : "—")
                                 </span>
+
+                                @if (row.Details is not null)
+                                {
+                                    var satz = row;
+                                    <button type="button" class="import-detail-link"
+                                            @onclick="() => detail = satz">Details</button>
+                                }
                             </div>
                         }
                     }
@@ -383,6 +405,21 @@
         <div class="spacer"></div>
     }
 </AsyncView>
+
+@if (detail is { } offen)
+{
+    <StatementPanel Payee="@offen.Payee"
+                    BookingDate="@offen.BookingDate"
+                    Amount="@offen.Amount"
+                    Details="@offen.Details"
+                    Reference="@offen.Reference"
+                    AccountName="@(data?.Accounts.FirstOrDefault(a => a.Id == accountId)?.Name)"
+                    ForImport="true"
+                    Keep="@KeepFor(offen)"
+                    KeepChanged="wahl => SetKeep(offen, wahl)"
+                    OnApplyToAll="ApplyKeepToAll"
+                    OnClose="@(() => detail = null)" />
+}
 
 @code {
     private enum Stage
@@ -412,6 +449,12 @@
         string CategoryName, IReadOnlyList<ImportRowDto> Rows, string Payees, decimal Sum);
 
     private IReadOnlyList<CategoryDto> categories = [];
+    private ImportRowDto? detail;
+
+    /// <summary>Was standardmäßig behalten wird — und was einzelne Sätze davon abweichen.</summary>
+    private ImportKeepFields keep = new();
+    private readonly Dictionary<int, ImportKeepFields> keepOverrides = [];
+
     private bool grouped = true;
     private string? openGroup;
     private bool remember = true;
@@ -577,6 +620,50 @@
 
     private void ToggleGroup(string key) => openGroup = openGroup == key ? null : key;
 
+    private ImportKeepFields KeepFor(ImportRowDto row)
+        => keepOverrides.TryGetValue(row.Index, out var eigene) ? eigene : keep;
+
+    private void SetKeep(ImportRowDto row, ImportKeepFields wahl) => keepOverrides[row.Index] = wahl;
+
+    /// <summary>Überträgt die Wahl eines Satzes auf den ganzen Auszug.</summary>
+    private void ApplyKeepToAll(ImportKeepFields wahl)
+    {
+        keep = wahl;
+        keepOverrides.Clear();
+
+        Toasts.Show("Gilt jetzt für alle Sätze");
+    }
+
+    /// <summary>
+    /// Die Vorschau eines Satzes in der aufgeklappten Gruppe.
+    /// </summary>
+    /// <remarks>
+    /// Sie fällt auf das nächste vorhandene Feld zurück: Verwendungszweck, sonst die IBAN der
+    /// Gegenseite, sonst „nur Importreferenz“. Ohne jedes Feld gibt es nichts zu zeigen, und die
+    /// Zeile erscheint gar nicht — eine leere Zeile wäre ein Versprechen ohne Inhalt.
+    /// </remarks>
+    private static string? Preview(ImportRowDto row)
+    {
+        var kern = row.Details?.Purpose
+                   ?? row.Details?.CounterpartyIban
+                   ?? (row.State == ImportRowState.Error ? null : "nur Importreferenz");
+
+        if (kern is null)
+        {
+            return null;
+        }
+
+        var teile = new List<string>();
+        if (row.BookingDate is { } tag)
+        {
+            teile.Add(GermanFormat.Date(tag));
+        }
+
+        teile.Add(kern.Length <= 60 ? kern : kern[..59].TrimEnd() + "…");
+
+        return string.Join(" · ", teile);
+    }
+
     /// <summary>Eine Chip-Wahl gilt für alle Sätze des Empfängers.</summary>
     private void Assign(PayeeGroup group, CategoryDto category)
     {
@@ -739,6 +826,9 @@
             // Zuordnungen gehören zu der Datei, für die sie getroffen wurden.
             choices.Clear();
             deferred.Clear();
+            keepOverrides.Clear();
+            keep = new ImportKeepFields();
+            detail = null;
             openGroup = null;
             grouped = true;
             remember = true;
@@ -792,7 +882,8 @@
         try
         {
             var result = await Api.CommitImportAsync(
-                data!.Id, accountId, [.. selected], [.. choices.Values]);
+                data!.Id, accountId, [.. selected], [.. choices.Values],
+                keep, [.. keepOverrides.Select(x => new ImportKeepOverride(x.Key, x.Value))]);
 
             // Was ohne Kategorie blieb, gehört in die Meldung: diese Zahl ist die Brücke zum
             // Triage-Banner der Buchungsliste. Verschwiegen taucht sie dort unerklärt auf.

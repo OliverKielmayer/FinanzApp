@@ -1,0 +1,201 @@
+@*
+    Die Felder eines Auszugssatzes, jedes mit seinem CAMT-Elementnamen als Herkunftsmarke.
+    Dieselbe Hülle wie das Kategorie-Fenster: am Telefon ein Bottom-Sheet, ab Tablet ein
+    rechtes Panel.
+
+    Zwei Modi, und der Unterschied ist keine Kosmetik:
+
+    * Im Import steht bei einem fehlenden Feld „nicht im Auszug“ — die Datei liefert es nicht.
+    * An der Buchung steht „nicht gespeichert“ — es stand vielleicht im Auszug, wurde aber
+      nicht behalten.
+
+    Angezeigt wird ausschließlich, was übergeben wurde. Nie ein Nachschlagen über den
+    Empfängernamen: sonst trüge eine von Hand erfasste Buchung plötzlich Auszugsdaten samt
+    erfundener Referenz.
+*@
+<button type="button" class="backdrop" aria-label="Schließen" @onclick="OnClose"></button>
+
+<div class="sheet" role="dialog" aria-modal="true" aria-label="Auszugsdaten" tabindex="-1">
+    <div class="sheet-head">
+        <div class="stack">
+            <span class="kicker">@(ForImport ? "Auszugsdaten" : "Auszugsdaten der Buchung")</span>
+            <span class="sheet-payee">@Payee</span>
+            @if (BookingDate is { } tag)
+            {
+                <span class="meta">@GermanFormat.Date(tag)</span>
+            }
+        </div>
+        @if (Amount is { } betrag)
+        {
+            <span class="sheet-amount num">@State.Euro(betrag, withPlusSign: true)</span>
+        }
+    </div>
+
+    <div class="sheet-body">
+        @foreach (var (label, element, value) in Fields())
+        {
+            <div class="detail-block">
+                <span class="detail-label">@label <span class="camt-element">@element</span></span>
+                @if (value is { Length: > 0 })
+                {
+                    <span class="detail-value num">@value</span>
+                }
+                else
+                {
+                    <span class="detail-value missing">@Missing</span>
+                }
+            </div>
+        }
+
+        @if (ForImport)
+        {
+            <AuthorizeView Roles="Owner,Member" Context="keep">
+                <div class="list-head">
+                    <span class="label-strong">Beim Import behalten</span>
+                </div>
+
+                @foreach (var schalter in Switches())
+                {
+                    var eigen = schalter;
+                    <div class="sheet-rule">
+                        <span class="stack">
+                            <span class="sheet-rule-text">@eigen.Label</span>
+                            <span class="meta">@eigen.Hint</span>
+                        </span>
+                        <label class="radio">
+                            <input type="checkbox" checked="@eigen.Value"
+                                   @onchange="e => eigen.Set(e.Value is true)" />
+                            <span class="dot"></span>
+                        </label>
+                    </div>
+                }
+
+                <div class="doc-actions">
+                    <button type="button" class="btn btn-secondary" @onclick="ApplyToAll">
+                        Für alle Sätze
+                    </button>
+                </div>
+            </AuthorizeView>
+        }
+    </div>
+
+    <div class="sheet-foot">
+        <button type="button" class="btn btn-primary" @onclick="OnClose">Schließen</button>
+    </div>
+</div>
+
+@code {
+    private sealed record Switch(string Label, string Hint, bool Value, Action<bool> Set);
+
+    [Inject] private AppState State { get; set; } = default!;
+
+    [Parameter, EditorRequired] public string Payee { get; set; } = string.Empty;
+    [Parameter] public DateOnly? BookingDate { get; set; }
+    [Parameter] public decimal? Amount { get; set; }
+
+    /// <summary>Die Felder des Auszugs. <c>null</c> heißt: es steht nichts davon zur Verfügung.</summary>
+    [Parameter] public StatementDetailsDto? Details { get; set; }
+
+    /// <summary>Die Importreferenz — im Import aus der Datei, an der Buchung aus dem Bestand.</summary>
+    [Parameter] public string? Reference { get; set; }
+
+    /// <summary>Das Zielkonto beziehungsweise das Konto der Buchung.</summary>
+    [Parameter] public string? AccountName { get; set; }
+
+    /// <summary>
+    /// Importmodus: die Schalter erscheinen, und fehlende Felder heißen „nicht im Auszug“.
+    /// </summary>
+    [Parameter] public bool ForImport { get; set; }
+
+    [Parameter] public ImportKeepFields Keep { get; set; } = new();
+    [Parameter] public EventCallback<ImportKeepFields> KeepChanged { get; set; }
+
+    /// <summary>Überträgt die Wahl auf den ganzen Auszug.</summary>
+    [Parameter] public EventCallback<ImportKeepFields> OnApplyToAll { get; set; }
+
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    /// <summary>
+    /// Was bei einem leeren Feld dasteht.
+    /// </summary>
+    /// <remarks>
+    /// Nie ein leeres Feld und nie ein erfundener Wert — und die beiden Gründe werden
+    /// auseinandergehalten: der Auszug hatte es nicht, oder es wurde nicht behalten.
+    /// </remarks>
+    private string Missing => ForImport ? "nicht im Auszug" : "nicht gespeichert";
+
+    private IEnumerable<(string Label, string Element, string? Value)> Fields()
+    {
+        yield return ("Buchungstag · Valuta", "BookgDt / ValDt", Dates());
+        yield return ("Betrag · Währung", "Amt", Money());
+        yield return ("Auftraggeber / Empfänger", "RltdPties", Payee);
+        yield return ("IBAN der Gegenseite", "CdtrAcct / DbtrAcct", Details?.CounterpartyIban);
+        yield return ("BIC", "Agt", Details?.CounterpartyBic);
+        yield return ("Verwendungszweck", "RmtInf", Details?.Purpose);
+        yield return ("Buchungsart", "BkTxCd", Details?.BookingText);
+        yield return ("Geschäftsvorfallcode", "Domn/Fmly", Code());
+        yield return ("Importreferenz", "AcctSvcrRef", Reference);
+        yield return ("Auszug · Zielkonto", "Stmt", Statement());
+    }
+
+    private string? Dates()
+    {
+        if (BookingDate is not { } gebucht)
+        {
+            return null;
+        }
+
+        return Details?.ValueDate is { } wert && wert != gebucht
+            ? $"{GermanFormat.Date(gebucht)} · {GermanFormat.Date(wert)}"
+            : GermanFormat.Date(gebucht);
+    }
+
+    private string? Money()
+        => Amount is { } betrag
+            ? $"{State.Euro(betrag, withPlusSign: true)} · {Details?.Currency ?? "EUR"}"
+            : null;
+
+    /// <summary>Der ISO-Code, und dahinter der hauseigene der Bank, wenn sie einen führt.</summary>
+    private string? Code()
+    {
+        var teile = new[] { Details?.BankTransactionCode, Details?.ProprietaryCode }
+            .Where(t => t is { Length: > 0 });
+
+        var zusammen = string.Join(" · ", teile);
+
+        return zusammen.Length == 0 ? null : zusammen;
+    }
+
+    private string? Statement()
+    {
+        var teile = new[] { Details?.StatementId, AccountName }.Where(t => t is { Length: > 0 });
+        var zusammen = string.Join(" · ", teile);
+
+        return zusammen.Length == 0 ? null : zusammen;
+    }
+
+    private IEnumerable<Switch> Switches()
+    {
+        yield return new Switch(
+            "Verwendungszweck speichern",
+            "danach in der Buchung durchsuchbar",
+            Keep.Purpose,
+            wert => Update(Keep with { Purpose = wert }));
+
+        yield return new Switch(
+            "IBAN und BIC der Gegenseite speichern",
+            "Grundlage künftiger Zuordnung nach Gegenkonto",
+            Keep.Counterparty,
+            wert => Update(Keep with { Counterparty = wert }));
+
+        yield return new Switch(
+            "Importreferenz speichern",
+            "verhindert Doppelimport zuverlässiger als Tag und Betrag",
+            Keep.Reference,
+            wert => Update(Keep with { Reference = wert }));
+    }
+
+    private void Update(ImportKeepFields wahl) => KeepChanged.InvokeAsync(wahl);
+
+    private Task ApplyToAll() => OnApplyToAll.InvokeAsync(Keep);
+}

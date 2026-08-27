@@ -67,6 +67,18 @@
                 </span>
             </NotAuthorized>
         </AuthorizeView>
+
+        @* Nach dem Import bleiben die Auszugsfelder erreichbar — dieselbe Ansicht wie dort,
+           nur ohne die Schalter: am gespeicherten Datensatz gibt es nichts mehr zu wählen. *@
+        @if (!IsBatch && Transaction!.HasStatementData)
+        {
+            <div class="sheet-rule">
+                <span class="sheet-rule-text">Auszugsdaten</span>
+                <button type="button" class="btn btn-ghost" @onclick="@(() => showStatement = true)">
+                    Ansehen
+                </button>
+            </div>
+        }
     </div>
 
     <div class="sheet-foot">
@@ -99,8 +111,21 @@
     </div>
 </div>
 
+@if (showStatement && Transaction is { } gebucht)
+{
+    <StatementPanel Payee="@gebucht.Payee"
+                    BookingDate="@gebucht.BookingDate"
+                    Amount="@gebucht.Amount"
+                    Details="@gebucht.Details"
+                    Reference="@gebucht.ImportReference"
+                    AccountName="@gebucht.AccountName"
+                    OnClose="@(() => showStatement = false)" />
+}
+
 @code {
     [Inject] private AppState State { get; set; } = default!;
+
+    private bool showStatement;
 
     /// <summary>Die einzelne Buchung. <c>null</c>, wenn das Sheet für eine Stapelvergabe offen ist.</summary>
     [Parameter] public TransactionDto? Transaction { get; set; }

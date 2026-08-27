@@ -185,6 +185,8 @@ public sealed class FinanzAppApi(HttpClient http)
         int accountId,
         IReadOnlyList<int> indexes,
         IReadOnlyList<ImportCategoryChoice>? choices = null,
+        ImportKeepFields? keep = null,
+        IReadOnlyList<ImportKeepOverride>? keepOverrides = null,
         CancellationToken ct = default)
         => PostAsync<ImportCommitRequest, ImportCommitResultDto>(
             "api/import/commit",
@@ -194,6 +196,8 @@ public sealed class FinanzAppApi(HttpClient http)
                 AccountId = accountId,
                 Indexes = indexes,
                 Choices = choices ?? [],
+                Keep = keep ?? new ImportKeepFields(),
+                KeepOverrides = keepOverrides ?? [],
             },
             ct);
 

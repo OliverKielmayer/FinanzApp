@@ -401,6 +401,50 @@ Gelernte Regeln sind unter `/kategorieregeln` einsehbar und löschbar, mit Herku
 App sich selbst beigebracht hat, muss sichtbar und widerrufbar sein; eine Regel, die still im
 Hintergrund zuordnet und die niemand einsehen kann, ist keine Hilfe.
 
+### Kategorien sind Daten
+
+`/kategorien` verwaltet sie: zwei getrennte Listen für Ausgaben und Einnahmen — eine
+Ausgabenkategorie darf bei einer Gutschrift nicht erscheinen, sonst wird die falsche Zuordnung
+erst möglich gemacht.
+
+Vor jedem Löschen steht ein **Verwendungsnachweis**, gezählt statt behauptet: „19 Buchungen ·
+2 Regeln · Budget“. Beim Löschen fallen die Buchungen auf „nicht zugeordnet“ und erscheinen im
+Triage-Banner — sie verschwinden nicht und werden auch nicht stillschweigend umgehängt; Regeln
+auf die Kategorie werden entfernt, weil sie sonst beim nächsten Import ins Leere griffen. Läuft
+ein Budget darauf, wird abgewiesen.
+
+Umbenennen wirkt überall zugleich, weil Buchungen, Regeln und Budgets **per Id** auf die
+Kategorie zeigen und nicht per Text. Genau das hält die Historie zusammen.
+
+Der Prototyp kennt weder eine Sortier-Bedienung noch einen archivierten Zustand — deshalb
+Reihenfolge nach Anlage und echtes Löschen, kein Sortierfeld ohne Weg es zu ändern.
+
+### Die Felder des Auszugs
+
+Jeder Satz der Vorschau ist aufklappbar; das Panel zeigt zehn Felder, jedes mit seinem
+CAMT-Elementnamen als Herkunftsmarke — `BookgDt / ValDt`, `Amt`, `RltdPties`,
+`CdtrAcct / DbtrAcct`, `Agt`, `RmtInf`, `BkTxCd`, `Domn/Fmly`, `AcctSvcrRef`, `Stmt`. Nach dem
+Import bleibt dasselbe Panel über das Kategorie-Fenster erreichbar.
+
+Drei Regeln stecken darin:
+
+1. **Die Anzeige liest ausschließlich, was an der Buchung steht** — nie eine
+   Nachschlagetabelle über den Empfängernamen. Sonst trüge eine von Hand erfasste Buchung
+   plötzlich Auszugsdaten samt erfundener Referenz.
+2. **Fehlende Felder sind `null`, nie Leerstring.** Sonst wäre „steht nicht drin“ von „steht
+   drin, ist leer“ nicht mehr zu unterscheiden.
+3. **Der Grund steht dabei.** Im Import heißt ein leeres Feld „nicht im Auszug“, an der
+   gespeicherten Buchung „nicht gespeichert“. Am Datensatz sind die beiden Fälle nicht mehr
+   auseinanderzuhalten — dann gilt die Aussage, die belegbar ist: gespeichert ist es nicht.
+
+„Beim Import behalten“ hat drei Schalter (Vorgabe alles an) und „Für alle Sätze“. Der dritte
+verdient Vorsicht: **die Importreferenz ist das Duplikatkriterium**. Tag, Betrag und Empfänger
+sind nur der Notnagel für Auszüge ohne Referenz — wer sie abwählt, fällt beim nächsten
+Einlesen desselben Auszugs von „bereits vorhanden“ auf „mögliches Duplikat“ zurück.
+
+Der gespeicherte Verwendungszweck wird in der Buchungsliste **mitdurchsucht**. Bei einer
+Kartenzahlung steht der Laden dort und sonst nirgends.
+
 ## Anmeldung und Mehrbenutzerbetrieb
 
 Ein **Haushalt** besitzt die Daten. Ein **Benutzer** meldet sich mit eigenen Zugangsdaten an und
