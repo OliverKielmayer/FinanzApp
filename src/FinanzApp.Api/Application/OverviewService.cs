@@ -12,6 +12,9 @@ public sealed class OverviewService(
     ImportService imports,
     LoanService loans,
     DocumentService documents,
+    DashboardService dashboard,
+    ReportService reports,
+    TaskService tasks,
     CurrentUser current)
 {
     public async Task<MoreOverviewDto> GetAsync(CancellationToken ct = default)
@@ -60,9 +63,23 @@ public sealed class OverviewService(
         };
     }
 
+    /// <summary>
+    /// Die Kennzahlen der Bereiche — dieselben, die rechts in der Seitennavigation stehen.
+    /// </summary>
+    /// <remarks>
+    /// Nettovermögen, offene Vorgänge und steigende Kategorien kommen aus den Diensten, die sie
+    /// ohnehin rechnen, nicht aus einer zweiten Abfrage daneben. Bei den Vorgängen war das schon
+    /// auseinandergelaufen: hier wurden Aufgaben zusammengezählt, ohne den Abgleich laufen zu
+    /// lassen, der sie aus fälligen Rechnungen und Belegen erst anlegt. Die Navigation zeigte
+    /// darum keine, während das Dashboard eine Bildschirmbreite daneben „7 offene Vorgänge“
+    /// nannte.
+    /// </remarks>
     private async Task<AreaCountsDto> BuildAreaCountsAsync(CancellationToken ct)
     {
         var page = await documents.GetPageAsync(ct: ct);
+        var work = await tasks.GetSummaryAsync(ct);
+        var wealth = await dashboard.GetAsync(ct);
+        var trend = await reports.GetCostTrendAsync(new CostTrendRequest(), ct);
 
         return new AreaCountsDto
         {
@@ -74,7 +91,10 @@ public sealed class OverviewService(
                 b => b.Status != MedicalBillStatus.Completed && b.Status != MedicalBillStatus.Rejected, ct),
             PropertyCount = await db.Properties.CountAsync(ct),
             ContractCount = await db.Contracts.CountAsync(ct),
-            OpenTaskCount = await db.TaskItems.CountAsync(t => t.State != TaskState.Done, ct),
+            OpenTaskCount = work.OpenCount,
+            ScanInboxCount = await db.ScanInbox.CountAsync(ct),
+            NetWorth = wealth.NetWorth.Net,
+            RisingCategoryCount = trend.RisingCount,
         };
     }
 }

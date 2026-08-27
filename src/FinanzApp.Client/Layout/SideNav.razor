@@ -59,14 +59,25 @@
     [Parameter]
     public int? MemberCount { get; set; }
 
+    /// <summary>Kennzahl der Zeile „Kategorien“.</summary>
+    [Parameter]
+    public int? CategoryCount { get; set; }
+
+    /// <summary>Kennzahl der Zeile „Kategorieregeln“.</summary>
+    [Parameter]
+    public int? RuleCount { get; set; }
+
     [Parameter]
     public EventCallback OnCapture { get; set; }
 
     /// <summary>
-    /// Die Kennzahl rechts in der Zeile. Der Handoff will sie an jedem Bereich; verfügbar sind
-    /// bislang die, die die Bereichsliste auf „Mehr“ ohnehin schon lädt. Wo keine Zahl vorliegt,
-    /// steht keine — eine erfundene wäre schlimmer als keine.
+    /// Die Kennzahl rechts in der Zeile — dieselben acht, die der Handoff nennt.
     /// </summary>
+    /// <remarks>
+    /// Wo keine Zahl vorliegt, steht keine; eine erfundene wäre schlimmer als keine. Und wo eine
+    /// Zählung auf null steht, bleibt die Zeile ebenfalls leer: „0 offen“ ist eine Meldung ohne
+    /// Anlass, und zwanzig Nullen untereinander verdecken die drei Zahlen, auf die es ankommt.
+    /// </remarks>
     private string? Badge(Screen screen)
     {
         if (Counts is not { } c)
@@ -76,10 +87,17 @@
 
         return screen.Route switch
         {
+            "/" => GermanFormat.EuroRounded(c.NetWorth),
             "/vorgaenge" => c.OpenTaskCount > 0 ? $"{c.OpenTaskCount} offen" : null,
             "/dokumente" => c.DocumentCount > 0 ? c.DocumentCount.ToString() : null,
+            "/scaneingang" => c.ScanInboxCount > 0 ? c.ScanInboxCount.ToString() : null,
             "/gesundheit" => c.OpenMedicalBillCount > 0 ? $"{c.OpenMedicalBillCount} offen" : null,
             "/wohnen" => c.PropertyCount > 0 ? c.PropertyCount.ToString() : null,
+            "/auswertungen" => c.RisingCategoryCount > 0
+                ? $"{c.RisingCategoryCount} steigend"
+                : null,
+            "/kategorien" => CategoryCount > 0 ? CategoryCount.ToString() : null,
+            "/kategorieregeln" => RuleCount > 0 ? RuleCount.ToString() : null,
             "/benutzer" => MemberCount > 0 ? MemberCount.ToString() : null,
             _ => null,
         };

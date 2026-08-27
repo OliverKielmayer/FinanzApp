@@ -17,6 +17,7 @@
                      UserName="@Auth.User?.Name" HouseholdName="@Auth.User?.HouseholdName"
                      SignedInAt="@Auth.User?.SignedInAt"
                      Counts="@counts" MemberCount="@memberCount"
+                     CategoryCount="@categoryCount" RuleCount="@ruleCount"
                      OnCapture="OpenCapture" />
 
             <div class="app-body">
@@ -64,24 +65,37 @@
     /// <summary>Kennzahlen der Seitennavigation. Dieselbe Quelle wie die Bereichsliste auf „Mehr“.</summary>
     private AreaCountsDto? counts;
     private int? memberCount;
+    private int? categoryCount;
+    private int? ruleCount;
 
     private bool CanWrite => Auth.User?.CanWrite ?? false;
 
-    protected override void OnInitialized()
+    /// <summary>Der Anmeldezustand — er steht erst fest, wenn <c>/api/auth/me</c> geantwortet hat.</summary>
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = default!;
+
+    /// <summary>
+    /// Die Kennzahlen kommen nach, sobald feststeht, wer angemeldet ist.
+    /// </summary>
+    /// <remarks>
+    /// <para>Früher stand hier eine Prüfung auf <c>Auth.User</c> im ersten Rendern. Beim Kaltstart
+    /// ist der Anmeldezustand da aber noch nicht bekannt — er kommt aus <c>/api/auth/me</c> und
+    /// trifft später ein. Die Prüfung schlug also fehl, ein zweiter Versuch war nicht
+    /// vorgesehen, und die Navigation blieb die ganze Sitzung lang ohne Zahlen. Nach einer
+    /// Anmeldung im selben Lauf erschienen sie, nach einem Neuladen nie: derselbe Bildschirm
+    /// zeigte je nach Weg dorthin verschiedene Dinge.</para>
+    /// <para>Jetzt wird der Zustand abgewartet. Scheitert der Aufruf, bleibt die Navigation
+    /// ohne Zahlen stehen — sie ist deshalb nicht weniger benutzbar, und ein Fehlerbanner über
+    /// der ganzen Anwendung wäre die schlechtere Antwort.</para>
+    /// </remarks>
+    protected override async Task OnInitializedAsync()
     {
         UpdateScreen();
         Navigation.LocationChanged += OnLocationChanged;
         State.Changed += OnStateChanged;
-    }
 
-    /// <summary>
-    /// Die Kennzahlen kommen nach dem ersten Rendern nach. Scheitert der Aufruf, bleibt die
-    /// Navigation ohne Zahlen stehen — sie ist deshalb nicht weniger benutzbar, und ein
-    /// Fehlerbanner über der ganzen Anwendung wäre die schlechtere Antwort.
-    /// </summary>
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (!firstRender || Auth.User is null)
+        var state = await AuthState;
+        if (state.User.Identity?.IsAuthenticated != true)
         {
             return;
         }
@@ -91,7 +105,8 @@
             var overview = await Api.GetMoreOverviewAsync();
             counts = overview.Areas;
             memberCount = overview.HouseholdMemberCount;
-            StateHasChanged();
+            categoryCount = overview.CategoryCount;
+            ruleCount = overview.RuleCount;
         }
         catch (Exception)
         {

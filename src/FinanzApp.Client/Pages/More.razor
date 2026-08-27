@@ -87,9 +87,9 @@
 
         yield return new AreaRow(
             "Auswertungen",
-            "Liquidität, Kategorien, Sparpotential",
-            string.Empty,
-            "/liquiditaet");
+            "Kostentrend, Fixkosten, Depot, Datenqualität",
+            areas.RisingCategoryCount > 0 ? $"{areas.RisingCategoryCount} steigend" : string.Empty,
+            "/auswertungen");
 
         yield return new AreaRow(
             "Kategorien",

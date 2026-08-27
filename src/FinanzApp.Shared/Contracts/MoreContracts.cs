@@ -31,6 +31,22 @@ public sealed record AreaCountsDto
     public required int PropertyCount { get; init; }
     public required int ContractCount { get; init; }
     public required int OpenTaskCount { get; init; }
+
+    /// <summary>Noch nicht zugeordnete Scans.</summary>
+    public required int ScanInboxCount { get; init; }
+
+    /// <summary>
+    /// Das Nettovermögen — die Kennzahl des Bereichs „Vermögen“.
+    /// </summary>
+    /// <remarks>
+    /// Sie kommt aus derselben Rechnung wie die Zahl auf dem Dashboard. Sie hier noch einmal
+    /// zu rechnen hieße, zwei Wege zu derselben Größe zu haben — und dann steht eines Tages
+    /// in der Navigation etwas anderes als eine Bildschirmbreite daneben.
+    /// </remarks>
+    public required decimal NetWorth { get; init; }
+
+    /// <summary>Kategorien, die um mehr als die Schwelle steigen — Kennzahl der Auswertungen.</summary>
+    public required int RisingCategoryCount { get; init; }
 }
 
 /// <summary>Kopfzahl der Vorsorge: Summe der erreichten Werte, immer mit Stichtag.</summary>

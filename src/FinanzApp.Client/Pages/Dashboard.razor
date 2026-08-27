@@ -74,6 +74,10 @@
             </section>
 
             <section class="balance">
+                @* Der Block hat drei Zeilen, von denen zwei „Vermögen“ heißen und eine
+                   „Verbindlichkeiten“. Ohne Namen liest man ihn als Fortsetzung des Charts. *@
+                <span class="label-strong">Bilanz</span>
+
                 <div class="balance-row">
                     <span class="balance-label">Bruttovermögen</span>
                     <span class="balance-value num">@State.Euro(dashboard.NetWorth.Gross)</span>
@@ -92,6 +96,11 @@
                     <span class="balance-value num">@State.Euro(dashboard.NetWorth.Net)</span>
                 </div>
             </section>
+        </div>
+
+        <div class="list-head">
+            <span class="label-strong">Vermögenswerte</span>
+            <span class="label-muted num">Anteil am Bruttovermögen</span>
         </div>
 
         <div class="asset-grid">
