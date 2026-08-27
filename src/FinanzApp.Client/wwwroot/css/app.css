@@ -3772,3 +3772,149 @@ body {
     margin: 16mm;
   }
 }
+
+/* ── Navigation v5 ─────────────────────────────────────────────────────────────── */
+
+.sidenav-group {
+  padding: 14px 16px 5px;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-neutral-500);
+  border-bottom: 1px solid var(--color-divider);
+  margin-bottom: 4px;
+}
+
+.sidenav-group:first-child {
+  padding-top: 4px;
+}
+
+.header-action.accent {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+/* Am Telefon gibt es keine Seitennavigation, ueber die man in die Einstellungen kaeme. */
+.header-more {
+  letter-spacing: 0.12em;
+}
+
+@media (min-width: 768px) {
+  .header-more {
+    display: none;
+  }
+}
+
+/* ── Bestand ───────────────────────────────────────────────────────────────────── */
+
+.holdings-filter {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-text);
+}
+
+.holding-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-divider);
+  color: inherit;
+  text-decoration: none;
+}
+
+.holding-row:hover {
+  background: rgba(29, 31, 32, 0.045);
+}
+
+/* Eine laufende Frist faellt aus der Liste heraus - sie ist der Grund, warum jemand
+   diese Zeile heute ansieht. */
+.holding-row.urgent {
+  background: var(--color-accent-100);
+}
+
+.holding-row .stack {
+  flex: 1;
+  min-width: 0;
+}
+
+.holding-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.holding-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.holding-value {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 15px;
+}
+
+.holding-value.debt {
+  color: var(--color-accent-700);
+}
+
+.holding-add {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--color-divider);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-accent);
+  cursor: pointer;
+  text-align: left;
+}
+
+.holding-add:hover {
+  background: rgba(29, 31, 32, 0.045);
+}
+
+.holding-add-mark {
+  font-size: 18px;
+}
+
+/* ── Einstellungen ─────────────────────────────────────────────────────────────── */
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-divider);
+  color: inherit;
+  text-decoration: none;
+}
+
+.setting-row:hover:not(.plain) {
+  background: rgba(29, 31, 32, 0.045);
+}
+
+.setting-row .stack {
+  flex: 1;
+  min-width: 0;
+}
+
+.setting-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.setting-value {
+  flex: none;
+  font-size: 12px;
+  color: var(--color-neutral-600);
+}

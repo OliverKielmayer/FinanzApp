@@ -13,6 +13,7 @@ public sealed class OverviewService(
     LoanService loans,
     DocumentService documents,
     DashboardService dashboard,
+    HoldingsService holdings,
     ReportService reports,
     TaskService tasks,
     CurrentUser current)
@@ -93,6 +94,7 @@ public sealed class OverviewService(
             ContractCount = await db.Contracts.CountAsync(ct),
             OpenTaskCount = work.OpenCount,
             ScanInboxCount = await db.ScanInbox.CountAsync(ct),
+            HoldingCount = (await holdings.GetAsync(ct: ct)).Rows.Count,
             NetWorth = wealth.NetWorth.Net,
             RisingCategoryCount = trend.RisingCount,
         };

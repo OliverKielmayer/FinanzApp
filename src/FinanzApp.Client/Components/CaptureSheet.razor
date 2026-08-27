@@ -35,6 +35,14 @@
                     @onclick="@(() => Go("/gesundheit/scannen?art=rechnung"))">
                 Rechnung
             </button>
+            @* Kontoauszug und Scaneingang sind Zustände dieses Flusses, keine
+               Navigationsziele: der Nutzer sucht die Tür, nicht das Dateiformat. *@
+            <button type="button" class="btn btn-secondary capture-item" @onclick="@(() => Go("/import"))">
+                Kontoauszug einlesen
+            </button>
+            <button type="button" class="btn btn-secondary capture-item" @onclick="@(() => Go("/scaneingang"))">
+                Scaneingang öffnen@(WaitingLabel)
+            </button>
             <button type="button" class="btn btn-secondary capture-item" @onclick="@(() => Go("/dokumente?neu=1"))">
                 Dokument verknüpfen
             </button>
@@ -42,7 +50,7 @@
                 Aufgabe / Frist
             </button>
             <button type="button" class="btn btn-secondary capture-item" @onclick="@(() => Go("/neu"))">
-                Konto / Vertrag / Objekt anlegen
+                Objekt oder Vertrag anlegen
             </button>
         </div>
 
@@ -54,6 +62,20 @@
 
 @code {
     [Parameter] public EventCallback OnClose { get; set; }
+
+    /// <summary>
+    /// Wie viele Belege auf Zuordnung warten.
+    /// </summary>
+    /// <remarks>
+    /// Die Zahl gehört in die Zeile: sie ist der Grund, das Sheet überhaupt zu öffnen. Ohne sie
+    /// wäre „Scaneingang öffnen“ eine Einladung ins Ungewisse.
+    /// </remarks>
+    [Parameter] public int? Waiting { get; set; }
+
+    private string? WaitingLabel
+        => Waiting is > 0
+            ? $" · {Waiting} {(Waiting == 1 ? "Beleg wartet" : "Belege warten")}"
+            : null;
 
     private ElementReference sheet;
 

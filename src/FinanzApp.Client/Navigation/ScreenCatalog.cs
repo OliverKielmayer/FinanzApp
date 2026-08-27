@@ -12,7 +12,10 @@ namespace FinanzApp.Client.Navigation;
 /// <param name="IsAction">
 /// Kein Ziel, sondern eine Aktion: die Tab-Zelle öffnet das Erfassen-Sheet, statt zu navigieren.
 /// </param>
-/// <param name="InAreaList">Steht auf „Mehr“ in der Bereichsliste.</param>
+/// <param name="Group">
+/// Gruppe in der Seitennavigation. <c>null</c> heißt: steht dort nicht.
+/// </param>
+/// <param name="InAreaList">Steht in der Bereichsliste.</param>
 /// <param name="DetailTitle">
 /// Titel für Unterseiten mit Id (<c>/versicherungen/3</c>). Ohne Angabe gilt <paramref name="Title"/>.
 /// </param>
@@ -24,49 +27,95 @@ public sealed record Screen(
     bool IsDetail = false,
     bool RequiresWrite = false,
     bool IsAction = false,
+    NavGroup? Group = null,
     bool InAreaList = false,
     string? DetailTitle = null);
+
+/// <summary>
+/// Die vier Gruppen der Seitennavigation — v5-Handoff, Abschnitt 2.
+/// </summary>
+/// <remarks>
+/// Die Navigation trug neunzehn gleichrangige Einträge. Nicht die Zahl war das Problem,
+/// sondern dass drei verschiedene Dinge auf einer Ebene standen: Objekte, die man besitzt;
+/// Wege, wie Daten hereinkommen; und Stammdaten, die man dreimal im Jahr braucht.
+/// </remarks>
+public enum NavGroup
+{
+    /// <summary>Was täglich dran ist.</summary>
+    Everyday = 0,
+
+    /// <summary>Was man besitzt — auf dem Telefon eine Liste mit Klassenfilter.</summary>
+    Holdings = 1,
+
+    /// <summary>Was man wissen will.</summary>
+    Analysis = 2,
+
+    /// <summary>Was man einmal einstellt.</summary>
+    System = 3,
+}
 
 /// <summary>
 /// Kopfzeilen und Navigationsbeschriftungen an einer Stelle. Die Reihenfolge ist zugleich die
 /// Reihenfolge in Tab-Bar, Bereichsliste und Seitennavigation.
 /// </summary>
 /// <remarks>
-/// Mit der Erweiterung trägt die Tab-Bar Vermögen · Vorgänge · Erfassen · Dokumente · Mehr.
-/// Konten, Budgets und Depot bleiben unverändert erhalten und wandern in die Bereichsliste —
-/// die Screens selbst wurden dafür nicht angefasst.
+/// <para>Seit v5 trägt die Tab-Bar vier Zellen: Heute · Vorgänge · Bestand · Erfassen. Die
+/// sieben Objektbereiche stehen nicht mehr einzeln in der Navigation — sie sind Klassen einer
+/// Liste und bleiben als Detailziele erreichbar. Die Screens selbst wurden dafür nicht
+/// angefasst.</para>
+/// <para>„Mehr“ ist entfallen: es war ein Sammelbecken, und ein Sammelbecken ist keine
+/// Ordnung, sondern ihr Aufschub.</para>
 /// </remarks>
 public static class ScreenCatalog
 {
     public static IReadOnlyList<Screen> All { get; } =
     [
-        // Die fünf Zellen der Tab-Bar, in dieser Reihenfolge.
-        new("/", "Übersicht", "Vermögen", "Vermögen"),
-        new("/vorgaenge", "Offen", "Vorgänge", "Vorgänge"),
+        // Die vier Zellen der Tab-Bar, in dieser Reihenfolge.
+        new("/", "Heute", "Übersicht", "Heute", Group: NavGroup.Everyday),
+        new("/vorgaenge", "Offen", "Vorgänge", "Vorgänge", Group: NavGroup.Everyday),
+        new("/bestand", "Bestand", "Alle Objekte", "Bestand", Group: NavGroup.Holdings),
         new("/erfassen", "Erfassen", "Neue Buchung", "Erfassen",
             IsDetail: true, RequiresWrite: true, IsAction: true),
-        new("/dokumente", "Ablage", "Dokumente", "Dokumente", DetailTitle: "Dokument"),
-        new("/mehr", "Mehr", "Alle Bereiche", "Mehr"),
 
-        // Bereiche, die über „Mehr“ und ab Tabletbreite über die Seitennavigation erreichbar sind.
-        new("/konten", "Finanzen", "Konten & Buchungen", IsDetail: true, InAreaList: true),
-        new("/budgets", "Planung", "Budgets", IsDetail: true, InAreaList: true),
-        new("/depot", "Investments", "Depot", IsDetail: true, InAreaList: true),
-        new("/darlehen", "Finanzierungen", "Darlehen", IsDetail: true, InAreaList: true),
-        new("/auswertungen", "Analyse", "Auswertungen", IsDetail: true, InAreaList: true),
-        new("/import", "Import", "Import\u00advorschau", IsDetail: true, InAreaList: true),
-        new("/vorsorge", "Finanzen", "Vorsorge & Kapital", IsDetail: true, InAreaList: true),
-        new("/absicherung", "Absicherung", "Versicherungen", IsDetail: true, InAreaList: true),
-        new("/gesundheit", "Gesundheit", "Gesundheit & PKV", IsDetail: true, InAreaList: true,
-            DetailTitle: "PKV-Vorgang"),
-        new("/wohnen", "Wohnen", "Wohnen & Immobilien", IsDetail: true, InAreaList: true,
-            DetailTitle: "Immobilie"),
-        new("/fahrzeuge", "Mobilität", "Fahrzeuge", IsDetail: true, InAreaList: true,
-            DetailTitle: "Fahrzeug"),
-        new("/scaneingang", "Eingang", "Scaneingang", IsDetail: true, InAreaList: true),
-        new("/kategorien", "Ordnung", "Kategorien", IsDetail: true, InAreaList: true),
-        new("/kategorieregeln", "Ordnung", "Kategorieregeln", IsDetail: true, InAreaList: true),
-        new("/benutzer", "Konto", "Benutzer & Anmeldung", IsDetail: true, InAreaList: true),
+        // Kein Tab mehr: die Suche in der Kopfzeile führt hierher.
+        new("/dokumente", "Ablage", "Dokumente", IsDetail: true, DetailTitle: "Dokument"),
+
+        new("/einstellungen", "System", "Einstellungen", IsDetail: true,
+            Group: NavGroup.System, InAreaList: true),
+
+        // Die Objektklassen: ab Tabletbreite als zweite Ebene unter „Bestand“, auf dem Telefon
+        // der Klassenfilter derselben Liste. Dieselbe Struktur, nur aufgeklappt.
+        new("/konten", "Finanzen", "Konten & Buchungen", IsDetail: true,
+            Group: NavGroup.Holdings, InAreaList: true),
+        new("/budgets", "Planung", "Budgets", IsDetail: true,
+            Group: NavGroup.Analysis, InAreaList: true),
+        new("/depot", "Investments", "Depot", IsDetail: true,
+            Group: NavGroup.Holdings, InAreaList: true),
+        new("/vorsorge", "Finanzen", "Vorsorge & Kapital", IsDetail: true,
+            Group: NavGroup.Holdings, InAreaList: true),
+        new("/absicherung", "Absicherung", "Versicherungen", IsDetail: true,
+            Group: NavGroup.Holdings, InAreaList: true),
+        new("/wohnen", "Wohnen", "Wohnen & Immobilien", IsDetail: true,
+            Group: NavGroup.Holdings, InAreaList: true, DetailTitle: "Immobilie"),
+        new("/fahrzeuge", "Mobilität", "Fahrzeuge", IsDetail: true,
+            Group: NavGroup.Holdings, InAreaList: true, DetailTitle: "Fahrzeug"),
+        new("/darlehen", "Finanzierungen", "Darlehen", IsDetail: true,
+            Group: NavGroup.Holdings, InAreaList: true),
+
+        new("/auswertungen", "Analyse", "Auswertungen", IsDetail: true,
+            Group: NavGroup.Analysis, InAreaList: true),
+        new("/gesundheit", "Gesundheit", "Gesundheit & PKV", IsDetail: true,
+            Group: NavGroup.Analysis, InAreaList: true, DetailTitle: "PKV-Vorgang"),
+
+        // Zeilen des Erfassen-Sheets, keine Navigationsziele mehr: der Nutzer sucht
+        // die Tür, nicht das Dateiformat.
+        new("/import", "Import", "Import­vorschau", IsDetail: true),
+        new("/scaneingang", "Eingang", "Scaneingang", IsDetail: true),
+
+        // Zeilen der Einstellungen.
+        new("/kategorien", "Ordnung", "Kategorien", IsDetail: true),
+        new("/kategorieregeln", "Ordnung", "Kategorieregeln", IsDetail: true),
+        new("/benutzer", "Konto", "Benutzer & Anmeldung", IsDetail: true),
 
         // Detailscreens, die aus einem Bereich heraus geöffnet werden.
         new("/gesundheit/scannen", "Erfassen", "Beleg scannen", IsDetail: true, RequiresWrite: true),
@@ -81,30 +130,31 @@ public static class ScreenCatalog
         new("/liquiditaet/sparen", "Übersicht", "Sparpotential", IsDetail: true),
     ];
 
-    /// <summary>Die fünf Einträge der Tab-Bar.</summary>
+    /// <summary>Die vier Einträge der Tab-Bar.</summary>
     public static IReadOnlyList<Screen> Tabs { get; } = [.. All.Where(s => s.TabLabel is not null)];
 
-    /// <summary>Die Bereichsliste auf „Mehr“ und in der Seitennavigation.</summary>
+    /// <summary>Die Bereichsliste.</summary>
     public static IReadOnlyList<Screen> Areas { get; } = [.. All.Where(s => s.InAreaList)];
 
     /// <summary>
-    /// Die Seitennavigation ab Tabletbreite: eine flache Liste in der Reihenfolge aus Handoff v4,
-    /// Abschnitt 3 — nicht die Reihenfolge der Tab-Bar.
+    /// Die Gruppen der Seitennavigation, in ihrer Reihenfolge.
     /// </summary>
     /// <remarks>
-    /// Alle Bereiche des Handoffs, in seiner Reihenfolge.
+    /// Vier Gruppen statt neunzehn gleichrangiger Einträge. Was unter „Bestand“ steht, ist auf
+    /// dem Telefon der Klassenfilter derselben Liste — dieselbe Struktur, nur aufgeklappt.
     /// </remarks>
-    public static IReadOnlyList<Screen> SideNav { get; } =
+    public static IReadOnlyList<(NavGroup Group, string Label, IReadOnlyList<Screen> Screens)>
+        NavGroups { get; } =
     [
         .. new[]
         {
-            "/", "/vorgaenge", "/konten", "/budgets", "/depot",
-            "/vorsorge", "/absicherung",
-            "/dokumente", "/scaneingang", "/gesundheit", "/wohnen", "/fahrzeuge",
-            "/darlehen", "/auswertungen", "/import", "/kategorien", "/kategorieregeln",
-            "/benutzer",
+            (NavGroup.Everyday, "Alltag"),
+            (NavGroup.Holdings, "Bestand"),
+            (NavGroup.Analysis, "Analyse"),
+            (NavGroup.System, "System"),
         }
-        .Select(route => All.First(s => s.Route == route)),
+        .Select(g => (g.Item1, g.Item2,
+            (IReadOnlyList<Screen>)[.. All.Where(x => x.Group == g.Item1)])),
     ];
 
     private static readonly Screen Fallback = All[0];

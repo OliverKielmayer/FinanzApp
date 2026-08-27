@@ -279,6 +279,12 @@ public sealed class FinanzAppApi(HttpClient http)
     public Task DeleteReportViewAsync(int id, CancellationToken ct = default)
         => SendWithoutResultAsync<object?>(HttpMethod.Delete, $"api/reports/views/{id}", null, ct);
 
+    /// <summary>Der Bestand — alle Objekte in einer Liste, wahlweise nach Klasse gefiltert.</summary>
+    public Task<HoldingsDto> GetHoldingsAsync(
+        HoldingClass? klasse = null, CancellationToken ct = default)
+        => GetAsync<HoldingsDto>(
+            klasse is { } k ? $"api/holdings?klasse={k}" : "api/holdings", ct);
+
     /// <summary>Was die Auswertungen unvollständig macht.</summary>
     public Task<DataQualityDto> GetDataQualityAsync(CancellationToken ct = default)
         => GetAsync<DataQualityDto>("api/reports/data-quality", ct);

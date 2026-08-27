@@ -35,6 +35,9 @@ public sealed record AreaCountsDto
     /// <summary>Noch nicht zugeordnete Scans.</summary>
     public required int ScanInboxCount { get; init; }
 
+    /// <summary>Objekte im Bestand über alle Klassen — Kennzahl der Zeile „Alle Objekte“.</summary>
+    public required int HoldingCount { get; init; }
+
     /// <summary>
     /// Das Nettovermögen — die Kennzahl des Bereichs „Vermögen“.
     /// </summary>

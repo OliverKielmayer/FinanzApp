@@ -1,0 +1,113 @@
+@page "/einstellungen"
+@attribute [Authorize]
+@inherits AppPage
+
+@*
+    Einstellungen — v5-Handoff, Abschnitt 5.
+
+    Stammdaten, die man dreimal im Jahr braucht und die vorher dauerhaft in der Navigation
+    standen. Sieben Zeilen mit Untertitel und rechter Kennzahl; die Einzelscreens bleiben, wie
+    sie sind — sie haben nur keinen Platz mehr in der ersten Ebene.
+*@
+
+<PageTitle>Einstellungen — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (data is { } overview)
+    {
+        @foreach (var zeile in Rows(overview))
+        {
+            @if (zeile.Route is { } ziel)
+            {
+                <a class="setting-row" href="@ziel">
+                    <span class="stack">
+                        <span class="setting-name">@zeile.Label</span>
+                        <span class="meta">@zeile.Subtitle</span>
+                    </span>
+                    <span class="setting-value num">@zeile.Value</span>
+                </a>
+            }
+            else
+            {
+                @* Ohne Ziel keine Verknüpfung: ein Link, der nirgendwohin führt, ist ein
+                   Versprechen, das der nächste Klick bricht. *@
+                <div class="setting-row plain">
+                    <span class="stack">
+                        <span class="setting-name">@zeile.Label</span>
+                        <span class="meta">@zeile.Subtitle</span>
+                    </span>
+                    <span class="setting-value num">@zeile.Value</span>
+                </div>
+            }
+        }
+
+        <div class="spacer"></div>
+    }
+</AsyncView>
+
+@code {
+    private sealed record SettingRow(string Label, string Subtitle, string Value, string? Route);
+
+    private MoreOverviewDto? data;
+
+    protected override async Task LoadAsync() => data = await Api.GetMoreOverviewAsync();
+
+    private static IEnumerable<SettingRow> Rows(MoreOverviewDto overview)
+    {
+        yield return new SettingRow(
+            "Kategorien",
+            "Ausgaben und Einnahmen · bestimmen Budgets und Auswertungen",
+            $"{overview.CategoryCount}",
+            "/kategorien");
+
+        yield return new SettingRow(
+            "Kategorieregeln",
+            "greifen beim Import, bevor gefragt wird",
+            $"{overview.RuleCount} {(overview.RuleCount == 1 ? "Regel" : "Regeln")}",
+            "/kategorieregeln");
+
+        yield return new SettingRow(
+            "Benutzer & Freigaben",
+            "Haushalt, Rollen, Kontofreigaben",
+            $"{overview.HouseholdMemberCount} "
+            + (overview.HouseholdMemberCount == 1 ? "Benutzer" : "Benutzer"),
+            "/benutzer");
+
+        yield return new SettingRow(
+            "Importprofile",
+            "erkannte Formate beim Einlesen",
+            overview.Import.Formats,
+            "/import");
+
+        yield return new SettingRow(
+            "Dokumentablage",
+            "relative Pfade unterhalb des Dokumentordners",
+            $"{overview.Areas.DocumentCount}",
+            "/dokumente");
+
+        // Ohne Verwaltungsscreen kein Link. Der Handoff führt sie auf, aber gestaltet ist sie
+        // nicht — und ein Link ins Leere wäre schlimmer als eine Zeile ohne.
+        yield return new SettingRow(
+            "Dokumenttypen",
+            "noch nicht gestaltet — vor dem Bau anzufragen",
+            "geplant",
+            null);
+
+        yield return new SettingRow(
+            "Sicherheit & Sicherung",
+            SecurityLine(overview.Security),
+            overview.Security.TwoFactorEnabled ? "2FA aktiv" : "2FA aus",
+            null);
+    }
+
+    private static string SecurityLine(SecuritySummaryDto security)
+    {
+        var faktor = security.TwoFactorEnabled
+            ? "Zwei-Faktor-Anmeldung aktiv"
+            : "Zwei-Faktor-Anmeldung noch nicht aktiv";
+
+        return security.LastBackup == default
+            ? faktor
+            : $"{faktor} · letzte Sicherung {GermanFormat.DateTime(security.LastBackup)}";
+    }
+}

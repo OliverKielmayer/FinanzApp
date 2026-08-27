@@ -32,8 +32,20 @@
                         <h1 class="app-title">@screen.Title</h1>
                     </div>
 
+                    @*
+                        Die Suche ersetzt den früheren Dokumente-Tab. Sie sucht über Objekte,
+                        Dokumente und Buchungen — wer etwas sucht, weiß meist den Namen und
+                        nicht, in welchem Bereich es liegt.
+                    *@
+                    <a class="header-action accent" href="/dokumente">Suche</a>
+
                     <button type="button" class="header-action"
                             @onclick="State.ToggleAmounts">@State.ToggleLabel</button>
+
+                    @* Nur am Telefon: dort gibt es keine Seitennavigation, über die man in die
+                       Einstellungen käme. *@
+                    <a class="header-action header-more" href="/einstellungen"
+                       aria-label="Einstellungen">•••</a>
                 </header>
 
                 <main class="app-main">
@@ -53,7 +65,7 @@
 
 @if (captureOpen)
 {
-    <CaptureSheet OnClose="CloseCapture" />
+    <CaptureSheet OnClose="CloseCapture" Waiting="@counts?.ScanInboxCount" />
 }
 
 <Toast />

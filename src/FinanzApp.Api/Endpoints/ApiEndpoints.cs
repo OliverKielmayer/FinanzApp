@@ -213,6 +213,11 @@ public static class ApiEndpoints
                 int id, ReportService service, CancellationToken ct)
             => await service.DeleteViewAsync(id, ct) ? Results.NoContent() : Results.NotFound());
 
+        // Ein Aggregat statt sieben Abrufe, die der Client zusammenlegt.
+        api.MapGet("/holdings", async (
+                HoldingClass? klasse, HoldingsService service, CancellationToken ct)
+            => Results.Ok(await service.GetAsync(klasse, ct)));
+
         api.MapGet("/portfolio", async (PortfolioService service, CancellationToken ct) =>
         {
             var portfolio = await service.GetAsync(ct);

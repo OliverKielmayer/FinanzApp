@@ -163,6 +163,7 @@ builder.Services.AddScoped<CreateFormService>();
 builder.Services.AddScoped<PropertyService>();
 builder.Services.AddScoped<LiquidityService>();
 builder.Services.AddScoped<ReportService>();
+builder.Services.AddScoped<HoldingsService>();
 
 var app = builder.Build();
 

@@ -10,17 +10,26 @@
         </span>
     </div>
 
+    @*
+        Vier Gruppen statt neunzehn gleichrangiger Einträge. Nicht die Zahl war das Problem,
+        sondern dass Objekte, Eingangswege und Stammdaten auf einer Ebene standen.
+    *@
     <div class="sidenav-list">
-        @foreach (var screen in ScreenCatalog.SideNav)
+        @foreach (var (_, titel, screens) in ScreenCatalog.NavGroups)
         {
-            <a href="@screen.Route" class="sidenav-item @(screen == Current ? "active" : null)"
-               aria-current="@(screen == Current ? "page" : null)">
-                <span class="sidenav-item-name">@screen.Title</span>
-                @if (Badge(screen) is { } badge)
-                {
-                    <span class="sidenav-item-badge num">@badge</span>
-                }
-            </a>
+            <span class="sidenav-group">@titel</span>
+
+            @foreach (var screen in screens)
+            {
+                <a href="@screen.Route" class="sidenav-item @(screen == Current ? "active" : null)"
+                   aria-current="@(screen == Current ? "page" : null)">
+                    <span class="sidenav-item-name">@screen.Title</span>
+                    @if (Badge(screen) is { } badge)
+                    {
+                        <span class="sidenav-item-badge num">@badge</span>
+                    }
+                </a>
+            }
         }
     </div>
 
@@ -89,6 +98,7 @@
         {
             "/" => GermanFormat.EuroRounded(c.NetWorth),
             "/vorgaenge" => c.OpenTaskCount > 0 ? $"{c.OpenTaskCount} offen" : null,
+            "/bestand" => c.HoldingCount > 0 ? c.HoldingCount.ToString() : null,
             "/dokumente" => c.DocumentCount > 0 ? c.DocumentCount.ToString() : null,
             "/scaneingang" => c.ScanInboxCount > 0 ? c.ScanInboxCount.ToString() : null,
             "/gesundheit" => c.OpenMedicalBillCount > 0 ? $"{c.OpenMedicalBillCount} offen" : null,

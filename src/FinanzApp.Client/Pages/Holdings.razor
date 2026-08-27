@@ -1,0 +1,220 @@
+@page "/bestand"
+@attribute [Authorize]
+@inherits AppPage
+
+@*
+    Bestand — v5-Handoff, Abschnitt 3.
+
+    Eine Liste über alle Objektklassen. Der Klassenfilter setzt die Kopfkennzahl; ohne sie wäre
+    die Zusammenlegung der sieben Bereiche ein Verlust — jeder hatte seine eigene Summe oben.
+
+    Zwei Spaltenbedeutungen in einer Liste: Werte und Jahreskosten. Das ist zulässig, solange
+    die Einheit an der Zahl steht. Einem Vertrag einen Vermögenswert zu geben wäre es nicht.
+*@
+
+<PageTitle>Bestand — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (data is { } bestand)
+    {
+        <div class="holdings-filter">
+            @foreach (var klasse in bestand.Classes)
+            {
+                var wahl = klasse;
+                <button type="button" class="chip @(filter == klasse.Class ? "active" : null)"
+                        disabled="@busy" @onclick="() => PickAsync(wahl.Class)">
+                    @klasse.Label <span class="chip-hint num">@klasse.Count</span>
+                </button>
+            }
+        </div>
+
+        <div class="report-hero">
+            <span class="kicker">@HeadLabel(bestand.Head)</span>
+            <span class="hero-value medium num">@HeadValue(bestand.Head)</span>
+            <span class="meta">@HeadSub(bestand.Head)</span>
+        </div>
+
+        @if (bestand.Rows.Count == 0)
+        {
+            <div class="import-nothing">
+                <span class="label-strong">Nichts erfasst</span>
+                <span class="create-help">In dieser Klasse steht noch kein Objekt.</span>
+            </div>
+        }
+
+        @foreach (var zeile in bestand.Rows)
+        {
+            <a class="holding-row @(zeile.Urgent ? "urgent" : null)" href="@zeile.Route">
+                <span class="stack">
+                    <span class="holding-name">@zeile.Name</span>
+                    <span class="holding-tags">
+                        <span class="tag @(zeile.Urgent ? "tag-accent" : "tag-neutral")">
+                            @zeile.ClassLabel
+                        </span>
+                        @if (zeile.Urgent)
+                        {
+                            <span class="tag tag-accent">Frist läuft</span>
+                        }
+                    </span>
+                    <span class="meta">@zeile.Meta</span>
+                </span>
+
+                <span class="stack-end">
+                    @* Die Einheit steht an der Zahl. Ohne sie stünden Wert und Jahreskosten
+                       in derselben Spalte und sähen aus wie dasselbe. *@
+                    <span class="holding-value num @(zeile.Value < 0 ? "debt" : null)">
+                        @Amount(zeile)
+                    </span>
+                    @if (zeile.Note is { Length: > 0 } notiz)
+                    {
+                        <span class="meta num">@notiz</span>
+                    }
+                </span>
+            </a>
+        }
+
+        @* Bei aktivem Filter legt sie direkt in dieser Klasse an; bei „Alle“ gibt es keine
+           Klasse, in der sie es tun könnte — dann öffnet das Erfassen-Sheet. *@
+        <button type="button" class="holding-add" @onclick="AddAsync">
+            <span>@AddLabel(bestand)</span>
+            <span class="holding-add-mark" aria-hidden="true">+</span>
+        </button>
+
+        <div class="tx-totals-note">@Footnote(bestand.Head)</div>
+        <div class="spacer"></div>
+    }
+</AsyncView>
+
+@code {
+    private HoldingsDto? data;
+    private HoldingClass? filter;
+    private bool busy;
+
+    protected override async Task LoadAsync() => data = await Api.GetHoldingsAsync(filter);
+
+    private Task PickAsync(HoldingClass? klasse)
+    {
+        if (filter == klasse)
+        {
+            return Task.CompletedTask;
+        }
+
+        filter = klasse;
+
+        return RunAsync(async () =>
+        {
+            busy = true;
+            try
+            {
+                data = await Api.GetHoldingsAsync(filter);
+            }
+            finally
+            {
+                busy = false;
+            }
+        });
+    }
+
+    private Task AddAsync()
+    {
+        Navigation.NavigateTo(data?.AddIn is { } klasse ? CreateRoute(klasse) : "/erfassen");
+        return Task.CompletedTask;
+    }
+
+    private static string CreateRoute(HoldingClass klasse) => klasse switch
+    {
+        HoldingClass.Accounts => "/neu?art=konto",
+        HoldingClass.Depot => "/neu?art=depot",
+        HoldingClass.Pension => "/neu?art=vorsorge",
+        HoldingClass.Protection => "/neu?art=versicherung",
+        HoldingClass.Housing => "/neu?art=immobilie",
+        HoldingClass.Vehicles => "/neu?art=fahrzeug",
+        _ => "/neu?art=darlehen",
+    };
+
+    private static string AddLabel(HoldingsDto bestand)
+        => bestand.AddIn is { } klasse
+            ? bestand.Classes.Single(c => c.Class == klasse).Label + " anlegen"
+            : "Objekt oder Vertrag anlegen";
+
+    // ── Der Kopf ───────────────────────────────────────────────────────────────────────────
+
+    private static string HeadLabel(HoldingsHeadDto kopf) => kopf.Class switch
+    {
+        null => "Finanzvermögen · Sachwerte",
+        HoldingClass.Accounts => "Kontostände",
+        HoldingClass.Depot => "Depotwert",
+        HoldingClass.Pension => "Erreichter Wert",
+        HoldingClass.Protection => "Jahresbeitrag",
+        HoldingClass.Housing => "Objektwert",
+        HoldingClass.Vehicles => "Kosten pro Jahr",
+        _ => "Restschuld",
+    };
+
+    /// <summary>
+    /// Bei „Alle“ stehen zwei Zahlen nebeneinander.
+    /// </summary>
+    /// <remarks>
+    /// Eine einzige wäre der Widerspruch aus dem Handoff: Konten und ein Haus in einem Topf,
+    /// ohne dass es jemand sagt.
+    /// </remarks>
+    private string HeadValue(HoldingsHeadDto kopf)
+        => kopf.Class is null
+            ? $"{State.Euro(kopf.Value)} · {State.Euro(kopf.TangibleAssets)}"
+            : State.Euro(kopf.Value);
+
+    private string HeadSub(HoldingsHeadDto kopf) => kopf.Class switch
+    {
+        null => $"Verbindlichkeiten {State.Euro(-kopf.Liabilities)} · "
+                + $"Gesamt netto {State.Euro(kopf.Net)}",
+
+        HoldingClass.Protection => $"{Count(kopf.Count, "Vertrag", "Verträge")} · "
+                                   + (kopf.UrgentCount == 0
+                                       ? "keine Frist offen"
+                                       : Count(kopf.UrgentCount, "Frist läuft", "Fristen laufen")),
+
+        HoldingClass.Vehicles => $"{Count(kopf.Count, "Fahrzeug", "Fahrzeuge")} · "
+                                 + "Versicherung, Steuer, Werkstatt der letzten zwölf Monate",
+
+        HoldingClass.Pension => $"{Count(kopf.Count, "Vertrag", "Verträge")} · "
+                                + "Stichtage aus den Statusreporten",
+
+        HoldingClass.Housing => $"{Count(kopf.Count, "Objekt", "Objekte")} · "
+                                + Count(kopf.SecondaryCount, "Vertrag", "Verträge"),
+
+        HoldingClass.Loans => kopf.Installment is { } rate
+            ? $"Rate {State.Euro(rate)}"
+              + (kopf.NextPayment is { } tag ? $" · nächste Zahlung {GermanFormat.Date(tag)}" : null)
+            : Count(kopf.Count, "Darlehen", "Darlehen"),
+
+        _ => Count(kopf.Count, "Position", "Positionen"),
+    };
+
+    private static string Count(int anzahl, string einzahl, string mehrzahl)
+        => $"{anzahl} {(anzahl == 1 ? einzahl : mehrzahl)}";
+
+    /// <summary>
+    /// Die Fußnote erklärt die Gliederung, statt sie zu verschweigen.
+    /// </summary>
+    /// <remarks>
+    /// Wer eine Liste sieht, in der manche Zeilen einen Wert und andere Jahreskosten tragen,
+    /// soll nicht raten müssen, warum sich das nicht addiert.
+    /// </remarks>
+    private static string Footnote(HoldingsHeadDto kopf)
+        => kopf.Class is null
+            ? "Verträge tragen keinen Vermögenswert, sondern Jahreskosten — sie zählen in keine "
+              + "Vermögenssumme. Sachwerte stehen getrennt vom Finanzvermögen, weil sie sich "
+              + "nicht abheben lassen."
+            : "Objekte mit laufender Frist stehen im Akzentmuster. Die Zeile führt auf den "
+              + "Bereich, in dem sich das Objekt bearbeiten lässt.";
+
+    private string Amount(HoldingRowDto zeile)
+    {
+        if (zeile.YearlyCost is { } kosten)
+        {
+            return $"{State.Euro(kosten)}/J";
+        }
+
+        return zeile.Value is { } wert ? State.Euro(wert) : "—";
+    }
+}
