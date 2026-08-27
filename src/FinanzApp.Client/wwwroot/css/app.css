@@ -3625,3 +3625,57 @@ body {
 .report-gap.done .report-row-name {
   color: var(--color-neutral-700);
 }
+
+/* ── Gespeicherte Ansichten ────────────────────────────────────────────────────── */
+
+.report-views {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.report-view {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.report-view-pick,
+.report-view-drop {
+  background: none;
+  border: 0;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  color: var(--color-text);
+  padding: 4px 9px;
+}
+
+/* Das Verwerfen-Kreuz sitzt in derselben Kapsel, aber abgesetzt: sonst trifft man es
+   beim Auswaehlen mit. */
+.report-view-drop {
+  padding: 4px 7px;
+  border-left: 1px solid var(--color-divider);
+  color: var(--color-neutral-600);
+}
+
+.report-view-drop:hover:not(:disabled) {
+  color: var(--color-accent-700);
+}
+
+.report-view.active {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.report-view.active .report-view-pick,
+.report-view.active .report-view-drop {
+  color: var(--color-bg);
+}
+
+.report-view.active .report-view-drop {
+  border-left-color: rgba(255, 255, 255, 0.35);
+}

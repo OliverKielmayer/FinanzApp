@@ -1,7 +1,9 @@
+using System.Security.Claims;
 using FinanzApp.Api.Application;
 using FinanzApp.Api.Data;
 using FinanzApp.Api.Data.Entities;
 using FinanzApp.Api.Infrastructure;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -70,7 +72,7 @@ public sealed class TestDatabase : IDisposable
     /// nur der <see cref="DocumentService"/>, und der bringt eigene Abhängigkeiten mit. Sie hier
     /// einmal zu verdrahten ist besser, als sie in jedem Test noch einmal aufzuzählen.
     /// </remarks>
-    public ReportService Reports(IClock clock, string? documentRoot = null)
+    public ReportService Reports(IClock clock, string? documentRoot = null, int? userId = null)
     {
         var context = Context();
         var root = documentRoot
@@ -84,7 +86,31 @@ public sealed class TestDatabase : IDisposable
                 PathService(root),
                 new ObjectLabelService(context),
                 clock,
-                NullLogger<DocumentService>.Instance));
+                NullLogger<DocumentService>.Instance),
+            SignedIn(userId));
+    }
+
+    /// <summary>
+    /// Ein <see cref="CurrentUser"/> mit oder ohne Anmeldung.
+    /// </summary>
+    /// <remarks>
+    /// Gespeicherte Ansichten gehören einem Benutzer. Ohne einen angemeldeten fällt die
+    /// Zuordnung auf 0 — genau wie im Betrieb, und genau das soll prüfbar sein.
+    /// </remarks>
+    public static CurrentUser SignedIn(int? userId)
+    {
+        var accessor = new HttpContextAccessor();
+
+        if (userId is { } id)
+        {
+            accessor.HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity(
+                    [new Claim(ClaimTypes.NameIdentifier, id.ToString())], "test")),
+            };
+        }
+
+        return new CurrentUser(accessor);
     }
 
     public void Dispose() => connection.Dispose();

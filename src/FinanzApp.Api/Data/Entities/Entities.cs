@@ -312,3 +312,46 @@ public class SecurityState : IHouseholdOwned
     public bool TwoFactorEnabled { get; set; }
     public DateTime LastBackup { get; set; }
 }
+
+
+/// <summary>
+/// Eine gespeicherte Ansicht des Auswertungsbereichs.
+/// </summary>
+/// <remarks>
+/// <para>Sie hält fest, <em>wie</em> gerechnet wird, nie ein Ergebnis: Bericht, Zeitraum,
+/// Vergleich, Sortierung, Depotwahl und die ausgeschlossenen Buchungen. Ein gespeichertes
+/// Ergebnis wäre am nächsten Tag falsch, ohne dass jemand es merkt.</para>
+/// <para>Sie gehört einem <b>Benutzer</b>, nicht dem Haushalt. Ein Ausschluss ist eine
+/// persönliche Entscheidung über eine Auswertung — und die ausgeschlossenen Buchungen können
+/// auf Konten liegen, die ein anderes Mitglied gar nicht sieht.</para>
+/// </remarks>
+public class ReportView : IHouseholdOwned
+{
+    public int Id { get; set; }
+    public int HouseholdId { get; set; }
+
+    /// <summary>Wem sie gehört.</summary>
+    public int OwnerUserId { get; set; }
+
+    public required string Name { get; set; }
+
+    public ReportKind Report { get; set; }
+    public PeriodScope Period { get; set; }
+    public ComparisonBasis Comparison { get; set; }
+    public CostTrendSort Sort { get; set; }
+
+    /// <summary>Das gewählte Depot — nur für den Depotbericht.</summary>
+    public int? DepotId { get; set; }
+
+    /// <summary>
+    /// Die ausgeschlossenen Buchungen.
+    /// </summary>
+    /// <remarks>
+    /// Liegt als kommagetrennte Liste in einer Spalte. Eine eigene Tabelle für eine Handvoll
+    /// Zahlen, die nur zusammen mit ihrer Ansicht Sinn ergeben, wäre mehr Verwaltung als Nutzen
+    /// — gefragt wird nie nach einer einzelnen, immer nach allen einer Ansicht.
+    /// </remarks>
+    public List<int> ExcludedTransactionIds { get; set; } = [];
+
+    public DateTime CreatedAt { get; set; }
+}

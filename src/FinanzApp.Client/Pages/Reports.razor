@@ -65,6 +65,35 @@
                 <span class="meta">@r.Line</span>
             </div>
         }
+
+        <div class="report-line">
+            <button type="button" class="section-link" disabled="@busy"
+                    @onclick="SaveViewAsync">Ansicht speichern</button>
+            @* Ein echter Link mit Dateiinhalt, kein Knopf: der Browser laedt ihn
+               herunter, ohne dass dafür JavaScript nötig wäre. Und weil die Datei aus
+               denselben Daten entsteht wie die Anzeige, kann sie nicht davon abweichen. *@
+            <a class="section-link" href="@CsvHref" download="@CsvName">CSV</a>
+        </div>
+
+        @if (views.Count > 0)
+        {
+            <div class="report-views">
+                <span class="label-muted">Gespeichert</span>
+
+                @foreach (var ansicht in views)
+                {
+                    var wahl = ansicht;
+                    <span class="report-view @(IsActive(ansicht) ? "active" : null)">
+                        <button type="button" class="report-view-pick" disabled="@busy"
+                                @onclick="() => ApplyViewAsync(wahl)">@ansicht.Name</button>
+                        <button type="button" class="report-view-drop" disabled="@busy"
+                                title="@($"„{ansicht.Name}“ verwerfen")"
+                                aria-label="@($"„{ansicht.Name}“ verwerfen")"
+                                @onclick="() => DeleteViewAsync(wahl)">×</button>
+                    </span>
+                }
+            </div>
+        }
     </div>
 
     <div class="report-tabs">
@@ -270,6 +299,9 @@
     private DataQualityDto? quality;
     private int? depotId;
 
+    /// <summary>Die gespeicherten Ansichten des angemeldeten Benutzers.</summary>
+    private IReadOnlyList<ReportViewDto> views = [];
+
     private PeriodScope period = PeriodScope.Month;
     private ComparisonBasis comparison = ComparisonBasis.PreviousYear;
     private CostTrendSort sort = CostTrendSort.Increase;
@@ -317,7 +349,11 @@
         (ReportKind.DataQuality, "Datenqualität", true),
     ];
 
-    protected override Task LoadAsync() => FetchAsync();
+    protected override async Task LoadAsync()
+    {
+        views = await Api.GetReportViewsAsync();
+        await FetchAsync();
+    }
 
     /// <summary>
     /// Holt den Bericht, der gerade dransteht — und nur den.
@@ -388,6 +424,89 @@
         return RefreshAsync();
     }
 
+    // ── Gespeicherte Ansichten ─────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Ob die Ansicht genau das einstellt, was gerade dasteht.
+    /// </summary>
+    /// <remarks>
+    /// Verglichen wird auch die Ausschlussliste. Würde sie übergangen, sähe ein Chip aktiv aus,
+    /// während der Bericht daneben mit anderen Zahlen rechnet.
+    /// </remarks>
+    private bool IsActive(ReportViewDto ansicht)
+        => ansicht.Report == report
+           && ansicht.Period == period
+           && ansicht.Comparison == comparison
+           && ansicht.Sort == sort
+           && ansicht.DepotId == depotId
+           && ansicht.ExcludedTransactionIds.Count == excluded.Count
+           && ansicht.ExcludedTransactionIds.All(excluded.Contains);
+
+    private Task SaveViewAsync() => RunAsync(async () =>
+    {
+        busy = true;
+        try
+        {
+            var neu = await Api.SaveReportViewAsync(new SaveReportViewRequest(
+                report, period, comparison, sort, depotId, [.. excluded]));
+
+            views = [.. views, neu];
+            Toasts.Show($"Ansicht „{neu.Name}“ gespeichert");
+        }
+        catch (ApiException ex)
+        {
+            // Meist der doppelte Name. Der Satz vom Server sagt es genauer als jeder hier.
+            Toasts.Show(ex.Message);
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    private Task ApplyViewAsync(ReportViewDto ansicht) => RunAsync(async () =>
+    {
+        busy = true;
+        try
+        {
+            report = ansicht.Report;
+            period = ansicht.Period;
+            comparison = ansicht.Comparison;
+            sort = ansicht.Sort;
+            depotId = ansicht.DepotId;
+
+            excluded.Clear();
+            foreach (var id in ansicht.ExcludedTransactionIds)
+            {
+                excluded.Add(id);
+            }
+
+            // Die aufgeklappte Gruppe gehörte zur vorigen Einstellung.
+            openCategory = null;
+
+            await FetchAsync();
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    private Task DeleteViewAsync(ReportViewDto ansicht) => RunAsync(async () =>
+    {
+        busy = true;
+        try
+        {
+            await Api.DeleteReportViewAsync(ansicht.Id);
+            views = [.. views.Where(v => v.Id != ansicht.Id)];
+            Toasts.Show($"Ansicht „{ansicht.Name}“ verworfen");
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
     private Task SetPeriodAsync(PeriodScope value)
     {
         if (period == value)
@@ -448,6 +567,113 @@
         excluded.Clear();
         return RefreshAsync();
     }
+
+    // ── CSV ────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Die Datei als Adresse.
+    /// </summary>
+    /// <remarks>
+    /// <para>Sie entsteht aus denselben Daten wie die Anzeige und kann darum nicht davon
+    /// abweichen. Ein zweiter Weg auf dem Server hätte eine zweite Rechnung bedeutet — und die
+    /// Ausschlussliste hätte in eine Adresszeile gemusst, wo sie irgendwann abgeschnitten
+    /// wäre.</para>
+    /// <para>Die Datei zeigt echte Beträge, auch wenn „Beträge verbergen“ an ist: die Maske
+    /// schirmt den Bildschirm ab, nicht die Daten. Eine Tabelle voller Punkte wäre keine.</para>
+    /// </remarks>
+    private string CsvHref
+        => "data:text/csv;charset=utf-8," + Uri.EscapeDataString(BuildCsv());
+
+    private string CsvName
+    {
+        get
+        {
+            var bericht = report switch
+            {
+                ReportKind.FixedCosts => "fixkosten",
+                ReportKind.PortfolioGainLoss => "depot",
+                ReportKind.DataQuality => "datenqualitaet",
+                _ => "kostentrend",
+            };
+
+            var stand = data?.Range ?? fixedCosts?.Range;
+
+            return stand is null
+                ? $"{bericht}.csv"
+                : $"{bericht}-{stand.From:yyyy-MM-dd}-bis-{stand.To:yyyy-MM-dd}.csv";
+        }
+    }
+
+    /// <summary>
+    /// Zahl für die Tabellenkalkulation: Komma als Trennzeichen, keine Tausenderpunkte.
+    /// </summary>
+    /// <remarks>
+    /// Ein Tausenderpunkt in einer semikolongetrennten Datei ist kein Problem beim Trennen, aber
+    /// eines beim Einlesen: „1.234,56“ wird je nach Werkzeug zu 1,23456.
+    /// </remarks>
+    private static string Num(decimal value)
+        => value.ToString("0.00", CultureInfo.InvariantCulture).Replace('.', ',');
+
+    private static string Cell(string? value)
+    {
+        var text = value ?? string.Empty;
+
+        return text.Contains(';') || text.Contains('"') || text.Contains('\n')
+            ? '"' + text.Replace("\"", "\"\"") + '"'
+            : text;
+    }
+
+    private string BuildCsv()
+    {
+        var zeilen = new List<string>();
+
+        switch (report)
+        {
+            case ReportKind.FixedCosts when fixedCosts is { } fix:
+                zeilen.Add("Posten;Monatlich;Bindung;Hinweis");
+                zeilen.AddRange(fix.Rows.Select(z => string.Join(';',
+                    Cell(z.Name), Num(z.MonthlyAmount), Cell(BindingLabel(z.Binding)), Cell(z.Note))));
+                break;
+
+            case ReportKind.PortfolioGainLoss when gain is { } depot:
+                zeilen.Add("Position;ISIN;Stück;Einstand je Stück;Kurs;Wert;Gewinn;Gewinn %");
+                zeilen.AddRange(depot.Positions.Select(p => string.Join(';',
+                    Cell(p.Name), Cell(p.Isin), Num(p.Quantity),
+                    p.CostPerUnit is { } e ? Num(e) : string.Empty,
+                    Num(p.Price), Num(p.Value), Num(p.Gain),
+                    p.GainPercent is { } g ? Num(g) : string.Empty)));
+                break;
+
+            case ReportKind.DataQuality when quality is { } luecken:
+                zeilen.Add("Anzahl;Lücke;Folge");
+                zeilen.AddRange(luecken.Rows.Select(z => string.Join(';',
+                    z.Count, Cell(z.Label), Cell(z.Consequence))));
+                break;
+
+            default:
+                if (data is not { } bericht)
+                {
+                    return string.Empty;
+                }
+
+                zeilen.Add("Kategorie;Betrag;Vergleich;Ø 12 Monate;Änderung %;Status;"
+                           + "Buchungen;Ausgeschlossen");
+                zeilen.AddRange(bericht.Rows.Select(z => string.Join(';',
+                    Cell(z.Name), Num(z.Amount), Num(z.ComparisonAmount), Num(z.TwelveMonthAverage),
+                    z.ChangePercent is { } p ? Num(p) : string.Empty,
+                    Cell(StatusLabel(z.Status)), z.TransactionCount, z.ExcludedCount)));
+                break;
+        }
+
+        return string.Join("\r\n", zeilen) + "\r\n";
+    }
+
+    private static string BindingLabel(FixedCostBinding binding) => binding switch
+    {
+        FixedCostBinding.Fixed => "nicht kündbar",
+        FixedCostBinding.Saving => "Sparen",
+        _ => "kündbar",
+    };
 
     // ── Beschriftungen ─────────────────────────────────────────────────────────────────────
 

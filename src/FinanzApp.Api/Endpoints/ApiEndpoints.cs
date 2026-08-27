@@ -193,6 +193,26 @@ public static class ApiEndpoints
         api.MapGet("/reports/data-quality", async (ReportService service, CancellationToken ct)
             => Results.Ok(await service.GetDataQualityAsync(ct)));
 
+        api.MapGet("/reports/views", async (ReportService service, CancellationToken ct)
+            => Results.Ok(await service.GetViewsAsync(ct)));
+
+        api.MapPost("/reports/views", async (
+            SaveReportViewRequest request, ReportService service, CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(await service.SaveViewAsync(request, ct));
+            }
+            catch (RuleViolationException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        });
+
+        api.MapDelete("/reports/views/{id:int}", async (
+                int id, ReportService service, CancellationToken ct)
+            => await service.DeleteViewAsync(id, ct) ? Results.NoContent() : Results.NotFound());
+
         api.MapGet("/portfolio", async (PortfolioService service, CancellationToken ct) =>
         {
             var portfolio = await service.GetAsync(ct);

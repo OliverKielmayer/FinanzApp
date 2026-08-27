@@ -267,6 +267,18 @@ public sealed class FinanzAppApi(HttpClient http)
         }
     }
 
+    /// <summary>Die gespeicherten Ansichten des Auswertungsbereichs.</summary>
+    public Task<IReadOnlyList<ReportViewDto>> GetReportViewsAsync(CancellationToken ct = default)
+        => GetAsync<IReadOnlyList<ReportViewDto>>("api/reports/views", ct);
+
+    /// <summary>Legt eine Ansicht ab. Ein doppelter Name kommt als <see cref="ApiException"/>.</summary>
+    public Task<ReportViewDto> SaveReportViewAsync(
+        SaveReportViewRequest request, CancellationToken ct = default)
+        => PostAsync<SaveReportViewRequest, ReportViewDto>("api/reports/views", request, ct);
+
+    public Task DeleteReportViewAsync(int id, CancellationToken ct = default)
+        => SendWithoutResultAsync<object?>(HttpMethod.Delete, $"api/reports/views/{id}", null, ct);
+
     /// <summary>Was die Auswertungen unvollständig macht.</summary>
     public Task<DataQualityDto> GetDataQualityAsync(CancellationToken ct = default)
         => GetAsync<DataQualityDto>("api/reports/data-quality", ct);

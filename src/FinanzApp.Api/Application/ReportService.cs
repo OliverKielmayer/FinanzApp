@@ -1,4 +1,5 @@
 using FinanzApp.Api.Data;
+using FinanzApp.Api.Data.Entities;
 using FinanzApp.Api.Infrastructure;
 using FinanzApp.Shared.Contracts;
 using FinanzApp.Shared.Formatting;
@@ -19,7 +20,8 @@ namespace FinanzApp.Api.Application;
 /// <c>DbContext</c> sitzt. Hier steht deshalb <b>kein</b> <c>IgnoreQueryFilters</c> — ein Bericht
 /// darf keine Beträge aus nicht freigegebenen Konten enthalten, auch nicht summiert.</para>
 /// </remarks>
-public sealed class ReportService(FinanzAppDbContext db, IClock clock, DocumentService documents)
+public sealed class ReportService(
+    FinanzAppDbContext db, IClock clock, DocumentService documents, CurrentUser current)
 {
     /// <summary>Ab hier gilt eine Kategorie als steigend oder sinkend.</summary>
     private const decimal Threshold = 5m;
@@ -471,6 +473,137 @@ public sealed class ReportService(FinanzAppDbContext db, IClock clock, DocumentS
             Positions = zeilen,
         };
     }
+
+    // ── Gespeicherte Ansichten ─────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Die Ansichten des angemeldeten Benutzers.
+    /// </summary>
+    /// <remarks>
+    /// Nur seine eigenen: ein Ausschluss ist eine persönliche Entscheidung, und die
+    /// ausgeschlossenen Buchungen können auf Konten liegen, die ein anderes Mitglied gar nicht
+    /// sieht. Eine geteilte Ansicht würde dort anders rechnen als hier.
+    /// </remarks>
+    public async Task<IReadOnlyList<ReportViewDto>> GetViewsAsync(CancellationToken ct = default)
+        => [.. (await db.ReportViews.AsNoTracking()
+                .Where(v => v.OwnerUserId == (current.UserId ?? 0))
+                .OrderBy(v => v.Id)
+                .ToListAsync(ct))
+            .Select(Map)];
+
+    public async Task<ReportViewDto> SaveViewAsync(
+        SaveReportViewRequest request, CancellationToken ct = default)
+    {
+        var name = string.IsNullOrWhiteSpace(request.Name)
+            ? DescribeView(request)
+            : request.Name.Trim();
+
+        if (name.Length > 80)
+        {
+            name = name[..80];
+        }
+
+        var besteht = await db.ReportViews
+            .AnyAsync(v => v.OwnerUserId == (current.UserId ?? 0) && v.Name == name, ct);
+
+        if (besteht)
+        {
+            throw new RuleViolationException($"Eine Ansicht „{name}“ gibt es schon.");
+        }
+
+        var ansicht = new ReportView
+        {
+            OwnerUserId = current.UserId ?? 0,
+            Name = name,
+            Report = request.Report,
+            Period = request.Period,
+            Comparison = request.Comparison,
+            Sort = request.Sort,
+            DepotId = request.DepotId,
+            ExcludedTransactionIds = [.. request.ExcludedTransactionIds ?? []],
+            CreatedAt = clock.Now,
+        };
+
+        db.ReportViews.Add(ansicht);
+        await db.SaveChangesAsync(ct);
+
+        return Map(ansicht);
+    }
+
+    /// <summary>Löscht eine eigene Ansicht. Eine fremde findet die Abfrage gar nicht erst.</summary>
+    public async Task<bool> DeleteViewAsync(int id, CancellationToken ct = default)
+    {
+        var ansicht = await db.ReportViews
+            .FirstOrDefaultAsync(v => v.Id == id && v.OwnerUserId == (current.UserId ?? 0), ct);
+
+        if (ansicht is null)
+        {
+            return false;
+        }
+
+        db.ReportViews.Remove(ansicht);
+        await db.SaveChangesAsync(ct);
+
+        return true;
+    }
+
+    /// <summary>
+    /// Benennt eine Ansicht nach dem, was sie einstellt.
+    /// </summary>
+    /// <remarks>
+    /// „Kostentrend · Monat / Vorjahr“ sagt beim Wiedersehen, was der Chip tut. Eine laufende
+    /// Nummer wäre kürzer und nützte niemandem.
+    /// </remarks>
+    private static string DescribeView(SaveReportViewRequest request)
+    {
+        var bericht = request.Report switch
+        {
+            ReportKind.FixedCosts => "Fixkosten",
+            ReportKind.PortfolioGainLoss => "Depot G/V",
+            ReportKind.DataQuality => "Datenqualität",
+            _ => "Kostentrend",
+        };
+
+        // Die Datenqualität kennt weder Zeitraum noch Vergleich — sie beide anzuhängen wäre
+        // ein Name, der mehr verspricht, als die Ansicht einstellt.
+        if (request.Report == ReportKind.DataQuality)
+        {
+            return bericht;
+        }
+
+        if (request.Report == ReportKind.PortfolioGainLoss)
+        {
+            return bericht;
+        }
+
+        var zeitraum = request.Period switch
+        {
+            PeriodScope.Quarter => "Quartal",
+            PeriodScope.Year => "Jahr",
+            _ => "Monat",
+        };
+
+        var vergleich = request.Comparison switch
+        {
+            ComparisonBasis.PreviousPeriod => "Vorperiode",
+            ComparisonBasis.TwelveMonthAverage => "Ø 12 Monate",
+            _ => "Vorjahr",
+        };
+
+        return $"{bericht} · {zeitraum} / {vergleich}";
+    }
+
+    private static ReportViewDto Map(ReportView v) => new()
+    {
+        Id = v.Id,
+        Name = v.Name,
+        Report = v.Report,
+        Period = v.Period,
+        Comparison = v.Comparison,
+        Sort = v.Sort,
+        DepotId = v.DepotId,
+        ExcludedTransactionIds = v.ExcludedTransactionIds,
+    };
 
     // ── Datenqualität ──────────────────────────────────────────────────────────────────────
 

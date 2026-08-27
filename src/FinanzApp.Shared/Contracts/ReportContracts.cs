@@ -321,3 +321,38 @@ public sealed record DataQualityDto
 /// <param name="Route">Wohin der Sprung führt, samt Filter.</param>
 public sealed record DataQualityRowDto(
     int Count, string Label, string Consequence, string Action, string Route);
+
+
+// ── Gespeicherte Ansichten ──────────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Eine gespeicherte Einstellung des Auswertungsbereichs.
+/// </summary>
+/// <remarks>
+/// Gespeichert wird, <em>wie</em> gerechnet wird, nie ein Ergebnis. Ein festgehaltenes Ergebnis
+/// wäre am nächsten Tag falsch, ohne dass jemand es merkt.
+/// </remarks>
+public sealed record ReportViewDto
+{
+    public required int Id { get; init; }
+    public required string Name { get; init; }
+    public required ReportKind Report { get; init; }
+    public required PeriodScope Period { get; init; }
+    public required ComparisonBasis Comparison { get; init; }
+    public required CostTrendSort Sort { get; init; }
+    public required int? DepotId { get; init; }
+    public required IReadOnlyList<int> ExcludedTransactionIds { get; init; }
+}
+
+/// <summary>Was eine Ansicht festhalten soll.</summary>
+/// <param name="Name">
+/// Frei wählbar. Leer gelassen, benennt der Server sie nach dem, was sie einstellt.
+/// </param>
+public sealed record SaveReportViewRequest(
+    ReportKind Report = ReportKind.CostTrend,
+    PeriodScope Period = PeriodScope.Month,
+    ComparisonBasis Comparison = ComparisonBasis.PreviousYear,
+    CostTrendSort Sort = CostTrendSort.Increase,
+    int? DepotId = null,
+    IReadOnlyList<int>? ExcludedTransactionIds = null,
+    string? Name = null);

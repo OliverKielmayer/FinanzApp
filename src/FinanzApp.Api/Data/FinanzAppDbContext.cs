@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using FinanzApp.Api.Data.Entities;
 using FinanzApp.Shared.Contracts;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace FinanzApp.Api.Data;
@@ -56,6 +57,9 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
 
     /// <summary>Der Posteingang: Belege, die noch niemand eingeordnet hat.</summary>
     public DbSet<ScanInboxItem> ScanInbox => Set<ScanInboxItem>();
+
+    /// <summary>Gespeicherte Einstellungen des Auswertungsbereichs, je Benutzer.</summary>
+    public DbSet<ReportView> ReportViews => Set<ReportView>();
 
     /// <summary>Gelesene Werte samt Herkunft — leer, solange keine Analyse angebunden ist.</summary>
     public DbSet<DocumentExtraction> DocumentExtractions => Set<DocumentExtraction>();
@@ -360,6 +364,27 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
             e.HasOne(x => x.Document).WithMany()
                 .HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(x => x.FiledAt);
+        });
+
+        b.Entity<ReportView>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(80).IsRequired();
+            e.HasIndex(x => new { x.HouseholdId, x.OwnerUserId, x.Name }).IsUnique();
+
+            // Kommagetrennt in einer Spalte. Der Vergleicher gehört dazu: ohne ihn hält EF eine
+            // Liste für unverändert, solange sie dieselbe Instanz ist, und eine Ausschlusswahl
+            // ginge beim Speichern still verloren.
+            e.Property(x => x.ExcludedTransactionIds)
+                .HasConversion(
+                    v => string.Join(',', v),
+                    s => s.Length == 0
+                        ? new List<int>()
+                        : s.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToList(),
+                    new ValueComparer<List<int>>(
+                        (a, b) => a != null && b != null && a.SequenceEqual(b),
+                        v => v.Aggregate(0, (h, i) => HashCode.Combine(h, i)),
+                        v => v.ToList()))
+                .HasMaxLength(4000);
         });
 
         b.Entity<DocumentExtraction>(e =>
