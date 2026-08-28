@@ -168,6 +168,7 @@ builder.Services.AddScoped<DocumentTypeService>();
 builder.Services.AddScoped<EmploymentService>();
 builder.Services.AddSingleton<OrderCsvParser>();
 builder.Services.AddScoped<DepotTradeService>();
+builder.Services.AddScoped<DepotStatementService>();
 
 var app = builder.Build();
 

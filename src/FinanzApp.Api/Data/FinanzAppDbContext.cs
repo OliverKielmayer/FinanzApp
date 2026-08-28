@@ -64,6 +64,10 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
     /// <summary>Ausgeführte Orders — die Quelle, aus der die Depotpositionen entstehen.</summary>
     public DbSet<DepotTrade> DepotTrades => Set<DepotTrade>();
 
+    /// <summary>Bestandsnachweise der Bank — die zweite Quelle, gegen die abgeglichen wird.</summary>
+    public DbSet<DepotStatement> DepotStatements => Set<DepotStatement>();
+    public DbSet<DepotStatementPosition> DepotStatementPositions => Set<DepotStatementPosition>();
+
     /// <summary>Arbeitsverhältnisse und was daran hängt — die Einnahmenseite.</summary>
     public DbSet<Employment> Employments => Set<Employment>();
     public DbSet<Payslip> Payslips => Set<Payslip>();
@@ -401,6 +405,41 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
             // Ein Satz je Ausführung. Der Index trägt die Duplikatprüfung und verhindert sie
             // auch dann, wenn zwei Importe gleichzeitig laufen.
             e.HasIndex(x => new { x.HouseholdId, x.ImportReference }).IsUnique();
+        });
+
+        b.Entity<DepotStatement>(e =>
+        {
+            e.Property(x => x.DepotNumber).HasMaxLength(60);
+            e.Property(x => x.Reference).HasMaxLength(60);
+            e.Property(x => x.Custodian).HasMaxLength(200);
+
+            e.HasOne(x => x.Depot).WithMany()
+                .HasForeignKey(x => x.DepotId).OnDelete(DeleteBehavior.Cascade);
+
+            // Der Beleg bleibt stehen, wenn die Aufstellung geht — und umgekehrt.
+            e.HasOne(x => x.Document).WithMany()
+                .HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.SetNull);
+
+            // Ein Stichtag, eine Aufstellung je Depot. Zwei Bestandsnachweise zum selben Tag
+            // waeren zwei Wahrheiten ueber denselben Bestand.
+            e.HasIndex(x => new { x.DepotId, x.AsOf }).IsUnique();
+        });
+
+        b.Entity<DepotStatementPosition>(e =>
+        {
+            e.Property(x => x.SecurityName).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Isin).HasMaxLength(12).IsRequired();
+            e.Property(x => x.Wkn).HasMaxLength(12);
+            e.Property(x => x.SafeCustody).HasMaxLength(80);
+            e.Property(x => x.Country).HasMaxLength(80);
+            e.Property(x => x.Depository).HasMaxLength(200);
+
+            e.Property(x => x.Value).HasConversion(MoneyConverter);
+            e.Property(x => x.Price).HasPrecision(18, 6);
+            e.Property(x => x.Quantity).HasPrecision(18, 6);
+
+            e.HasOne(x => x.Statement).WithMany(x => x.Positions)
+                .HasForeignKey(x => x.StatementId).OnDelete(DeleteBehavior.Cascade);
         });
 
         b.Entity<Employment>(e =>

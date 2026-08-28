@@ -302,6 +302,29 @@ public static class ApiEndpoints
             }
         }).RequireAuthorization(AuthPolicies.Write).DisableAntiforgery();
 
+        api.MapGet("/portfolio/{depotId:int}/statements", async (
+                int depotId, DepotStatementService service, CancellationToken ct)
+            => Results.Ok(await service.GetAsync(depotId, ct)));
+
+        api.MapPost("/portfolio/{depotId:int}/statements", async (
+            int depotId, CreateDepotStatementRequest request, DepotStatementService service,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(await service.CreateAsync(depotId, request, ct));
+            }
+            catch (RuleViolationException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.Write);
+
+        api.MapDelete("/portfolio/statements/{id:int}", async (
+                int id, DepotStatementService service, CancellationToken ct)
+            => await service.DeleteAsync(id, ct) ? Results.NoContent() : Results.NotFound())
+            .RequireAuthorization(AuthPolicies.Write);
+
         // Muss vor der Id-Route stehen, damit „primary“ nicht als Id gelesen wird.
         api.MapGet("/loans/primary", async (int? months, LoanService service, CancellationToken ct) =>
         {

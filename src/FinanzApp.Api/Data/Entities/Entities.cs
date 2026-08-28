@@ -328,6 +328,81 @@ public class DepotTrade : IHouseholdOwned
     public required string ImportReference { get; set; }
 }
 
+/// <summary>
+/// Eine Quartalsaufstellung der Bank — Bestandsnachweis nach MiFID II, v5-Handoff 11.2.
+/// </summary>
+/// <remarks>
+/// Sie ist die zweite Quelle neben den Ausführungen und dient dem Abgleich: stimmen die
+/// Stückzahlen, ist der Depotwert belegt. Das ist der einzige Weg, eine Depotbewertung zu
+/// prüfen, ohne dem Broker blind zu glauben.
+/// </remarks>
+public class DepotStatement : IHouseholdOwned
+{
+    public int Id { get; set; }
+    public int HouseholdId { get; set; }
+
+    public int DepotId { get; set; }
+    public Depot? Depot { get; set; }
+
+    /// <summary>
+    /// Der Stichtag, zu dem der Bestand ausgewiesen ist — fachlich maßgeblich.
+    /// </summary>
+    /// <remarks>
+    /// Nicht zu verwechseln mit <see cref="IssuedOn"/>. Dieselbe Unterscheidung wie beim
+    /// Statusreport der Lebensversicherung: ein Schreiben vom Mai über den Bestand vom März
+    /// sagt etwas über den März.
+    /// </remarks>
+    public DateOnly AsOf { get; set; }
+
+    /// <summary>Wann das Schreiben erstellt wurde. Sagt nichts über den Bestand.</summary>
+    public DateOnly? IssuedOn { get; set; }
+
+    public string? DepotNumber { get; set; }
+    public string? Reference { get; set; }
+
+    /// <summary>Verwahrstelle mit Lagerstelle, wie das Schreiben sie nennt.</summary>
+    public string? Custodian { get; set; }
+
+    /// <summary>Das abgelegte Schreiben. <c>null</c>, solange keines hinterlegt ist.</summary>
+    public int? DocumentId { get; set; }
+    public Document? Document { get; set; }
+
+    public List<DepotStatementPosition> Positions { get; set; } = [];
+}
+
+/// <summary>Eine Zeile des Bestandsnachweises.</summary>
+public class DepotStatementPosition : IHouseholdOwned
+{
+    public int Id { get; set; }
+    public int HouseholdId { get; set; }
+
+    public int StatementId { get; set; }
+    public DepotStatement? Statement { get; set; }
+
+    public required string SecurityName { get; set; }
+    public required string Isin { get; set; }
+    public string? Wkn { get; set; }
+
+    /// <summary>Nominale — die Stückzahl, die die Bank ausweist.</summary>
+    public decimal Quantity { get; set; }
+
+    public decimal Price { get; set; }
+
+    /// <summary>
+    /// Kurswert, wie das Schreiben ihn nennt.
+    /// </summary>
+    /// <remarks>
+    /// Gespeichert statt gerechnet: die Bank rundet auf ihre Weise, und der Abgleich soll gegen
+    /// das prüfen, was wirklich dasteht — nicht gegen unsere Nachrechnung davon.
+    /// </remarks>
+    public decimal Value { get; set; }
+
+    /// <summary>Verwahrart, Lagerland, Lagerstelle — wie das Schreiben sie ausweist.</summary>
+    public string? SafeCustody { get; set; }
+    public string? Country { get; set; }
+    public string? Depository { get; set; }
+}
+
 public class Loan : IHouseholdOwned
 {
     public int Id { get; set; }

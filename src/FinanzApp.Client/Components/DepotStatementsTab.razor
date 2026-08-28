@@ -1,0 +1,503 @@
+@inject FinanzAppApi Api
+@inject AppState State
+@inject ToastService Toasts
+
+@*
+    Quartalsaufstellungen und Bestandsabgleich — v5-Handoff, Abschnitte 11.2 und 11.3.
+
+    Der Abgleichblock steht über der Liste, nicht darunter: er ist die eigentliche Analyse.
+    Stimmen die Stückzahlen zum Stichtag, ist der Depotwert belegt — der einzige Weg, eine
+    Depotbewertung zu prüfen, ohne dem Broker blind zu glauben.
+
+    Der Einstieg zum Erfassen steht ebenfalls oben, wie beim Transaktionsreiter.
+*@
+
+<div class="trade-import">
+    <div class="stack">
+        <span class="label-strong">Quartalsaufstellung erfassen</span>
+        <span class="create-help">
+            Bestandsnachweis der Bank zum Quartalsstichtag. Die Werte werden abgetippt und dann
+            gegen die importierten Ausführungen geprüft.
+        </span>
+    </div>
+
+    <AuthorizeView Roles="Owner,Member">
+        <button type="button" class="btn btn-primary" disabled="@busy" @onclick="ToggleForm">
+            @(capturing ? "Abbrechen" : "Erfassen")
+        </button>
+    </AuthorizeView>
+</div>
+
+@if (capturing)
+{
+    <div class="blueprint report-payees">
+        <i class="corner tl" aria-hidden="true"></i>
+        <i class="corner tr" aria-hidden="true"></i>
+        <i class="corner bl" aria-hidden="true"></i>
+        <i class="corner br" aria-hidden="true"></i>
+
+        <div class="field">
+            <label for="as-stichtag">Stichtag</label>
+            <input id="as-stichtag" class="input" type="date" value="@fresh.AsOf"
+                   @oninput="e => fresh.AsOf = e.Value?.ToString() ?? string.Empty" />
+            <span class="create-help">
+                Der Tag, zu dem der Bestand ausgewiesen ist — nicht das Datum des Schreibens.
+            </span>
+        </div>
+
+        <div class="field">
+            <label for="as-erstellt">Erstellt am</label>
+            <input id="as-erstellt" class="input" type="date" value="@fresh.IssuedOn"
+                   @oninput="e => fresh.IssuedOn = e.Value?.ToString() ?? string.Empty" />
+        </div>
+
+        <div class="field">
+            <label for="as-depotnr">Depot-Nr.</label>
+            <input id="as-depotnr" class="input" value="@fresh.DepotNumber"
+                   @oninput="e => fresh.DepotNumber = e.Value?.ToString() ?? string.Empty" />
+        </div>
+
+        <div class="field">
+            <label for="as-verwahr">Verwahrstelle · Lagerstelle</label>
+            <input id="as-verwahr" class="input" value="@fresh.Custodian"
+                   @oninput="e => fresh.Custodian = e.Value?.ToString() ?? string.Empty" />
+        </div>
+
+        <div class="list-head">
+            <span class="label-strong">Positionen</span>
+        </div>
+
+        @foreach (var zeile in fresh.Positions)
+        {
+            var p = zeile;
+
+            <div class="import-row plain">
+                <span class="stack">
+                    <input class="input" placeholder="Wertpapier" value="@p.Name"
+                           @oninput="e => p.Name = e.Value?.ToString() ?? string.Empty" />
+                    <input class="input" placeholder="ISIN" value="@p.Isin"
+                           @oninput="e => p.Isin = e.Value?.ToString() ?? string.Empty" />
+                </span>
+                <span class="stack">
+                    <input class="input" placeholder="Nominale" inputmode="decimal" value="@p.Quantity"
+                           @oninput="e => p.Quantity = e.Value?.ToString() ?? string.Empty" />
+                    <input class="input" placeholder="Kurs" inputmode="decimal" value="@p.Price"
+                           @oninput="e => p.Price = e.Value?.ToString() ?? string.Empty" />
+                    <input class="input" placeholder="Kurswert" inputmode="decimal" value="@p.Value"
+                           @oninput="e => p.Value = e.Value?.ToString() ?? string.Empty" />
+                </span>
+            </div>
+        }
+
+        <button type="button" class="holding-add" @onclick="AddPosition">
+            <span>Weitere Position</span>
+            <span class="holding-add-mark" aria-hidden="true">+</span>
+        </button>
+
+        @if (problem is { Length: > 0 })
+        {
+            <span class="create-problem">@problem</span>
+        }
+
+        <div class="actions">
+            <button type="button" class="btn btn-primary" disabled="@busy" @onclick="SaveAsync">
+                Aufstellung speichern
+            </button>
+        </div>
+    </div>
+}
+
+<AsyncView Loading="loading" Error="@error" Stale="@loaded" Retry="ReloadAsync">
+    @if (data is { } aufstellungen)
+    {
+        @if (aufstellungen.Reconciliation is { } abgleich)
+        {
+            @* Über der Liste: der Abgleich ist die Analyse, nicht ein Anhang zu ihr. *@
+            <div class="reconcile @(abgleich.Matches ? null : "off")">
+                <span class="label-strong">
+                    Bestandsabgleich per @GermanFormat.Date(abgleich.AsOf)
+                </span>
+
+                @foreach (var zeile in abgleich.Rows)
+                {
+                    <div class="reconcile-row">
+                        <span class="stack">
+                            <span class="import-row-payee">@zeile.SecurityName</span>
+                            <span class="meta num">@zeile.Isin</span>
+                        </span>
+                        <span class="stack-end">
+                            <span class="num">
+                                Aufstellung @GermanFormat.Quantity(zeile.StatementQuantity) St. ·
+                                Transaktionen @GermanFormat.Quantity(zeile.TradeQuantity) St.
+                            </span>
+                            <span class="meta num @(zeile.Difference == 0m ? null : "accent")">
+                                @Difference(zeile)
+                            </span>
+                        </span>
+                    </div>
+                }
+
+                <div class="reconcile-row total">
+                    <span class="stack">
+                        <span class="import-row-payee">Buchgewinn zum Stichtag</span>
+                        <span class="meta num">
+                            @State.Euro(abgleich.StatementValue) ausgewiesen ·
+                            @State.Euro(abgleich.TradeCost) Einstand aus
+                            @abgleich.TradeCount @(abgleich.TradeCount == 1 ? "Ausführung" : "Ausführungen")
+                        </span>
+                    </span>
+                    <span class="holding-value num">
+                        @State.Euro(abgleich.BookGain, withPlusSign: true)
+                    </span>
+                </div>
+
+                @* Bei Abweichung nennt der Block den wahrscheinlichen Grund, statt nur zu
+                   melden, dass etwas nicht stimmt. *@
+                <span class="meta">
+                    @(abgleich.Matches
+                        ? "Die Stückzahlen stimmen — der ausgewiesene Depotwert ist belegt."
+                        : "Die Stückzahlen weichen ab. Meist fehlen Käufe aus einer nicht "
+                          + "importierten Orderdatei; solange das offen ist, steht auch der "
+                          + "Depotwert unter Vorbehalt.")
+                </span>
+            </div>
+        }
+
+        <div class="list-head">
+            <span class="label-strong">Aufstellungen</span>
+            <span class="meta num">@aufstellungen.Statements.Count</span>
+        </div>
+
+        @if (aufstellungen.Statements.Count == 0)
+        {
+            <EmptyState Title="Keine Aufstellung erfasst"
+                        Text="Der Bestandsnachweis der Bank belegt, was das Depot zum
+                              Quartalsstichtag wirklich enthielt. Ohne ihn bleibt der Depotwert
+                              eine Rechnung aus den eigenen Ausführungen." />
+        }
+
+        @foreach (var satz in aufstellungen.Statements)
+        {
+            var id = satz.Id;
+            var offen = expanded == id;
+
+            <button type="button" class="tap import-row plain @(offen ? "picked" : null)"
+                    @onclick="() => Toggle(id)">
+                <span class="stack">
+                    <span class="import-row-payee">
+                        Aufstellung per @GermanFormat.Date(satz.AsOf)
+                    </span>
+                    <span class="meta">@Meta(satz)</span>
+                </span>
+                <span class="stack-end">
+                    <span class="holding-value num">@State.Euro(satz.Value)</span>
+                    <span class="meta num">
+                        @satz.Positions.Count @(satz.Positions.Count == 1 ? "Papier" : "Papiere")
+                    </span>
+                </span>
+            </button>
+
+            @if (offen)
+            {
+                <div class="blueprint report-payees">
+                    <i class="corner tl" aria-hidden="true"></i>
+                    <i class="corner tr" aria-hidden="true"></i>
+                    <i class="corner bl" aria-hidden="true"></i>
+                    <i class="corner br" aria-hidden="true"></i>
+
+                    @foreach (var position in satz.Positions)
+                    {
+                        <div class="detail-block">
+                            <span class="detail-label">@position.SecurityName</span>
+                            <span class="detail-value num">
+                                @GermanFormat.Quantity(position.Quantity) ×
+                                @GermanFormat.Price(position.Price) = @State.Euro(position.Value)
+                            </span>
+                        </div>
+                        <div class="detail-block">
+                            <span class="detail-label">ISIN · WKN · Verwahrung</span>
+                            <span class="detail-value num">@PositionMeta(position)</span>
+                        </div>
+                    }
+
+                    <div class="detail-block">
+                        @* Zwei Daten, nie vermischt: ein Schreiben vom Mai über den Bestand
+                           vom März sagt etwas über den März. *@
+                        <span class="detail-label">Stichtag · erstellt</span>
+                        <span class="detail-value num">
+                            @GermanFormat.Date(satz.AsOf)@(satz.IssuedOn is { } e
+                                ? $" · {GermanFormat.Date(e)}"
+                                : " · Erstellungsdatum nicht erfasst")
+                        </span>
+                    </div>
+
+                    @if (satz.Custodian is { Length: > 0 } verwahrer)
+                    {
+                        <div class="detail-block">
+                            <span class="detail-label">Verwahrstelle</span>
+                            <span class="detail-value">@verwahrer</span>
+                        </div>
+                    }
+
+                    <AuthorizeView Roles="Owner,Member" Context="row">
+                        <div class="actions">
+                            @if (pending == id)
+                            {
+                                <button type="button" class="btn btn-primary delete-confirm"
+                                        disabled="@busy" @onclick="() => DeleteAsync(id)">
+                                    Wirklich löschen
+                                </button>
+                                <button type="button" class="btn btn-secondary" disabled="@busy"
+                                        @onclick="@(() => pending = null)">Behalten</button>
+                            }
+                            else
+                            {
+                                <button type="button" class="btn btn-secondary"
+                                        @onclick="@(() => pending = id)">Löschen</button>
+                            }
+                        </div>
+                    </AuthorizeView>
+                </div>
+            }
+        }
+
+        <div class="tx-totals-note">
+            Der Abgleich rechnet die importierten Ausführungen bis zum Stichtag zusammen und
+            stellt sie dem ausgewiesenen Bestand gegenüber. Verglichen wird je Wertpapier —
+            Stückzahlen verschiedener Papiere zu addieren ergäbe eine Zahl ohne Bedeutung.
+        </div>
+    }
+</AsyncView>
+
+@code {
+    /// <summary>Die Eingaben der Erfassungsmaske, roh wie getippt.</summary>
+    private sealed class PositionDraft
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Isin { get; set; } = string.Empty;
+        public string Quantity { get; set; } = string.Empty;
+        public string Price { get; set; } = string.Empty;
+        public string Value { get; set; } = string.Empty;
+    }
+
+    private sealed class StatementDraft
+    {
+        public string AsOf { get; set; } = string.Empty;
+        public string IssuedOn { get; set; } = string.Empty;
+        public string DepotNumber { get; set; } = string.Empty;
+        public string Custodian { get; set; } = string.Empty;
+        public List<PositionDraft> Positions { get; } = [new()];
+    }
+
+    [Parameter, EditorRequired] public int DepotId { get; set; }
+
+    private DepotStatementsDto? data;
+    private int? expanded;
+    private int? pending;
+
+    private bool loading = true;
+    private bool loaded;
+    private string? error;
+    private bool busy;
+
+    private bool capturing;
+    private StatementDraft fresh = new();
+    private string? problem;
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private async Task ReloadAsync()
+    {
+        loading = !loaded;
+        error = null;
+
+        try
+        {
+            data = await Api.GetDepotStatementsAsync(DepotId);
+            loaded = true;
+        }
+        catch (ApiException ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void Toggle(int id)
+    {
+        expanded = expanded == id ? null : id;
+        pending = null;
+    }
+
+    private void ToggleForm()
+    {
+        capturing = !capturing;
+        problem = null;
+
+        if (capturing)
+        {
+            fresh = new StatementDraft();
+        }
+    }
+
+    private void AddPosition() => fresh.Positions.Add(new PositionDraft());
+
+    private async Task SaveAsync()
+    {
+        busy = true;
+        problem = null;
+
+        try
+        {
+            if (!DateOnly.TryParse(fresh.AsOf, out var stichtag))
+            {
+                problem = "Der Stichtag fehlt.";
+                return;
+            }
+
+            var positionen = new List<CreateDepotStatementPosition>();
+
+            foreach (var zeile in fresh.Positions)
+            {
+                if (zeile.Name.Trim().Length == 0 && zeile.Isin.Trim().Length == 0)
+                {
+                    continue;
+                }
+
+                if (zeile.Isin.Trim().Length == 0)
+                {
+                    problem = $"„{zeile.Name}“ braucht eine ISIN — daran hängt der Abgleich.";
+                    return;
+                }
+
+                if (Parse(zeile.Quantity) is not { } stueck || Parse(zeile.Price) is not { } kurs)
+                {
+                    problem = $"Nominale und Kurs von „{zeile.Name}“ fehlen.";
+                    return;
+                }
+
+                positionen.Add(new CreateDepotStatementPosition
+                {
+                    SecurityName = zeile.Name.Trim().Length == 0 ? zeile.Isin.Trim() : zeile.Name.Trim(),
+                    Isin = zeile.Isin.Trim(),
+                    Quantity = stueck,
+                    Price = kurs,
+                    Value = Parse(zeile.Value),
+                });
+            }
+
+            if (positionen.Count == 0)
+            {
+                problem = "Mindestens ein Wertpapier.";
+                return;
+            }
+
+            await Api.CreateDepotStatementAsync(DepotId, new CreateDepotStatementRequest
+            {
+                AsOf = stichtag,
+                IssuedOn = DateOnly.TryParse(fresh.IssuedOn, out var erstellt) ? erstellt : null,
+                DepotNumber = Empty(fresh.DepotNumber),
+                Custodian = Empty(fresh.Custodian),
+                Positions = positionen,
+            });
+
+            capturing = false;
+            await ReloadAsync();
+
+            Toasts.Show($"Aufstellung per {GermanFormat.Date(stichtag)} erfasst");
+        }
+        catch (ApiException ex)
+        {
+            problem = ex.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task DeleteAsync(int id)
+    {
+        busy = true;
+
+        try
+        {
+            await Api.DeleteDepotStatementAsync(id);
+
+            pending = null;
+            expanded = null;
+            await ReloadAsync();
+
+            Toasts.Show("Aufstellung gelöscht");
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    // ── Sätze aus Zahlen ───────────────────────────────────────────────────────────────────
+
+    private static string Difference(ReconciliationRowDto zeile)
+        => zeile.Difference == 0m
+            ? "keine Differenz"
+            : $"{GermanFormat.Quantity(Math.Abs(zeile.Difference))} St. "
+              + (zeile.Difference < 0m ? "fehlen bei den Transaktionen" : "zu viel bei den Transaktionen");
+
+    private static string Meta(DepotStatementDto satz)
+    {
+        var teile = new List<string>();
+
+        if (satz.IssuedOn is { } erstellt)
+        {
+            teile.Add($"erstellt {GermanFormat.Date(erstellt)}");
+        }
+
+        if (satz.DepotNumber is { Length: > 0 } nummer)
+        {
+            teile.Add($"Depot {nummer}");
+        }
+
+        if (satz.DocumentTitle is { Length: > 0 } beleg)
+        {
+            teile.Add(beleg);
+        }
+
+        return teile.Count == 0 ? "ohne weitere Angaben" : string.Join(" · ", teile);
+    }
+
+    private static string PositionMeta(DepotStatementPositionDto p)
+        => string.Join(" · ", new[] { p.Isin, p.Wkn, p.SafeCustody, p.Country }
+            .Where(x => !string.IsNullOrWhiteSpace(x)));
+
+    private static string? Empty(string text) => text.Trim().Length == 0 ? null : text.Trim();
+
+    /// <summary>Zahl wie getippt: deutsch mit Komma, notfalls mit Punkt.</summary>
+    private static decimal? Parse(string text)
+    {
+        var sauber = text.Trim().Replace("€", string.Empty).Replace(" ", string.Empty);
+
+        if (sauber.Length == 0)
+        {
+            return null;
+        }
+
+        if (sauber.Contains(','))
+        {
+            sauber = sauber.Replace(".", string.Empty).Replace(',', '.');
+        }
+
+        return decimal.TryParse(
+            sauber, System.Globalization.NumberStyles.Number,
+            System.Globalization.CultureInfo.InvariantCulture, out var wert)
+            ? wert
+            : null;
+    }
+}

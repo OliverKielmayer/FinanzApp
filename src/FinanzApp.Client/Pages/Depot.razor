@@ -102,6 +102,10 @@
         {
             <DepotTradesTab DepotId="portfolio.DepotId ?? 0" OnImported="ReloadAsync" />
         }
+        else
+        {
+            <DepotStatementsTab DepotId="portfolio.DepotId ?? 0" />
+        }
 
         <div class="spacer"></div>
     }
@@ -129,19 +133,14 @@
     {
         Positions,
         Trades,
+        Statements,
     }
 
-    /// <summary>
-    /// „Aufstellungen“ fehlt noch — der Reiter kommt mit dem Bestandsabgleich.
-    /// </summary>
-    /// <remarks>
-    /// Einen leeren dritten Reiter jetzt schon hinzustellen wäre ein Versprechen, das der
-    /// nächste Klick bricht.
-    /// </remarks>
     private static readonly (DepotTab Tab, string Label)[] Tabs =
     [
         (DepotTab.Positions, "Positionen"),
         (DepotTab.Trades, "Transaktionen"),
+        (DepotTab.Statements, "Aufstellungen"),
     ];
 
     private PortfolioDto? data;

@@ -9,7 +9,9 @@ Fertig und damit hier nicht mehr aufgeführt: der v4-Handoff samt Nachtrag
 [Erweiterungsplans](erweiterungsplan.md), der v5-Navigationsumbau, aus der v5-Erweiterung die
 Abschnitte 8 (Arbeit & Beruf) und 9 (Dokumenttypen) sowie aus
 [Handoff 11](design-handoff-v5c/design_handoff_v5/README.md) das überarbeitete Vermögensmodell
-(§3b) und die Lade-, Leer-, Offline- und Fehlerzustände (§7).
+(§3b) und die Lade-, Leer-, Offline- und Fehlerzustände (§7); aus Handoff 13 der ganze
+Depot-Abschnitt (§11) — Transaktionen, abgeleitete Positionen, Quartalsaufstellungen und
+Bestandsabgleich.
 
 ## Aus dem v5-Handoff, Abschnitt 10
 
@@ -63,3 +65,10 @@ gespeicherte Ansichten, CSV und Druckansicht. Der Handoff markiert die folgenden
 - **Vertragsende** ist ein Feld des Arbeitsverhältnisses, das der Handoff nicht nennt. Ohne es
   könnte nie etwas „beendet" werden, und die Regel „Beendetes zählt nicht als laufende Last"
   bliebe unbedienbar.
+- **Quartalsaufstellungen werden abgetippt, nicht ausgelesen.** Der Handoff nennt sie als PDF;
+  eine Texterkennung gibt es in dieser Anwendung nicht (`NoBillTextExtractor`), und der
+  Beleg-Scan-Flow, auf den §11.5 verweist, lässt die Maske ohnehin von Hand füllen — wie bei
+  den PKV-Belegen. Sobald eine Erkennung angebunden ist, füllt sie dieselbe Maske vor.
+- **Der Bestandsabgleich rechnet den Mindermengenzuschlag in den Einstand.** Die Beispieltabelle
+  in §11.3 nennt 28.413 € und lässt ihn damit weg; §11.1 verlangt ausdrücklich, ihn in die
+  Anschaffungskosten zu nehmen. Umgesetzt ist §11.1 — an den echten Orders sind es 28.414,45 €.

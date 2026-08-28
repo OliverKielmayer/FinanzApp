@@ -290,6 +290,21 @@ public static class FinanzAppApiExtensions
         return api.PostFormAsync<DepotImportResultDto>($"api/portfolio/{depotId}/trades", form, ct);
     }
 
+    public static Task<DepotStatementsDto> GetDepotStatementsAsync(
+        this FinanzAppApi api, int depotId, CancellationToken ct = default)
+        => api.GetAsync<DepotStatementsDto>($"api/portfolio/{depotId}/statements", ct);
+
+    public static Task<DepotStatementDto> CreateDepotStatementAsync(
+        this FinanzAppApi api, int depotId, CreateDepotStatementRequest request,
+        CancellationToken ct = default)
+        => api.PostAsync<CreateDepotStatementRequest, DepotStatementDto>(
+            $"api/portfolio/{depotId}/statements", request, ct);
+
+    public static Task DeleteDepotStatementAsync(
+        this FinanzAppApi api, int id, CancellationToken ct = default)
+        => api.SendWithoutResultAsync<object?>(
+            HttpMethod.Delete, $"api/portfolio/statements/{id}", null, ct);
+
     // ── Arbeit & Beruf ─────────────────────────────────────────────────────────────────────
 
     public static Task<EmploymentOverviewDto> GetEmploymentsAsync(
