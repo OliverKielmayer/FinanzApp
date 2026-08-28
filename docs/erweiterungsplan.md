@@ -3,12 +3,13 @@
 Zum Handoff [`design-handoff-erweiterung/handoff.md`](design-handoff-erweiterung/handoff.md)
 (Stand 24.08.2026). Geschrieben nach Durchsicht des Bestands, wie der Handoff es verlangt.
 
-> **Stand der Umsetzung.** Die Schritte 1 bis 6 sind gebaut und geprüft. Schritt 7 ist zur Hälfte
-> mitgekommen: `TaskItem` und die Ableitung von Fristen, Rechnungsfälligkeiten und überfälligen
-> Erstattungen laufen; offen bleiben ablaufende Dokumente sowie **Arbeit & Beruf** und
-> **Administration**, die der Handoff als nicht gestaltet und vor dem Bau anzufragen ausweist.
+> **Stand der Umsetzung (28.08.2026).** Die Schritte 1 bis 6 sind gebaut und geprüft. Von
+> Schritt 7 laufen `TaskItem` samt der Ableitung von Fristen, Rechnungsfälligkeiten und
+> überfälligen Erstattungen; **Arbeit & Beruf** und die **Administration** (Dokumenttypen) sind
+> mit dem v5-Handoff nachgezogen. Offen bleiben allein die ablaufenden Dokumente als Fristquelle.
 > Der Umstieg auf EF-Core-Migrationen ist erfolgt, die Testsuite aus Abschnitt 6 liegt unter
-> `tests/FinanzApp.Tests`.
+> `tests/FinanzApp.Tests`. Was insgesamt noch aussteht, steht in
+> [`offene-punkte.md`](offene-punkte.md).
 
 ## Was der Bestand hergibt
 
