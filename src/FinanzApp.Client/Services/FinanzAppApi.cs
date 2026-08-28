@@ -160,15 +160,19 @@ public sealed class FinanzAppApi(HttpClient http)
     public Task<BudgetOverviewDto> GetBudgetsAsync(PeriodScope period, CancellationToken ct = default)
         => GetAsync<BudgetOverviewDto>("api/budgets?period=" + period, ct);
 
-    public Task<PortfolioDto> GetPortfolioAsync(CancellationToken ct = default)
-        => GetAsync<PortfolioDto>("api/portfolio", ct);
+    /// <summary>Das Depot. <c>null</c>, wenn der Haushalt keines führt.</summary>
+    public Task<PortfolioDto?> GetPortfolioAsync(CancellationToken ct = default)
+        => GetOrNullAsync<PortfolioDto>("api/portfolio", ct);
 
     public Task<LoanDto> GetLoanAsync(int id, CancellationToken ct = default)
         => GetAsync<LoanDto>($"api/loans/{id}", ct);
 
-    /// <summary>Das erste Darlehen — der Einstieg, wenn kein bestimmtes verlangt wurde.</summary>
-    public Task<LoanDto> GetPrimaryLoanAsync(CancellationToken ct = default)
-        => GetAsync<LoanDto>("api/loans/primary", ct);
+    /// <summary>
+    /// Das erste Darlehen — der Einstieg, wenn kein bestimmtes verlangt wurde.
+    /// <c>null</c>, wenn der Haushalt keines führt.
+    /// </summary>
+    public Task<LoanDto?> GetPrimaryLoanAsync(CancellationToken ct = default)
+        => GetOrNullAsync<LoanDto>("api/loans/primary", ct);
 
     public Task<ImportPreviewDto> GetImportPreviewAsync(CancellationToken ct = default)
         => GetAsync<ImportPreviewDto>("api/import/preview", ct);
@@ -257,14 +261,9 @@ public sealed class FinanzAppApi(HttpClient http)
             ? $"api/reports/portfolio-gain?depot={id}"
             : "api/reports/portfolio-gain";
 
-        try
-        {
-            return await GetAsync<PortfolioGainDto>(url, ct);
-        }
-        catch (ApiException)
-        {
-            return null;
-        }
+        // Nur die 404 wird zu null. Vorher fing der Aufruf jede ApiException ab — ein Serverfehler
+        // sah dann aus wie „kein Depot erfasst“, und der Bericht schwieg über einen Ausfall.
+        return await GetOrNullAsync<PortfolioGainDto>(url, ct);
     }
 
     /// <summary>Die gespeicherten Ansichten des Auswertungsbereichs.</summary>
@@ -324,11 +323,46 @@ public sealed class FinanzAppApi(HttpClient http)
         => GetAsync<MoreOverviewDto>("api/overview/more", ct);
 
     internal async Task<T> GetAsync<T>(string url, CancellationToken ct)
+        => await GetOrNullAsync<T>(url, nullOnNotFound: false, ct)
+           ?? throw new ApiException("Die Antwort des Servers war leer.");
+
+    /// <summary>
+    /// Wie <see cref="GetAsync{T}"/>, gibt aber bei 404 <c>null</c> zurück statt zu werfen.
+    /// </summary>
+    /// <remarks>
+    /// Für Bereiche, die es im Haushalt schlicht nicht gibt — kein Depot, kein Darlehen. Das ist
+    /// kein Fehler, sondern eine Auskunft, und die Seite macht daraus einen Leerzustand.
+    /// </remarks>
+    internal Task<T?> GetOrNullAsync<T>(string url, CancellationToken ct)
+        => GetOrNullAsync<T>(url, nullOnNotFound: true, ct);
+
+    /// <summary>
+    /// Ein GET, das die Antwort des Servers wirklich liest.
+    /// </summary>
+    /// <remarks>
+    /// Vorher lief das über <c>GetFromJsonAsync</c>. Das wirft bei <em>jedem</em> Status außerhalb
+    /// von 2xx eine <see cref="HttpRequestException"/> — und die wurde hier zu „Keine Verbindung
+    /// zum Server“. Ein Haushalt ohne Depot bekam damit unter /depot eine Meldung über das Netz,
+    /// obwohl der Server sauber mit 404 geantwortet hatte. Der Rumpf mit den Problemdetails ging
+    /// dabei ebenfalls verloren, also auch jede Meldung, die der Server sich überlegt hatte.
+    /// </remarks>
+    private async Task<T?> GetOrNullAsync<T>(string url, bool nullOnNotFound, CancellationToken ct)
     {
         try
         {
-            return await http.GetFromJsonAsync<T>(url, Json, ct)
-                   ?? throw new ApiException("Die Antwort des Servers war leer.");
+            using var response = await http.GetAsync(url, ct);
+
+            if (nullOnNotFound && response.StatusCode == HttpStatusCode.NotFound)
+            {
+                return default;
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new ApiException(await DescribeAsync(response, ct));
+            }
+
+            return await response.Content.ReadFromJsonAsync<T>(Json, ct);
         }
         catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException)
         {
@@ -416,6 +450,11 @@ public sealed class FinanzAppApi(HttpClient http)
     private static string Describe(Exception ex) => ex switch
     {
         TaskCanceledException => "Der Server hat nicht rechtzeitig geantwortet.",
+
+        // Nur ohne Status ist es wirklich das Netz. Trägt die Ausnahme einen, hat der Server
+        // geantwortet — dann wäre „keine Verbindung“ eine Behauptung über eine Ursache, die
+        // gerade widerlegt vorliegt.
+        HttpRequestException { StatusCode: not null } => "Der Server hat die Anfrage abgelehnt.",
         HttpRequestException => "Keine Verbindung zum Server.",
         _ => "Die Antwort des Servers war unlesbar.",
     };

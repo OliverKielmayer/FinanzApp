@@ -72,6 +72,23 @@
 
         <div class="spacer"></div>
     }
+    else if (!Loading && Error is null)
+    {
+        @* Kein Depot im Haushalt ist kein Fehler. Bis hierher meldete die Seite „Keine
+           Verbindung zum Server“: der Endpunkt antwortet mit 404, und der Client machte
+           daraus eine Aussage über das Netz. *@
+        <div class="import-nothing">
+            <span class="label-strong">Kein Depot erfasst</span>
+            <span class="create-help">
+                Mit einem Depot zeigt dieser Bereich Wert, Gewinn und Verlust je Position und
+                die Entwicklung über die Zeit.
+            </span>
+        </div>
+
+        <AddRow Route="/neu/depot" Label="Depot anlegen" />
+
+        <div class="spacer"></div>
+    }
 </AsyncView>
 
 @code {

@@ -48,6 +48,23 @@
                     @onclick="@(() => Toasts.Show("Sondertilgung folgt"))">Sondertilgung planen</button>
         </div>
     }
+    else if (!Loading && Error is null)
+    {
+        @* Ohne Darlehen antwortet der Endpunkt mit 404 — kein Fehler, sondern die Auskunft,
+           dass es keines gibt. Eine Anlegeseite für Darlehen gibt es noch nicht; die Zeile
+           führt darum auf die Übersicht der Arten statt auf eine Adresse, die es nicht gibt. *@
+        <div class="import-nothing">
+            <span class="label-strong">Kein Darlehen erfasst</span>
+            <span class="create-help">
+                Mit einem Darlehen zeigt dieser Bereich Restschuld, Rate, Zinsanteil und den
+                Tilgungsplan.
+            </span>
+        </div>
+
+        <AddRow Route="/neu" Label="Objekt oder Vertrag anlegen" />
+
+        <div class="spacer"></div>
+    }
 </AsyncView>
 
 @code {

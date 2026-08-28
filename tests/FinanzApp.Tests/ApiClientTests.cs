@@ -72,4 +72,65 @@ public sealed class ApiClientTests
         await Assert.ThrowsAsync<ApiException>(
             () => api.ChangePasswordAsync("alt-alt-alt-1!", "neu-neu-neu-2!"));
     }
+
+    // ── Was der Server sagt, und was der Client daraus macht ───────────────────────────────
+
+    /// <summary>
+    /// Kein Depot im Haushalt ist kein Fehler.
+    /// </summary>
+    /// <remarks>
+    /// Der Endpunkt antwortet mit 404. Gelesen wurde das über <c>GetFromJsonAsync</c>, und das
+    /// wirft bei jedem Status außerhalb von 2xx — die Seite meldete daraufhin „Keine Verbindung
+    /// zum Server“, obwohl der Server sauber geantwortet hatte.
+    /// </remarks>
+    [Fact]
+    public async Task Ohne_Depot_kommt_null_und_keine_Ausnahme()
+    {
+        var (api, handler) = Build(HttpStatusCode.NotFound);
+
+        Assert.Null(await api.GetPortfolioAsync());
+        Assert.Equal("/api/portfolio", handler.Received!.RequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task Ohne_Darlehen_kommt_null_und_keine_Ausnahme()
+    {
+        var (api, _) = Build(HttpStatusCode.NotFound);
+
+        Assert.Null(await api.GetPrimaryLoanAsync());
+    }
+
+    /// <summary>
+    /// Ein Serverfehler bleibt ein Fehler und nennt sich nicht „kein Depot“.
+    /// </summary>
+    /// <remarks>
+    /// Nur die 404 heißt „gibt es nicht“. Fing der Aufruf jede Ausnahme ab, sähe ein Ausfall
+    /// aus wie ein leerer Bestand — und der Bereich schwiege über einen Ausfall.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_Serverfehler_wird_nicht_zu_einem_leeren_Depot()
+    {
+        var (api, _) = Build(HttpStatusCode.InternalServerError);
+
+        await Assert.ThrowsAsync<ApiException>(() => api.GetPortfolioAsync());
+        await Assert.ThrowsAsync<ApiException>(() => api.GetPortfolioGainAsync());
+    }
+
+    /// <summary>
+    /// Eine abgelehnte Anfrage ist keine fehlende Verbindung.
+    /// </summary>
+    /// <remarks>
+    /// „Keine Verbindung zum Server“ behauptet eine Ursache. Hat der Server geantwortet, ist
+    /// sie widerlegt — und der Benutzer sucht den Fehler an der falschen Stelle.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_abgelehnter_Zugriff_meldet_nicht_die_Verbindung()
+    {
+        var (api, _) = Build(HttpStatusCode.Forbidden);
+
+        var fehler = await Assert.ThrowsAsync<ApiException>(() => api.GetPortfolioAsync());
+
+        Assert.DoesNotContain("Verbindung", fehler.Message);
+        Assert.Contains("Rechte", fehler.Message);
+    }
 }
