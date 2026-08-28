@@ -54,7 +54,7 @@ public sealed class OverviewService(
             },
             CategoryCount = await catalog.GetCategoryCountAsync(ct),
             RuleCount = await catalog.GetRuleCountAsync(ct),
-            DocumentTypeCount = await db.DocumentTypes.CountAsync(ct),
+            DocumentTypeCount = await db.DocumentTypes.CountAsync(t => !t.IsRetired, ct),
             HouseholdMemberCount = await db.Users.CountAsync(u => u.HouseholdId == current.HouseholdId, ct),
             Areas = await BuildAreaCountsAsync(ct),
             Security = new SecuritySummaryDto

@@ -2600,6 +2600,24 @@ body {
   border-bottom: 1px solid var(--color-divider);
 }
 
+/* Die feste erste Spalte gehoert dem Auswahlkaestchen der Importvorschau. Wo keines steht -
+   Kategorien, Kategorieregeln, Dokumenttypen, Lohnabrechnungen -, rutschte der Name in die
+   28 Pixel und brach dort auf sechs Zeilen um.
+
+   Statt eines zweiten Rasters hier eine Flex-Zeile: die Zahl der Elemente schwankt je Seite
+   und je Zustand - beim Umbenennen sind es zwei, sonst drei -, und ein festes Raster muesste
+   fuer jede Zahl neu geschrieben werden. */
+.import-row.plain {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.import-row.plain > .stack {
+  flex: 1;
+  min-width: 0;
+}
+
 .import-check {
   display: flex;
   align-items: center;

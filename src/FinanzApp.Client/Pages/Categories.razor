@@ -55,7 +55,7 @@
     {
         var id = category.Id;
 
-        <div class="import-row @(pending == id ? "picked" : null)">
+        <div class="import-row plain @(pending == id ? "picked" : null)">
             @if (editing == id)
             {
                 @* Inline umbenennen: der Name bleibt an seinem Platz, statt in ein Fenster zu wandern. *@
