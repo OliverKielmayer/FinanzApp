@@ -114,6 +114,7 @@ public static class ScreenCatalog
 
         // Zeilen der Einstellungen.
         new("/kategorien", "Ordnung", "Kategorien", IsDetail: true),
+        new("/dokumenttypen", "Ordnung", "Dokumenttypen", IsDetail: true),
         new("/kategorieregeln", "Ordnung", "Kategorieregeln", IsDetail: true),
         new("/benutzer", "Konto", "Benutzer & Anmeldung", IsDetail: true),
 

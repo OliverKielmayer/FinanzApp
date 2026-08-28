@@ -104,6 +104,51 @@ public static class ApiEndpoints
             }
         }).RequireAuthorization(AuthPolicies.Write);
 
+        // Administration: der Pflegescreen gehört hinter dieselbe Schranke wie die
+        // Benutzerverwaltung. Lesen darf jeder — die Typen stehen ohnehin an jedem Dokument.
+        api.MapGet("/document-types", async (DocumentTypeService service, CancellationToken ct)
+            => Results.Ok(await service.GetAsync(ct)));
+
+        api.MapPost("/document-types", async (
+            DocumentTypeNameRequest request, DocumentTypeService service, CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(await service.CreateAsync(request, ct));
+            }
+            catch (RuleViolationException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.ManageUsers);
+
+        api.MapPatch("/document-types/{id:int}", async (
+            int id, DocumentTypeNameRequest request, DocumentTypeService service,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(await service.RenameAsync(id, request.Name, ct));
+            }
+            catch (RuleViolationException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.ManageUsers);
+
+        api.MapDelete("/document-types/{id:int}", async (
+            int id, DocumentTypeService service, CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(await service.DeleteAsync(id, ct));
+            }
+            catch (RuleViolationException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status404NotFound);
+            }
+        }).RequireAuthorization(AuthPolicies.ManageUsers);
+
         api.MapGet("/categories/usage", async (
                 CategoryDirection direction, CatalogService service, CancellationToken ct)
             => Results.Ok(await service.GetUsageAsync(direction, ct)));

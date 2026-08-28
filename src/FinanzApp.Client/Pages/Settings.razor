@@ -85,13 +85,11 @@
             $"{overview.Areas.DocumentCount}",
             "/dokumente");
 
-        // Ohne Verwaltungsscreen kein Link. Der Handoff führt sie auf, aber gestaltet ist sie
-        // nicht — und ein Link ins Leere wäre schlimmer als eine Zeile ohne.
         yield return new SettingRow(
             "Dokumenttypen",
-            "noch nicht gestaltet — vor dem Bau anzufragen",
-            "geplant",
-            null);
+            "bestimmen Ablagepfad und Beleganalyse",
+            $"{overview.DocumentTypeCount}",
+            "/dokumenttypen");
 
         yield return new SettingRow(
             "Sicherheit & Sicherung",

@@ -303,7 +303,13 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
         b.Entity<DocumentType>(e =>
         {
             e.Property(x => x.Name).HasMaxLength(120).IsRequired();
-            e.HasIndex(x => new { x.HouseholdId, x.Name }).IsUnique();
+
+            // Nur gepflegte Typen belegen ihren Namen. Ein stillgelegter steht in keiner Liste
+            // — bliebe er im Index, käme die Meldung „Einen Dokumenttyp ‚Police‘ gibt es schon“
+            // über einer Liste, in der keiner steht.
+            e.HasIndex(x => new { x.HouseholdId, x.Name })
+                .IsUnique()
+                .HasFilter("\"IsRetired\" = 0");
         });
 
         b.Entity<Document>(e =>

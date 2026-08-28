@@ -289,6 +289,25 @@ public sealed class FinanzAppApi(HttpClient http)
     public Task<DataQualityDto> GetDataQualityAsync(CancellationToken ct = default)
         => GetAsync<DataQualityDto>("api/reports/data-quality", ct);
 
+    /// <summary>Die gepflegten Dokumenttypen samt Verwendungsnachweis.</summary>
+    public Task<DocumentTypeOverviewDto> GetDocumentTypesAsync(CancellationToken ct = default)
+        => GetAsync<DocumentTypeOverviewDto>("api/document-types", ct);
+
+    public Task<DocumentTypeUsageDto> CreateDocumentTypeAsync(
+        string name, DocumentArea area, CancellationToken ct = default)
+        => PostAsync<DocumentTypeNameRequest, DocumentTypeUsageDto>(
+            "api/document-types", new DocumentTypeNameRequest(name, area), ct);
+
+    public Task<DocumentTypeChangeResultDto> RenameDocumentTypeAsync(
+        int id, string name, CancellationToken ct = default)
+        => SendAsync<DocumentTypeNameRequest, DocumentTypeChangeResultDto>(
+            HttpMethod.Patch, $"api/document-types/{id}", new DocumentTypeNameRequest(name), ct);
+
+    public Task<DocumentTypeChangeResultDto> DeleteDocumentTypeAsync(
+        int id, CancellationToken ct = default)
+        => SendAsync<object?, DocumentTypeChangeResultDto>(
+            HttpMethod.Delete, $"api/document-types/{id}", null, ct);
+
     /// <summary>Die gelernten Kategorieregeln.</summary>
     public Task<IReadOnlyList<CategorizationRuleDto>> GetRulesAsync(CancellationToken ct = default)
         => GetAsync<IReadOnlyList<CategorizationRuleDto>>("api/rules", ct);

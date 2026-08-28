@@ -17,6 +17,16 @@ public class DocumentType : IHouseholdOwned
     public DocumentArea Area { get; set; }
     public int SortOrder { get; set; }
 
+    /// <summary>
+    /// Nicht mehr gepflegt — der Typ ist aus der Verwaltung verschwunden, seine Zeile nicht.
+    /// </summary>
+    /// <remarks>
+    /// Ein echtes Löschen setzt die Typ-Kennung der Dokumente auf null: die Historie zerreißt,
+    /// und ein abgelegter Beleg weiß nicht mehr, was er ist. Er behält sie deshalb, und der Typ
+    /// verschwindet nur aus der Pflegeliste.
+    /// </remarks>
+    public bool IsRetired { get; set; }
+
     public List<Document> Documents { get; set; } = [];
 }
 

@@ -9,6 +9,9 @@ public sealed record MoreOverviewDto
     public required int CategoryCount { get; init; }
     public required int RuleCount { get; init; }
 
+    /// <summary>Gepflegte Dokumenttypen — Kennzahl der Einstellungszeile.</summary>
+    public required int DocumentTypeCount { get; init; }
+
     /// <summary>Benutzer im Haushalt — Untertitel der Zeile „Benutzer &amp; Anmeldung“.</summary>
     public required int HouseholdMemberCount { get; init; }
 

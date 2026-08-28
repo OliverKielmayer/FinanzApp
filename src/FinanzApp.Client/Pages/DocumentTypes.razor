@@ -1,0 +1,281 @@
+@page "/dokumenttypen"
+@attribute [Authorize]
+@inherits AppPage
+
+@*
+    Dokumenttypen — v5-Handoff, Abschnitt 9.
+
+    Dieselbe Bauform wie die Kategorien, weil es dieselbe Aufgabe ist: gepflegte Stammdaten mit
+    Verwendungsnachweis. Ein Typ ist keine Dekoration — er bestimmt den Ablagepfad-Vorschlag und
+    steuert, was die Beleganalyse zu erkennen versucht.
+*@
+
+<PageTitle>Dokumenttypen — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (data is { } overview)
+    {
+        <section class="hero">
+            <span class="label-muted">Dokumenttypen</span>
+            <span class="hero-value num">@overview.TotalCount</span>
+            <span class="loan-sub">
+                Bestimmt den Ablagepfad-Vorschlag und was die Beleganalyse zu erkennen versucht.
+            </span>
+        </section>
+
+        <div class="holdings-filter">
+            @foreach (var bereich in overview.Areas)
+            {
+                var wahl = bereich;
+                <button type="button" class="chip @(area == bereich.Area ? "active" : null)"
+                        disabled="@busy" @onclick="() => PickAsync(wahl.Area)">
+                    @bereich.Label <span class="chip-hint num">@bereich.Count</span>
+                </button>
+            }
+        </div>
+
+        @* Nur der Inhaber — dieselbe Schranke, die der Endpunkt zieht. Die Anzeige spart
+       den Weg, entschieden wird auf dem Server. *@
+        <AuthorizeView Roles="Owner" Context="admin">
+            <Authorized>
+                <div class="field">
+                    @* Das Label nennt den Bereich, in dem angelegt wird. Ohne ihn wüsste
+                       niemand, wohin der neue Typ fällt — und bei „Alle“ gibt es keinen
+                       gewählten, also wird es „Sonstiges“. *@
+                    <label for="neuer-typ">Neuer Typ · Bereich @TargetAreaLabel(overview)</label>
+                    <div class="rule-actions">
+                        <input id="neuer-typ" class="input" value="@fresh" placeholder="z. B. Police"
+                               @oninput="e => fresh = e.Value?.ToString() ?? string.Empty" />
+                        <button type="button" class="btn btn-primary"
+                                disabled="@(busy || fresh.Trim().Length == 0)"
+                                @onclick="AddAsync">Hinzufügen</button>
+                    </div>
+                </div>
+            </Authorized>
+            <NotAuthorized>
+                <span class="create-help">
+                    Dokumenttypen pflegt der Inhaber des Haushalts.
+                </span>
+            </NotAuthorized>
+        </AuthorizeView>
+
+        @if (problem is { Length: > 0 })
+        {
+            <span class="create-problem">@problem</span>
+        }
+
+        <div class="list-head">
+            <span class="label-strong">Name · Verwendung</span>
+        </div>
+
+        @foreach (var typ in Shown(overview))
+        {
+            var id = typ.Id;
+
+            <div class="import-row @(pending == id ? "picked" : null)">
+                @if (editing == id)
+                {
+                    @* Inline umbenennen: der Name bleibt an seinem Platz. *@
+                    <span class="stack">
+                        <input class="input" value="@draft" aria-label="Neuer Name"
+                               @oninput="e => draft = e.Value?.ToString() ?? string.Empty" />
+                    </span>
+                    <span class="rule-actions">
+                        <button type="button" class="btn btn-primary" disabled="@busy"
+                                @onclick="() => RenameAsync(id)">Speichern</button>
+                        <button type="button" class="btn btn-secondary" disabled="@busy"
+                                @onclick="CancelEdit">Abbrechen</button>
+                    </span>
+                }
+                else
+                {
+                    <span class="stack">
+                        <span class="import-row-payee">@typ.Name</span>
+                        <span class="meta">@Usage(typ)</span>
+                    </span>
+
+                    <span class="tag tag-neutral">@AreaLabel(overview, typ.Area)</span>
+
+                    <AuthorizeView Roles="Owner" Context="row">
+                        <span class="rule-actions">
+                            @if (pending == id)
+                            {
+                                <button type="button" class="btn btn-primary" disabled="@busy"
+                                        @onclick="() => DeleteAsync(id)">Wirklich löschen</button>
+                                <button type="button" class="btn btn-secondary" disabled="@busy"
+                                        @onclick="CancelDelete">Behalten</button>
+                            }
+                            else
+                            {
+                                <button type="button" class="section-link"
+                                        @onclick="() => StartEdit(typ)">Umbenennen</button>
+                                <button type="button" class="section-link"
+                                        @onclick="() => AskDelete(id)">Löschen</button>
+                            }
+                        </span>
+                    </AuthorizeView>
+                }
+            </div>
+        }
+
+        <div class="tx-totals-note">
+            Umbenennen wirkt auf alle Dokumente dieses Typs — sie tragen ihn über seine Kennung,
+            nicht über den Text. Löschen lässt die abgelegten Dokumente unverändert: sie behalten
+            ihren Typ und bleiben in der Suche, nur wird er nicht mehr gepflegt.
+        </div>
+
+        <div class="spacer"></div>
+    }
+</AsyncView>
+
+@code {
+    private DocumentTypeOverviewDto? data;
+    private DocumentArea? area;
+
+    private string fresh = string.Empty;
+    private string? problem;
+    private bool busy;
+
+    private int? editing;
+    private string draft = string.Empty;
+    private int? pending;
+
+    protected override async Task LoadAsync() => data = await Api.GetDocumentTypesAsync();
+
+    private static IEnumerable<DocumentTypeUsageDto> ShownIn(
+        DocumentTypeOverviewDto overview, DocumentArea? area)
+        => area is { } bereich ? overview.Types.Where(t => t.Area == bereich) : overview.Types;
+
+    private IEnumerable<DocumentTypeUsageDto> Shown(DocumentTypeOverviewDto overview)
+        => ShownIn(overview, area);
+
+    private static string Usage(DocumentTypeUsageDto typ)
+        => typ.DocumentCount == 0
+            ? "noch nicht verwendet"
+            : $"{typ.DocumentCount} {(typ.DocumentCount == 1 ? "Dokument" : "Dokumente")}";
+
+    private static string AreaLabel(DocumentTypeOverviewDto overview, DocumentArea bereich)
+        => overview.Areas.FirstOrDefault(a => a.Area == bereich)?.Label ?? "Sonstiges";
+
+    /// <summary>
+    /// Der Bereich, in dem ein neuer Typ landet.
+    /// </summary>
+    /// <remarks>
+    /// Bei „Alle“ ist keiner gewählt — dann ist es „Sonstiges“, und das Feldlabel sagt es,
+    /// statt den Nutzer hinterher überraschen zu lassen.
+    /// </remarks>
+    private string TargetAreaLabel(DocumentTypeOverviewDto overview)
+        => AreaLabel(overview, area ?? DocumentArea.Other);
+
+    private Task PickAsync(DocumentArea? bereich)
+    {
+        area = bereich;
+        CancelEdit();
+        CancelDelete();
+
+        return Task.CompletedTask;
+    }
+
+    private Task AddAsync() => RunAsync(async () =>
+    {
+        busy = true;
+        problem = null;
+
+        try
+        {
+            var neu = await Api.CreateDocumentTypeAsync(fresh.Trim(), area ?? DocumentArea.Other);
+
+            fresh = string.Empty;
+            await LoadAsync();
+
+            Toasts.Show($"„{neu.Name}“ angelegt");
+        }
+        catch (ApiException ex)
+        {
+            problem = ex.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    private void StartEdit(DocumentTypeUsageDto typ)
+    {
+        editing = typ.Id;
+        draft = typ.Name;
+        pending = null;
+        problem = null;
+    }
+
+    private void CancelEdit()
+    {
+        editing = null;
+        draft = string.Empty;
+    }
+
+    private Task RenameAsync(int id) => RunAsync(async () =>
+    {
+        busy = true;
+        problem = null;
+
+        try
+        {
+            var ergebnis = await Api.RenameDocumentTypeAsync(id, draft.Trim());
+
+            CancelEdit();
+            await LoadAsync();
+
+            // Die Zahl gehört in die Meldung: eine Umbenennung wirkt auf jedes Dokument,
+            // das den Typ trägt, und das sieht man der Liste nicht an.
+            Toasts.Show(ergebnis.DocumentCount == 0
+                ? $"Umbenannt in „{ergebnis.Name}“"
+                : $"Umbenannt in „{ergebnis.Name}“ · {ergebnis.DocumentCount} "
+                  + (ergebnis.DocumentCount == 1 ? "Dokument betroffen" : "Dokumente betroffen"));
+        }
+        catch (ApiException ex)
+        {
+            problem = ex.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    private void AskDelete(int id)
+    {
+        pending = id;
+        CancelEdit();
+    }
+
+    private void CancelDelete() => pending = null;
+
+    private Task DeleteAsync(int id) => RunAsync(async () =>
+    {
+        busy = true;
+        problem = null;
+
+        try
+        {
+            var ergebnis = await Api.DeleteDocumentTypeAsync(id);
+
+            pending = null;
+            await LoadAsync();
+
+            Toasts.Show(ergebnis.DocumentCount == 0
+                ? $"„{ergebnis.Name}“ gelöscht"
+                : $"„{ergebnis.Name}“ gelöscht · {ergebnis.DocumentCount} "
+                  + (ergebnis.DocumentCount == 1 ? "Dokument behält" : "Dokumente behalten")
+                  + " den Typ");
+        }
+        catch (ApiException ex)
+        {
+            problem = ex.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+}
