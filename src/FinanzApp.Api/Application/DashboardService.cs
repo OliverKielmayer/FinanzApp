@@ -38,6 +38,7 @@ public sealed class DashboardService(
         // Sachwerte kommen aus den Immobilien. Sie gehören ins Vermögen, aber nicht in
         // dieselbe Summe wie das, was auf Konten liegt.
         var tangible = await db.Properties.AsNoTracking().SumAsync(p => p.MarketValue, ct);
+        var tangibleCount = await db.Properties.AsNoTracking().CountAsync(ct);
         var history = await db.NetWorthSnapshots.AsNoTracking()
             .OrderBy(s => s.Month)
             .Select(s => new TimeSeriesPointDto { Month = s.Month, Value = s.Value })
@@ -49,6 +50,7 @@ public sealed class DashboardService(
             {
                 FinancialAssets = gross,
                 TangibleAssets = tangible,
+                TangibleCount = tangibleCount,
                 Liabilities = debt,
                 DeltaPreviousMonth = DeltaPreviousMonth(history),
                 DeltaYearPercent = DeltaYearPercent(history),

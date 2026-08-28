@@ -33,6 +33,17 @@ public sealed record HoldingsHeadDto
     /// <summary>Die Hauptsumme: Wert oder Jahreskosten, je nach Klasse.</summary>
     public required decimal Value { get; init; }
 
+    /// <summary>
+    /// Das Finanzvermögen — nur bei „Alle“ von Belang.
+    /// </summary>
+    /// <remarks>
+    /// Es steht hier, statt in der Anzeige aus <see cref="Net"/>, <see cref="TangibleAssets"/>
+    /// und <see cref="Liabilities"/> zurückgerechnet zu werden. Ein Screen, der eine Größe
+    /// selbst zusammensetzt, ist die zweite Stelle, an der sie entsteht — und die erste, an der
+    /// sie abweicht.
+    /// </remarks>
+    public required decimal FinancialAssets { get; init; }
+
     /// <summary>Die Sachwerte — nur bei „Alle“ von Belang.</summary>
     public required decimal TangibleAssets { get; init; }
 
@@ -57,6 +68,9 @@ public sealed record HoldingsHeadDto
 
     /// <summary>Wie viele Posten eine laufende Frist haben.</summary>
     public required int UrgentCount { get; init; }
+
+    /// <summary>Erfasste Lohnabrechnungen — nur bei „Arbeit“ von Belang.</summary>
+    public required int PayslipCount { get; init; }
 
     /// <summary>Die Rate — nur beim Darlehen.</summary>
     public required decimal? Installment { get; init; }

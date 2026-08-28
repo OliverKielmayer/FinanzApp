@@ -22,17 +22,23 @@ public sealed class HoldingsTests : IDisposable
     private readonly string root =
         Path.Combine(Path.GetTempPath(), "finanzapp-tests", Guid.NewGuid().ToString("N"));
 
-    private HoldingsService Service()
+    private DashboardService Dashboard()
     {
         var context = database.Context();
 
-        var dashboard = new DashboardService(
+        return new DashboardService(
             context,
             new AccountService(context),
             new PortfolioService(context),
             new LoanService(context),
             new BudgetService(context, clock),
             clock);
+    }
+
+    private HoldingsService Service()
+    {
+        var context = database.Context();
+        var dashboard = Dashboard();
 
         var documents = new DocumentService(
             context, TestDatabase.PathService(root), new ObjectLabelService(context), clock,
@@ -144,15 +150,16 @@ public sealed class HoldingsTests : IDisposable
     // ── Die Kopfkennzahl ───────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Der Fall aus dem Handoff: Kopf und Zeilen dürfen sich nicht widersprechen.
+    /// Bei „Alle“ steht das Gesamtvermögen netto, und die Dreiteilung liegt darunter bereit.
     /// </summary>
     /// <remarks>
-    /// Eine einzige Zahl über einer Liste, in der Konten und ein Haus stehen, ist ein
-    /// Widerspruch — wer die Zeilen summiert, kommt woanders heraus. Also stehen Finanzvermögen
-    /// und Sachwerte getrennt, und das Gesamt-netto darunter.
+    /// Zwei Fassungen dieser Regel sind schon gescheitert. Erst nannte der Kopf 99.880 €,
+    /// während in derselben Liste eine Immobilie über 395.000 € stand. Dann trug der Kopf
+    /// Finanzvermögen und Sachwerte nebeneinander, das Dashboard aber weiter eine einzelne
+    /// Zahl — zwei Antworten auf dieselbe Frage. Jetzt gilt: eine Zahl, drei Flächen.
     /// </remarks>
     [Fact]
-    public async Task Der_Kopf_trennt_Finanzvermoegen_und_Sachwerte()
+    public async Task Der_Kopf_nennt_das_Gesamtvermoegen_und_haelt_die_Dreiteilung_bereit()
     {
         Konto("Sparkasse Giro", 248_179.95m);
         Immobilie(395_000m);
@@ -160,9 +167,35 @@ public sealed class HoldingsTests : IDisposable
         var kopf = (await Service().GetAsync()).Head;
 
         Assert.Null(kopf.Class);
-        Assert.Equal(248_179.95m, kopf.Value);
+        Assert.Equal(643_179.95m, kopf.Value);
+        Assert.Equal(kopf.Net, kopf.Value);
+
+        Assert.Equal(248_179.95m, kopf.FinancialAssets);
         Assert.Equal(395_000m, kopf.TangibleAssets);
-        Assert.Equal(643_179.95m, kopf.Net);
+        Assert.Equal(0m, kopf.Liabilities);
+    }
+
+    /// <summary>
+    /// Bestand und Dashboard nennen dieselbe Zahl.
+    /// </summary>
+    /// <remarks>
+    /// Nicht „dieselbe Rechnung“, sondern dieselbe Zahl aus derselben Quelle: der Bestand fragt
+    /// den Vermögensdienst und rechnet nichts nach. Genau dort ist es zuletzt auseinander-
+    /// gelaufen — die Zahlen stimmten je für sich und widersprachen einander trotzdem.
+    /// </remarks>
+    [Fact]
+    public async Task Bestand_und_Dashboard_nennen_dieselbe_Zahl()
+    {
+        Konto("Sparkasse Giro", 248_179.95m);
+        Immobilie(395_000m);
+
+        var kopf = (await Service().GetAsync()).Head;
+        var dashboard = await Dashboard().GetAsync();
+
+        Assert.Equal(dashboard.NetWorth.Net, kopf.Value);
+        Assert.Equal(dashboard.NetWorth.FinancialAssets, kopf.FinancialAssets);
+        Assert.Equal(dashboard.NetWorth.TangibleAssets, kopf.TangibleAssets);
+        Assert.Equal(1, dashboard.NetWorth.TangibleCount);
     }
 
     [Fact]

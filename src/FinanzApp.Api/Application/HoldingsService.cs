@@ -40,7 +40,7 @@ public sealed class HoldingsService(
                 .. Enum.GetValues<HoldingClass>()
                     .Select(k => new HoldingClassCountDto(k, Label(k), alle.Count(z => z.Class == k))),
             ],
-            Head = Head(filter, gezeigt, vermoegen, darlehen),
+            Head = Head(filter, gezeigt, vermoegen, darlehen, await db.Payslips.CountAsync(ct)),
             Rows = gezeigt,
             AddIn = filter,
         };
@@ -57,7 +57,8 @@ public sealed class HoldingsService(
     /// sieben Bereiche ein Verlust.
     /// </remarks>
     private static HoldingsHeadDto Head(
-        HoldingClass? filter, List<HoldingRowDto> zeilen, NetWorthDto vermoegen, Loan? darlehen)
+        HoldingClass? filter, List<HoldingRowDto> zeilen, NetWorthDto vermoegen, Loan? darlehen,
+        int abrechnungen)
     {
         var werte = zeilen.Sum(z => z.Value ?? 0m);
         var kosten = zeilen.Sum(z => z.YearlyCost ?? 0m);
@@ -70,11 +71,15 @@ public sealed class HoldingsService(
             Class = filter,
             Value = filter switch
             {
-                null => vermoegen.FinancialAssets,
+                // Die eine Zahl, wortgleich zum Dashboard-Hero und zur Navigationskennzahl.
+                // Vorher stand hier das Finanzvermögen — und damit eine zweite Antwort auf
+                // dieselbe Frage, 395.000 € neben der ersten.
+                null => vermoegen.Net,
                 HoldingClass.Protection or HoldingClass.Vehicles => kosten,
                 HoldingClass.Work => einkommen,
                 _ => werte,
             },
+            FinancialAssets = vermoegen.FinancialAssets,
             TangibleAssets = vermoegen.TangibleAssets,
             Liabilities = vermoegen.Liabilities,
             Net = vermoegen.Net,
@@ -94,6 +99,7 @@ public sealed class HoldingsService(
                 _ => 0,
             },
             UrgentCount = zeilen.Count(z => z.Urgent),
+            PayslipCount = abrechnungen,
             Installment = filter == HoldingClass.Loans ? darlehen?.Installment : null,
             NextPayment = filter == HoldingClass.Loans ? darlehen?.NextPaymentDate : null,
         };

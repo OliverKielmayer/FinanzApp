@@ -153,7 +153,7 @@
 
     private static string HeadLabel(HoldingsHeadDto kopf) => kopf.Class switch
     {
-        null => "Finanzvermögen · Sachwerte",
+        null => "Gesamtvermögen netto",
         HoldingClass.Accounts => "Kontostände",
         HoldingClass.Depot => "Depotwert",
         HoldingClass.Pension => "Erreichter Wert",
@@ -165,21 +165,20 @@
     };
 
     /// <summary>
-    /// Bei „Alle“ stehen zwei Zahlen nebeneinander.
+    /// Eine Zahl, auch bei „Alle“.
     /// </summary>
     /// <remarks>
-    /// Eine einzige wäre der Widerspruch aus dem Handoff: Konten und ein Haus in einem Topf,
-    /// ohne dass es jemand sagt.
+    /// Vorher standen hier Finanzvermögen und Sachwerte nebeneinander, während das Dashboard
+    /// das Gesamtvermögen nannte — zwei Antworten auf dieselbe Frage, 395.000 € auseinander.
+    /// Die Dreiteilung steht jetzt in der Unterzeile, wo sie erklärt statt zu konkurrieren.
     /// </remarks>
-    private string HeadValue(HoldingsHeadDto kopf)
-        => kopf.Class is null
-            ? $"{State.Euro(kopf.Value)} · {State.Euro(kopf.TangibleAssets)}"
-            : State.Euro(kopf.Value);
+    private string HeadValue(HoldingsHeadDto kopf) => State.Euro(kopf.Value);
 
     private string HeadSub(HoldingsHeadDto kopf) => kopf.Class switch
     {
-        null => $"Verbindlichkeiten {State.Euro(-kopf.Liabilities)} · "
-                + $"Gesamt netto {State.Euro(kopf.Net)}",
+        null => $"Finanzvermögen {State.Euro(kopf.FinancialAssets)} · "
+                + $"Sachwerte {State.Euro(kopf.TangibleAssets)} · "
+                + $"Verbindlichkeiten {State.Euro(-kopf.Liabilities)}",
 
         HoldingClass.Protection => $"{Count(kopf.Count, "Vertrag", "Verträge")} · "
                                    + (kopf.UrgentCount == 0
@@ -200,7 +199,12 @@
         HoldingClass.Work => $"{kopf.Count} laufend"
                              + (kopf.SecondaryCount == 0
                                  ? string.Empty
-                                 : $" · {kopf.SecondaryCount} beendet"),
+                                 : $" · {kopf.SecondaryCount} beendet")
+                             + (kopf.PayslipCount == 0
+                                 ? string.Empty
+                                 : $" · {kopf.PayslipCount} "
+                                   + (kopf.PayslipCount == 1 ? "Abrechnung" : "Abrechnungen")
+                                   + " erfasst"),
 
         HoldingClass.Loans => kopf.Installment is { } rate
             ? $"Rate {State.Euro(rate)}"

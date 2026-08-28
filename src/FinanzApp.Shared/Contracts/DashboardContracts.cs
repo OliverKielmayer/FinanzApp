@@ -38,10 +38,22 @@ public sealed record NetWorthDto
     /// </remarks>
     public required decimal TangibleAssets { get; init; }
 
+    /// <summary>Wie viele Objekte die Sachwerte ausmachen — „3 Immobilien · Marktwert“.</summary>
+    public required int TangibleCount { get; init; }
+
     /// <summary>Summe aller Verbindlichkeiten, positiv geführt.</summary>
     public required decimal Liabilities { get; init; }
 
-    /// <summary>Alles zusammen.</summary>
+    /// <summary>
+    /// Gesamtvermögen netto — die eine Zahl.
+    /// </summary>
+    /// <remarks>
+    /// Sie steht wortgleich im Dashboard-Hero, in der Navigationskennzahl „Heute“ und im Kopf
+    /// des Bestands; die Dreiteilung erscheint überall nur als Unterzeile. Der Prototyp hatte
+    /// das zweimal verletzt: erst nannte der Bestand-Kopf 99.880 €, während in derselben Liste
+    /// eine Immobilie über 395.000 € stand — dann trug der Bestand die Dreiteilung und das
+    /// Dashboard weiter die alte Zahl. Zwei Antworten auf dieselbe Frage, 395.000 € auseinander.
+    /// </remarks>
     public decimal Net => FinancialAssets + TangibleAssets - Liabilities;
 
     /// <summary>

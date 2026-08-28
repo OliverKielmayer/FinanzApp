@@ -43,14 +43,17 @@
         }
 
         <section class="section">
-            <span class="label-muted">Nettovermögen</span>
+            @* Dieselbe Zahl wie in der Navigationskennzahl „Heute“ und im Kopf des Bestands.
+               Die Dreiteilung steht darunter, nie als zweiter Hauptwert daneben. *@
+            <span class="label-muted">Gesamtvermögen netto</span>
             <span class="hero-value num">@State.Euro(dashboard.NetWorth.Net)</span>
             <div class="hero-deltas">
                 @* Die Aufteilung gehört unter die Summe. Ohne sie steht eine Zahl da, die
                    Konten und ein Haus in einen Topf wirft, ohne es zu sagen. *@
                 <span class="hero-delta-secondary num">
                     Finanzvermögen @State.Euro(dashboard.NetWorth.FinancialAssets) ·
-                    Sachwerte @State.Euro(dashboard.NetWorth.TangibleAssets)
+                    Sachwerte @State.Euro(dashboard.NetWorth.TangibleAssets) ·
+                    Verbindlichkeiten @State.Euro(-dashboard.NetWorth.Liabilities)
                 </span>
 
                 @* Die Veränderung stammt aus der Reihe des Finanzvermögens — und sagt es.
@@ -96,11 +99,8 @@
                     <span class="balance-value num">@State.Euro(dashboard.NetWorth.FinancialAssets)</span>
                 </div>
 
-                <div class="balance-row">
-                    <span class="balance-label">Sachwerte</span>
-                    <span class="balance-value num">@State.Euro(dashboard.NetWorth.TangibleAssets)</span>
-                </div>
-
+                @* Reihenfolge Finanzvermögen → Verbindlichkeiten → Sachwerte → Summe: wer die
+                   drei Zeilen liest, kommt rechnerisch auf die vierte. *@
                 <button type="button" class="tap balance-row" @onclick="OpenLoan">
                     <span class="stack">
                         <span class="balance-label plain">@dashboard.Liability.Label</span>
@@ -109,8 +109,16 @@
                     <span class="balance-value debt num">@State.Euro(-dashboard.Liability.Amount)</span>
                 </button>
 
+                <div class="balance-row">
+                    <span class="stack">
+                        <span class="balance-label plain">Sachwerte</span>
+                        <span class="meta">@TangibleNote(dashboard.NetWorth)</span>
+                    </span>
+                    <span class="balance-value num">@State.Euro(dashboard.NetWorth.TangibleAssets)</span>
+                </div>
+
                 <div class="balance-row total">
-                    <span class="balance-label">Nettovermögen</span>
+                    <span class="balance-label">Gesamtvermögen netto</span>
                     <span class="balance-value num">@State.Euro(dashboard.NetWorth.Net)</span>
                 </div>
             </section>
@@ -220,6 +228,18 @@
 
         return parts.Count == 0 ? "Jetzt ansehen" : string.Join(" · ", parts);
     }
+
+    /// <summary>
+    /// „3 Immobilien · Marktwert“ — woher der Sachwert kommt.
+    /// </summary>
+    /// <remarks>
+    /// Eine Zahl in einer Bilanz ohne Herkunft ist eine Behauptung. Und „Marktwert“ gehört
+    /// dazu: es ist eine Schätzung, kein Kontostand.
+    /// </remarks>
+    private static string TangibleNote(NetWorthDto vermoegen)
+        => vermoegen.TangibleCount == 0
+            ? "keine erfasst"
+            : $"{vermoegen.TangibleCount} {(vermoegen.TangibleCount == 1 ? "Immobilie" : "Immobilien")} · Marktwert";
 
     private void OpenLoan()
     {
