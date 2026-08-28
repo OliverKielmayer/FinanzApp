@@ -8,7 +8,7 @@
     Zwei Schritte in einem Screen: Datei aufnehmen, dann die erkannten Werte prüfen. Ohne
     angebundene Texterkennung ist die Maske dieselbe, nur leer — der Weg funktioniert trotzdem.
 *@
-<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+<AsyncView Loading="Loading" Error="@Error" Stale="HasLoadedOnce" Retry="ReloadAsync">
     @if (documentId is null)
     {
         <div class="detail-block">

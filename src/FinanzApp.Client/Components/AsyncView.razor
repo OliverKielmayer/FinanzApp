@@ -1,23 +1,51 @@
-@*
-    Hülle für Lade- und Fehlerzustand einer Seite.
+@inject ConnectionState Connection
 
-    Der Handoff nennt Ladezustände, leere Listen und Fehlerdialoge ausdrücklich als noch nicht
-    entworfen. Bis dahin bleibt es bei einer Textzeile in der Sprache des Systems, statt hier
-    etwas zu erfinden, das später wieder weichen muss.
+@*
+    Hülle für Lade- und Fehlerzustand einer Seite — v5-Handoff, Abschnitt 7.
+
+    Zwei Regeln von dort tragen den ganzen Aufbau:
+
+    Der Fehlerblock steht **über** der Liste. Die Warnung muss vor den möglicherweise falschen
+    Zahlen stehen, und die Wiederholaktion darf nicht hinter siebenundzwanzig Zeilen liegen.
+
+    Und: bei einem Ladefehler bleiben vorhandene Daten stehen, nie ersetzt durch eine leere
+    Seite — aber immer mit sichtbarem Alter. Vorher warf diese Hülle den Inhalt weg und stellte
+    eine Fehlerzeile hin; wer den Kontostand von vorhin sehen wollte, sah gar nichts mehr.
 *@
-@if (Error is not null)
+
+@if (Error is { Length: > 0 } fehler && !dismissed)
 {
-    <div class="state" role="alert">
-        <span class="state-title">@Error</span>
-        @if (Retry.HasDelegate)
+    <div class="state-error" role="alert">
+        <span class="state-error-title">@fehler</span>
+
+        @if (Stale)
         {
-            <button type="button" class="btn btn-secondary" @onclick="Retry">Erneut versuchen</button>
+            <span class="state-error-text">
+                Gezeigt wird der @Stand — Beträge können veraltet sein.
+            </span>
         }
+
+        <div class="actions">
+            @if (Retry.HasDelegate)
+            {
+                <button type="button" class="btn btn-primary" @onclick="Retry">Erneut laden</button>
+            }
+
+            @* Nur wo es einen alten Stand gibt. Ohne ihn führte „weiter“ auf eine leere Seite
+               ohne jeden Hinweis, warum sie leer ist. *@
+            @if (Stale)
+            {
+                <button type="button" class="btn btn-secondary" @onclick="@(() => dismissed = true)">
+                    Mit altem Stand weiter
+                </button>
+            }
+        </div>
     </div>
 }
-else if (Loading)
+
+@if (Loading)
 {
-    <div class="state" aria-busy="true">Wird geladen …</div>
+    <SkeletonList />
 }
 else
 {
@@ -25,11 +53,41 @@ else
 }
 
 @code {
+    private bool dismissed;
+    private string? shown;
+
+    /// <summary>Erstes Laden — nur dann treten die Platzhalter an die Stelle des Inhalts.</summary>
     [Parameter] public bool Loading { get; set; }
 
     [Parameter] public string? Error { get; set; }
 
+    /// <summary>
+    /// Ob hinter dem Fehler noch ein früher geladener Stand steht.
+    /// </summary>
+    /// <remarks>
+    /// Nur dann sind „Gezeigt wird der Stand von …“ und „Mit altem Stand weiter“ wahr. Ein
+    /// app-weiter Zeitstempel genügte dafür nicht: das Dashboard kann geladen haben, während
+    /// dieser Bereich noch nie etwas hatte.
+    /// </remarks>
+    [Parameter] public bool Stale { get; set; }
+
     [Parameter] public EventCallback Retry { get; set; }
 
     [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Ein neuer Fehler zeigt sich wieder, auch wenn der vorige weggeklickt war.</summary>
+    protected override void OnParametersSet()
+    {
+        if (Error != shown)
+        {
+            shown = Error;
+            dismissed = false;
+        }
+    }
+
+    private string Stand => Connection.LastSuccessAt is { } zeit
+        ? zeit.Date == DateTimeOffset.Now.Date
+            ? $"Stand von heute, {zeit:HH:mm}"
+            : $"Stand von {zeit:dd.MM.yyyy}, {zeit:HH:mm}"
+        : "zuletzt bekannte Stand";
 }

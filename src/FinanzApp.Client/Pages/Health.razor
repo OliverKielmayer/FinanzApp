@@ -4,7 +4,7 @@
 
 <PageTitle>Gesundheit &amp; PKV — FinanzApp</PageTitle>
 
-<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+<AsyncView Loading="Loading" Error="@Error" Stale="HasLoadedOnce" Retry="ReloadAsync">
     @if (bills.Count == 0)
     {
         <div class="empty-area">

@@ -4,7 +4,7 @@
     Die Dokumentseite als Baustein. Auf dem Telefon füllt sie den Screen, ab Tablet steht sie
     als Vorschauspalte neben der Liste — dieselbe Komponente, nur ein anderer Platz.
 *@
-<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+<AsyncView Loading="Loading" Error="@Error" Stale="HasLoadedOnce" Retry="ReloadAsync">
     @if (data is { } document)
     {
         <section class="hero">

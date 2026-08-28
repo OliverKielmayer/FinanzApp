@@ -1,0 +1,93 @@
+@implements IDisposable
+@inject ConnectionState Connection
+@inject IJSRuntime Js
+
+@*
+    Das Verbindungsband — v5-Handoff, Abschnitt 7.
+
+    Es steht unter dem Kopf über allen Screens und nennt immer den Zeitpunkt des letzten
+    gültigen Standes. Die Frage ist nie „bin ich offline", sondern „wie alt ist, was ich sehe" —
+    ein Hinweis ohne Zeitangabe beantwortet die falsche.
+
+    Solange die Verbindung steht und der letzte Abgleich gelungen ist, ist hier nichts. Ein Band,
+    das immer da ist, liest niemand mehr.
+*@
+
+@if (Connection.IsOffline)
+{
+    <div class="connbar offline" role="status">
+        <span class="stack">
+            <span class="connbar-title">Offline — keine Verbindung zum Haushalt</span>
+            <span class="connbar-text">@Stand Erfasste Buchungen werden gesendet, sobald die Verbindung steht.</span>
+        </span>
+        <button type="button" class="connbar-action" disabled="@Connection.Busy"
+                @onclick="Connection.RetryAsync">@Label("Erneut versuchen")</button>
+    </div>
+}
+else if (Connection.SyncFailed)
+{
+    <div class="connbar stale" role="status">
+        <span class="stack">
+            <span class="connbar-title">@Stand</span>
+            <span class="connbar-text">
+                Der letzte Abgleich ist fehlgeschlagen. Kurse und Salden können veraltet sein.
+            </span>
+        </span>
+        <button type="button" class="connbar-action" disabled="@Connection.Busy"
+                @onclick="Connection.RetryAsync">@Label("Jetzt abgleichen")</button>
+    </div>
+}
+
+@code {
+    private DotNetObjectReference<ConnectionBar>? self;
+
+    protected override void OnInitialized() => Connection.Changed += Redraw;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        // Der Browser weiß es, wir nicht: navigator.onLine plus die beiden Ereignisse. Ohne den
+        // ersten Aufruf stünde die Anwendung bis zum ersten Wechsel auf „online", auch wenn sie
+        // offline gestartet wurde.
+        self = DotNetObjectReference.Create(this);
+
+        try
+        {
+            await Js.InvokeVoidAsync("finanzapp.watchConnection", self);
+        }
+        catch (JSException)
+        {
+            // Ohne das Skript bleibt es beim Serverbefund: was lädt, ist online genug.
+        }
+    }
+
+    [JSInvokable]
+    public void SetOnline(bool online) => Connection.SetOnline(online);
+
+    /// <summary>
+    /// „Stand von heute, 06:12" — oder ehrlich: noch nichts geladen.
+    /// </summary>
+    /// <remarks>
+    /// „Stand von 28.08.2026, 06:12" wäre für den heutigen Morgen umständlich und für vorletzte
+    /// Woche zu knapp. Der Tag steht nur da, wenn er nicht heute ist.
+    /// </remarks>
+    private string Stand => Connection.LastSuccessAt is not { } zeit
+        ? "Noch nichts geladen."
+        : zeit.Date == DateTimeOffset.Now.Date
+            ? $"Stand von heute, {zeit:HH:mm}"
+            : $"Stand von {zeit:dd.MM.yyyy}, {zeit:HH:mm}";
+
+    private string Label(string ruhend) => Connection.Busy ? "Wird abgeglichen …" : ruhend;
+
+    private void Redraw() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Connection.Changed -= Redraw;
+        self?.Dispose();
+    }
+}

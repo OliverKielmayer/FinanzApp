@@ -17,13 +17,31 @@ public abstract class AppPage : ComponentBase, IDisposable
 
     [Inject] protected NavigationManager Navigation { get; set; } = default!;
 
-    /// <summary>Läuft, solange die Seite ihre Daten holt.</summary>
+    [Inject] protected ConnectionState Connection { get; set; } = default!;
+
+    /// <summary>
+    /// Läuft, solange die Seite ihre Daten <b>zum ersten Mal</b> holt.
+    /// </summary>
+    /// <remarks>
+    /// Nur dann treten die Platzhalterzeilen an die Stelle des Inhalts. Bei jedem weiteren
+    /// Abruf bleibt stehen, was da ist — der Handoff verlangt ausdrücklich, dass vorhandene
+    /// Daten nie durch eine leere Seite ersetzt werden.
+    /// </remarks>
     protected bool Loading { get; private set; } = true;
+
+    /// <summary>Ob diese Seite schon einmal etwas geladen hat.</summary>
+    protected bool HasLoadedOnce { get; private set; }
 
     /// <summary>Meldung, wenn der Abruf fehlgeschlagen ist.</summary>
     protected string? Error { get; private set; }
 
-    protected override void OnInitialized() => State.Changed += OnAppStateChanged;
+    protected override void OnInitialized()
+    {
+        State.Changed += OnAppStateChanged;
+
+        // „Erneut versuchen“ im Verbindungsband trifft immer die Seite, die gerade steht.
+        Connection.RetryRequested += ReloadAsync;
+    }
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
@@ -33,21 +51,26 @@ public abstract class AppPage : ComponentBase, IDisposable
     /// <summary>Führt <see cref="LoadAsync"/> aus und hält Lade- und Fehlerzustand nach.</summary>
     protected async Task ReloadAsync()
     {
-        Loading = true;
+        Loading = !HasLoadedOnce;
         Error = null;
         StateHasChanged();
 
         try
         {
             await LoadAsync();
+
+            HasLoadedOnce = true;
+            Connection.ReportSuccess();
         }
         catch (ApiException ex)
         {
             Error = ex.Message;
+            Connection.ReportFailure();
         }
         finally
         {
             Loading = false;
+            StateHasChanged();
         }
     }
 
@@ -66,5 +89,9 @@ public abstract class AppPage : ComponentBase, IDisposable
 
     private void OnAppStateChanged() => InvokeAsync(StateHasChanged);
 
-    public virtual void Dispose() => State.Changed -= OnAppStateChanged;
+    public virtual void Dispose()
+    {
+        State.Changed -= OnAppStateChanged;
+        Connection.RetryRequested -= ReloadAsync;
+    }
 }

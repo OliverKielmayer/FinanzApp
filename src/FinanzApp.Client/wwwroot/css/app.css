@@ -1852,6 +1852,163 @@ body {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   Lade-, Leer-, Offline- und Fehlerzustaende (v5-Handoff, Abschnitt 7)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Verbindungsband: unter dem Kopf, ueber allen Screens. Es steht nur da, wenn es etwas zu
+   sagen hat - ein Band, das immer da ist, liest niemand mehr. */
+.connbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 2px solid var(--color-text);
+}
+
+.connbar.offline {
+  background: var(--color-text);
+  color: var(--color-bg);
+}
+
+.connbar.stale {
+  background: var(--color-accent-100);
+  color: var(--color-accent-800);
+  border-bottom-color: var(--color-accent-800);
+}
+
+.connbar-title {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.connbar-text {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.connbar-action {
+  flex: none;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: inherit;
+  background: transparent;
+  border: 1px solid currentColor;
+  cursor: pointer;
+}
+
+.connbar-action:hover:not(:disabled) {
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.connbar-action:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* Platzhalterzeilen statt Spinner: sie haben die Form der echten Zeilen, damit die Liste beim
+   Eintreffen der Daten nicht springt. */
+.skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.skeleton-row .stack {
+  flex: 1;
+  gap: 8px;
+}
+
+.skeleton-bar {
+  display: block;
+  height: 12px;
+  background: var(--color-neutral-200);
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+.skeleton-bar.thin {
+  height: 9px;
+}
+
+.skeleton-bar.amount {
+  flex: none;
+  height: 14px;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.9; }
+}
+
+/* Wer die Bewegung abbestellt hat, bekommt einen ruhigen Platzhalter statt gar keinen. */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-bar {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+/* Leerzustand: nie eine leere Flaeche, sondern Ueberschrift, Ursache, Ausweg. */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 32px 16px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.empty-state .actions {
+  margin-top: 8px;
+}
+
+/* Fehlerblock: ueber der Liste, im Akzentmuster. Die Warnung gehoert vor die Zahlen, ueber die
+   sie etwas sagt, und die Wiederholaktion nicht hinter siebenundzwanzig Zeilen. */
+.state-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 12px 16px;
+  padding: 14px 16px;
+  background: var(--color-accent-100);
+  border: 1px solid var(--color-accent-800);
+}
+
+.state-error-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-accent-800);
+}
+
+.state-error-text {
+  font-size: 12px;
+  color: var(--color-accent-800);
+}
+
+.state-error .actions {
+  margin-top: 6px;
+}
+
+/* Nur fuer Vorleseprogramme: der Ladezustand hat sonst keinen Text, den sie ansagen koennten. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
    Anmeldung — eigener Rahmen ohne Kopfzeile, Tab-Bar und Seitennavigation.
    Ohne Sitzung soll nichts von der Anwendung durchscheinen.
    ══════════════════════════════════════════════════════════════════════ */

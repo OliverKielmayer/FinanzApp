@@ -6,7 +6,7 @@
 
 <PageTitle>Benutzer &amp; Anmeldung — FinanzApp</PageTitle>
 
-<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+<AsyncView Loading="Loading" Error="@Error" Stale="HasLoadedOnce" Retry="ReloadAsync">
     @if (data is { } household)
     {
         <div class="household-head">

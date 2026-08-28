@@ -35,7 +35,7 @@
 }
 else
 {
-<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+<AsyncView Loading="Loading" Error="@Error" Stale="HasLoadedOnce" Retry="ReloadAsync">
     @if (form is { } definition)
     {
         @if (definition.Hint is { Length: > 0 } hint)

@@ -1,0 +1,44 @@
+@*
+    Leerzustand — v5-Handoff, Abschnitt 7.
+
+    Nie eine leere Fläche: Überschrift, ein Satz zur Ursache, eine Aktion. Der Handoff
+    unterscheidet zwei Fälle, weil sie verschiedene Auswege haben — „noch nichts erfasst"
+    führt zum Anlegen, „nichts in dieser Auswahl" zum Aufheben des Filters. Wer im zweiten Fall
+    nur „Anlegen" anbietet, schickt den Benutzer etwas erfassen, das er längst hat.
+*@
+
+<div class="empty-state">
+    <span class="label-strong">@Title</span>
+    <span class="create-help">@Text</span>
+
+    @if (ActionRoute is { Length: > 0 } || OnClearFilter.HasDelegate)
+    {
+        <div class="actions">
+            @if (ActionRoute is { Length: > 0 } ziel)
+            {
+                <a class="btn btn-primary" href="@ziel">@ActionLabel</a>
+            }
+
+            @if (OnClearFilter.HasDelegate)
+            {
+                <button type="button" class="btn btn-secondary" @onclick="OnClearFilter">
+                    Filter aufheben
+                </button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+
+    /// <summary>Ein Satz zur Ursache — oder dazu, was hier erscheinen wird.</summary>
+    [Parameter, EditorRequired] public string Text { get; set; } = string.Empty;
+
+    [Parameter] public string? ActionRoute { get; set; }
+
+    [Parameter] public string ActionLabel { get; set; } = "Anlegen";
+
+    /// <summary>Gesetzt, wenn ein Filter aktiv ist: dann gibt es einen zweiten Ausweg.</summary>
+    [Parameter] public EventCallback OnClearFilter { get; set; }
+}

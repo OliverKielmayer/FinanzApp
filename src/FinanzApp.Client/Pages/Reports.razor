@@ -15,7 +15,7 @@
 
 <PageTitle>Auswertungen — FinanzApp</PageTitle>
 
-<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+<AsyncView Loading="Loading" Error="@Error" Stale="HasLoadedOnce" Retry="ReloadAsync">
     @{
         @* Der Rahmen des Berichts, der gerade dransteht — nicht der zuletzt geladene. Sonst
            stünde über dem Depot die Zeitraumleiste des Kostentrends: Schalter, die dort nichts

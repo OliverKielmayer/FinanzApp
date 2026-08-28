@@ -1,0 +1,34 @@
+@*
+    Platzhalterzeilen statt Spinner — v5-Handoff, Abschnitt 7.
+
+    Sie haben die Form der echten Zeilen: zwei Textbalken unterschiedlicher Breite links, ein
+    Betragsbalken rechts. Ein Spinner sagt nur „es passiert etwas"; der Platzhalter zeigt, was
+    kommt, und die Liste springt beim Eintreffen der Daten nicht.
+
+    Die Breiten schwanken je Zeile, aber nicht zufällig: ein Zufallswert änderte sich bei jedem
+    Neuzeichnen und ließe die Platzhalter flackern.
+*@
+
+<div class="skeleton" aria-hidden="true">
+    @for (var i = 0; i < Rows; i++)
+    {
+        <div class="skeleton-row">
+            <span class="stack">
+                <span class="skeleton-bar" style="width: @(Wide[i % Wide.Length])%"></span>
+                <span class="skeleton-bar thin" style="width: @(Narrow[i % Narrow.Length])%"></span>
+            </span>
+            <span class="skeleton-bar amount" style="width: @(Amount[i % Amount.Length])px"></span>
+        </div>
+    }
+</div>
+
+<span class="visually-hidden" role="status">Wird geladen …</span>
+
+@code {
+    private static readonly int[] Wide = [44, 62, 38, 55, 48, 68];
+    private static readonly int[] Narrow = [28, 35, 22, 31, 26, 40];
+    private static readonly int[] Amount = [72, 88, 64, 80, 76, 92];
+
+    /// <summary>Wie viele Zeilen. Genug, um die Fläche zu füllen, ohne eine Liste zu behaupten.</summary>
+    [Parameter] public int Rows { get; set; } = 6;
+}

@@ -14,7 +14,7 @@
     }
 </div>
 
-<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+<AsyncView Loading="Loading" Error="@Error" Stale="HasLoadedOnce" Retry="ReloadAsync">
     @if (data is { } list)
     {
         @if (list.Items.Count == 0)

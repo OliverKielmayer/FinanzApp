@@ -12,7 +12,7 @@
 
 <PageTitle>Kategorien — FinanzApp</PageTitle>
 
-<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+<AsyncView Loading="Loading" Error="@Error" Stale="HasLoadedOnce" Retry="ReloadAsync">
     <section class="hero">
         <span class="label-muted">Kategorien</span>
         <span class="hero-value num">@categories.Count</span>

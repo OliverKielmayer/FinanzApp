@@ -14,7 +14,7 @@
 
 <PageTitle>Bestand — FinanzApp</PageTitle>
 
-<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+<AsyncView Loading="Loading" Error="@Error" Stale="HasLoadedOnce" Retry="ReloadAsync">
     @if (data is { } bestand)
     {
         <div class="holdings-filter">
@@ -34,12 +34,28 @@
             <span class="meta">@HeadSub(bestand.Head)</span>
         </div>
 
+        @* Zwei Fälle mit verschiedenen Auswegen. „Kein Objekt in ‚Fahrzeuge‘“ und dazu nur
+           „Anlegen“ anzubieten schickt jemanden etwas erfassen, das er längst hat — in einer
+           anderen Klasse. *@
         @if (bestand.Rows.Count == 0)
         {
-            <div class="import-nothing">
-                <span class="label-strong">Nichts erfasst</span>
-                <span class="create-help">In dieser Klasse steht noch kein Objekt.</span>
-            </div>
+            @if (filter is { } leer && Total(bestand) > 0)
+            {
+                <EmptyState Title="@($"Kein Objekt in „{Label(bestand, leer)}“")"
+                            Text="@($"Andere Klassen sind gefüllt — im Bestand stehen {Total(bestand)} Objekte.")"
+                            ActionRoute="@CreateRoute(leer)"
+                            ActionLabel="@($"{Label(bestand, leer)} anlegen")"
+                            OnClearFilter="@(() => PickAsync(null))" />
+            }
+            else
+            {
+                <EmptyState Title="Noch kein Objekt erfasst"
+                            Text="Hier stehen später Konten, Depot, Verträge, Immobilien,
+                                  Fahrzeuge und Darlehen — jedes mit seinem Wert oder seinen
+                                  Jahreskosten."
+                            ActionRoute="/neu"
+                            ActionLabel="Objekt oder Vertrag anlegen" />
+            }
         }
 
         @foreach (var zeile in bestand.Rows)
@@ -143,6 +159,13 @@
         HoldingClass.Work => "/neu/employment",
         _ => "/neu",
     };
+
+    /// <summary>Wie viele Objekte der Bestand insgesamt führt — der Zähler des Chips „Alle“.</summary>
+    private static int Total(HoldingsDto bestand)
+        => bestand.Classes.FirstOrDefault(c => c.Class is null)?.Count ?? bestand.Rows.Count;
+
+    private static string Label(HoldingsDto bestand, HoldingClass klasse)
+        => bestand.Classes.FirstOrDefault(c => c.Class == klasse)?.Label ?? "dieser Klasse";
 
     private static string AddLabel(HoldingsDto bestand)
         => bestand.AddIn is { } klasse

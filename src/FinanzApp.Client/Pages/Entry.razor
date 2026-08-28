@@ -4,7 +4,7 @@
 
 <PageTitle>Neue Buchung — FinanzApp</PageTitle>
 
-<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+<AsyncView Loading="Loading" Error="@Error" Stale="HasLoadedOnce" Retry="ReloadAsync">
     <div class="steps">
         @foreach (var (label, number) in Steps)
         {

@@ -12,7 +12,7 @@
 
 <PageTitle>Kategorieregeln — FinanzApp</PageTitle>
 
-<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+<AsyncView Loading="Loading" Error="@Error" Stale="HasLoadedOnce" Retry="ReloadAsync">
     <section class="hero">
         <span class="label-muted">Gelernte Regeln</span>
         <span class="hero-value num">@rules.Count</span>

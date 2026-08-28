@@ -16,6 +16,10 @@ builder.Services.AddScoped<ToastService>();
 builder.Services.AddScoped<NavigationHistory>();
 builder.Services.AddScoped<DeviceProfileStore>();
 
+// Verbindungszustand und Alter des Gezeigten. Scoped, weil das Band über allen Screens steht
+// und den Zeitpunkt über einen Bereichswechsel hinweg behalten muss.
+builder.Services.AddScoped<ConnectionState>();
+
 builder.Services.AddSingleton(TimeProvider.System);
 
 // Ein begonnener Import überdauert den Bereichswechsel: im Browser lebt Scoped so lange wie

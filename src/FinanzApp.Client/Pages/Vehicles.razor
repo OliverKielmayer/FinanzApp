@@ -4,7 +4,7 @@
 
 <PageTitle>Fahrzeuge — FinanzApp</PageTitle>
 
-<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+<AsyncView Loading="Loading" Error="@Error" Stale="HasLoadedOnce" Retry="ReloadAsync">
     @if (vehicles.Count == 0)
     {
         <div class="empty-area">
