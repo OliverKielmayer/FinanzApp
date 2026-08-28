@@ -1,19 +1,23 @@
 # Offene Punkte
 
-Stand **28.08.2026**, nach `9381a60` (Arbeit & Beruf). Eine Liste, kein Plan: sie sagt, was
-noch nicht gebaut ist und woher die Anforderung stammt — die Reihenfolge steht in den Handoffs
-selbst, nicht hier.
+Stand **28.08.2026**, nach `603d8bb` (Zustände aus Handoff 11). Eine Liste, kein Plan: sie sagt,
+was noch nicht gebaut ist und woher die Anforderung stammt — die Reihenfolge steht in den
+Handoffs selbst, nicht hier.
 
 Fertig und damit hier nicht mehr aufgeführt: der v4-Handoff samt Nachtrag
 ([`handoff-v4-umsetzung.md`](handoff-v4-umsetzung.md)), die Schritte 1–6 des
-[Erweiterungsplans](erweiterungsplan.md), der v5-Navigationsumbau sowie aus der v5-Erweiterung
-Abschnitt 8 (Arbeit & Beruf) und Abschnitt 9 (Dokumenttypen).
+[Erweiterungsplans](erweiterungsplan.md), der v5-Navigationsumbau, aus der v5-Erweiterung die
+Abschnitte 8 (Arbeit & Beruf) und 9 (Dokumenttypen) sowie aus
+[Handoff 11](design-handoff-v5c/design_handoff_v5/README.md) das überarbeitete Vermögensmodell
+(§3b) und die Lade-, Leer-, Offline- und Fehlerzustände (§7).
 
 ## Aus dem v5-Handoff, Abschnitt 10
 
+Die Zeile „Ladezustände, Offline, Fehlerdialoge“ steht dort noch, obwohl Handoff 11 sie in §7
+ausführt und sie inzwischen gebaut sind — im Handoff stehengeblieben, hier gestrichen.
+
 | Punkt | Was fehlt |
 | --- | --- |
-| Ladezustände, Offline, Fehlerdialoge | Bisher gibt es `AsyncView` mit Laden/Fehler/Erneut. Nicht gestaltet: Offline-Betrieb, ein einheitlicher Fehlerdialog, Skelett- statt Spinnerzustände. |
 | Zwei-Faktor-Anmeldung | Die Einstellungen zeigen „2FA aus" als Zustand an, es gibt nichts dahinter. |
 | Rechtematrix im Detail | Es gibt drei Rollen (Owner, Member, ReadOnly) und Kontofreigaben. Was genau jede Rolle je Bereich darf, ist nirgends niedergeschrieben. |
 | Split-Buchung | Eine Buchung auf mehrere Kategorien aufteilen. |
