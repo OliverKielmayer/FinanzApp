@@ -472,11 +472,17 @@ public sealed class CamtStatementParser : IStatementParser
     /// Die Referenz, an der ein bereits gebuchter Satz wiedererkannt wird.
     /// </summary>
     /// <remarks>
-    /// Bevorzugt die von der Bank vergebene <c>AcctSvcrRef</c>: sie ist über Wiederholungen
-    /// desselben Auszugs stabil, und genau das trägt die Duplikatprüfung. <c>EndToEndId</c> steht
-    /// bei vielen Zahlungen auf <c>NOTPROVIDED</c> und taugt dann nicht. Fehlt alles, wird aus
-    /// Tag, Empfänger und Betrag ein Fingerabdruck gebildet — derselbe Satz ergibt dieselbe
-    /// Referenz, ein anderer eine andere.
+    /// <para>Die Reihenfolge ist nicht beliebig: erst was die <b>Bank</b> vergeben hat —
+    /// <c>AcctSvcrRef</c>, <c>TxId</c>, dann die hauseigene Umsatz-Id aus <c>Refs/Prtry/Ref</c>
+    /// (die Sparkassen tragen dort <c>FI-UMSATZ-ID</c> ein und lassen <c>AcctSvcrRef</c> auf
+    /// <c>NONREF</c> stehen). Sie ist pro Buchung vergeben und über Wiederholungen desselben
+    /// Auszugs stabil, und genau das trägt die Duplikatprüfung.</para>
+    /// <para>Erst danach kommt, was der <b>Zahler</b> mitgegeben hat. Die <c>EndToEndId</c>
+    /// gehört ihm: sie steht oft auf <c>NOTPROVIDED</c>, und ein Dauerauftrag schickt Monat für
+    /// Monat dieselbe. Als Wiedererkennungsmerkmal wäre sie dann derselbe Fehler, den
+    /// <c>NONREF</c> gemacht hat — aus zwölf Buchungen würde eine.</para>
+    /// <para>Fehlt alles, wird aus Tag, Empfänger und Betrag ein Fingerabdruck gebildet —
+    /// derselbe Satz ergibt dieselbe Referenz, ein anderer eine andere.</para>
     /// </remarks>
     private static string ReferenceOf(
         XElement entry, XElement? detail, DateOnly? date, string payee, decimal? amount)
@@ -486,6 +492,7 @@ public sealed class CamtStatementParser : IStatementParser
         var given = Clean(Text(Child(entry, "AcctSvcrRef")))
                     ?? Clean(Text(Child(references, "AcctSvcrRef")))
                     ?? Clean(Text(Child(references, "TxId")))
+                    ?? Proprietary(references)
                     ?? Clean(Text(Child(references, "EndToEndId")))
                     ?? Clean(Text(Child(entry, "NtryRef")));
 
@@ -501,13 +508,34 @@ public sealed class CamtStatementParser : IStatementParser
             SHA256.HashData(Encoding.UTF8.GetBytes(fingerprint)))[..16];
     }
 
-    /// <summary>„NOTPROVIDED“ ist keine Referenz, sondern das Eingeständnis, keine zu haben.</summary>
+    /// <summary>Die hauseigene Umsatz-Id der Bank, sofern eine dasteht.</summary>
+    private static string? Proprietary(XElement? references)
+        => Children(references, "Prtry")
+            .Select(p => Clean(Text(Child(p, "Ref"))))
+            .FirstOrDefault(r => r is not null);
+
+    /// <summary>
+    /// Platzhalter, die wie eine Kennung aussehen.
+    /// </summary>
+    /// <remarks>
+    /// <para><c>NONREF</c> fehlte hier. Acht Tagesauszüge der Sparkasse Schwäbisch Hall trugen es
+    /// alle, bekamen damit dieselbe Importreferenz, und sobald einer eingelesen war, meldete die
+    /// Vorschau die übrigen sieben als „vorhanden“ — sieben echte Buchungen, die sich nicht mehr
+    /// importieren ließen. Ein Platzhalter, den man für eine Kennung hält, ist schlimmer als gar
+    /// keine: er macht aus verschiedenen Sätzen denselben.</para>
+    /// <para>Nur belegte Platzhalter gehören in die Liste. Beide stehen so in den Auszügen, die
+    /// hier ankommen. Ein weiterer auf Verdacht wäre der umgekehrte Fehler: eine echte,
+    /// kurze Referenz würde weggeworfen, und der Fingerabdruck träte an ihre Stelle.</para>
+    /// </remarks>
+    private static readonly string[] Placeholders = ["NOTPROVIDED", "NONREF"];
+
+    /// <summary>Ein Platzhalter ist keine Referenz, sondern das Eingeständnis, keine zu haben.</summary>
     private static string? Clean(string? text)
     {
         var trimmed = text?.Trim();
 
         return string.IsNullOrEmpty(trimmed)
-               || trimmed.Equals("NOTPROVIDED", StringComparison.OrdinalIgnoreCase)
+               || Placeholders.Contains(trimmed, StringComparer.OrdinalIgnoreCase)
             ? null
             : trimmed;
     }

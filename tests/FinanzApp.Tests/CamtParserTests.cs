@@ -138,6 +138,90 @@ public sealed class CamtParserTests
         Assert.Equal(a, b);
     }
 
+    /// <summary>
+    /// „NONREF“ ist keine Referenz, sondern der Vermerk, dass es keine gibt.
+    /// </summary>
+    /// <remarks>
+    /// Aufgefallen an acht Tagesauszügen der Sparkasse Schwäbisch Hall: jeder trug
+    /// <c>AcctSvcrRef=NONREF</c>. Damit bekamen alle acht dieselbe Importreferenz, und sobald
+    /// einer eingelesen war, meldete die Vorschau die übrigen sieben als „vorhanden“ — sieben
+    /// echte Buchungen, die sich nicht mehr importieren ließen.
+    /// </remarks>
+    [Fact]
+    public async Task Zwei_Auszuege_mit_NONREF_bekommen_verschiedene_Referenzen()
+    {
+        string Auszug(string tag, string umsatzId, string betrag) => $"""
+            <Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.052.001.02">
+              <BkToCstmrAcctRpt>
+                <GrpHdr><MsgId>X</MsgId></GrpHdr>
+                <Rpt>
+                  <Id>camt052_ONLINEBA</Id>
+                  <Acct><Id><IBAN>DE45622500300002759445</IBAN></Id></Acct>
+                  <Ntry>
+                    <Amt Ccy="EUR">{betrag}</Amt>
+                    <CdtDbtInd>CRDT</CdtDbtInd>
+                    <Sts>BOOK</Sts>
+                    <BookgDt><Dt>{tag}</Dt></BookgDt>
+                    <AcctSvcrRef>NONREF</AcctSvcrRef>
+                    <NtryDtls><TxDtls>
+                      <Refs><Prtry><Tp>FI-UMSATZ-ID</Tp><Ref>{umsatzId}</Ref></Prtry></Refs>
+                      <RltdPties><Dbtr><Nm>Carmen Sperrle</Nm></Dbtr></RltdPties>
+                    </TxDtls></NtryDtls>
+                  </Ntry>
+                </Rpt>
+              </BkToCstmrAcctRpt>
+            </Document>
+            """;
+
+        var juni = await ParseAsync(Auszug("2026-06-09", "2026-06-09-00.11.26.628896", "1500.00"));
+        var august = await ParseAsync(Auszug("2026-08-25", "2026-08-25-10.48.02.211473", "203000.00"));
+
+        var a = juni.Records.Single().Reference;
+        var b = august.Records.Single().Reference;
+
+        Assert.NotEqual(a, b);
+        Assert.DoesNotContain("NONREF", a, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Die hauseigene Umsatz-Id der Bank schlägt die EndToEndId des Zahlers.
+    /// </summary>
+    /// <remarks>
+    /// Die EndToEndId gehört dem Zahler, und ein Dauerauftrag schickt Monat für Monat dieselbe.
+    /// Als Wiedererkennungsmerkmal wäre sie dann derselbe Fehler wie „NONREF“: aus zwölf
+    /// Buchungen würde eine. Die Umsatz-Id vergibt die Bank pro Buchung.
+    /// </remarks>
+    [Fact]
+    public async Task Die_hauseigene_Umsatz_Id_schlaegt_die_EndToEndId()
+    {
+        var statement = await ParseAsync("""
+            <Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.052.001.02">
+              <BkToCstmrAcctRpt>
+                <GrpHdr><MsgId>X</MsgId></GrpHdr>
+                <Rpt>
+                  <Id>1</Id>
+                  <Acct><Id><IBAN>DE45622500300002759445</IBAN></Id></Acct>
+                  <Ntry>
+                    <Amt Ccy="EUR">1500.00</Amt>
+                    <CdtDbtInd>CRDT</CdtDbtInd>
+                    <BookgDt><Dt>2026-06-09</Dt></BookgDt>
+                    <AcctSvcrRef>NONREF</AcctSvcrRef>
+                    <NtryDtls><TxDtls>
+                      <Refs>
+                        <EndToEndId>AD08-D-2026-06-07-21.43.34.736843</EndToEndId>
+                        <Prtry><Tp>FI-UMSATZ-ID</Tp><Ref>2026-06-09-00.11.26.628896</Ref></Prtry>
+                      </Refs>
+                      <RltdPties><Dbtr><Nm>Carmen Sperrle</Nm></Dbtr></RltdPties>
+                    </TxDtls></NtryDtls>
+                  </Ntry>
+                </Rpt>
+              </BkToCstmrAcctRpt>
+            </Document>
+            """);
+
+        Assert.Equal("CAMT:2026-06-09-00.11.26.628896", statement.Records.Single().Reference);
+    }
+
     [Fact]
     public async Task Auch_ein_camt_053_wird_gelesen()
     {
