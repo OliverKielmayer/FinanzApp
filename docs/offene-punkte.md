@@ -1,6 +1,6 @@
 # Offene Punkte
 
-Stand **28.08.2026**, nach `603d8bb` (Zustände aus Handoff 11). Eine Liste, kein Plan: sie sagt,
+Stand **28.08.2026**, nach `3b2f1b5` (PKV-Bilanz aus Handoff 14). Eine Liste, kein Plan: sie sagt,
 was noch nicht gebaut ist und woher die Anforderung stammt — die Reihenfolge steht in den
 Handoffs selbst, nicht hier.
 
@@ -13,6 +13,55 @@ Abschnitte 8 (Arbeit & Beruf) und 9 (Dokumenttypen) sowie aus
 Depot-Abschnitt (§11) — Transaktionen, abgeleitete Positionen, Quartalsaufstellungen und
 Bestandsabgleich; aus [Handoff 14](design-handoff-v5d/design_handoff_v5/README.md) die
 PKV-Bilanz (§12).
+
+## In Arbeit: PDF-Dokumente einlesen (Handoff 15, §14)
+
+[Handoff 15](design-handoff-v5e/design_handoff_v5/README.md) liegt vor und ist analysiert; gebaut
+ist noch nichts. **Die beiden Beispiel-PDFs stehen aus** — der Nutzer liefert sie nach. Ohne sie
+ließe sich die Feldzuordnung nur raten, und geratene Zuordnungen an echten Dokumenten zu
+korrigieren ist teurer, als einmal zu warten.
+
+### Was der Handoff verlangt
+
+Der Beleg-Flow ist heute auf **einen** Einzelfall gebaut (Statusreport, feste Werte). Er soll ein
+**Dokumenttyp-Modell** tragen: jede Art ein Datensatz mit Bezeichnung, Zielobjekt,
+Ablagepfad-Vorlage, Dokumentdatum, fachlichem Stichtag, Seitenzahl, Analyseschritten und
+Feldliste. Vorschlagsschritt, Werteprüfung, Ablagepfad, Bestätigungsseite und Speicherlogik
+entstehen daraus — nichts je Typ hartkodiert. Eine dritte Art wäre dann ein Datensatz, kein
+Screen.
+
+Zwei Arten sind beschrieben: **Statusreport Lebensversicherung** (zehn Felder, §14.3) und
+**Quartalsaufstellung MiFID II** (acht Felder, §14.4). Die zweite speist den Bestandsabgleich
+aus §11.3, der schon steht — sie ersetzt keinen Depotwert, sondern belegt ihn.
+
+### Was schon da ist
+
+- `DocumentExtraction` speichert bereits Feldschlüssel, Wert, **Herkunftsseite**, Konfidenz und
+  `Confirmed`. Damit ist §14.6 im Modell erfüllt: nichts Unbestätigtes verändert Vermögenszahlen.
+- `IBillTextExtractor` ist die austauschbare Schnittstelle; `NoBillTextExtractor` liefert leer.
+  Der Handoff sagt ausdrücklich, dass das genügt: „fehlt sie, erscheint dieselbe Maske leer".
+- `DepotStatement` samt Abgleich existiert seit §11.3 — das Ziel für die Quartalsaufstellung.
+
+### Die eine offene Entscheidung
+
+§14.1 macht **Textebene gegen Bild** zum sichtbaren Kern: ein Original-PDF der Versicherung oder
+Bank ist maschinenlesbar, nur Scans brauchen OCR. Das *Erkennen* einer Textebene geht ohne
+fremde Bibliothek (Objekte lesen, Flate-Ströme entpacken, nach Textoperatoren suchen). Das
+*Auslesen* der Felder geht damit nicht — dafür braucht es einen PDF-Leser als Abhängigkeit
+(PdfPig wäre der naheliegende, Apache 2.0). Zu klären, bevor gebaut wird; eine PDF-Abhängigkeit
+war bei der Druckausgabe schon einmal abgelehnt worden, dort allerdings fürs Erzeugen.
+
+### Regeln, die beim Bau tragen
+
+- Der **erreichte Wert gesamt** (Rückkaufswert + Ansammlungsguthaben) ist der Vermögenswert —
+  nicht der Rückkaufswert allein, nicht die Ablaufleistung.
+- **Bewertungsreserven und Schlussüberschüsse sind nicht garantiert**: als `soft` kennzeichnen
+  und in keine Vermögenssumme aufnehmen. Das Dokument sagt es in drei Fußnoten.
+- Die drei Leistungsszenarien nicht vermischen — übernommen wird aus „Wert der Versicherung".
+- **Metadaten aus dem Inhalt, nie aus dem Dateinamen**: im Beispiel heißt die Datei
+  „statusreport 2024", der Inhalt sagt Stichtag 31.07.2025.
+- Die Bestätigungsseite nennt die **Wirkung**, nicht den Vorgang.
+- Der Demoschalter „Beispieldokument" aus dem Prototyp wird **nicht** mitgeliefert.
 
 ## Aus dem v5-Handoff, Abschnitt 10
 
