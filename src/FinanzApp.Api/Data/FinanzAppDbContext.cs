@@ -61,6 +61,9 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
     /// <summary>Gespeicherte Einstellungen des Auswertungsbereichs, je Benutzer.</summary>
     public DbSet<ReportView> ReportViews => Set<ReportView>();
 
+    /// <summary>Ausgeführte Orders — die Quelle, aus der die Depotpositionen entstehen.</summary>
+    public DbSet<DepotTrade> DepotTrades => Set<DepotTrade>();
+
     /// <summary>Arbeitsverhältnisse und was daran hängt — die Einnahmenseite.</summary>
     public DbSet<Employment> Employments => Set<Employment>();
     public DbSet<Payslip> Payslips => Set<Payslip>();
@@ -375,6 +378,29 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
             e.HasOne(x => x.Document).WithMany()
                 .HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(x => x.FiledAt);
+        });
+
+        b.Entity<DepotTrade>(e =>
+        {
+            e.Property(x => x.SecurityName).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Isin).HasMaxLength(12).IsRequired();
+            e.Property(x => x.Wkn).HasMaxLength(12);
+            e.Property(x => x.ImportReference).HasMaxLength(120).IsRequired();
+
+            e.Property(x => x.Value).HasConversion(MoneyConverter);
+            e.Property(x => x.Fee).HasConversion(MoneyConverter);
+
+            // Kurs und Stückzahl bleiben Dezimalzahlen: Broker rechnen mit mehr als zwei
+            // Nachkommastellen, und auf Cent gerundet ergäbe Stück × Kurs nicht mehr den Wert.
+            e.Property(x => x.Price).HasPrecision(18, 6);
+            e.Property(x => x.Quantity).HasPrecision(18, 6);
+
+            e.HasOne(x => x.Depot).WithMany()
+                .HasForeignKey(x => x.DepotId).OnDelete(DeleteBehavior.Cascade);
+
+            // Ein Satz je Ausführung. Der Index trägt die Duplikatprüfung und verhindert sie
+            // auch dann, wenn zwei Importe gleichzeitig laufen.
+            e.HasIndex(x => new { x.HouseholdId, x.ImportReference }).IsUnique();
         });
 
         b.Entity<Employment>(e =>

@@ -269,6 +269,39 @@ public static class ApiEndpoints
             return portfolio is null ? Results.NotFound() : Results.Ok(portfolio);
         });
 
+        api.MapGet("/portfolio/{depotId:int}/trades", async (
+                int depotId, int? jahr, DepotTradeService service, CancellationToken ct)
+            => Results.Ok(await service.GetAsync(depotId, jahr, ct)));
+
+        // Der Import liegt bewusst nicht am Ende der Liste, sondern im Kopf des Reiters: bei
+        // 26 Ausführungen wäre er noch zu finden, bei 800 nicht mehr.
+        api.MapPost("/portfolio/{depotId:int}/trades", async (
+            int depotId, IFormFile file, DepotTradeService service, CancellationToken ct) =>
+        {
+            if (file.Length == 0)
+            {
+                return Results.Problem(
+                    "Die Datei ist leer.", statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            if (file.Length > OrderCsvParser.MaxBytes)
+            {
+                return Results.Problem(
+                    "Die Datei ist groesser als 4 MB.", statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            await using var content = file.OpenReadStream();
+
+            try
+            {
+                return Results.Ok(await service.ImportAsync(depotId, content, file.FileName, ct));
+            }
+            catch (Exception ex) when (ex is StatementFormatException or RuleViolationException)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.Write).DisableAntiforgery();
+
         // Muss vor der Id-Route stehen, damit „primary“ nicht als Id gelesen wird.
         api.MapGet("/loans/primary", async (int? months, LoanService service, CancellationToken ct) =>
         {

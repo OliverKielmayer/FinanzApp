@@ -1996,6 +1996,43 @@ body {
   margin-top: 6px;
 }
 
+/* Der Einstieg zum Importieren steht im Kopf des Reiters, nicht am Ende der Liste: bei
+   sechsundzwanzig Ausfuehrungen waere er unten noch zu finden, bei achthundert nicht mehr. */
+.trade-import {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  background: var(--color-neutral-100, var(--color-bg));
+  border-bottom: 2px solid var(--color-text);
+}
+
+.trade-import .stack {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Das Dateifeld liegt unsichtbar im Label - ein <input type=file> laesst sich nicht wie ein
+   Knopf gestalten, ein Label darum herum schon. */
+.trade-import-button {
+  position: relative;
+  flex: none;
+  cursor: pointer;
+}
+
+.import-result {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.import-result .meta.accent {
+  color: var(--color-accent-800);
+}
+
 /* Nur fuer Vorleseprogramme: der Ladezustand hat sonst keinen Text, den sie ansagen koennten. */
 .visually-hidden {
   position: absolute;

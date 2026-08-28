@@ -1,0 +1,373 @@
+@using System.Globalization
+@inject FinanzAppApi Api
+@inject AppState State
+@inject ToastService Toasts
+
+@*
+    Ausgeführte Orders — v5-Handoff, Abschnitt 11.1.
+
+    Der Einstieg zum Importieren steht **oben**, nicht am Ende der Liste. Bei sechsundzwanzig
+    Ausführungen wäre er unten noch zu finden, bei achthundert nicht mehr — und wer importieren
+    will, hat die Datei schon in der Hand und sucht keine Liste durch.
+
+    Duplikate werden erkannt: die Datei führt keine Ordernummer, wiedererkannt wird über
+    Ausführungszeitpunkt, Stück und Kurs. Das Ergebnis nennt drei Zahlen, nicht eine — gelesen,
+    übernommen, schon vorhanden. „18 importiert“ allein ließe offen, ob acht fehlen oder acht
+    schon da waren.
+*@
+
+<div class="trade-import">
+    <div class="stack">
+        <span class="label-strong">Transaktionen importieren</span>
+        <span class="create-help">
+            Orderdatei des Brokers (CSV, semikolongetrennt). Bereits eingelesene Ausführungen
+            werden erkannt und nicht doppelt gebucht.
+        </span>
+    </div>
+
+    <AuthorizeView Roles="Owner,Member">
+        <label class="btn btn-primary trade-import-button">
+            @(busy ? "Wird gelesen …" : "CSV wählen")
+            <InputFile class="visually-hidden" accept=".csv,text/csv"
+                       OnChange="OnFileSelected" disabled="@busy" />
+        </label>
+    </AuthorizeView>
+</div>
+
+@if (problem is { Length: > 0 })
+{
+    <div class="state-error" role="alert">
+        <span class="state-error-title">@problem</span>
+    </div>
+}
+
+@if (result is { } ergebnis)
+{
+    <div class="import-result">
+        <span class="label-strong">@ergebnis.FileName</span>
+        <span class="meta">@Summary(ergebnis)</span>
+
+        @* Was nicht durchkam, steht mit Grund da. Stillschweigend übersprungen wird nichts. *@
+        @foreach (var weg in ergebnis.Skipped)
+        {
+            <span class="meta accent">@weg.Security — @weg.Reason</span>
+        }
+    </div>
+}
+
+<AsyncView Loading="loading" Error="@error" Stale="@loaded" Retry="ReloadAsync">
+    @if (data is { } trades)
+    {
+        @if (trades.Head.ExecutionCount == 0)
+        {
+            <EmptyState Title="Keine Ausführung erfasst"
+                        Text="Aus den ausgeführten Orders entstehen Stück, Einstand und der
+                              Depotwert. Solange keine da sind, rechnet das Depot mit dem, was
+                              von Hand gepflegt ist." />
+        }
+        else
+        {
+            <section class="hero">
+                <span class="label-muted">Einstand gesamt</span>
+                <span class="hero-value medium num">@State.Euro(trades.Head.CostBasis)</span>
+                <span class="loan-sub">@HeadSub(trades.Head)</span>
+            </section>
+
+            <section class="kpi">
+                <div class="kpi-cell">
+                    <span class="label-muted">Ø Einstand</span>
+                    <span class="kpi-value num">@Price(trades.Head.AverageCost)</span>
+                </div>
+                <div class="kpi-cell">
+                    @* Der Kurs stammt aus der letzten Ausführung, nicht von einem Ticker —
+                       und das steht dabei, statt einen Live-Kurs vorzutäuschen. *@
+                    <span class="label-muted">Kurs @Stand(trades.Head.LastPriceAt)</span>
+                    <span class="kpi-value num">@Price(trades.Head.LastPrice)</span>
+                </div>
+                <div class="kpi-cell">
+                    <span class="label-muted">Gewinn / Verlust</span>
+                    <span class="kpi-value accent num">@Gain(trades.Head)</span>
+                </div>
+            </section>
+
+            @if (trades.Head.Fees > 0m)
+            {
+                <div class="tx-totals-note">
+                    Im Einstand enthalten: @State.Euro(trades.Head.Fees) Mindermengenzuschlag.
+                    Eine Gebühr, kein schlechterer Kurs — darum steht sie getrennt.
+                </div>
+            }
+
+            <div class="holdings-filter">
+                @foreach (var jahr in trades.Years)
+                {
+                    var wahl = jahr;
+                    <button type="button" class="chip @(year == jahr.Year ? "active" : null)"
+                            disabled="@busy" @onclick="() => PickYearAsync(wahl.Year)">
+                        @(jahr.Year?.ToString() ?? "Alle")
+                        <span class="chip-hint num">@jahr.Count</span>
+                    </button>
+                }
+            </div>
+
+            <div class="list-head">
+                <span class="label-strong">Ausführungen</span>
+                <span class="meta num">@YearSub(trades)</span>
+            </div>
+
+            @foreach (var satz in trades.Trades)
+            {
+                var id = satz.Id;
+                var offen = expanded == id;
+
+                <button type="button" class="tap import-row plain @(offen ? "picked" : null)"
+                        @onclick="() => Toggle(id)">
+                    <span class="stack">
+                        <span class="import-row-payee">
+                            @GermanFormat.Date(DateOnly.FromDateTime(satz.ExecutedAt)) ·
+                            @satz.SecurityName
+                        </span>
+                        <span class="meta">@Meta(satz)</span>
+                    </span>
+                    <span class="stack-end">
+                        <span class="holding-value num">@State.Euro(satz.Total)</span>
+                        <span class="meta num">
+                            @GermanFormat.Quantity(satz.Quantity) St. · @Price(satz.Price)
+                        </span>
+                    </span>
+                </button>
+
+                @if (offen)
+                {
+                    <div class="blueprint report-payees">
+                        <i class="corner tl" aria-hidden="true"></i>
+                        <i class="corner tr" aria-hidden="true"></i>
+                        <i class="corner bl" aria-hidden="true"></i>
+                        <i class="corner br" aria-hidden="true"></i>
+
+                        <div class="detail-block">
+                            <span class="detail-label">Ausführung</span>
+                            <span class="detail-value num">
+                                @satz.ExecutedAt.ToString("dd.MM.yyyy, HH:mm:ss", CultureInfo.InvariantCulture)
+                            </span>
+                        </div>
+                        <div class="detail-block">
+                            <span class="detail-label">Richtung · Orderart</span>
+                            <span class="detail-value">@Meta(satz)</span>
+                        </div>
+                        <div class="detail-block">
+                            <span class="detail-label">Stück × Kurs</span>
+                            <span class="detail-value num">
+                                @GermanFormat.Quantity(satz.Quantity) × @Price(satz.Price)
+                            </span>
+                        </div>
+                        <div class="detail-block">
+                            <span class="detail-label">Wert</span>
+                            <span class="detail-value num">@State.Euro(satz.Value)</span>
+                        </div>
+
+                        @if (satz.Fee > 0m)
+                        {
+                            <div class="detail-block">
+                                <span class="detail-label">Mindermengenzuschlag</span>
+                                <span class="detail-value num accent">@State.Euro(satz.Fee)</span>
+                            </div>
+                        }
+
+                        <div class="detail-block">
+                            <span class="detail-label">ISIN · WKN</span>
+                            <span class="detail-value num">
+                                @satz.Isin@(satz.Wkn is { Length: > 0 } w ? $" · {w}" : null)
+                            </span>
+                        </div>
+                        <div class="detail-block">
+                            <span class="detail-label">Anteil am Einstand</span>
+                            <span class="detail-value num">
+                                @GermanFormat.Percent(Share(trades, id) * 100m, 1)
+                            </span>
+                        </div>
+                    </div>
+                }
+            }
+        }
+    }
+</AsyncView>
+
+@code {
+    [Parameter, EditorRequired] public int DepotId { get; set; }
+
+    /// <summary>Nach einem Import rechnet das Depot neu — Positionen entstehen aus diesen Sätzen.</summary>
+    [Parameter] public EventCallback OnImported { get; set; }
+
+    private DepotTradesDto? data;
+    private int? year;
+    private int? expanded;
+
+    private bool loading = true;
+    private bool loaded;
+    private string? error;
+    private bool busy;
+
+    private string? problem;
+    private DepotImportResultDto? result;
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private async Task ReloadAsync()
+    {
+        loading = !loaded;
+        error = null;
+
+        try
+        {
+            data = await Api.GetDepotTradesAsync(DepotId, year);
+            loaded = true;
+        }
+        catch (ApiException ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task PickYearAsync(int? gewaehlt)
+    {
+        year = gewaehlt;
+        expanded = null;
+        await ReloadAsync();
+    }
+
+    private void Toggle(int id) => expanded = expanded == id ? null : id;
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        problem = null;
+        result = null;
+        busy = true;
+
+        try
+        {
+            var datei = e.File;
+
+            if (datei.Size > MaxBytes)
+            {
+                problem = "Die Datei ist größer als 4 MB.";
+                return;
+            }
+
+            using var buffer = new MemoryStream();
+            await using (var quelle = datei.OpenReadStream(MaxBytes))
+            {
+                await quelle.CopyToAsync(buffer);
+            }
+
+            buffer.Position = 0;
+            result = await Api.ImportDepotTradesAsync(DepotId, buffer, datei.Name);
+
+            await ReloadAsync();
+            await OnImported.InvokeAsync();
+
+            Toasts.Show(Summary(result));
+        }
+        catch (ApiException ex)
+        {
+            problem = ex.Message;
+        }
+        catch (IOException ex)
+        {
+            problem = $"Die Datei ließ sich nicht lesen: {ex.Message}";
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private const long MaxBytes = 4 * 1024 * 1024;
+
+    // ── Sätze aus Zahlen ───────────────────────────────────────────────────────────────────
+
+    /// <summary>Drei Zahlen, nicht eine: gelesen, übernommen, schon vorhanden.</summary>
+    private static string Summary(DepotImportResultDto e)
+    {
+        var teile = new List<string> { $"{e.ReadCount} gelesen", $"{e.ImportedCount} übernommen" };
+
+        if (e.DuplicateCount > 0)
+        {
+            teile.Add($"{e.DuplicateCount} schon vorhanden");
+        }
+
+        if (e.Skipped.Count > 0)
+        {
+            teile.Add($"{e.Skipped.Count} übersprungen");
+        }
+
+        return string.Join(" · ", teile);
+    }
+
+    private static string HeadSub(DepotTradesHeadDto kopf)
+    {
+        var teile = new List<string>
+        {
+            $"{GermanFormat.Quantity(kopf.Quantity)} Stück in {kopf.ExecutionCount} "
+            + (kopf.ExecutionCount == 1 ? "Ausführung" : "Ausführungen"),
+        };
+
+        // „nur Käufe“ ist eine Auskunft, die man sonst nur durch Nachzählen bekäme.
+        teile.Add(kopf.SellCount switch
+        {
+            0 => "nur Käufe",
+            _ when kopf.BuyCount == 0 => "nur Verkäufe",
+            _ => $"{kopf.BuyCount} Käufe · {kopf.SellCount} Verkäufe",
+        });
+
+        return string.Join(" · ", teile);
+    }
+
+    private static string YearSub(DepotTradesDto trades)
+    {
+        var gezeigt = trades.Trades.Count;
+        var gesamt = trades.Head.ExecutionCount;
+
+        return $"{gezeigt} von {gesamt}";
+    }
+
+    private static string Meta(DepotTradeDto satz)
+    {
+        var teile = new List<string> { satz.Kind == DepotTradeKind.Sell ? "Verkauf" : "Kauf" };
+
+        teile.Add(satz is { OrderType: DepotOrderType.Limit, LimitPrice: { } limit }
+            ? $"Limit {GermanFormat.Decimal2(limit)}"
+            : satz.OrderType == DepotOrderType.Limit ? "Limit" : "Markt");
+
+        if (satz.Fee > 0m)
+        {
+            teile.Add($"{GermanFormat.Decimal2(satz.Fee)} € Zuschlag");
+        }
+
+        return string.Join(" · ", teile);
+    }
+
+    private string Gain(DepotTradesHeadDto kopf)
+        => kopf.GainPercent is { } prozent
+            ? $"{State.Euro(kopf.Gain, withPlusSign: true)} · {GermanFormat.Percent(prozent, 1, withPlusSign: true)}"
+            : "—";
+
+    /// <summary>
+    /// Kurse tragen mehr als zwei Nachkommastellen.
+    /// </summary>
+    /// <remarks>
+    /// 89,238 auf 89,24 zu runden wäre hier falsch: Stück × Kurs ergäbe dann nicht mehr den
+    /// Wert, der daneben steht.
+    /// </remarks>
+    private static string Price(decimal? wert) => wert is { } k ? GermanFormat.Price(k) : "—";
+
+    private static string Stand(DateTime? zeit)
+        => zeit is { } z ? GermanFormat.Date(DateOnly.FromDateTime(z)) : "—";
+
+    private static decimal Share(DepotTradesDto trades, int id)
+        => trades.ShareOfCost.TryGetValue(id, out var anteil) ? anteil : 0m;
+}

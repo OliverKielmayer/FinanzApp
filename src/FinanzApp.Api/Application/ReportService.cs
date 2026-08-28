@@ -21,7 +21,8 @@ namespace FinanzApp.Api.Application;
 /// darf keine Beträge aus nicht freigegebenen Konten enthalten, auch nicht summiert.</para>
 /// </remarks>
 public sealed class ReportService(
-    FinanzAppDbContext db, IClock clock, DocumentService documents, CurrentUser current)
+    FinanzAppDbContext db, IClock clock, DocumentService documents, CurrentUser current,
+    PortfolioService portfolio)
 {
     /// <summary>Ab hier gilt eine Kategorie als steigend oder sinkend.</summary>
     private const decimal Threshold = 5m;
@@ -431,31 +432,28 @@ public sealed class ReportService(
 
         var gewaehlt = depots.FirstOrDefault(d => d.Id == depotId) ?? depots[0];
 
-        var positionen = await db.PortfolioPositions.AsNoTracking()
-            .Where(p => p.DepotId == gewaehlt.Id)
+        // Vom Depotdienst: derselbe Bestand wie im Depot-Screen und in der Bestandsliste.
+        var bestand = await portfolio.GetHoldingsAsync(gewaehlt.Id, ct);
+
+        // Ungerundet gerechnet, gerundet erst beim Anzeigen. Vorher rundete jede Zeile für
+        // sich, und der Hero wich um einen Euro von der einzigen Position darunter ab.
+        var zeilen = bestand.Positions
             .OrderBy(p => p.Name)
-            .ToListAsync(ct);
-
-        var zeilen = positionen.Select(p =>
-        {
-            var wert = decimal.Round(p.Quantity * p.Price, 2);
-            var gewinn = decimal.Round(wert - p.CostBasis, 2);
-
-            return new PortfolioGainRowDto
+            .Select(p => new PortfolioGainRowDto
             {
                 Name = p.Name,
                 Isin = p.Isin,
                 Quantity = p.Quantity,
-                CostPerUnit = p.Quantity == 0m ? null : decimal.Round(p.CostBasis / p.Quantity, 2),
+                CostPerUnit = p.Quantity == 0m ? null : p.CostBasis / p.Quantity,
                 Price = p.Price,
-                Value = wert,
-                Gain = gewinn,
-                GainPercent = Change(wert, p.CostBasis),
-            };
-        }).ToList();
+                Value = p.Value,
+                Gain = p.Value - p.CostBasis,
+                GainPercent = Change(p.Value, p.CostBasis),
+            })
+            .ToList();
 
-        var einstand = zeilen.Sum(z => z.Value) - zeilen.Sum(z => z.Gain);
-        var wertJetzt = zeilen.Sum(z => z.Value);
+        var einstand = bestand.Cost;
+        var wertJetzt = bestand.Value;
 
         return new PortfolioGainDto
         {
@@ -464,12 +462,12 @@ public sealed class ReportService(
             DepotName = gewaehlt.Name,
             CostBasis = einstand,
             CurrentValue = wertJetzt,
-            Gain = decimal.Round(wertJetzt - einstand, 2),
+            Gain = wertJetzt - einstand,
             GainPercent = Change(wertJetzt, einstand),
 
-            // Der älteste Stichtag, nicht der jüngste: die Summe ist nur so frisch wie ihr
-            // ältester Bestandteil.
-            PricesAsOf = positionen.Count == 0 ? null : positionen.Min(p => p.PriceAsOf),
+            // Stammt der Kurs aus der letzten Ausführung, ist es deren Zeitpunkt — belegbar,
+            // aber kein Live-Kurs.
+            PricesAsOf = bestand.Positions.Count == 0 ? null : bestand.PricedAt,
             Positions = zeilen,
         };
     }

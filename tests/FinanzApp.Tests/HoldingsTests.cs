@@ -45,7 +45,7 @@ public sealed class HoldingsTests : IDisposable
             NullLogger<DocumentService>.Instance);
 
         return new HoldingsService(
-            context, dashboard, new VehicleService(context, documents, clock), clock);
+            context, dashboard, new VehicleService(context, documents, clock), new PortfolioService(context), clock);
     }
 
     private void Arbeitsverhaeltnis(string arbeitgeber, decimal brutto, DateOnly? ende = null)

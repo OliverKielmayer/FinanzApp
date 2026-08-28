@@ -43,6 +43,16 @@ public static class GermanFormat
     /// <summary>Reine Zahl mit zwei Nachkommastellen, ohne Währung: <c>1.234,56</c>.</summary>
     public static string Decimal2(decimal value) => value.ToString("N2", Numbers);
 
+    /// <summary>
+    /// Ein Wertpapierkurs: mindestens zwei, höchstens vier Nachkommastellen.
+    /// </summary>
+    /// <remarks>
+    /// Broker rechnen mit mehr als zwei — 89,238 auf 89,24 zu runden hieße, dass Stück × Kurs
+    /// nicht mehr den Wert ergibt, der in derselben Zeile steht.
+    /// </remarks>
+    public static string Price(decimal value)
+        => value.ToString("#,##0.00##", Numbers) + Nbsp + "€";
+
     /// <summary>Stückzahl: ganze Zahlen ohne Nachkommastellen, Bruchteile mit so vielen wie nötig.</summary>
     public static string Quantity(decimal value)
         => value == Math.Truncate(value)

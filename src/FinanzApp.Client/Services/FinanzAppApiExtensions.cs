@@ -267,6 +267,29 @@ public static class FinanzAppApiExtensions
         this FinanzAppApi api, int id, CancellationToken ct = default)
         => api.GetAsync<InvoiceDetailDto>($"api/invoices/{id}", ct);
 
+    // ── Depot: ausgeführte Orders ──────────────────────────────────────────────────────────
+
+    public static Task<DepotTradesDto> GetDepotTradesAsync(
+        this FinanzAppApi api, int depotId, int? jahr = null, CancellationToken ct = default)
+        => api.GetAsync<DepotTradesDto>(
+            jahr is { } j
+                ? $"api/portfolio/{depotId}/trades?jahr={j}"
+                : $"api/portfolio/{depotId}/trades",
+            ct);
+
+    public static Task<DepotImportResultDto> ImportDepotTradesAsync(
+        this FinanzAppApi api, int depotId, Stream content, string fileName,
+        CancellationToken ct = default)
+    {
+        var form = new MultipartFormDataContent();
+        var datei = new StreamContent(content);
+
+        datei.Headers.ContentType = new MediaTypeHeaderValue("text/csv");
+        form.Add(datei, "file", fileName);
+
+        return api.PostFormAsync<DepotImportResultDto>($"api/portfolio/{depotId}/trades", form, ct);
+    }
+
     // ── Arbeit & Beruf ─────────────────────────────────────────────────────────────────────
 
     public static Task<EmploymentOverviewDto> GetEmploymentsAsync(

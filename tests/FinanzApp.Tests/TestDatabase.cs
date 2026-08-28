@@ -87,7 +87,8 @@ public sealed class TestDatabase : IDisposable
                 new ObjectLabelService(context),
                 clock,
                 NullLogger<DocumentService>.Instance),
-            SignedIn(userId));
+            SignedIn(userId),
+            new PortfolioService(context));
     }
 
     /// <summary>

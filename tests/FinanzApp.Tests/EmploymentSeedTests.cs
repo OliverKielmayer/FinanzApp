@@ -132,6 +132,7 @@ public sealed class EmploymentSeedTests : IDisposable
                 new BudgetService(context, uhr),
                 uhr),
             new VehicleService(context, dokumente, uhr),
+            new PortfolioService(context),
             uhr);
 
         Assert.Equal(bereich, (await bestand.GetAsync(HoldingClass.Work)).Head.Value);

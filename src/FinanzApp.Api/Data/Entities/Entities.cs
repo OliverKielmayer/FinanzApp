@@ -262,6 +262,72 @@ public class PortfolioPosition : IHouseholdOwned
     public DateTime PriceAsOf { get; set; }
 }
 
+/// <summary>
+/// Eine ausgeführte Order im Depot — v5-Handoff, Abschnitt 11.1.
+/// </summary>
+/// <remarks>
+/// <para>Sie ist die Quelle des Depots: Positionen werden daraus <b>abgeleitet</b> und nicht
+/// gepflegt. Der Prototyp führte beides nebeneinander und wies dieselbe ISIN mit drei
+/// verschiedenen Stückzahlen aus — der falsche Depotwert lief über das Finanzvermögen bis ins
+/// Gesamtvermögen netto.</para>
+/// <para>Gespeichert wird, was tatsächlich ausgeführt wurde, nicht was bestellt war.</para>
+/// </remarks>
+public class DepotTrade : IHouseholdOwned
+{
+    public int Id { get; set; }
+    public int HouseholdId { get; set; }
+
+    public int DepotId { get; set; }
+    public Depot? Depot { get; set; }
+
+    public required string SecurityName { get; set; }
+    public required string Isin { get; set; }
+    public string? Wkn { get; set; }
+
+    public DepotTradeKind Kind { get; set; }
+    public DepotOrderType OrderType { get; set; }
+
+    /// <summary>Das gesetzte Limit, wenn es eine Limit-Order war.</summary>
+    public decimal? LimitPrice { get; set; }
+
+    /// <summary>Ausführungszeitpunkt — Datum <em>und</em> Uhrzeit, beides trägt die Wiedererkennung.</summary>
+    public DateTime ExecutedAt { get; set; }
+
+    public decimal Quantity { get; set; }
+
+    /// <summary>
+    /// Ausführungskurs.
+    /// </summary>
+    /// <remarks>
+    /// Kein Cent-Konverter: die Broker rechnen mit mehr als zwei Nachkommastellen (89,238), und
+    /// auf Cent gerundet ergäbe Stück × Kurs nicht mehr den Wert, der wirklich belastet wurde.
+    /// </remarks>
+    public decimal Price { get; set; }
+
+    /// <summary>Stück × Kurs, wie die Datei ihn ausweist. Positiv geführt.</summary>
+    public decimal Value { get; set; }
+
+    /// <summary>
+    /// Mindermengenzuschlag — eine Gebühr, keine Kursdifferenz.
+    /// </summary>
+    /// <remarks>
+    /// Sie liegt <em>auf</em> dem Wert, nicht darin: geprüft an der echten Datei, dort ist
+    /// Wert exakt Stück × Kurs. Sie gehört in die Anschaffungskosten, bleibt aber ein eigener
+    /// Bestandteil, damit niemand sie für einen schlechteren Kurs hält.
+    /// </remarks>
+    public decimal Fee { get; set; }
+
+    /// <summary>
+    /// Woran ein schon eingelesener Satz wiedererkannt wird.
+    /// </summary>
+    /// <remarks>
+    /// Die Datei führt keine Ordernummer. Der Handoff nennt Ausführungsdatum, Uhrzeit, Stück
+    /// und Kurs; die ISIN steht zusätzlich darin — sie kann keinen echten Wiedergänger
+    /// verstecken, wohl aber zwei zufällig gleiche Ausführungen verschiedener Papiere trennen.
+    /// </remarks>
+    public required string ImportReference { get; set; }
+}
+
 public class Loan : IHouseholdOwned
 {
     public int Id { get; set; }

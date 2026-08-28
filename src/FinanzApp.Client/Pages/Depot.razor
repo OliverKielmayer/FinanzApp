@@ -39,15 +39,43 @@
                 <span class="label-strong">Depotentwicklung</span>
                 @* Der Kursstand bleibt sichtbar: die Kurse kommen aus einem austauschbaren
                    Anbieter und können veralten. *@
-                <span class="meta num">Kurse: @GermanFormat.DateTime(portfolio.PricesAsOf)</span>
+                @* Ein Kurs ohne belegbare Herkunft darf nicht aussehen wie einer vom Ticker.
+                   Stammt er aus der letzten Ausführung, steht das dabei. *@
+                <span class="meta num">Kurs @PriceNote(portfolio)</span>
             </div>
             <Sparkline Values="portfolio.History" Height="84" Top="12" Bottom="70"
                        Label="Depotentwicklung der letzten Monate" />
         </section>
 
+        @* Drei Reiter statt einer langen Seite — v5-Handoff, Abschnitt 11. *@
+        <div class="holdings-filter">
+            @foreach (var (reiter, beschriftung) in Tabs)
+            {
+                var wahl = reiter;
+                <button type="button" class="chip @(tab == reiter ? "active" : null)"
+                        @onclick="() => PickAsync(wahl)">@beschriftung</button>
+            }
+        </div>
+
+        @if (tab == DepotTab.Positions)
+        {
         <div class="section" style="padding-bottom:4px">
             <span class="label-strong">Positionen</span>
+            @if (portfolio.PricesFromTrades)
+            {
+                @* Nicht gepflegt, sondern gerechnet — das gehört dazu, sonst sucht jemand die
+                   Zeile zum Bearbeiten. *@
+                <span class="meta">aus den Ausführungen abgeleitet</span>
+            }
         </div>
+
+        @if (portfolio.Positions.Count == 0)
+        {
+            <EmptyState Title="Keine Position im Depot"
+                        Text="Positionen entstehen aus den ausgeführten Orders. Die Orderdatei
+                              des Brokers einlesen — dann stehen Stück, Einstand und Wert hier."
+                        ActionLabel="Zu den Transaktionen" />
+        }
 
         @foreach (var position in portfolio.Positions)
         {
@@ -69,6 +97,11 @@
         }
 
         <AddRow Route="/neu/depot" Label="Depot anlegen" />
+        }
+        else if (tab == DepotTab.Trades)
+        {
+            <DepotTradesTab DepotId="portfolio.DepotId ?? 0" OnImported="ReloadAsync" />
+        }
 
         <div class="spacer"></div>
     }
@@ -92,7 +125,55 @@
 </AsyncView>
 
 @code {
+    private enum DepotTab
+    {
+        Positions,
+        Trades,
+    }
+
+    /// <summary>
+    /// „Aufstellungen“ fehlt noch — der Reiter kommt mit dem Bestandsabgleich.
+    /// </summary>
+    /// <remarks>
+    /// Einen leeren dritten Reiter jetzt schon hinzustellen wäre ein Versprechen, das der
+    /// nächste Klick bricht.
+    /// </remarks>
+    private static readonly (DepotTab Tab, string Label)[] Tabs =
+    [
+        (DepotTab.Positions, "Positionen"),
+        (DepotTab.Trades, "Transaktionen"),
+    ];
+
     private PortfolioDto? data;
+    private DepotTab tab = DepotTab.Positions;
 
     protected override async Task LoadAsync() => data = await Api.GetPortfolioAsync();
+
+    /// <summary>
+    /// Woher der Kurs stammt.
+    /// </summary>
+    /// <remarks>
+    /// Bei einem Papier ist es die letzte Ausführung. Bei mehreren nennt der Stichtag den
+    /// <em>ältesten</em> — eine Summe ist nur so frisch wie ihr ältester Bestandteil —, und
+    /// „letzte Ausführung“ wäre dann das falsche Wort.
+    /// </remarks>
+    private static string PriceNote(PortfolioDto portfolio)
+    {
+        var stand = GermanFormat.DateTime(portfolio.PricesAsOf);
+
+        if (!portfolio.PricesFromTrades)
+        {
+            return stand;
+        }
+
+        return portfolio.Positions.Count == 1
+            ? $"{stand} · aus der letzten Ausführung"
+            : $"{stand} · älteste der letzten Ausführungen";
+    }
+
+    private Task PickAsync(DepotTab gewaehlt)
+    {
+        tab = gewaehlt;
+        return Task.CompletedTask;
+    }
 }

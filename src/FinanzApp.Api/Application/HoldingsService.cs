@@ -19,7 +19,8 @@ namespace FinanzApp.Api.Application;
 /// ohne Untertitel, und die Liste war ärmer als jeder Einzelbereich vorher.</para>
 /// </remarks>
 public sealed class HoldingsService(
-    FinanzAppDbContext db, DashboardService dashboard, VehicleService vehicles, IClock clock)
+    FinanzAppDbContext db, DashboardService dashboard, VehicleService vehicles,
+    PortfolioService portfolio, IClock clock)
 {
     public async Task<HoldingsDto> GetAsync(
         HoldingClass? filter = null, CancellationToken ct = default)
@@ -126,18 +127,18 @@ public sealed class HoldingsService(
 
         foreach (var depot in await db.Depots.AsNoTracking().OrderBy(d => d.Id).ToListAsync(ct))
         {
-            var positionen = await db.PortfolioPositions.AsNoTracking()
-                .Where(p => p.DepotId == depot.Id)
-                .Select(p => new { p.Quantity, p.Price, p.PriceAsOf })
-                .ToListAsync(ct);
+            // Vom Depotdienst, nicht aus der Positionstabelle: liegen Ausführungen vor, sind
+            // die gepflegten Zeilen überholt. Diese Zeile nannte sonst weiter 132.480 €,
+            // während der Depot-Screen daneben 100.104 € zeigte.
+            var bestand = await portfolio.GetHoldingsAsync(depot.Id, ct);
 
             zeilen.Add(Row(
                 HoldingClass.Depot, depot.Name,
-                HoldingMeta.ForDepot(depot, positionen.Count),
-                value: positionen.Sum(p => p.Quantity * p.Price),
-                note: positionen.Count == 0
+                HoldingMeta.ForDepot(depot, bestand.Positions.Count),
+                value: bestand.Value,
+                note: bestand.Positions.Count == 0
                     ? null
-                    : $"Kurse {GermanFormat.Date(DateOnly.FromDateTime(positionen.Min(p => p.PriceAsOf)))}",
+                    : $"Kurs {GermanFormat.Date(DateOnly.FromDateTime(bestand.PricedAt))}",
                 route: "/depot"));
         }
 

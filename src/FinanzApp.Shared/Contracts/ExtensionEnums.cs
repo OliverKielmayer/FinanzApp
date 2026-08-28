@@ -146,3 +146,17 @@ public enum WorkAgreementKind
     OccupationalPension = 2,
     Other = 9,
 }
+
+/// <summary>Richtung einer Depotausführung.</summary>
+public enum DepotTradeKind
+{
+    Buy = 0,
+    Sell = 1,
+}
+
+/// <summary>Wie die Order aufgegeben war.</summary>
+public enum DepotOrderType
+{
+    Market = 0,
+    Limit = 1,
+}
