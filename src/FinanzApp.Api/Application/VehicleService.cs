@@ -149,24 +149,8 @@ public sealed class VehicleService(FinanzAppDbContext db, DocumentService docume
                    && remind.DayNumber - clock.Today.DayNumber <= NoticeWindowDays);
     }
 
-    private static string Meta(Vehicle vehicle)
-    {
-        var parts = new List<string>();
-        if (vehicle.Usage is { Length: > 0 } usage)
-        {
-            parts.Add(usage);
-        }
-
-        if (vehicle.Policy is not null)
-        {
-            parts.Add("Versicherung verknüpft");
-        }
-
-        if (vehicle.FirstRegistration is { } first)
-        {
-            parts.Add("EZ " + first.Year);
-        }
-
-        return parts.Count == 0 ? vehicle.Plate : string.Join(" · ", parts);
-    }
+    /// <summary>
+    /// Der Untertitel kommt aus dem gemeinsamen Builder — dieselbe Zeile wie im Bestand.
+    /// </summary>
+    private static string Meta(Vehicle vehicle) => HoldingMeta.ForVehicle(vehicle);
 }

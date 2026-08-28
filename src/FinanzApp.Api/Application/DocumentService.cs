@@ -67,22 +67,22 @@ public sealed class DocumentService(
             }
         }
 
-        foreach (var row in await db.Policies.AsNoTracking()
-                     .Select(x => new { x.Id, x.Name, x.Provider }).ToListAsync(ct))
+        // Ganze Datensätze statt einer Projektion auf zwei Felder: der gemeinsame Builder
+        // baut den Untertitel aus allen Rohfeldern, und die Suche findet damit auch, was nur
+        // dort steht — eine Vertragsnummer etwa.
+        foreach (var row in await db.Policies.AsNoTracking().ToListAsync(ct))
         {
-            Add(LinkTargetType.Policy, row.Id, row.Name, row.Provider);
+            Add(LinkTargetType.Policy, row.Id, row.Name, HoldingMeta.ForPolicy(row));
         }
 
-        foreach (var row in await db.Contracts.AsNoTracking()
-                     .Select(x => new { x.Id, x.Name, x.Provider }).ToListAsync(ct))
+        foreach (var row in await db.Contracts.AsNoTracking().ToListAsync(ct))
         {
-            Add(LinkTargetType.Contract, row.Id, row.Name, row.Provider);
+            Add(LinkTargetType.Contract, row.Id, row.Name, HoldingMeta.ForContract(row));
         }
 
-        foreach (var row in await db.Properties.AsNoTracking()
-                     .Select(x => new { x.Id, x.Name, x.Address }).ToListAsync(ct))
+        foreach (var row in await db.Properties.AsNoTracking().ToListAsync(ct))
         {
-            Add(LinkTargetType.Property, row.Id, row.Name, row.Address ?? string.Empty);
+            Add(LinkTargetType.Property, row.Id, row.Name, HoldingMeta.ForProperty(row));
         }
 
         foreach (var row in await db.MedicalBills.AsNoTracking()

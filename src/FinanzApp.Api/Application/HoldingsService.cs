@@ -98,7 +98,7 @@ public sealed class HoldingsService(
                 .SumAsync(t => t.Amount, ct);
 
             zeilen.Add(Row(
-                HoldingClass.Accounts, konto.Name, MetaAccount(konto),
+                HoldingClass.Accounts, konto.Name, HoldingMeta.ForAccount(konto),
                 value: konto.OpeningBalance + gebucht,
                 note: $"Stand {GermanFormat.Date(konto.BalanceAsOf)}",
                 route: "/konten"));
@@ -113,7 +113,7 @@ public sealed class HoldingsService(
 
             zeilen.Add(Row(
                 HoldingClass.Depot, depot.Name,
-                Join(Count(positionen.Count, "Position", "Positionen")),
+                HoldingMeta.ForDepot(depot, positionen.Count),
                 value: positionen.Sum(p => p.Quantity * p.Price),
                 note: positionen.Count == 0
                     ? null
@@ -126,7 +126,7 @@ public sealed class HoldingsService(
             if (police.IsCapitalForming)
             {
                 zeilen.Add(Row(
-                    HoldingClass.Pension, police.Name, MetaPension(police),
+                    HoldingClass.Pension, police.Name, HoldingMeta.ForPension(police),
                     value: police.CurrentValue,
                     note: police.ValuationDate is { } tag ? $"Stand {GermanFormat.Date(tag)}" : null,
                     route: "/vorsorge"));
@@ -135,7 +135,7 @@ public sealed class HoldingsService(
             }
 
             zeilen.Add(Row(
-                HoldingClass.Protection, police.Name, MetaProtection(police),
+                HoldingClass.Protection, police.Name, HoldingMeta.ForProtection(police),
                 yearlyCost: Yearly(police.Premium, police.PremiumInterval),
                 note: null,
                 urgent: police.NoticeReminderOn is not null,
@@ -145,7 +145,7 @@ public sealed class HoldingsService(
         foreach (var objekt in await db.Properties.AsNoTracking().OrderBy(p => p.Id).ToListAsync(ct))
         {
             zeilen.Add(Row(
-                HoldingClass.Housing, objekt.Name, MetaProperty(objekt),
+                HoldingClass.Housing, objekt.Name, HoldingMeta.ForProperty(objekt),
                 value: objekt.MarketValue,
                 isTangible: true,
                 note: null,
@@ -155,7 +155,7 @@ public sealed class HoldingsService(
         foreach (var vertrag in await db.Contracts.AsNoTracking().OrderBy(c => c.Id).ToListAsync(ct))
         {
             zeilen.Add(Row(
-                HoldingClass.Housing, vertrag.Name, MetaContract(vertrag),
+                HoldingClass.Housing, vertrag.Name, HoldingMeta.ForContract(vertrag),
                 yearlyCost: vertrag.MonthlyAmount * 12m,
                 note: null,
                 route: "/wohnen"));
@@ -166,7 +166,8 @@ public sealed class HoldingsService(
         foreach (var fahrzeug in await vehicles.GetListAsync(ct))
         {
             zeilen.Add(Row(
-                HoldingClass.Vehicles, fahrzeug.Name, Join(fahrzeug.Plate, fahrzeug.Meta),
+                HoldingClass.Vehicles, HoldingMeta.Join(fahrzeug.Name, fahrzeug.Plate),
+                fahrzeug.Meta,
                 yearlyCost: fahrzeug.CostsLastTwelveMonths,
                 note: null,
                 urgent: fahrzeug.HasDeadline,
@@ -176,7 +177,7 @@ public sealed class HoldingsService(
         foreach (var darlehen in await db.Loans.AsNoTracking().OrderBy(l => l.Id).ToListAsync(ct))
         {
             zeilen.Add(Row(
-                HoldingClass.Loans, darlehen.Name, MetaLoan(darlehen),
+                HoldingClass.Loans, darlehen.Name, HoldingMeta.ForLoan(darlehen),
                 value: -darlehen.RemainingDebt,
                 note: $"nächste Zahlung {GermanFormat.Date(darlehen.NextPaymentDate)}",
                 route: "/darlehen"));
@@ -201,64 +202,6 @@ public sealed class HoldingsService(
         Urgent = urgent,
         Route = route,
     };
-
-    // ── Metazeilen aus Rohfeldern ──────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Fügt zusammen, was vorhanden ist.
-    /// </summary>
-    /// <remarks>
-    /// Leere Teile fallen weg, statt als Abwesenheit ausgeschrieben zu werden. Eine Zeile
-    /// „Vertrag · ohne Konto“ behauptet etwas über ein Feld, das schlicht leer ist.
-    /// </remarks>
-    private static string Join(params string?[] teile)
-        => string.Join(" · ", teile.Where(t => !string.IsNullOrWhiteSpace(t)));
-
-    private static string? Count(int anzahl, string einzahl, string mehrzahl)
-        => anzahl == 0 ? null : $"{anzahl} {(anzahl == 1 ? einzahl : mehrzahl)}";
-
-    private static string MetaAccount(Account konto)
-        => Join(konto.BankName, konto.Iban, KindLabel(konto.Kind));
-
-    private static string MetaPension(Policy police)
-        => Join(
-            PolicyLabel(police.Kind),
-            police.Provider,
-            police.PolicyNumber is { Length: > 0 } nr ? $"Nr. {nr}" : null,
-            police.EndsOn is { } ablauf ? $"Ablauf {GermanFormat.Date(ablauf)}" : null);
-
-    private static string MetaProtection(Policy police)
-        => Join(
-            police.Provider,
-            police.PolicyNumber is { Length: > 0 } nr ? $"Nr. {nr}" : null,
-            police.EndsOn is { } ende ? $"bis {GermanFormat.Date(ende)}" : null,
-            police.NoticePeriodMonths > 0
-                ? $"Kündigungsfrist {police.NoticePeriodMonths} "
-                  + (police.NoticePeriodMonths == 1 ? "Monat" : "Monate")
-                : null);
-
-    private static string MetaProperty(Property objekt)
-        => Join(
-            PropertyLabel(objekt.Kind),
-            objekt.Address,
-            objekt.PurchaseDate is { } kauf ? $"Kauf {GermanFormat.Date(kauf)}" : null,
-            objekt.LoanId is null ? null : "mit Darlehen");
-
-    private static string MetaContract(Contract vertrag)
-        => Join(
-            "Vertrag",
-            vertrag.Provider,
-            vertrag.ContractNumber is { Length: > 0 } nr ? $"Nr. {nr}" : null,
-            vertrag.NoticePeriodWeeks > 0
-                ? $"Frist {vertrag.NoticePeriodWeeks} "
-                  + (vertrag.NoticePeriodWeeks == 1 ? "Woche" : "Wochen")
-                : null);
-
-    private static string MetaLoan(Loan darlehen)
-        => Join(
-            darlehen.Lender,
-            $"{GermanFormat.Percent(darlehen.InterestRatePercent, 2)} Sollzins",
-            $"Rate {GermanFormat.EuroRounded(darlehen.Installment)}");
 
     /// <summary>Ein Jahresbeitrag, egal in welchem Takt gezahlt wird.</summary>
     private static decimal Yearly(decimal amount, PremiumInterval interval) => interval switch

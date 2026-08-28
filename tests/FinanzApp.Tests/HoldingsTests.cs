@@ -220,9 +220,12 @@ public sealed class HoldingsTests : IDisposable
 
         var meta = (await Service().GetAsync(HoldingClass.Protection)).Rows.Single().Meta;
 
-        Assert.Equal("Allianz", meta);
+        // Art und Anbieter stehen da; Nummer, Ende, Frist und Notiz sind leer und fehlen
+        // darum — ohne Trennzeichen, das ins Leere zeigt.
+        Assert.Equal("Haftpflicht · Allianz", meta);
         Assert.DoesNotContain("ohne", meta);
-        Assert.DoesNotContain("··", meta);
+        Assert.DoesNotContain("· ·", meta);
+        Assert.False(meta.EndsWith('·'));
     }
 
     // ── Filter ─────────────────────────────────────────────────────────────────────────────

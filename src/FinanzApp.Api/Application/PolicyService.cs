@@ -213,27 +213,23 @@ public sealed class PolicyService(FinanzAppDbContext db, DocumentService documen
     };
 
     /// <summary>Zweite Zeile der Liste: Vertragsart, dann das Kennzeichnende.</summary>
-    private static string Meta(Policy policy)
-        => string.IsNullOrWhiteSpace(policy.Notes)
-            ? KindLabel(policy.Kind)
-            : $"{KindLabel(policy.Kind)} · {policy.Notes}";
+    /// <summary>
+    /// Der Untertitel kommt aus dem gemeinsamen Builder.
+    /// </summary>
+    /// <remarks>
+    /// Er nannte früher nur Vertragsart und Notiz. Die Bestandsliste zeigte für dasselbe
+    /// Objekt mehr, die Suche zeigte weniger — drei Antworten auf dieselbe Frage. Jetzt gibt
+    /// es eine, und sie steht in <see cref="HoldingMeta"/>.
+    /// </remarks>
+    private static string Meta(Policy policy) => HoldingMeta.ForPolicy(policy);
 
-    public static string KindLabel(PolicyKind kind) => kind switch
-    {
-        PolicyKind.CapitalLife => "Kapital-LV",
-        PolicyKind.Pension => "Rentenversicherung",
-        PolicyKind.Riester => "Riester-Rente",
-        PolicyKind.BuildingSociety => "Bausparvertrag",
-        PolicyKind.OccupationalPension => "Betriebliche Altersvorsorge",
-        PolicyKind.TermLife => "Risikoleben",
-        PolicyKind.DisabilityInsurance => "Berufsunfähigkeit",
-        PolicyKind.Liability => "Haftpflicht",
-        PolicyKind.HouseholdContents => "Hausrat",
-        PolicyKind.Building => "Wohngebäude",
-        PolicyKind.Vehicle => "Kfz",
-        PolicyKind.Accident => "Unfall",
-        PolicyKind.LegalExpenses => "Rechtsschutz",
-        PolicyKind.Health => "Krankenversicherung",
-        _ => "Vertrag",
-    };
+    /// <summary>
+    /// Die Vertragsart im Klartext.
+    /// </summary>
+    /// <remarks>
+    /// Die Tabelle steht in <see cref="HoldingMeta"/>, weil sie dort ohnehin in jede Metazeile
+    /// eingeht. Zwei Tabellen liefen auseinander — meine zweite Kopie kannte Rechtsschutz und
+    /// Krankenversicherung nicht, und die Suche zeigte darum „Vertrag · Vertrag“.
+    /// </remarks>
+    public static string KindLabel(PolicyKind kind) => HoldingMeta.KindLabel(kind);
 }

@@ -80,7 +80,9 @@
     @if (total > 0)
     {
         <div class="doc-foot">
-            <span class="num">@total Dokumente@MissingSuffix</span>
+            @* Klammern um den Ausdruck: ohne sie liest Razor „Dokumente@MissingSuffix“ als
+               E-Mail-Adresse und gibt sie wörtlich aus. *@
+            <span class="num">@total @(total == 1 ? "Dokument" : "Dokumente")@(MissingSuffix)</span>
             <span>sortiert nach Dokumentdatum</span>
         </div>
     }
