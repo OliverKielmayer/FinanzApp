@@ -76,6 +76,7 @@ public sealed class CreateFormService(
             CreateObjectType.Contract => await ContractFormAsync(ct),
             CreateObjectType.Budget => await BudgetFormAsync(ct),
             CreateObjectType.Vehicle => await VehicleFormAsync(ct),
+            CreateObjectType.Employment => EmploymentForm(),
             _ => null,
         };
 
@@ -108,6 +109,7 @@ public sealed class CreateFormService(
             CreateObjectType.Contract => await CreateContractAsync(values, ct),
             CreateObjectType.Budget => await CreateBudgetAsync(values, ct),
             CreateObjectType.Vehicle => await CreateVehicleAsync(values, ct),
+            CreateObjectType.Employment => await CreateEmploymentAsync(values, ct),
             _ => Fail(null, "Diesen Objekttyp gibt es noch nicht."),
         };
     }
@@ -146,6 +148,7 @@ public sealed class CreateFormService(
             CreateObjectType.Contract => await UpdateContractAsync(id, values, ct),
             CreateObjectType.Budget => await UpdateBudgetAsync(id, values, ct),
             CreateObjectType.Vehicle => await UpdateVehicleAsync(id, values, ct),
+            CreateObjectType.Employment => await UpdateEmploymentAsync(id, values, ct),
             _ => Fail(null, "Diesen Objekttyp gibt es noch nicht."),
         };
     }
@@ -163,6 +166,8 @@ public sealed class CreateFormService(
             CreateObjectType.Contract => await DeleteSimpleAsync(db.Contracts, id, "Vertrag gelöscht", "/wohnen", ct),
             CreateObjectType.Budget => await DeleteSimpleAsync(db.Budgets, id, "Budget gelöscht", "/budgets", ct),
             CreateObjectType.Vehicle => await DeleteSimpleAsync(db.Vehicles, id, "Fahrzeug gelöscht", "/fahrzeuge", ct),
+            CreateObjectType.Employment => await DeleteSimpleAsync(
+                db.Employments, id, "Arbeitsverhältnis gelöscht", "/arbeit", ct),
             _ => new DeleteResultDto { Ok = false, Message = "Diesen Objekttyp gibt es nicht." },
         };
 
@@ -260,6 +265,7 @@ public sealed class CreateFormService(
         CreateObjectType.Contract => "Erfasste Rechnungen bleiben erhalten.",
         CreateObjectType.Budget => "Die bisher verbrauchte Summe bleibt erhalten.",
         CreateObjectType.Vehicle => "Die verknüpfte Versicherung bleibt unverändert unter Absicherung.",
+        CreateObjectType.Employment => "Ein neues Gehalt gilt ab sofort; erfasste Abrechnungen bleiben, wie sie sind.",
         _ => "Änderungen gelten ab sofort.",
     };
 
@@ -339,6 +345,22 @@ public sealed class CreateFormService(
             case CreateObjectType.Vehicle:
                 return Impact("Fahrzeug löschen",
                     "Die Kostenübersicht entfällt. Versicherung und Dokumente bleiben.");
+
+            case CreateObjectType.Employment:
+            {
+                var payslips = await db.Payslips.CountAsync(x => x.EmploymentId == id, ct);
+                var agreements = await db.WorkAgreements.CountAsync(x => x.EmploymentId == id, ct);
+
+                return Impact("Arbeitsverhältnis löschen",
+                    "Das Arbeitsverhältnis entfällt."
+                    + (payslips == 0
+                        ? " Es ist keine Abrechnung erfasst."
+                        : $" {payslips} erfasste {(payslips == 1 ? "Lohnabrechnung bleibt" : "Lohnabrechnungen bleiben")} "
+                          + "samt Belegen erhalten.")
+                    + (agreements == 0
+                        ? string.Empty
+                        : $" {agreements} {(agreements == 1 ? "Vereinbarung entfällt" : "Vereinbarungen entfallen")} mit."));
+            }
 
             default:
                 return null;
@@ -465,6 +487,23 @@ public sealed class CreateFormService(
                     ["period"] = x.Period.ToString(),
                     ["validFrom"] = Iso(x.ValidFrom),
                     ["warn"] = x.WarnThresholdPercent.ToString(),
+                };
+            }
+
+            case CreateObjectType.Employment:
+            {
+                var x = await db.Employments.AsNoTracking().FirstOrDefaultAsync(y => y.Id == id, ct);
+                return x is null ? null : new()
+                {
+                    ["employer"] = x.Employer,
+                    ["position"] = x.Position,
+                    ["kind"] = x.Kind.ToString(),
+                    ["start"] = Iso(x.StartsOn),
+                    ["end"] = Iso(x.EndsOn),
+                    ["hours"] = Hours(x.HoursPerWeek),
+                    ["gross"] = Money(x.GrossMonthly),
+                    ["net"] = x.NetMonthly is { } netto ? Money(netto) : null,
+                    ["notice"] = x.NoticePeriodMonths == 0 ? null : x.NoticePeriodMonths.ToString(),
                 };
             }
 
@@ -1414,6 +1453,149 @@ public sealed class CreateFormService(
 
         return Ok(vehicle.Id, $"/fahrzeuge/{vehicle.Id}");
     }
+
+    // ── Arbeit & Beruf ─────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Das Arbeitsverhältnis. Vier Pflichtfelder, der Rest darf fehlen.
+    /// </summary>
+    /// <remarks>
+    /// Das Nettogehalt ist ausdrücklich freiwillig: fehlt es, schätzt die Anzeige und sagt, dass
+    /// sie schätzt. Es zum Pflichtfeld zu machen hieße, eine Zahl zu erzwingen, die auf dem
+    /// Zettel steht, den man gerade nicht hat.
+    /// </remarks>
+    private static CreateFormDto EmploymentForm() => new()
+    {
+        Type = CreateObjectType.Employment,
+        Kicker = "Neu",
+        Title = "Arbeitsverhältnis anlegen",
+        SubmitLabel = "Arbeitsverhältnis anlegen",
+        Hint = "Die Lohnzahlung bleibt die Buchung auf dem Konto — sie wird hier nur zugeordnet, "
+               + "nicht noch einmal gebucht.",
+        Fields =
+        [
+            Text("employer", "Arbeitgeber", required: true, placeholder: "z. B. Nordlicht Systeme"),
+            Text("position", "Position", required: false, placeholder: "z. B. Entwicklerin"),
+            Choice("kind", "Beschäftigungsart", required: false,
+            [
+                new() { Value = nameof(EmploymentKind.Permanent), Label = "unbefristet" },
+                new() { Value = nameof(EmploymentKind.FixedTerm), Label = "befristet" },
+                new() { Value = nameof(EmploymentKind.PartTime), Label = "Teilzeit" },
+                new() { Value = nameof(EmploymentKind.Freelance), Label = "Werkvertrag" },
+            ], defaultValue: nameof(EmploymentKind.Permanent)),
+            Date("start", "Vertragsbeginn", required: true),
+
+            // Ohne Enddatum bliebe jedes Verhältnis für immer laufend — und eine Jahreslast,
+            // die es nicht mehr gibt, stünde weiter in jeder Summe.
+            Date("end", "Vertragsende", required: false, help: "Leer lassen, solange es läuft."),
+            Number("hours", "Arbeitszeit pro Woche", required: false, help: "in Stunden"),
+            Money("gross", "Bruttogehalt monatlich", required: true),
+            Money("net", "Nettogehalt monatlich", required: false,
+                help: "Ohne Angabe wird geschätzt und als Schätzung ausgewiesen."),
+            Number("notice", "Kündigungsfrist", required: false, help: "in Monaten"),
+        ],
+    };
+
+    private async Task<CreateResultDto> CreateEmploymentAsync(
+        IReadOnlyDictionary<string, string?> values, CancellationToken ct)
+    {
+        if (ParseMoney(Value(values, "gross")) is not { } gross || gross <= 0m)
+        {
+            return Fail("gross", "Das Bruttogehalt fehlt.");
+        }
+
+        if (ParseDate(Value(values, "start")) is not { } start)
+        {
+            return Fail("start", "Der Vertragsbeginn fehlt.");
+        }
+
+        var employment = new Employment { Employer = Value(values, "employer")!.Trim(), StartsOn = start };
+
+        if (Apply(employment, values, gross) is { } problem)
+        {
+            return problem;
+        }
+
+        db.Employments.Add(employment);
+        await db.SaveChangesAsync(ct);
+
+        return Ok(employment.Id, "/arbeit");
+    }
+
+    private async Task<CreateResultDto> UpdateEmploymentAsync(
+        int id, IReadOnlyDictionary<string, string?> values, CancellationToken ct)
+    {
+        var employment = await db.Employments.FirstOrDefaultAsync(e => e.Id == id, ct);
+        if (employment is null)
+        {
+            return Fail(null, "Das Arbeitsverhältnis gibt es nicht mehr.");
+        }
+
+        if (ParseMoney(Value(values, "gross")) is not { } gross || gross <= 0m)
+        {
+            return Fail("gross", "Das Bruttogehalt fehlt.");
+        }
+
+        if (ParseDate(Value(values, "start")) is not { } start)
+        {
+            return Fail("start", "Der Vertragsbeginn fehlt.");
+        }
+
+        employment.Employer = Value(values, "employer")!.Trim();
+        employment.StartsOn = start;
+
+        if (Apply(employment, values, gross) is { } problem)
+        {
+            return problem;
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        return Ok(employment.Id, "/arbeit");
+    }
+
+    /// <summary>
+    /// Die Felder, die Anlegen und Ändern teilen — samt der beiden Prüfungen, die sonst
+    /// zweimal dastünden und irgendwann auseinanderliefen.
+    /// </summary>
+    private static CreateResultDto? Apply(
+        Employment employment, IReadOnlyDictionary<string, string?> values, decimal gross)
+    {
+        var ende = ParseDate(Value(values, "end"));
+
+        if (ende is { } bis && bis < employment.StartsOn)
+        {
+            return Fail("end", "Das Vertragsende liegt vor dem Vertragsbeginn.");
+        }
+
+        var netto = ParseMoney(Value(values, "net"));
+
+        if (netto is { } wert && wert > gross)
+        {
+            return Fail("net", "Das Nettogehalt kann nicht über dem Brutto liegen.");
+        }
+
+        employment.Position = Value(values, "position")?.Trim();
+        employment.Kind = Enum.TryParse<EmploymentKind>(Value(values, "kind"), out var art)
+            ? art
+            : EmploymentKind.Permanent;
+        employment.EndsOn = ende;
+        employment.HoursPerWeek = ParseMoney(Value(values, "hours"));
+        employment.GrossMonthly = gross;
+        employment.NetMonthly = netto;
+        employment.NoticePeriodMonths = ParseInt(Value(values, "notice")) ?? 0;
+
+        // „Beendet“ ist erst dann wahr, wenn das Datum vorbei ist. Wer heute ein Ende für
+        // nächsten Monat einträgt, hat noch ein laufendes Verhältnis — die Auswertung fragt
+        // ohnehin über IsRunning nach, und beides muss dasselbe sagen.
+        employment.IsActive = true;
+
+        return null;
+    }
+
+    /// <summary>Stunden im Eingabeformat des Formulars: deutsch, ohne überflüssige Nullen.</summary>
+    private static string? Hours(decimal? value)
+        => value?.ToString("0.##", CultureInfo.InvariantCulture).Replace('.', ',');
 
     // ── Bausteine ──────────────────────────────────────────────────────────────────────────
 

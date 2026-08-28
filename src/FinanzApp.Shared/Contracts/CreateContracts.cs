@@ -11,6 +11,7 @@ public enum CreateObjectType
     Contract = 5,
     Budget = 6,
     Vehicle = 7,
+    Employment = 8,
 }
 
 /// <summary>Wie ein Feld einzugeben ist. Bestimmt allein die Darstellung, nicht die Bedeutung.</summary>

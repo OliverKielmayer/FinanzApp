@@ -1,5 +1,6 @@
 using FinanzApp.Api.Data;
 using FinanzApp.Api.Data.Entities;
+using FinanzApp.Api.Infrastructure;
 using FinanzApp.Shared.Contracts;
 using FinanzApp.Shared.Formatting;
 using Microsoft.EntityFrameworkCore;
@@ -18,7 +19,7 @@ namespace FinanzApp.Api.Application;
 /// ohne Untertitel, und die Liste war ärmer als jeder Einzelbereich vorher.</para>
 /// </remarks>
 public sealed class HoldingsService(
-    FinanzAppDbContext db, DashboardService dashboard, VehicleService vehicles)
+    FinanzAppDbContext db, DashboardService dashboard, VehicleService vehicles, IClock clock)
 {
     public async Task<HoldingsDto> GetAsync(
         HoldingClass? filter = null, CancellationToken ct = default)
@@ -61,6 +62,9 @@ public sealed class HoldingsService(
         var werte = zeilen.Sum(z => z.Value ?? 0m);
         var kosten = zeilen.Sum(z => z.YearlyCost ?? 0m);
 
+        // Beendetes trägt kein YearlyIncome — die Summe filtert sich damit von selbst.
+        var einkommen = zeilen.Sum(z => z.YearlyIncome ?? 0m);
+
         return new HoldingsHeadDto
         {
             Class = filter,
@@ -68,17 +72,27 @@ public sealed class HoldingsService(
             {
                 null => vermoegen.FinancialAssets,
                 HoldingClass.Protection or HoldingClass.Vehicles => kosten,
+                HoldingClass.Work => einkommen,
                 _ => werte,
             },
             TangibleAssets = vermoegen.TangibleAssets,
             Liabilities = vermoegen.Liabilities,
             Net = vermoegen.Net,
-            Count = filter == HoldingClass.Housing
-                ? zeilen.Count(z => z.Value is not null)
-                : zeilen.Count,
-            SecondaryCount = filter == HoldingClass.Housing
-                ? zeilen.Count(z => z.Value is null)
-                : 0,
+            Count = filter switch
+            {
+                HoldingClass.Housing => zeilen.Count(z => z.Value is not null),
+
+                // Laufende, nicht alle: die Unterzeile heißt „1 laufend“, und ein Zähler
+                // muss zählen, was sein Wort sagt.
+                HoldingClass.Work => zeilen.Count(z => z.YearlyIncome is not null),
+                _ => zeilen.Count,
+            },
+            SecondaryCount = filter switch
+            {
+                HoldingClass.Housing => zeilen.Count(z => z.Value is null),
+                HoldingClass.Work => zeilen.Count(z => z.YearlyIncome is null),
+                _ => 0,
+            },
             UrgentCount = zeilen.Count(z => z.Urgent),
             Installment = filter == HoldingClass.Loans ? darlehen?.Installment : null,
             NextPayment = filter == HoldingClass.Loans ? darlehen?.NextPaymentDate : null,
@@ -174,6 +188,21 @@ public sealed class HoldingsService(
                 route: "/fahrzeuge"));
         }
 
+        foreach (var stelle in await db.Employments.AsNoTracking()
+                     .OrderBy(e => e.Id).ToListAsync(ct))
+        {
+            var laeuft = stelle.IsRunning(clock.Today);
+
+            zeilen.Add(Row(
+                HoldingClass.Work, stelle.Employer, HoldingMeta.ForEmployment(stelle),
+
+                // Nur Laufendes trägt eine Jahreszahl. Der Prototyp summierte beide
+                // Verhältnisse zu 127.200 €, während der Bereich selbst 77.760 € nannte.
+                yearlyIncome: laeuft ? stelle.GrossMonthly * 12m : null,
+                note: laeuft ? "Brutto pro Jahr" : "beendet",
+                route: "/arbeit"));
+        }
+
         foreach (var darlehen in await db.Loans.AsNoTracking().OrderBy(l => l.Id).ToListAsync(ct))
         {
             zeilen.Add(Row(
@@ -188,7 +217,8 @@ public sealed class HoldingsService(
 
     private static HoldingRowDto Row(
         HoldingClass klasse, string name, string meta,
-        decimal? value = null, decimal? yearlyCost = null, bool isTangible = false,
+        decimal? value = null, decimal? yearlyCost = null, decimal? yearlyIncome = null,
+        bool isTangible = false,
         string? note = null, bool urgent = false, string route = "/") => new()
     {
         Class = klasse,
@@ -197,6 +227,7 @@ public sealed class HoldingsService(
         Meta = meta,
         Value = value,
         YearlyCost = yearlyCost,
+        YearlyIncome = yearlyIncome,
         IsTangible = isTangible,
         Note = note,
         Urgent = urgent,
@@ -222,26 +253,7 @@ public sealed class HoldingsService(
         HoldingClass.Protection => "Absicherung",
         HoldingClass.Housing => "Wohnen",
         HoldingClass.Vehicles => "Fahrzeuge",
+        HoldingClass.Work => "Arbeit",
         _ => "Darlehen",
-    };
-
-    private static string KindLabel(AccountKind kind)
-        => kind == AccountKind.Savings ? "Tagesgeld" : "Girokonto";
-
-    private static string PolicyLabel(PolicyKind kind) => kind switch
-    {
-        PolicyKind.CapitalLife => "Kapital-LV",
-        PolicyKind.Pension => "Rentenversicherung",
-        PolicyKind.Riester => "Riester",
-        PolicyKind.BuildingSociety => "Bausparen",
-        PolicyKind.OccupationalPension => "Betriebliche Altersvorsorge",
-        _ => "Vertrag",
-    };
-
-    private static string PropertyLabel(PropertyKind kind) => kind switch
-    {
-        PropertyKind.Apartment => "Wohnung",
-        PropertyKind.Land => "Grundstück",
-        _ => "Haus",
     };
 }

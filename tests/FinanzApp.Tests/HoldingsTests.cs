@@ -39,7 +39,24 @@ public sealed class HoldingsTests : IDisposable
             NullLogger<DocumentService>.Instance);
 
         return new HoldingsService(
-            context, dashboard, new VehicleService(context, documents, clock));
+            context, dashboard, new VehicleService(context, documents, clock), clock);
+    }
+
+    private void Arbeitsverhaeltnis(string arbeitgeber, decimal brutto, DateOnly? ende = null)
+    {
+        using var context = database.Context();
+
+        context.Employments.Add(new Employment
+        {
+            Employer = arbeitgeber,
+            Position = "Softwareentwicklung",
+            GrossMonthly = brutto,
+            StartsOn = new DateOnly(2019, 3, 1),
+            EndsOn = ende,
+            IsActive = ende is null,
+        });
+
+        context.SaveChanges();
     }
 
     private void Konto(string name, decimal stand)
@@ -181,6 +198,66 @@ public sealed class HoldingsTests : IDisposable
         Assert.Equal(1, bestand.Head.Count);
         Assert.Equal(1, bestand.Head.SecondaryCount);
         Assert.Equal(395_000m, bestand.Head.Value);
+    }
+
+    /// <summary>
+    /// Arbeit trennt laufend von beendet — und die Summe kennt nur die laufenden.
+    /// </summary>
+    /// <remarks>
+    /// Der Chip daneben heißt „Arbeit 2“ und zählt die Zeilen, die die Liste zeigt. Zwei Zähler
+    /// unter demselben Wort müssten dieselbe Menge zählen; weil sie es nicht tun, benennt sich
+    /// jeder — „2“ am Chip, „1 laufend“ in der Unterzeile.
+    /// </remarks>
+    [Fact]
+    public async Task Arbeit_summiert_nur_laufende_Verhaeltnisse()
+    {
+        Arbeitsverhaeltnis("EWV Kontrollsysteme", 6480m);
+        Arbeitsverhaeltnis("Rheinpark Klinikum", 4120m, ende: new DateOnly(2024, 8, 31));
+
+        var bestand = await Service().GetAsync(HoldingClass.Work);
+
+        Assert.Equal(2, bestand.Rows.Count);
+        Assert.Equal(2, bestand.Classes.Single(c => c.Class == HoldingClass.Work).Count);
+
+        Assert.Equal(77_760m, bestand.Head.Value);
+        Assert.Equal(1, bestand.Head.Count);
+        Assert.Equal(1, bestand.Head.SecondaryCount);
+    }
+
+    /// <summary>
+    /// Ein Gehalt ist weder Vermögenswert noch Jahreskosten.
+    /// </summary>
+    /// <remarks>
+    /// Stünde es unter <c>YearlyCost</c>, liefe eine Einnahme in jede Kostensumme — und die
+    /// Zeile läse sich als Ausgabe. Die beendete Zeile trägt gar keine Zahl: sie zeigt „—“.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_Arbeitsverhaeltnis_traegt_Einkommen_statt_Wert_oder_Kosten()
+    {
+        Arbeitsverhaeltnis("EWV Kontrollsysteme", 6480m);
+        Arbeitsverhaeltnis("Rheinpark Klinikum", 4120m, ende: new DateOnly(2024, 8, 31));
+
+        var zeilen = (await Service().GetAsync(HoldingClass.Work)).Rows;
+
+        var laufend = zeilen.Single(z => z.Name == "EWV Kontrollsysteme");
+        Assert.Equal(77_760m, laufend.YearlyIncome);
+        Assert.Null(laufend.Value);
+        Assert.Null(laufend.YearlyCost);
+
+        var beendet = zeilen.Single(z => z.Name == "Rheinpark Klinikum");
+        Assert.Null(beendet.YearlyIncome);
+        Assert.Null(beendet.Value);
+        Assert.Null(beendet.YearlyCost);
+    }
+
+    /// <summary>Ein Gehalt darf in keiner Vermögenssumme auftauchen.</summary>
+    [Fact]
+    public async Task Ein_Gehalt_zaehlt_nicht_ins_Finanzvermoegen()
+    {
+        Konto("Sparkasse Giro", 1000m);
+        Arbeitsverhaeltnis("EWV Kontrollsysteme", 6480m);
+
+        Assert.Equal(1000m, (await Service().GetAsync()).Head.Value);
     }
 
     // ── Metazeilen ─────────────────────────────────────────────────────────────────────────

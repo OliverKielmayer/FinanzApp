@@ -398,3 +398,131 @@ public class ScanInboxItem : IHouseholdOwned
 
     public DateTime CreatedAt { get; set; }
 }
+
+
+/// <summary>
+/// Ein Arbeitsverhältnis — v5-Handoff, Abschnitt 8.
+/// </summary>
+/// <remarks>
+/// Es liefert die Einnahmenseite, die den Auswertungen bisher fehlte: die Lohnabrechnungen
+/// hängen daran, und ihre Auszahlung verweist auf eine vorhandene Buchung.
+/// </remarks>
+public class Employment : IHouseholdOwned
+{
+    public int Id { get; set; }
+    public int HouseholdId { get; set; }
+
+    public required string Employer { get; set; }
+    public string? Position { get; set; }
+    public EmploymentKind Kind { get; set; }
+
+    public DateOnly StartsOn { get; set; }
+    public DateOnly? EndsOn { get; set; }
+
+    /// <summary>Arbeitszeit pro Woche in Stunden.</summary>
+    public decimal? HoursPerWeek { get; set; }
+
+    public decimal GrossMonthly { get; set; }
+
+    /// <summary>
+    /// Nettogehalt. <c>null</c>, solange es niemand eingetragen hat.
+    /// </summary>
+    /// <remarks>
+    /// Fehlt es, schätzt die Anzeige und sagt, dass sie schätzt. Eine geschätzte Zahl still in
+    /// die Spalte zu schreiben hieße, sie als erfasst auszugeben.
+    /// </remarks>
+    public decimal? NetMonthly { get; set; }
+
+    /// <summary>Kündigungsfrist in Monaten.</summary>
+    public int NoticePeriodMonths { get; set; }
+
+    /// <summary>
+    /// Ob das Verhältnis läuft.
+    /// </summary>
+    /// <remarks>
+    /// Ein eigenes Feld und der Filter jeder Jahreslast. Der Prototyp summierte beide
+    /// Verhältnisse zu „127.200 € Bruttogehalt pro Jahr“, während der Bereich selbst 77.760 €
+    /// nannte — 49.440 € Unterschied für dieselbe Größe. Beendetes ist keine laufende Last.
+    /// </remarks>
+    public bool IsActive { get; set; } = true;
+
+    public List<Payslip> Payslips { get; set; } = [];
+    public List<WorkAgreement> Agreements { get; set; } = [];
+
+    /// <summary>
+    /// Ob das Verhältnis an diesem Tag läuft.
+    /// </summary>
+    /// <remarks>
+    /// Das Feld allein genügt nicht: ein Enddatum, das inzwischen vorbei ist, macht das
+    /// Verhältnis beendet, ohne dass jemand etwas schreibt. Wer nur <see cref="IsActive"/>
+    /// abfrägt, rechnet ab dem Tag danach mit einer Last, die es nicht mehr gibt — und genau
+    /// diesen Unterschied hat der Prototyp in zwei Zahlen für dieselbe Größe verwandelt.
+    /// </remarks>
+    public bool IsRunning(DateOnly today)
+        => IsActive && (EndsOn is not { } ende || ende >= today);
+}
+
+/// <summary>
+/// Eine Lohnabrechnung.
+/// </summary>
+/// <remarks>
+/// Sie ist kein Geldvorgang: die Zahlung bleibt die Buchung, und die Abrechnung verweist nur
+/// darauf. Eine zweite Geldbuchung anzulegen hieße, denselben Eingang doppelt zu zählen.
+/// </remarks>
+public class Payslip : IHouseholdOwned
+{
+    public int Id { get; set; }
+    public int HouseholdId { get; set; }
+
+    /// <summary>
+    /// Das Arbeitsverhältnis. <c>null</c>, wenn es gelöscht wurde.
+    /// </summary>
+    /// <remarks>
+    /// Eine Abrechnung ist eine Tatsache, das Verhältnis war nur ihre Schublade — dasselbe
+    /// Verhältnis wie zwischen Rechnung und Vertrag. Sie mitzulöschen widerspräche der Zusage
+    /// des Löschdialogs, dass erfasste Abrechnungen und ihre Dokumente erhalten bleiben.
+    /// </remarks>
+    public int? EmploymentId { get; set; }
+    public Employment? Employment { get; set; }
+
+    /// <summary>Der Abrechnungsmonat — immer der Erste.</summary>
+    public DateOnly Month { get; set; }
+
+    public decimal Gross { get; set; }
+    public decimal Net { get; set; }
+
+    /// <summary>
+    /// Was tatsächlich ausgezahlt wurde.
+    /// </summary>
+    /// <remarks>
+    /// Meist gleich dem Netto, aber nicht immer: Vorschüsse, Sachbezüge und Pfändungen gehen
+    /// dazwischen. Die Zuordnung vergleicht gegen <em>diesen</em> Betrag, denn er ist der, der
+    /// auf dem Konto ankommt.
+    /// </remarks>
+    public decimal Payout { get; set; }
+
+    /// <summary>Der Beleg. <c>null</c>, solange keiner abgelegt ist.</summary>
+    public int? DocumentId { get; set; }
+    public Document? Document { get; set; }
+
+    /// <summary>Die Bankbuchung. <c>null</c>, solange keine zugeordnet ist.</summary>
+    public int? TransactionId { get; set; }
+    public Transaction? Transaction { get; set; }
+}
+
+/// <summary>Eine Vereinbarung zum Arbeitsverhältnis: Gehaltsänderung, Bonus, bAV.</summary>
+public class WorkAgreement : IHouseholdOwned
+{
+    public int Id { get; set; }
+    public int HouseholdId { get; set; }
+
+    public int EmploymentId { get; set; }
+    public Employment? Employment { get; set; }
+
+    public required string Name { get; set; }
+    public DateOnly SignedOn { get; set; }
+    public WorkAgreementKind Kind { get; set; }
+
+    public int? DocumentId { get; set; }
+    public Document? Document { get; set; }
+}

@@ -1,0 +1,613 @@
+@page "/arbeit"
+@attribute [Authorize]
+@inherits AppPage
+
+@*
+    Arbeit & Beruf — v5-Handoff, Abschnitt 8.
+
+    Der Bereich liefert die Einnahmenseite. Er bucht dafür nichts: die Lohnzahlung bleibt die
+    Buchung auf dem Konto, die Abrechnung verweist nur darauf. Eine zweite Geldbuchung wäre
+    derselbe Eingang zweimal.
+
+    Alle Jahreszahlen rechnen nur über laufende Verhältnisse. Ein beendetes trägt keine laufende
+    Last — es steht in der Liste, aber mit „—“ statt einer Jahreszahl.
+*@
+
+<PageTitle>Arbeit & Beruf — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Retry="ReloadAsync">
+    @if (data is { } arbeit)
+    {
+        <section class="hero">
+            <span class="label-muted">@(arbeit.Head.Employer ?? "Kein laufendes Arbeitsverhältnis")</span>
+            <span class="hero-value num">@State.Euro(arbeit.Head.YearlyGross)</span>
+            <span class="loan-sub">@HeadSub(arbeit)</span>
+        </section>
+
+        <section class="kpi">
+            <div class="kpi-cell">
+                <span class="label-muted">Brutto</span>
+                <span class="kpi-value num">@State.Euro(arbeit.Head.MonthlyGross)</span>
+            </div>
+            <div class="kpi-cell">
+                @* Die Schätzung gibt sich zu erkennen. Eine geschätzte Zahl, die aussieht wie
+                   eine erfasste, ist eine Behauptung. *@
+                <span class="label-muted">Netto@(arbeit.Head.NetIsEstimated ? " (geschätzt)" : null)</span>
+                <span class="kpi-value num">@State.Euro(arbeit.Head.MonthlyNet)</span>
+            </div>
+            <div class="kpi-cell">
+                <span class="label-muted">Abgabenquote</span>
+                <span class="kpi-value accent num">
+                    @(arbeit.Head.DeductionRatePercent is { } quote
+                        ? GermanFormat.Percent(quote, 1)
+                        : "—")
+                </span>
+            </div>
+        </section>
+
+        @* ── Arbeitsverhältnisse ─────────────────────────────────────────────────────────── *@
+
+        <div class="list-head">
+            <span class="label-strong">Arbeitsverhältnisse</span>
+        </div>
+
+        @if (arbeit.Employments.Count == 0)
+        {
+            <div class="import-nothing">
+                <span class="label-strong">Nichts erfasst</span>
+                <span class="create-help">
+                    Ohne Arbeitsverhältnis gibt es keine Abrechnungen — und den Auswertungen
+                    fehlt die Einnahmenseite.
+                </span>
+            </div>
+        }
+
+        @foreach (var stelle in arbeit.Employments)
+        {
+            <div class="holding-row">
+                <span class="stack">
+                    <span class="holding-name">@stelle.Employer</span>
+                    <span class="holding-tags">
+                        <span class="tag @(stelle.IsActive ? "tag-accent" : "tag-neutral")">
+                            @(stelle.IsActive ? "laufend" : "beendet")
+                        </span>
+                    </span>
+                    <span class="meta">@stelle.Meta</span>
+                </span>
+
+                <span class="stack-end">
+                    @* Beendetes trägt keine Jahreszahl. Der Gedankenstrich ist die Auskunft,
+                       nicht eine Null, die wie eine Messung aussähe. *@
+                    <span class="holding-value num">
+                        @(stelle.YearlyGross is { } jahr ? $"{State.Euro(jahr)}/J" : "—")
+                    </span>
+                    <span class="meta num">Brutto @State.Euro(stelle.GrossMonthly)/M</span>
+                    <AuthorizeView Roles="Owner,Member" Context="edit">
+                        <a class="section-link" href="@($"/bearbeiten/employment/{stelle.Id}")">Bearbeiten</a>
+                    </AuthorizeView>
+                </span>
+            </div>
+        }
+
+        <AuthorizeView Roles="Owner,Member" Context="add">
+            <button type="button" class="holding-add"
+                    @onclick="@(() => Navigation.NavigateTo("/neu/employment"))">
+                <span>Arbeitsverhältnis anlegen</span>
+                <span class="holding-add-mark" aria-hidden="true">+</span>
+            </button>
+        </AuthorizeView>
+
+        @* ── Lohnabrechnungen ────────────────────────────────────────────────────────────── *@
+
+        <div class="list-head">
+            <span class="label-strong">Lohnabrechnungen</span>
+            <span class="meta">@PayslipSummary(arbeit)</span>
+        </div>
+
+        @if (arbeit.Payslips.Count == 0)
+        {
+            <div class="import-nothing">
+                <span class="label-strong">Keine Abrechnung erfasst</span>
+                <span class="create-help">
+                    Erfasste Abrechnungen lassen sich mit der Gehaltsbuchung verknüpfen.
+                </span>
+            </div>
+        }
+
+        @foreach (var zeile in arbeit.Payslips)
+        {
+            var id = zeile.Id;
+            var offen = expanded == id;
+
+            <button type="button" class="tap import-row plain @(offen ? "picked" : null)"
+                    @onclick="() => ToggleAsync(id)">
+                <span class="stack">
+                    <span class="import-row-payee">@GermanFormat.MonthYear(zeile.Month)@Employer(zeile)</span>
+                    <span class="meta">
+                        Brutto @State.Euro(zeile.Gross) · Netto @State.Euro(zeile.Net)
+                    </span>
+                    <span class="meta @(IsIncomplete(zeile) ? "accent" : null)">@StateLine(zeile)</span>
+                </span>
+                <span class="stack-end">
+                    <span class="holding-value num">@State.Euro(zeile.Payout)</span>
+                    <span class="meta">Auszahlung</span>
+                </span>
+            </button>
+
+            @if (offen)
+            {
+                <div class="blueprint report-payees">
+                    <i class="corner tl" aria-hidden="true"></i>
+                    <i class="corner tr" aria-hidden="true"></i>
+                    <i class="corner bl" aria-hidden="true"></i>
+                    <i class="corner br" aria-hidden="true"></i>
+
+                    <div class="detail-block">
+                        <span class="detail-label">Bruttogehalt</span>
+                        <span class="detail-value num">@State.Euro(zeile.Gross)</span>
+                    </div>
+                    <div class="detail-block">
+                        <span class="detail-label">Nettogehalt</span>
+                        <span class="detail-value num">@State.Euro(zeile.Net)</span>
+                    </div>
+                    <div class="detail-block">
+                        <span class="detail-label">Auszahlungsbetrag</span>
+                        <span class="detail-value num">@State.Euro(zeile.Payout)</span>
+                    </div>
+                    <div class="detail-block">
+                        @* Gerechnet, nicht erfasst — und darum steht die Rechnung dabei. *@
+                        <span class="detail-label">Abgaben (Brutto − Netto)</span>
+                        <span class="detail-value num">@State.Euro(zeile.Deductions)</span>
+                    </div>
+
+                    <div class="detail-block">
+                        <span class="detail-label">Dokument</span>
+                        <span class="detail-value @(zeile.DocumentId is null ? "missing" : null)">
+                            @(zeile.DocumentTitle ?? "Beleg fehlt")
+                        </span>
+                    </div>
+
+                    <div class="detail-block">
+                        <span class="detail-label">Bankbuchung</span>
+                        <span class="detail-value @(zeile.TransactionId is null ? "missing" : null)">
+                            @Booking(zeile)
+                        </span>
+                    </div>
+
+                    @* Auszahlung und Buchung dürfen auseinandergehen. Wenn sie es tun, steht es
+                       da — statt dass eine der beiden Zahlen still verschwindet. *@
+                    @if (Difference(zeile) is { } unterschied)
+                    {
+                        <div class="detail-block">
+                            <span class="detail-label">Unterschied zur Buchung</span>
+                            <span class="detail-value num accent">
+                                @State.Euro(unterschied, withPlusSign: true)
+                            </span>
+                        </div>
+                    }
+
+                    <AuthorizeView Roles="Owner,Member" Context="row">
+                        <div class="actions">
+                            @if (zeile.DocumentId is { } beleg)
+                            {
+                                <a class="btn btn-secondary" href="@($"/dokumente/{beleg}")">Beleg öffnen</a>
+                            }
+                            else
+                            {
+                                <a class="btn btn-secondary" href="/scaneingang">Beleg scannen</a>
+                            }
+
+                            @if (zeile.TransactionId is null)
+                            {
+                                <button type="button" class="btn btn-primary" disabled="@busy"
+                                        @onclick="() => LoadCandidatesAsync(id)">Zahlung zuordnen</button>
+                            }
+                            else
+                            {
+                                <button type="button" class="btn btn-secondary" disabled="@busy"
+                                        @onclick="() => DetachAsync(id)">Zuordnung lösen</button>
+                            }
+                        </div>
+
+                        @if (candidatesFor == id)
+                        {
+                            @if (candidates is { Count: > 0 })
+                            {
+                                @foreach (var vorschlag in candidates)
+                                {
+                                    var treffer = vorschlag;
+                                    <button type="button"
+                                            class="tap candidate-row @(treffer.IsBestMatch ? "best" : null)"
+                                            disabled="@busy" @onclick="() => LinkAsync(id, treffer.TransactionId)">
+                                        <span class="stack">
+                                            <span class="work-title num">
+                                                @State.Euro(treffer.Amount) · @GermanFormat.DateShort(treffer.BookingDate)
+                                            </span>
+                                            <span class="work-due">
+                                                @treffer.AccountName · @treffer.Payee · @treffer.Reason
+                                            </span>
+                                        </span>
+                                        <span class="candidate-amount num">@treffer.Score</span>
+                                    </button>
+                                }
+                            }
+                            else
+                            {
+                                @* Ehrlich statt hilfsbereit: lieber keine Auswahl als eine
+                                   Buchung, die nur zufällig in der Nähe liegt. *@
+                                <div class="empty-area">
+                                    <span class="empty-area-text">
+                                        Keine passende Gutschrift gefunden. Gesucht wird eine
+                                        Gutschrift auf einem sichtbaren Konto, deren Betrag
+                                        höchstens 15 % vom Auszahlungsbetrag abweicht.
+                                    </span>
+                                </div>
+                            }
+                        }
+                    </AuthorizeView>
+                </div>
+            }
+        }
+
+        <AuthorizeView Roles="Owner,Member" Context="capture">
+            @if (arbeit.Employments.Count > 0)
+            {
+                @if (capturing)
+                {
+                    <div class="blueprint report-payees">
+                        <i class="corner tl" aria-hidden="true"></i>
+                        <i class="corner tr" aria-hidden="true"></i>
+                        <i class="corner bl" aria-hidden="true"></i>
+                        <i class="corner br" aria-hidden="true"></i>
+
+                        <div class="field">
+                            <label for="ab-stelle">Arbeitsverhältnis</label>
+                            <select id="ab-stelle" class="input" value="@fresh.Employment"
+                                    @onchange="e => fresh.Employment = e.Value?.ToString() ?? string.Empty">
+                                @foreach (var stelle in arbeit.Employments)
+                                {
+                                    <option value="@stelle.Id">@stelle.Employer</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="field">
+                            <label for="ab-monat">Abrechnungsmonat</label>
+                            <input id="ab-monat" class="input" type="month" value="@fresh.Month"
+                                   @oninput="e => fresh.Month = e.Value?.ToString() ?? string.Empty" />
+                        </div>
+
+                        <div class="field">
+                            <label for="ab-brutto">Bruttogehalt</label>
+                            <input id="ab-brutto" class="input" inputmode="decimal" value="@fresh.Gross"
+                                   @oninput="e => fresh.Gross = e.Value?.ToString() ?? string.Empty" />
+                        </div>
+
+                        <div class="field">
+                            <label for="ab-netto">Nettogehalt</label>
+                            <input id="ab-netto" class="input" inputmode="decimal" value="@fresh.Net"
+                                   @oninput="e => fresh.Net = e.Value?.ToString() ?? string.Empty" />
+                        </div>
+
+                        <div class="field">
+                            <label for="ab-aus">Auszahlungsbetrag</label>
+                            <input id="ab-aus" class="input" inputmode="decimal" value="@fresh.Payout"
+                                   @oninput="e => fresh.Payout = e.Value?.ToString() ?? string.Empty" />
+                            <span class="create-help">
+                                Leer lassen, wenn er dem Netto entspricht. Er ist die
+                                Vergleichsgröße für die Zuordnung — nicht das Brutto.
+                            </span>
+                        </div>
+
+                        @if (problem is { Length: > 0 })
+                        {
+                            <span class="create-problem">@problem</span>
+                        }
+
+                        <div class="actions">
+                            <button type="button" class="btn btn-primary" disabled="@busy"
+                                    @onclick="SaveAsync">Abrechnung erfassen</button>
+                            <button type="button" class="btn btn-secondary" disabled="@busy"
+                                    @onclick="CancelCapture">Abbrechen</button>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <button type="button" class="holding-add" @onclick="StartCapture">
+                        <span>Lohnabrechnung erfassen</span>
+                        <span class="holding-add-mark" aria-hidden="true">+</span>
+                    </button>
+                }
+            }
+        </AuthorizeView>
+
+        @* ── Vereinbarungen ──────────────────────────────────────────────────────────────── *@
+
+        @if (arbeit.Agreements.Count > 0)
+        {
+            <div class="list-head">
+                <span class="label-strong">Vereinbarungen</span>
+            </div>
+
+            @foreach (var vereinbarung in arbeit.Agreements)
+            {
+                <div class="import-row plain">
+                    <span class="stack">
+                        <span class="import-row-payee">@vereinbarung.Name</span>
+                        <span class="meta">
+                            @GermanFormat.Date(vereinbarung.SignedOn)
+                            @(vereinbarung.DocumentTitle is { Length: > 0 } beleg ? $" · {beleg}" : null)
+                        </span>
+                    </span>
+                    <span class="tag tag-neutral">@vereinbarung.KindLabel</span>
+                </div>
+            }
+        }
+
+        <div class="tx-totals-note">
+            Lohnabrechnungen liefern die Einnahmenseite der Auswertungen. Die Zahlung bleibt die
+            Buchung — hier wird nur darauf verwiesen.
+        </div>
+
+        <div class="spacer"></div>
+    }
+</AsyncView>
+
+@code {
+    /// <summary>Die Eingaben der Erfassungsmaske, roh wie getippt.</summary>
+    private sealed class PayslipDraft
+    {
+        public string Employment { get; set; } = string.Empty;
+        public string Month { get; set; } = string.Empty;
+        public string Gross { get; set; } = string.Empty;
+        public string Net { get; set; } = string.Empty;
+        public string Payout { get; set; } = string.Empty;
+    }
+
+    private EmploymentOverviewDto? data;
+
+    private int? expanded;
+    private int? candidatesFor;
+    private IReadOnlyList<PaymentCandidateDto>? candidates;
+
+    private bool capturing;
+    private PayslipDraft fresh = new();
+    private string? problem;
+    private bool busy;
+
+    protected override async Task LoadAsync() => data = await Api.GetEmploymentsAsync();
+
+    // ── Kopf und Zustandszeilen ────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// „Brutto pro Jahr · 1 laufend · 2 erfasst“.
+    /// </summary>
+    /// <remarks>
+    /// Beide Zähler stehen hier zusammen, weil die Jahreszahl darüber nur die laufenden meint.
+    /// Ohne die Trennung wäre „2 Arbeitsverhältnisse“ neben 77.760 € eine stille Aufforderung,
+    /// falsch zu rechnen.
+    /// </remarks>
+    private static string HeadSub(EmploymentOverviewDto arbeit)
+        => $"Brutto pro Jahr · {arbeit.Head.ActiveCount} laufend · {arbeit.Head.TotalCount} erfasst";
+
+    private static string PayslipSummary(EmploymentOverviewDto arbeit)
+    {
+        var teile = new List<string>
+        {
+            $"{arbeit.Payslips.Count} erfasst",
+        };
+
+        if (arbeit.WithoutDocumentCount > 0)
+        {
+            teile.Add($"{arbeit.WithoutDocumentCount} ohne Beleg");
+        }
+
+        if (arbeit.WithoutPaymentCount > 0)
+        {
+            teile.Add($"{arbeit.WithoutPaymentCount} ohne Zahlung");
+        }
+
+        return string.Join(" · ", teile);
+    }
+
+    /// <summary>Der Arbeitgeber, sofern es ihn noch gibt.</summary>
+    private static string? Employer(PayslipRowDto zeile)
+        => zeile.Employer is { Length: > 0 } name ? $" · {name}" : null;
+
+    private static bool IsIncomplete(PayslipRowDto zeile)
+        => zeile.DocumentId is null || zeile.TransactionId is null;
+
+    private static string StateLine(PayslipRowDto zeile)
+    {
+        var teile = new List<string>();
+
+        if (zeile.DocumentId is null)
+        {
+            teile.Add("Beleg fehlt");
+        }
+
+        teile.Add(zeile.PaidOn is { } tag
+            ? $"Zahlung zugeordnet · {GermanFormat.DateShort(tag)}"
+            : "Zahlung nicht zugeordnet");
+
+        return string.Join(" · ", teile);
+    }
+
+    private string Booking(PayslipRowDto zeile)
+        => zeile.PaidOn is { } tag
+            ? $"{GermanFormat.Date(tag)} · {zeile.PaidFrom}"
+            : "nicht zugeordnet";
+
+    /// <summary>Was die Buchung mehr oder weniger trägt als die Abrechnung — oder nichts.</summary>
+    private static decimal? Difference(PayslipRowDto zeile)
+        => zeile.PaidAmount is { } gebucht && gebucht != zeile.Payout
+            ? gebucht - zeile.Payout
+            : null;
+
+    // ── Bedienung ──────────────────────────────────────────────────────────────────────────
+
+    private Task ToggleAsync(int id)
+    {
+        expanded = expanded == id ? null : id;
+
+        // Die Vorschläge gehören zu einer Zeile. Bleiben sie beim Zuklappen stehen, zeigen sie
+        // beim nächsten Aufklappen die Kandidaten einer anderen Abrechnung.
+        candidatesFor = null;
+        candidates = null;
+
+        return Task.CompletedTask;
+    }
+
+    private Task LoadCandidatesAsync(int id) => RunAsync(async () =>
+    {
+        busy = true;
+
+        try
+        {
+            candidates = await Api.GetPayslipPaymentCandidatesAsync(id);
+            candidatesFor = id;
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    private Task LinkAsync(int id, int transactionId) => RunAsync(async () =>
+    {
+        busy = true;
+
+        try
+        {
+            await Api.LinkPayslipPaymentAsync(id, transactionId);
+
+            candidatesFor = null;
+            candidates = null;
+            await LoadAsync();
+
+            Toasts.Show("Zahlung zugeordnet");
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message);
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    private Task DetachAsync(int id) => RunAsync(async () =>
+    {
+        busy = true;
+
+        try
+        {
+            await Api.DetachPayslipPaymentAsync(id);
+            await LoadAsync();
+
+            Toasts.Show("Zuordnung gelöst · die Buchung bleibt");
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    private void StartCapture()
+    {
+        capturing = true;
+        problem = null;
+        fresh = new PayslipDraft
+        {
+            Employment = data?.Employments.FirstOrDefault(e => e.IsActive)?.Id.ToString()
+                         ?? data?.Employments.FirstOrDefault()?.Id.ToString()
+                         ?? string.Empty,
+            Month = DateTime.Now.ToString("yyyy-MM"),
+        };
+    }
+
+    private void CancelCapture()
+    {
+        capturing = false;
+        problem = null;
+    }
+
+    private Task SaveAsync() => RunAsync(async () =>
+    {
+        busy = true;
+        problem = null;
+
+        try
+        {
+            if (!int.TryParse(fresh.Employment, out var stelle))
+            {
+                problem = "Bitte ein Arbeitsverhältnis wählen.";
+                return;
+            }
+
+            if (!DateOnly.TryParse(fresh.Month + "-01", out var monat))
+            {
+                problem = "Der Abrechnungsmonat fehlt.";
+                return;
+            }
+
+            if (Parse(fresh.Gross) is not { } brutto)
+            {
+                problem = "Das Bruttogehalt fehlt.";
+                return;
+            }
+
+            if (Parse(fresh.Net) is not { } netto)
+            {
+                problem = "Das Nettogehalt fehlt.";
+                return;
+            }
+
+            await Api.CreatePayslipAsync(new CreatePayslipRequest
+            {
+                EmploymentId = stelle,
+                Month = monat,
+                Gross = brutto,
+                Net = netto,
+                Payout = Parse(fresh.Payout),
+            });
+
+            capturing = false;
+            await LoadAsync();
+
+            Toasts.Show("Abrechnung erfasst");
+        }
+        catch (ApiException ex)
+        {
+            problem = ex.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    /// <summary>Betrag wie getippt: deutsch mit Komma, notfalls mit Punkt.</summary>
+    private static decimal? Parse(string text)
+    {
+        var sauber = text.Trim().Replace("€", string.Empty).Replace(" ", string.Empty);
+
+        if (sauber.Length == 0)
+        {
+            return null;
+        }
+
+        if (sauber.Contains(','))
+        {
+            sauber = sauber.Replace(".", string.Empty).Replace(',', '.');
+        }
+
+        return decimal.TryParse(
+            sauber, System.Globalization.NumberStyles.Number,
+            System.Globalization.CultureInfo.InvariantCulture, out var wert)
+            ? wert
+            : null;
+    }
+}

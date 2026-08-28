@@ -26,6 +26,7 @@ public static class ExtensionEndpoints
         MapScanInbox(app);
         MapHousing(app);
         MapLiquidity(app);
+        MapWork(app);
     }
 
     private static void MapDocuments(IEndpointRouteBuilder app)
@@ -234,6 +235,54 @@ public static class ExtensionEndpoints
     }
 
     /// <summary>Fahrzeuge — dieselbe Form wie Immobilien, weil es dieselbe Art Objekt ist.</summary>
+    /// <summary>
+    /// Arbeit &amp; Beruf. Die Zuordnung schlägt vor; bestätigt wird sie von Hand, und sie ist
+    /// wieder lösbar — dieselbe Mechanik wie bei PKV-Vorgängen und Rechnungen.
+    /// </summary>
+    private static void MapWork(IEndpointRouteBuilder app)
+    {
+        var api = app.MapGroup("/api/work").WithTags("Arbeit").RequireAuthorization();
+
+        api.MapGet("/", async (EmploymentService service, CancellationToken ct)
+            => Results.Ok(await service.GetAsync(ct)));
+
+        api.MapPost("/payslips", async (
+                CreatePayslipRequest request, EmploymentService service, CancellationToken ct)
+            => await Guarded(() => service.CreatePayslipAsync(request, ct)))
+            .RequireAuthorization(AuthPolicies.Write);
+
+        api.MapDelete("/payslips/{id:int}", async (int id, EmploymentService service, CancellationToken ct)
+            => await service.DeletePayslipAsync(id, ct) ? Results.NoContent() : Results.NotFound())
+            .RequireAuthorization(AuthPolicies.Write);
+
+        api.MapGet("/payslips/{id:int}/payment-candidates", async (
+                int id, EmploymentService service, CancellationToken ct)
+            => Results.Ok(await service.GetPaymentCandidatesAsync(id, ct)));
+
+        api.MapPost("/payslips/{id:int}/payment", async (
+                int id, LinkPayslipPaymentRequest request, EmploymentService service, CancellationToken ct)
+            => await Guarded(() => service.LinkPaymentAsync(id, request.TransactionId, ct)))
+            .RequireAuthorization(AuthPolicies.Write);
+
+        api.MapDelete("/payslips/{id:int}/payment", async (
+                int id, EmploymentService service, CancellationToken ct)
+            => await Guarded(() => service.DetachPaymentAsync(id, ct)))
+            .RequireAuthorization(AuthPolicies.Write);
+    }
+
+    /// <summary>Fachliche Verstöße kommen als lesbare 400er zurück, nicht als Absturz.</summary>
+    private static async Task<IResult> Guarded<T>(Func<Task<T>> work)
+    {
+        try
+        {
+            return Results.Ok(await work());
+        }
+        catch (RuleViolationException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+    }
+
     private static void MapVehicles(IEndpointRouteBuilder app)
     {
         var api = app.MapGroup("/api/vehicles").WithTags("Fahrzeuge").RequireAuthorization();

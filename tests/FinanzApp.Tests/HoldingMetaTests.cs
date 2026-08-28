@@ -47,7 +47,7 @@ public sealed class HoldingMetaTests : IDisposable
             clock);
 
         return new HoldingsService(
-            context, dashboard, new VehicleService(context, Documents(), clock));
+            context, dashboard, new VehicleService(context, Documents(), clock), clock);
     }
 
     private PolicyService Policies() => new(database.Context(), Documents(), clock);

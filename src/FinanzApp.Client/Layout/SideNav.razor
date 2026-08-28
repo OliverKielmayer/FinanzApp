@@ -103,6 +103,13 @@
             "/scaneingang" => c.ScanInboxCount > 0 ? c.ScanInboxCount.ToString() : null,
             "/gesundheit" => c.OpenMedicalBillCount > 0 ? $"{c.OpenMedicalBillCount} offen" : null,
             "/wohnen" => c.PropertyCount > 0 ? c.PropertyCount.ToString() : null,
+
+            // „1 laufend“, nicht „2“. Der Bestand-Chip zählt beide Zeilen und heißt „Arbeit 2“ —
+            // zwei Zähler unter demselben Wort müssten dieselbe Menge zählen, also benennt
+            // sich dieser hier.
+            "/arbeit" => c.ActiveEmploymentCount > 0
+                ? $"{c.ActiveEmploymentCount} laufend"
+                : null,
             "/auswertungen" => c.RisingCategoryCount > 0
                 ? $"{c.RisingCategoryCount} steigend"
                 : null,

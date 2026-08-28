@@ -165,6 +165,7 @@ builder.Services.AddScoped<LiquidityService>();
 builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<HoldingsService>();
 builder.Services.AddScoped<DocumentTypeService>();
+builder.Services.AddScoped<EmploymentService>();
 
 var app = builder.Build();
 

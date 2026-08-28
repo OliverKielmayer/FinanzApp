@@ -10,6 +10,7 @@ public enum HoldingClass
     Housing = 4,
     Vehicles = 5,
     Loans = 6,
+    Work = 7,
 }
 
 /// <summary>Ein Klassenfilter mit seinem Zähler.</summary>
@@ -49,6 +50,8 @@ public sealed record HoldingsHeadDto
     /// </summary>
     /// <remarks>
     /// Wohnen führt Objekte <em>und</em> Verträge. „5 Objekte“ wäre falsch, „5 Zeilen“ nichtssagend.
+    /// Bei „Arbeit“ trennt sie laufend von beendet — ein nackter Zähler, der etwas anderes
+    /// zählt als der Chip daneben, ist ein Fehler; hier zählt jede Zahl mit ihrem Wort.
     /// </remarks>
     public required int SecondaryCount { get; init; }
 
@@ -85,6 +88,18 @@ public sealed record HoldingRowDto
 
     /// <summary>Jahreskosten. <c>null</c> bei Posten, die einen Wert tragen.</summary>
     public required decimal? YearlyCost { get; init; }
+
+    /// <summary>
+    /// Jahreseinkommen. <c>null</c> bei allem, was keines abwirft.
+    /// </summary>
+    /// <remarks>
+    /// Eine dritte Spaltenbedeutung, weil es die drei Bedeutungen wirklich gibt: ein Gehalt ist
+    /// weder ein Vermögenswert noch eine Kosten­last. Es unter <see cref="YearlyCost"/> zu
+    /// führen hieße, Einnahmen als Ausgaben zu buchen — im Vertrag und damit überall.
+    /// Bei einem beendeten Verhältnis steht auch hier <c>null</c>: es trägt keine Jahreslast
+    /// mehr, und die Zeile zeigt „—“.
+    /// </remarks>
+    public required decimal? YearlyIncome { get; init; }
 
     /// <summary>Ob der Wert ein Sachwert ist — er zählt in eine andere Summe.</summary>
     public required bool IsTangible { get; init; }

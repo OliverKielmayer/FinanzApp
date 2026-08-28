@@ -87,6 +87,24 @@ public static class HoldingMeta
             vehicle.Mileage is { } km ? $"{GermanFormat.Quantity(km)} km" : null,
             vehicle.Policy is null ? null : "Versicherung verknüpft");
 
+    /// <summary>
+    /// Ein Arbeitsverhältnis — ohne Gehalt.
+    /// </summary>
+    /// <remarks>
+    /// Das Gehalt steht rechts an der Zeile und wird von „Beträge verbergen“ maskiert. Hier
+    /// noch einmal genannt, käme es an der Maskierung vorbei und stünde zweimal da.
+    /// </remarks>
+    public static string ForEmployment(Employment employment)
+        => Join(
+            employment.Position,
+            EmploymentLabel(employment.Kind),
+            $"seit {GermanFormat.Date(employment.StartsOn)}",
+            employment.EndsOn is { } ende ? $"bis {GermanFormat.Date(ende)}" : null,
+            employment.HoursPerWeek is { } stunden
+                ? $"{GermanFormat.Quantity(stunden)} Std./Woche"
+                : null,
+            Period(employment.NoticePeriodMonths, "Monat", "Monate"));
+
     public static string ForLoan(Loan loan)
         => Join(
             loan.Lender,
@@ -131,6 +149,22 @@ public static class HoldingMeta
         // Nur für Other. Jede benannte Art gehört oben hin: eine Krankenversicherung stand
         // in der Suche als „Vertrag · Vertrag“ da, weil sie hier durchfiel.
         _ => "Vertrag",
+    };
+
+    public static string EmploymentLabel(EmploymentKind kind) => kind switch
+    {
+        EmploymentKind.FixedTerm => "befristet",
+        EmploymentKind.PartTime => "Teilzeit",
+        EmploymentKind.Freelance => "Werkvertrag",
+        _ => "unbefristet",
+    };
+
+    public static string AgreementLabel(WorkAgreementKind kind) => kind switch
+    {
+        WorkAgreementKind.SalaryChange => "Gehaltsänderung",
+        WorkAgreementKind.Bonus => "Bonusvereinbarung",
+        WorkAgreementKind.OccupationalPension => "Betriebliche Altersvorsorge",
+        _ => "Vereinbarung",
     };
 
     public static string PropertyLabel(PropertyKind kind) => kind switch

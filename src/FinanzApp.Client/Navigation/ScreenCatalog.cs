@@ -101,6 +101,8 @@ public static class ScreenCatalog
             Group: NavGroup.Holdings, InAreaList: true, DetailTitle: "Fahrzeug"),
         new("/darlehen", "Finanzierungen", "Darlehen", IsDetail: true,
             Group: NavGroup.Holdings, InAreaList: true),
+        new("/arbeit", "Beruf", "Arbeit & Beruf", IsDetail: true,
+            Group: NavGroup.Holdings, InAreaList: true),
 
         new("/auswertungen", "Analyse", "Auswertungen", IsDetail: true,
             Group: NavGroup.Analysis, InAreaList: true),

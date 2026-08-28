@@ -140,6 +140,7 @@
         HoldingClass.Protection => "/neu/protection",
         HoldingClass.Housing => "/neu/property",
         HoldingClass.Vehicles => "/neu/vehicle",
+        HoldingClass.Work => "/neu/employment",
         _ => "/neu",
     };
 
@@ -159,6 +160,7 @@
         HoldingClass.Protection => "Jahresbeitrag",
         HoldingClass.Housing => "Objektwert",
         HoldingClass.Vehicles => "Kosten pro Jahr",
+        HoldingClass.Work => "Brutto pro Jahr",
         _ => "Restschuld",
     };
 
@@ -193,6 +195,13 @@
         HoldingClass.Housing => $"{Count(kopf.Count, "Objekt", "Objekte")} · "
                                 + Count(kopf.SecondaryCount, "Vertrag", "Verträge"),
 
+        // „1 laufend · 1 beendet“. Der Chip daneben zählt beide Zeilen und heißt „Arbeit 2“ —
+        // beide Zahlen stimmen, weil jede sagt, was sie zählt.
+        HoldingClass.Work => $"{kopf.Count} laufend"
+                             + (kopf.SecondaryCount == 0
+                                 ? string.Empty
+                                 : $" · {kopf.SecondaryCount} beendet"),
+
         HoldingClass.Loans => kopf.Installment is { } rate
             ? $"Rate {State.Euro(rate)}"
               + (kopf.NextPayment is { } tag ? $" · nächste Zahlung {GermanFormat.Date(tag)}" : null)
@@ -219,11 +228,24 @@
             : "Objekte mit laufender Frist stehen im Akzentmuster. Die Zeile führt auf den "
               + "Bereich, in dem sich das Objekt bearbeiten lässt.";
 
+    /// <summary>
+    /// Wert, Jahreskosten oder Jahreseinkommen — die Einheit steht an der Zahl.
+    /// </summary>
+    /// <remarks>
+    /// Ohne sie stünden drei Bedeutungen in derselben Spalte und sähen aus wie dieselbe. Wo gar
+    /// nichts zu zeigen ist — ein beendetes Arbeitsverhältnis trägt keine Jahreslast mehr —,
+    /// steht der Gedankenstrich statt einer Null, die wie eine Messung aussähe.
+    /// </remarks>
     private string Amount(HoldingRowDto zeile)
     {
         if (zeile.YearlyCost is { } kosten)
         {
             return $"{State.Euro(kosten)}/J";
+        }
+
+        if (zeile.YearlyIncome is { } einkommen)
+        {
+            return $"{State.Euro(einkommen)}/J";
         }
 
         return zeile.Value is { } wert ? State.Euro(wert) : "—";

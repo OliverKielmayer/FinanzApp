@@ -61,6 +61,11 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
     /// <summary>Gespeicherte Einstellungen des Auswertungsbereichs, je Benutzer.</summary>
     public DbSet<ReportView> ReportViews => Set<ReportView>();
 
+    /// <summary>Arbeitsverhältnisse und was daran hängt — die Einnahmenseite.</summary>
+    public DbSet<Employment> Employments => Set<Employment>();
+    public DbSet<Payslip> Payslips => Set<Payslip>();
+    public DbSet<WorkAgreement> WorkAgreements => Set<WorkAgreement>();
+
     /// <summary>Gelesene Werte samt Herkunft — leer, solange keine Analyse angebunden ist.</summary>
     public DbSet<DocumentExtraction> DocumentExtractions => Set<DocumentExtraction>();
 
@@ -370,6 +375,45 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
             e.HasOne(x => x.Document).WithMany()
                 .HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(x => x.FiledAt);
+        });
+
+        b.Entity<Employment>(e =>
+        {
+            e.Property(x => x.Employer).HasMaxLength(160).IsRequired();
+            e.Property(x => x.Position).HasMaxLength(160);
+            e.Property(x => x.GrossMonthly).HasConversion(MoneyConverter);
+            e.Property(x => x.NetMonthly).HasConversion(NullableMoneyConverter);
+            e.HasIndex(x => new { x.HouseholdId, x.IsActive });
+        });
+
+        b.Entity<Payslip>(e =>
+        {
+            e.Property(x => x.Gross).HasConversion(MoneyConverter);
+            e.Property(x => x.Net).HasConversion(MoneyConverter);
+            e.Property(x => x.Payout).HasConversion(MoneyConverter);
+
+            e.HasOne(x => x.Employment).WithMany(x => x.Payslips)
+                .HasForeignKey(x => x.EmploymentId).OnDelete(DeleteBehavior.SetNull);
+
+            // Beleg und Buchung bleiben stehen, wenn die Abrechnung geht — und umgekehrt:
+            // eine gelöschte Buchung nimmt keine Abrechnung mit, sie verliert nur ihren Verweis.
+            e.HasOne(x => x.Document).WithMany()
+                .HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Transaction).WithMany()
+                .HasForeignKey(x => x.TransactionId).OnDelete(DeleteBehavior.SetNull);
+
+            // Ein Monat, eine Abrechnung je Verhältnis.
+            e.HasIndex(x => new { x.EmploymentId, x.Month }).IsUnique();
+        });
+
+        b.Entity<WorkAgreement>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(160).IsRequired();
+
+            e.HasOne(x => x.Employment).WithMany(x => x.Agreements)
+                .HasForeignKey(x => x.EmploymentId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Document).WithMany()
+                .HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.SetNull);
         });
 
         b.Entity<ReportView>(e =>

@@ -267,6 +267,34 @@ public static class FinanzAppApiExtensions
         this FinanzAppApi api, int id, CancellationToken ct = default)
         => api.GetAsync<InvoiceDetailDto>($"api/invoices/{id}", ct);
 
+    // ── Arbeit & Beruf ─────────────────────────────────────────────────────────────────────
+
+    public static Task<EmploymentOverviewDto> GetEmploymentsAsync(
+        this FinanzAppApi api, CancellationToken ct = default)
+        => api.GetAsync<EmploymentOverviewDto>("api/work", ct);
+
+    public static Task<PayslipRowDto> CreatePayslipAsync(
+        this FinanzAppApi api, CreatePayslipRequest request, CancellationToken ct = default)
+        => api.PostAsync<CreatePayslipRequest, PayslipRowDto>("api/work/payslips", request, ct);
+
+    public static Task<IReadOnlyList<PaymentCandidateDto>> GetPayslipPaymentCandidatesAsync(
+        this FinanzAppApi api, int id, CancellationToken ct = default)
+        => api.GetAsync<IReadOnlyList<PaymentCandidateDto>>(
+            $"api/work/payslips/{id}/payment-candidates", ct);
+
+    public static Task<PayslipRowDto> LinkPayslipPaymentAsync(
+        this FinanzAppApi api, int id, int transactionId, CancellationToken ct = default)
+        => api.SendAsync<LinkPayslipPaymentRequest, PayslipRowDto>(
+            HttpMethod.Post,
+            $"api/work/payslips/{id}/payment",
+            new LinkPayslipPaymentRequest { TransactionId = transactionId },
+            ct);
+
+    public static Task<PayslipRowDto> DetachPayslipPaymentAsync(
+        this FinanzAppApi api, int id, CancellationToken ct = default)
+        => api.SendAsync<object?, PayslipRowDto>(
+            HttpMethod.Delete, $"api/work/payslips/{id}/payment", null, ct);
+
     public static Task<IReadOnlyList<PaymentCandidateDto>> GetInvoicePaymentCandidatesAsync(
         this FinanzAppApi api, int id, CancellationToken ct = default)
         => api.GetAsync<IReadOnlyList<PaymentCandidateDto>>($"api/invoices/{id}/payment-candidates", ct);

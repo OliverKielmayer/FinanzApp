@@ -16,7 +16,8 @@ public sealed class OverviewService(
     HoldingsService holdings,
     ReportService reports,
     TaskService tasks,
-    CurrentUser current)
+    CurrentUser current,
+    IClock clock)
 {
     public async Task<MoreOverviewDto> GetAsync(CancellationToken ct = default)
     {
@@ -98,6 +99,11 @@ public sealed class OverviewService(
             HoldingCount = (await holdings.GetAsync(ct: ct)).Rows.Count,
             NetWorth = wealth.NetWorth.Net,
             RisingCategoryCount = trend.RisingCount,
+
+            // Nur die laufenden. Die Navigationszeile schreibt das Wort dazu, weil der
+            // Bestand-Chip daneben alle Zeilen zählt.
+            ActiveEmploymentCount = await db.Employments
+                .CountAsync(e => e.IsActive && (e.EndsOn == null || e.EndsOn >= clock.Today), ct),
         };
     }
 }

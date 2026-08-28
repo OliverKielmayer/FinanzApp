@@ -127,3 +127,22 @@ public enum PremiumInterval
     HalfYearly = 2,
     Yearly = 3,
 }
+
+
+/// <summary>Art eines Arbeitsverhältnisses.</summary>
+public enum EmploymentKind
+{
+    Permanent = 0,
+    FixedTerm = 1,
+    PartTime = 2,
+    Freelance = 3,
+}
+
+/// <summary>Art einer Vereinbarung zum Arbeitsverhältnis.</summary>
+public enum WorkAgreementKind
+{
+    SalaryChange = 0,
+    Bonus = 1,
+    OccupationalPension = 2,
+    Other = 9,
+}

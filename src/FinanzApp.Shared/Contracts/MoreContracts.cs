@@ -53,6 +53,16 @@ public sealed record AreaCountsDto
 
     /// <summary>Kategorien, die um mehr als die Schwelle steigen — Kennzahl der Auswertungen.</summary>
     public required int RisingCategoryCount { get; init; }
+
+    /// <summary>
+    /// Laufende Arbeitsverhältnisse — Kennzahl der Zeile „Arbeit &amp; Beruf“.
+    /// </summary>
+    /// <remarks>
+    /// Ausdrücklich nur die laufenden, und die Zeile schreibt es dazu. Der Bestand-Chip zählt
+    /// daneben alle Zeilen; ein nackter Zähler, der etwas anderes zählt als der neben ihm, ist
+    /// ein Fehler.
+    /// </remarks>
+    public required int ActiveEmploymentCount { get; init; }
 }
 
 /// <summary>Kopfzahl der Vorsorge: Summe der erreichten Werte, immer mit Stichtag.</summary>

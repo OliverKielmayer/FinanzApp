@@ -44,6 +44,7 @@ public static class ExtensionSeedData
         await SeedDocumentsAsync(db, paths, types, policies, property, bills, ct);
         await db.SaveChangesAsync(ct);
 
+        await SeedWorkAsync(db, ct);
         await SeedVehiclesAsync(db, policies, ct);
         await SeedScanInboxAsync(db, paths, types, ct);
         await db.SaveChangesAsync(ct);
@@ -494,6 +495,107 @@ public static class ExtensionSeedData
     /// kalibrierten Monatssummen unberührt bleiben. Das Kennzeichen steht in der Notiz: daran
     /// findet der Dienst sie wieder.
     /// </remarks>
+    /// <summary>
+    /// Arbeit &amp; Beruf: zwei Verhältnisse, vier Abrechnungen, zwei Vereinbarungen.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Auszahlungsbetrag wird <b>aus der Gehaltsbuchung gelesen</b>, nicht danebengesetzt.
+    /// Das ist die erste Regel, gegen die der Prototyp verstoßen hat: dort hing die Abrechnung
+    /// 08/2026 an einer Buchung über 5.240 €, führte selbst aber 3.812 € Auszahlung — eine
+    /// Paarung, die der eigene Matcher (±15 %) nie vorgeschlagen hätte. Wer die Zahl aus der
+    /// Buchung nimmt, kann diesen Fehler nicht machen.</para>
+    /// <para>Das zweite Verhältnis ist beendet. Es steht in der Liste, trägt aber keine
+    /// Jahreslast — ohne einen solchen Fall bliebe die Regel ungeprüft.</para>
+    /// </remarks>
+    private static async Task SeedWorkAsync(FinanzAppDbContext db, CancellationToken ct)
+    {
+        var ewv = new Employment
+        {
+            Employer = "EWV Kontrollsysteme",
+            Position = "Softwareentwicklung",
+            Kind = EmploymentKind.Permanent,
+            StartsOn = new DateOnly(2019, 3, 1),
+            HoursPerWeek = 40m,
+            GrossMonthly = 8400m,
+            NetMonthly = 5240m,
+            NoticePeriodMonths = 3,
+            IsActive = true,
+        };
+
+        var klinikum = new Employment
+        {
+            Employer = "Rheinpark Klinikum",
+            Position = "Pflege",
+            Kind = EmploymentKind.PartTime,
+            StartsOn = new DateOnly(2015, 9, 1),
+            EndsOn = new DateOnly(2019, 2, 28),
+            HoursPerWeek = 24m,
+            GrossMonthly = 2450m,
+
+            // Kein Netto erfasst: die Anzeige schätzt und sagt, dass sie schätzt.
+            NetMonthly = null,
+            NoticePeriodMonths = 1,
+            IsActive = false,
+        };
+
+        db.Employments.AddRange(ewv, klinikum);
+        await db.SaveChangesAsync(ct);
+
+        var belege = await db.Documents
+            .Where(d => d.Area == DocumentArea.Work)
+            .ToDictionaryAsync(d => d.Title, ct);
+
+        // Vier Monate, und jeder holt sich seine eigene Gehaltsbuchung.
+        foreach (var monat in new[] { 4, 5, 6, 7 })
+        {
+            var ersten = new DateOnly(2026, monat, 1);
+
+            var buchung = await db.Transactions.FirstOrDefaultAsync(
+                t => t.Payee == "Gehalt EWV" && t.BookingDate == ersten, ct);
+
+            if (buchung is null)
+            {
+                continue;
+            }
+
+            var auszahlung = Math.Abs(buchung.Amount);
+
+            db.Payslips.Add(new Payslip
+            {
+                EmploymentId = ewv.Id,
+                Month = ersten,
+                Gross = 8400m,
+                Net = auszahlung,
+                Payout = auszahlung,
+
+                // 04/2026 ohne Beleg, 07/2026 ohne Zahlung: beide Akzentzustände des Bereichs
+                // sollen sich vorführen lassen, ohne dass man erst etwas anlegen muss.
+                DocumentId = belege.TryGetValue($"Lohnabrechnung 0{monat}/2026", out var beleg)
+                    ? beleg.Id
+                    : null,
+                TransactionId = monat == 7 ? null : buchung.Id,
+            });
+        }
+
+        db.WorkAgreements.AddRange(
+            new WorkAgreement
+            {
+                Employment = ewv,
+                Name = "Gehaltsanpassung 2026",
+                SignedOn = new DateOnly(2026, 1, 15),
+                Kind = WorkAgreementKind.SalaryChange,
+            },
+            new WorkAgreement
+            {
+                Employment = ewv,
+                Name = "Entgeltumwandlung Direktversicherung",
+                SignedOn = new DateOnly(2023, 6, 1),
+                Kind = WorkAgreementKind.OccupationalPension,
+            });
+
+        await db.SaveChangesAsync(ct);
+    }
+
     private static async Task SeedVehiclesAsync(
         FinanzAppDbContext db, Dictionary<string, Policy> policies, CancellationToken ct)
     {
@@ -667,6 +769,14 @@ public static class ExtensionSeedData
             ("Energieausweis", "Energieausweis", DocumentArea.Housing,
                 "Wohnen/Energieausweis_2019.pdf", new DateOnly(2019, 5, 20), "immobilie",
                 LinkTargetType.Property, property.Id, true),
+
+            ("Lohnabrechnung 05/2026", "Lohnabrechnung", DocumentArea.Work,
+                "Arbeit/Lohn/2026/Lohn_05_2026.pdf", new DateOnly(2026, 5, 31), "lohn,2026",
+                null, null, true),
+
+            ("Lohnabrechnung 06/2026", "Lohnabrechnung", DocumentArea.Work,
+                "Arbeit/Lohn/2026/Lohn_06_2026.pdf", new DateOnly(2026, 6, 30), "lohn,2026",
+                null, null, true),
 
             // Ohne Datei auf der Platte: der Zustand „Datei nicht gefunden“ soll vorführbar sein.
             ("Lohnabrechnung 07/2026", "Lohnabrechnung", DocumentArea.Work,
