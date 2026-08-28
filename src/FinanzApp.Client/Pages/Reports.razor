@@ -133,6 +133,11 @@
         <DataQualityReport Data="luecken" />
         <div class="spacer"></div>
     }
+    else if (report == ReportKind.HealthBalance && health is { } pkv)
+    {
+        <HealthBalanceReport Data="pkv" Busy="busy" OnPickYear="PickHealthYearAsync" />
+        <div class="spacer"></div>
+    }
     else if (report == ReportKind.PortfolioGainLoss)
     {
         @if (gain is { } depot)
@@ -312,7 +317,20 @@
     private FixedCostsDto? fixedCosts;
     private PortfolioGainDto? gain;
     private DataQualityDto? quality;
+    private HealthBalanceDto? health;
     private int? depotId;
+
+    /// <summary>
+    /// Das Kalenderjahr der PKV-Bilanz.
+    /// </summary>
+    /// <remarks>
+    /// Eigen, nicht der Zeitraum der übrigen Berichte: Eigenanteile und Beiträge zählen
+    /// steuerlich jahresweise, und „Quartal“ oder „Vorjahresvergleich“ heißt dort etwas anderes.
+    /// </remarks>
+    private int? healthYear;
+
+    /// <summary>Ausdrücklich über alle Jahre — dann entfallen Beitrag und Steuerbrücke.</summary>
+    private bool healthAllYears;
 
     /// <summary>Die gespeicherten Ansichten des angemeldeten Benutzers.</summary>
     private IReadOnlyList<ReportViewDto> views = [];
@@ -355,12 +373,13 @@
         (CostTrendSort.Name, "Name"),
     ];
 
-    /// <summary>Die vier Berichte aus Abschnitt 10b.</summary>
+    /// <summary>Die gebauten Berichte — vier aus Abschnitt 10b, dazu die PKV-Bilanz aus §12.</summary>
     private static readonly (ReportKind Kind, string Label, bool Ready)[] Available =
     [
         (ReportKind.CostTrend, "Kostentrend", true),
         (ReportKind.FixedCosts, "Fixkosten", true),
         (ReportKind.PortfolioGainLoss, "Depot G/V", true),
+        (ReportKind.HealthBalance, "PKV-Bilanz", true),
         (ReportKind.DataQuality, "Datenqualität", true),
     ];
 
@@ -393,6 +412,10 @@
 
             case ReportKind.DataQuality:
                 quality = await Api.GetDataQualityAsync();
+                break;
+
+            case ReportKind.HealthBalance:
+                health = await Api.GetHealthBalanceAsync(healthYear, healthAllYears);
                 break;
 
             default:
@@ -436,6 +459,14 @@
     private Task PickDepotAsync(int id)
     {
         depotId = id;
+        return RefreshAsync();
+    }
+
+    private Task PickHealthYearAsync(int? jahr)
+    {
+        healthYear = jahr;
+        healthAllYears = jahr is null;
+
         return RefreshAsync();
     }
 
@@ -680,6 +711,17 @@
                 zeilen.Add("Anzahl;Lücke;Folge");
                 zeilen.AddRange(luecken.Rows.Select(z => string.Join(';',
                     z.Count, Cell(z.Label), Cell(z.Consequence))));
+                break;
+
+            // Ausgezahlt und erwartet stehen auch in der Datei getrennt — eine Spalte
+            // „erstattet“ für beides wäre dieselbe Vermischung, nur exportiert.
+            case ReportKind.HealthBalance when health is { } pkv:
+                zeilen.Add("Leistungserbringer;Rechnungen;Summe;Ausgezahlt;Erwartet;"
+                           + "Eigenanteil;Ausgezahlt %");
+                zeilen.AddRange(pkv.Providers.Select(z => string.Join(';',
+                    Cell(z.Provider), z.BillCount, Num(z.Split.Total), Num(z.Split.Paid),
+                    Num(z.Split.Expected), Num(z.Split.OwnShare),
+                    z.PaidSharePercent is { } q ? Num(q) : string.Empty)));
                 break;
 
             default:

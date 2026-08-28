@@ -459,6 +459,56 @@ public static class ExtensionSeedData
                 Status = MedicalBillStatus.Recorded,
                 CreatedAt = new DateTime(2026, 8, 20, 11, 0, 0, DateTimeKind.Local),
             },
+
+            // Abgeschlossen, voll erstattet: elf Tage von der Einreichung bis zur Zahlung.
+            new()
+            {
+                Provider = "Dr. Meyer, Zahnarzt",
+                BillDate = new DateOnly(2026, 2, 6),
+                BillNumber = "R-2026-014",
+                GrossAmount = 420m,
+                OwnShare = 0m,
+                ExpectedReimbursement = 420m,
+                ActualReimbursement = 420m,
+                Status = MedicalBillStatus.Completed,
+                SubmittedAt = new DateTime(2026, 2, 9, 8, 0, 0, DateTimeKind.Local),
+                PaidAt = new DateTime(2026, 2, 20, 8, 0, 0, DateTimeKind.Local),
+                CreatedAt = new DateTime(2026, 2, 6, 8, 0, 0, DateTimeKind.Local),
+            },
+
+            // Abgerechnet mit weniger als beantragt: 706 statt 830 € Anspruch. Der Rest ist
+            // keine offene Forderung mehr, sondern Eigenanteil — der Vorgang ist zu Ende, und
+            // der Balken darf kein „erwartet“ zeigen, auf das niemand mehr wartet.
+            new()
+            {
+                Provider = "Orthopädie am Neckar",
+                BillDate = new DateOnly(2026, 4, 22),
+                BillNumber = "ON-2026-207",
+                GrossAmount = 980m,
+                OwnShare = 150m,
+                ExpectedReimbursement = 830m,
+                ActualReimbursement = 706m,
+                Status = MedicalBillStatus.Completed,
+                SubmittedAt = new DateTime(2026, 4, 27, 8, 0, 0, DateTimeKind.Local),
+                PaidAt = new DateTime(2026, 5, 16, 8, 0, 0, DateTimeKind.Local),
+                CreatedAt = new DateTime(2026, 4, 22, 8, 0, 0, DateTimeKind.Local),
+            },
+
+            // Voriges Jahr — der Jahresfilter braucht ein zweites Jahr, sonst prüft ihn niemand.
+            new()
+            {
+                Provider = "Hautarztpraxis Bergheim",
+                BillDate = new DateOnly(2025, 9, 11),
+                BillNumber = "HB-2025-338",
+                GrossAmount = 340m,
+                OwnShare = 40m,
+                ExpectedReimbursement = 300m,
+                ActualReimbursement = 300m,
+                Status = MedicalBillStatus.Completed,
+                SubmittedAt = new DateTime(2025, 9, 14, 8, 0, 0, DateTimeKind.Local),
+                PaidAt = new DateTime(2025, 9, 28, 8, 0, 0, DateTimeKind.Local),
+                CreatedAt = new DateTime(2025, 9, 11, 8, 0, 0, DateTimeKind.Local),
+            },
         };
 
         db.MedicalBills.AddRange(bills);

@@ -284,6 +284,17 @@ public sealed class FinanzAppApi(HttpClient http)
         => GetAsync<HoldingsDto>(
             klasse is { } k ? $"api/holdings?klasse={k}" : "api/holdings", ct);
 
+    /// <summary>Die PKV-Bilanz eines Kalenderjahres.</summary>
+    public Task<HealthBalanceDto> GetHealthBalanceAsync(
+        int? jahr = null, bool alle = false, CancellationToken ct = default)
+        => GetAsync<HealthBalanceDto>(
+            alle
+                ? "api/reports/health-balance?alle=true"
+                : jahr is { } j
+                    ? $"api/reports/health-balance?jahr={j}"
+                    : "api/reports/health-balance",
+            ct);
+
     /// <summary>Was die Auswertungen unvollständig macht.</summary>
     public Task<DataQualityDto> GetDataQualityAsync(CancellationToken ct = default)
         => GetAsync<DataQualityDto>("api/reports/data-quality", ct);

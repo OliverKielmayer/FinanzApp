@@ -1,0 +1,248 @@
+@inject AppState State
+
+@*
+    PKV-Bilanz — v5-Handoff, Abschnitt 12.
+
+    Zwei Regeln tragen den Bericht.
+
+    Anspruch ist nicht Auszahlung. „Ausgezahlt" meint Geld, das eingegangen ist, „erwartet" den
+    offenen Anspruch. Der Balken hat darum drei Segmente und nicht zwei — eines wegzulassen
+    hieße, Zahlungen zu behaupten, die nicht stattgefunden haben.
+
+    Und: eine Farbe je Bedeutung, aus denselben Token in Legende, Kopfbalken und jeder Zeile.
+    Wer dieselbe Farbe an zwei Stellen für Verschiedenes benutzt, macht den Balken unlesbar.
+*@
+
+<section class="hero">
+    <span class="label-muted">Eigenanteil @Zeitraum</span>
+    <span class="hero-value medium num accent">@State.Euro(Data.Split.OwnShare)</span>
+    <span class="loan-sub">@KopfZeile()</span>
+</section>
+
+<section class="hero">
+    <span class="label-muted">Davon ausgezahlt</span>
+    <span class="hero-value medium num">
+        @(Data.PaidSharePercent is { } q ? GermanFormat.Percent(q, 0) : "—")
+    </span>
+    <span class="loan-sub">
+        @State.Euro(Data.Split.Paid) von @State.Euro(Data.Claim) Anspruch ·
+        @Data.CompletedCount von @Data.BillCount abgeschlossen
+    </span>
+</section>
+
+<div class="split-bar" role="img" aria-label="@BalkenText(Data.Split)">
+    @foreach (var (klasse, betrag) in Segmente(Data.Split))
+    {
+        @if (betrag > 0m)
+        {
+            <span class="split-seg @klasse" style="flex: @Anteil(betrag, Data.Split.Total)"></span>
+        }
+    }
+</div>
+
+<div class="split-legend">
+    <span class="split-key"><i class="swatch paid"></i> ausgezahlt @State.Euro(Data.Split.Paid)</span>
+    <span class="split-key"><i class="swatch expected"></i> erwartet @State.Euro(Data.Split.Expected)</span>
+    <span class="split-key"><i class="swatch own"></i> Eigenanteil @State.Euro(Data.Split.OwnShare)</span>
+</div>
+
+<section class="kpi">
+    <div class="kpi-cell">
+        @* Gerechnet aus Einreich- und Zahldatum, nicht gesetzt. Derselbe Wert entscheidet
+           unten, welcher Vorgang „über dem Schnitt" wartet. *@
+        <span class="label-muted">Ø Bearbeitung</span>
+        <span class="kpi-value num">
+            @(Data.AverageDays is { } tage ? $"{GermanFormat.Quantity(tage)} Tage" : "—")
+        </span>
+    </div>
+    <div class="kpi-cell">
+        <span class="label-muted">Offener Betrag</span>
+        <span class="kpi-value num">@State.Euro(Data.Split.Expected)</span>
+    </div>
+    <div class="kpi-cell">
+        @* Getrennt: der Beitrag ist Absicherung, keine Behandlungskosten. Über mehrere Jahre
+           hat ein Jahresbeitrag keinen Bezug — dann steht hier nichts statt einer Zahl, die
+           sich auf nichts bezieht. *@
+        <span class="label-muted">PKV-Jahresbeitrag</span>
+        <span class="kpi-value num">
+            @(Data.YearlyPremium is { } beitrag ? State.Euro(beitrag) : "—")
+        </span>
+    </div>
+</section>
+
+<div class="holdings-filter">
+    @foreach (var jahr in Data.Years)
+    {
+        var wahl = jahr;
+        <button type="button" class="chip @(Data.Year == jahr.Year ? "active" : null)"
+                disabled="@Busy" @onclick="() => OnPickYear.InvokeAsync(wahl.Year)">
+            @(jahr.Year?.ToString() ?? "Alle")
+            <span class="chip-hint num">@jahr.BillCount</span>
+        </button>
+    }
+</div>
+
+<div class="list-head">
+    <span class="label-strong">Nach Leistungserbringer</span>
+    <span class="meta num">
+        @Data.BillCount @(Data.BillCount == 1 ? "Vorgang" : "Vorgänge") ·
+        Rechnungen @State.Euro(Data.Split.Total)
+    </span>
+</div>
+
+@if (Data.Providers.Count == 0)
+{
+    <EmptyState Title="Keine Rechnung in diesem Jahr"
+                Text="Erfasste Arztrechnungen erscheinen hier mit Eigenanteil, Anspruch und
+                      dem, was tatsächlich erstattet wurde." />
+}
+
+@foreach (var erbringer in Data.Providers)
+{
+    <div class="provider-row">
+        <div class="provider-head">
+            <span class="stack">
+                <span class="import-row-payee">@erbringer.Provider</span>
+                <span class="meta">@ErbringerZeile(erbringer)</span>
+            </span>
+            <span class="holding-value num">@State.Euro(erbringer.Split.Total)</span>
+        </div>
+
+        @* Derselbe Balken wie oben, aus denselben Token. *@
+        <div class="split-bar" role="img" aria-label="@BalkenText(erbringer.Split)">
+            @foreach (var (klasse, betrag) in Segmente(erbringer.Split))
+            {
+                @if (betrag > 0m)
+                {
+                    <span class="split-seg @klasse" style="flex: @Anteil(betrag, erbringer.Split.Total)"></span>
+                }
+            }
+        </div>
+    </div>
+}
+
+@if (Data.OpenBills.Count > 0)
+{
+    <div class="list-head">
+        <span class="label-strong">Offene Vorgänge</span>
+        <span class="meta num">@State.Euro(Data.Split.Expected)</span>
+    </div>
+
+    @foreach (var vorgang in Data.OpenBills)
+    {
+        <a class="import-row plain @(vorgang.AboveAverage ? "urgent" : null)"
+           href="@($"/gesundheit/{vorgang.Id}")">
+            <span class="stack">
+                <span class="import-row-payee">@vorgang.Provider</span>
+                <span class="meta @(vorgang.AboveAverage ? "accent" : null)">@Wartezeit(vorgang)</span>
+            </span>
+            <span class="holding-value num">@State.Euro(vorgang.Expected)</span>
+        </a>
+    }
+}
+
+@* Der Einstieg ins spätere Steuerjahr-Paket. „Potenziell" ist kein Füllwort: ob und wie viel
+   zählt, entscheidet die Steuererklärung. Ohne Jahresbezug entfällt der Block — Eigenanteile
+   mehrerer Jahre plus ein Jahresbeitrag ergäben keine Zahl. *@
+@if (Data.Deductible is { } absetzbar && Data.YearlyPremium is { } jahresbeitrag)
+{
+    <div class="tax-bridge">
+        <span class="label-strong num">@State.Euro(absetzbar) potenziell absetzbar @Zeitraum</span>
+        <span class="meta">
+            Eigenanteile @State.Euro(Data.Split.OwnShare) + Beiträge @State.Euro(jahresbeitrag).
+            Was davon zählt, entscheidet die Steuererklärung.
+        </span>
+    </div>
+}
+else
+{
+    <div class="tx-totals-note">
+        Beitrag und Steuerbrücke stehen im Jahresblick: beides sind Jahresgrößen, und ein
+        Jahresbeitrag neben Eigenanteilen mehrerer Jahre ergäbe keine Summe.
+    </div>
+}
+
+<div class="tx-totals-note">
+    Als Gesundheitsausgabe zählt der Eigenanteil, nicht die Rechnungssumme — erstattete Beträge
+    sind kein Aufwand. Diese Regel gilt auch im Dashboard, im Kostentrend und in der Liquidität.
+</div>
+
+@code {
+    [Parameter, EditorRequired] public HealthBalanceDto Data { get; set; } = default!;
+
+    [Parameter] public bool Busy { get; set; }
+
+    [Parameter] public EventCallback<int?> OnPickYear { get; set; }
+
+    private string Zeitraum => Data.Year?.ToString() ?? "über alle Jahre";
+
+    /// <summary>Die drei Segmente in fester Reihenfolge — eine Farbe je Bedeutung.</summary>
+    private static (string Klasse, decimal Betrag)[] Segmente(HealthSplitDto s) =>
+    [
+        ("paid", s.Paid),
+        ("expected", s.Expected),
+        ("own", s.OwnShare),
+    ];
+
+    /// <summary>
+    /// Der Anteil als Flex-Faktor.
+    /// </summary>
+    /// <remarks>
+    /// Nicht als Prozentbreite: bei drei Segmenten summierten sich Rundungsreste zu einer Lücke
+    /// am Ende des Balkens, die wie ein vierter, unbenannter Teil aussähe.
+    /// </remarks>
+    private static string Anteil(decimal betrag, decimal ganzes)
+        => ganzes == 0m
+            ? "0"
+            : (betrag / ganzes).ToString("0.######", System.Globalization.CultureInfo.InvariantCulture);
+
+    private string BalkenText(HealthSplitDto s)
+        => $"Ausgezahlt {State.Euro(s.Paid)}, erwartet {State.Euro(s.Expected)}, "
+           + $"Eigenanteil {State.Euro(s.OwnShare)} von {State.Euro(s.Total)}";
+
+    private string KopfZeile()
+        => Data.OwnSharePercent is { } anteil
+            ? $"{GermanFormat.Percent(anteil, 0)} der Rechnungssumme · zählt als Ausgabe"
+            : "zählt als Ausgabe";
+
+    private string ErbringerZeile(HealthProviderDto e)
+    {
+        var teile = new List<string>
+        {
+            $"{e.BillCount} {(e.BillCount == 1 ? "Rechnung" : "Rechnungen")}",
+            $"Eigenanteil {State.Euro(e.Split.OwnShare)}",
+        };
+
+        if (e.PaidSharePercent is { } quote)
+        {
+            teile.Add($"{GermanFormat.Percent(quote, 0)} ausgezahlt");
+        }
+
+        if (e.Split.Expected > 0m)
+        {
+            teile.Add($"{State.Euro(e.Split.Expected)} erwartet");
+        }
+
+        return string.Join(" · ", teile);
+    }
+
+    /// <summary>
+    /// Wie lange schon gewartet wird — oder dass noch niemand wartet.
+    /// </summary>
+    /// <remarks>
+    /// Ohne Einreichung wartet nicht die Versicherung, sondern man selbst. „Wartet seit 0 Tagen“
+    /// wäre dort schlicht falsch.
+    /// </remarks>
+    private static string Wartezeit(HealthOpenBillDto v)
+    {
+        if (v.SubmittedOn is not { } eingereicht)
+        {
+            return $"Rechnung vom {GermanFormat.Date(v.BillDate)} · noch nicht eingereicht";
+        }
+
+        var text = $"eingereicht {GermanFormat.DateShort(eingereicht)} · wartet seit "
+                   + $"{v.WaitingDays} {(v.WaitingDays == 1 ? "Tag" : "Tagen")}";
+
+        return v.AboveAverage ? text + " (über dem Schnitt)" : text;
+    }
+}

@@ -169,6 +169,7 @@ builder.Services.AddScoped<EmploymentService>();
 builder.Services.AddSingleton<OrderCsvParser>();
 builder.Services.AddScoped<DepotTradeService>();
 builder.Services.AddScoped<DepotStatementService>();
+builder.Services.AddScoped<HealthBalanceService>();
 
 var app = builder.Build();
 

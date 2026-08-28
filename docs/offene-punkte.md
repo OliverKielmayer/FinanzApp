@@ -11,7 +11,8 @@ Abschnitte 8 (Arbeit & Beruf) und 9 (Dokumenttypen) sowie aus
 [Handoff 11](design-handoff-v5c/design_handoff_v5/README.md) das überarbeitete Vermögensmodell
 (§3b) und die Lade-, Leer-, Offline- und Fehlerzustände (§7); aus Handoff 13 der ganze
 Depot-Abschnitt (§11) — Transaktionen, abgeleitete Positionen, Quartalsaufstellungen und
-Bestandsabgleich.
+Bestandsabgleich; aus [Handoff 14](design-handoff-v5d/design_handoff_v5/README.md) die
+PKV-Bilanz (§12).
 
 ## Aus dem v5-Handoff, Abschnitt 10
 
@@ -27,20 +28,19 @@ ausführt und sie inzwischen gebaut sind — im Handoff stehengeblieben, hier ge
 | CSV-Spalten-Mapping | Der Import kennt feste Profile. Ein unbekanntes Format lässt sich nicht von Hand zuordnen. |
 | Ablaufende Dokumente als Fristquelle | Schritt 7 des Erweiterungsplans, die eine Hälfte, die nicht mitkam: `TaskItem` leitet Fristen aus Verträgen, Rechnungen und Erstattungen ab, aber nicht aus Dokumenten mit Ablaufdatum. |
 
-## Die fünf offenen Berichte (v4-Handoff 10b)
+## Die vier verbliebenen Berichte (v4-Handoff 10b)
 
-Gebaut sind Kostentrend, Fixkosten & vertragliche Bindung, Depot-G/V, Datenqualität,
-gespeicherte Ansichten, CSV und Druckansicht. Der Handoff markiert die folgenden fünf als
-**„vor dem Bau anfragen"**:
+Gebaut sind Kostentrend, Fixkosten & vertragliche Bindung, Depot-G/V, Datenqualität, die
+PKV-Bilanz, gespeicherte Ansichten, CSV und Druckansicht. Der Handoff markiert die folgenden
+vier als **„vor dem Bau anfragen"**:
 
 1. **Vermögensentwicklung nach Klasse** — mit dem Stichtagsproblem: Depotkurse sind
    tagesaktuell, Lebensversicherungswerte bis zu ein Jahr alt. Eine Kurve, die beides in einer
    Linie führt, behauptet eine Gleichzeitigkeit, die es nicht gibt.
 2. **Objektkosten** — Immobilie €/Monat und €/m², Fahrzeuge Gesamtkosten und €/km.
-3. **Gesundheit / PKV-Bilanz** — Eigenanteil pro Jahr, Erstattungsquote, Bearbeitungsdauer.
-4. **Steuerjahr-Paket** — Beiträge, Handwerkerleistungen, Werbungskosten-Kandidaten mit
-   Dokumentbezug.
-5. **Liquiditätsprognose 3–6 Monate.**
+3. **Steuerjahr-Paket** — Beiträge, Handwerkerleistungen, Werbungskosten-Kandidaten mit
+   Dokumentbezug. Die PKV-Bilanz nennt mit „potenziell absetzbar" schon den Einstieg.
+4. **Liquiditätsprognose 3–6 Monate.**
 
 ## Aus der Dateiablage ersichtlich, nirgends abgebildet
 

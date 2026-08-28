@@ -559,6 +559,7 @@ public sealed class ReportService(
             ReportKind.FixedCosts => "Fixkosten",
             ReportKind.PortfolioGainLoss => "Depot G/V",
             ReportKind.DataQuality => "Datenqualität",
+            ReportKind.HealthBalance => "PKV-Bilanz",
             _ => "Kostentrend",
         };
 
@@ -569,7 +570,9 @@ public sealed class ReportService(
             return bericht;
         }
 
-        if (request.Report == ReportKind.PortfolioGainLoss)
+        // Depot-G/V und PKV-Bilanz ebenso: das eine hängt am Depot, das andere am Kalenderjahr.
+        // Zeitraum und Vergleich der übrigen Berichte gelten für sie nicht.
+        if (request.Report is ReportKind.PortfolioGainLoss or ReportKind.HealthBalance)
         {
             return bericht;
         }

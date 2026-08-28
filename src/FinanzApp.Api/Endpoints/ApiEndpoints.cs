@@ -235,6 +235,11 @@ public static class ApiEndpoints
             return gewinn is null ? Results.NotFound() : Results.Ok(gewinn);
         });
 
+        // Kalenderjahr statt Berichtsrahmen: Eigenanteile und Beiträge zählen jahresweise.
+        api.MapGet("/reports/health-balance", async (
+                int? jahr, bool? alle, HealthBalanceService service, CancellationToken ct)
+            => Results.Ok(await service.GetAsync(jahr, alle == true, ct)));
+
         api.MapGet("/reports/data-quality", async (ReportService service, CancellationToken ct)
             => Results.Ok(await service.GetDataQualityAsync(ct)));
 
