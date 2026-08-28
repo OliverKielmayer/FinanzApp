@@ -261,6 +261,7 @@ else if (sheetTransaction is { } sheet)
 {
     <CategorySheet Transaction="sheet"
                    Categories="SheetCategories(sheet)"
+                   @bind-RememberRule="rememberRule"
                    OnPickCategory="PickCategory"
                    OnPickTransfer="PickTransfer"
                    OnConfirm="ConfirmSheet"
@@ -285,6 +286,9 @@ else if (sheetTransaction is { } sheet)
     private IReadOnlyList<AccountDto> accounts = [];
     private IReadOnlyList<CategoryDto> categories = [];
     private TransactionDto? sheetTransaction;
+
+    /// <summary>Ob die nächste Zuordnung eine Regel hinterlässt. Je Buchung zurückgesetzt.</summary>
+    private bool rememberRule = true;
 
     private readonly HashSet<int> selected = [];
     private bool batchOpen;
@@ -530,13 +534,75 @@ else if (sheetTransaction is { } sheet)
 
     // ── Einzelbuchung ──────────────────────────────────────────────────────────────────────
 
-    private void OpenSheet(TransactionDto transaction) => sheetTransaction = transaction;
+    /// <summary>
+    /// Öffnet das Sheet auf einer Buchung.
+    /// </summary>
+    /// <remarks>
+    /// Der Regelschalter geht dabei auf die Vorgabe zurück. Ließe man ihn stehen, hörte das
+    /// Merken nach dem ersten Abwählen für alle folgenden Buchungen stillschweigend auf — und
+    /// beim Weiterschalten fällt das niemandem auf, weil man den Schalter gar nicht mehr ansieht.
+    /// </remarks>
+    private void OpenSheet(TransactionDto transaction)
+    {
+        sheetTransaction = transaction;
+        rememberRule = true;
+    }
 
     private void CloseSheet() => sheetTransaction = null;
 
     private void StartTriage()
-        => sheetTransaction = list.Items.FirstOrDefault(t => t.IsUncategorized)
-                              ?? list.Items.FirstOrDefault();
+    {
+        var erste = list.Items.FirstOrDefault(t => t.IsUncategorized) ?? list.Items.FirstOrDefault();
+
+        if (erste is not null)
+        {
+            OpenSheet(erste);
+        }
+    }
+
+    /// <summary>
+    /// Nach dem Zuordnen weiter zur nächsten Buchung der Liste.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der nächsten <em>dieser</em> Liste — nicht der nächsten unzugeordneten irgendwo.
+    /// Was das Sheet als Nächstes zeigt, steht damit sichtbar dahinter, und der Filter „nur
+    /// offene“ macht aus dem Durchgang genau den Aufräumlauf, für den er gedacht ist.</para>
+    /// <para>Die zugeordnete Buchung bleibt an ihrem Platz in der Liste, statt zu verschwinden:
+    /// dadurch ist „die nächste“ eindeutig, auch wenn der Filter sie eigentlich nicht mehr
+    /// zeigen dürfte. Ausgeräumt wird beim nächsten Laden.</para>
+    /// </remarks>
+    private void Advance()
+    {
+        var stelle = sheetTransaction is null ? -1 : IndexOf(sheetTransaction.Id);
+
+        if (stelle >= 0 && stelle + 1 < list.Items.Count)
+        {
+            OpenSheet(list.Items[stelle + 1]);
+            return;
+        }
+
+        CloseSheet();
+
+        // Nur melden, wenn es wirklich die letzte war. Steht die Buchung gar nicht mehr in der
+        // Liste, wäre „das war die letzte“ eine Auskunft über etwas anderes.
+        if (stelle >= 0)
+        {
+            Toasts.Show("Das war die letzte Buchung der Liste");
+        }
+    }
+
+    private int IndexOf(int transactionId)
+    {
+        for (var i = 0; i < list.Items.Count; i++)
+        {
+            if (list.Items[i].Id == transactionId)
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
 
     /// <summary>Kategorien passend zum Vorzeichen der Buchung.</summary>
     private IReadOnlyList<CategoryDto> SheetCategories(TransactionDto transaction)
@@ -545,15 +611,32 @@ else if (sheetTransaction is { } sheet)
         return [.. categories.Where(c => c.Direction == direction)];
     }
 
+    /// <summary>
+    /// Ein Tipp auf einen Chip ordnet zu, merkt bei Bedarf die Regel und schaltet weiter.
+    /// </summary>
+    /// <remarks>
+    /// Die Regel entsteht hier und nicht mehr erst mit „Fertig“: seit das Sheet weiterschaltet,
+    /// kommt niemand mehr an „Fertig“ vorbei, und ein Schalter, der nichts bewirkt, wäre
+    /// schlimmer als keiner.
+    /// </remarks>
     private Task PickCategory(CategoryDto category) => RunAsync(async () =>
     {
+        var empfaenger = sheetTransaction!.Payee;
+
         var updated = await Api.AssignCategoryAsync(
-            sheetTransaction!.Id, new AssignCategoryRequest { CategoryId = category.Id });
+            sheetTransaction.Id,
+            new AssignCategoryRequest { CategoryId = category.Id, CreateRule = rememberRule });
 
         Apply(updated);
-        Toasts.Show(category.Name + " zugeordnet");
+
+        Toasts.Show(rememberRule
+            ? $"{category.Name} zugeordnet · Regel für „{Categorization.RulePatternFor(empfaenger)}“ gemerkt"
+            : category.Name + " zugeordnet");
+
+        Advance();
     });
 
+    /// <summary>Eine Umbuchung ist keine Kategorie — hier entsteht darum auch keine Regel.</summary>
     private Task PickTransfer() => RunAsync(async () =>
     {
         var updated = await Api.AssignCategoryAsync(
@@ -561,9 +644,19 @@ else if (sheetTransaction is { } sheet)
 
         Apply(updated);
         Toasts.Show("Als Umbuchung markiert");
+
+        Advance();
     });
 
-    /// <summary>„Fertig“ — legt bei Bedarf noch die Regel an und schließt das Sheet.</summary>
+    /// <summary>
+    /// „Fertig“ — schließt das Sheet.
+    /// </summary>
+    /// <remarks>
+    /// Die Regel legt es nur noch für den Fall an, dass gar nicht zugeordnet wurde: eine
+    /// Buchung, die schon eine Kategorie trägt, und der Wunsch, sie künftig automatisch zu
+    /// setzen. Beim Zuordnen selbst ist die Regel längst entstanden; ein zweiter Aufruf
+    /// überschriebe sie nur mit demselben Wert.
+    /// </remarks>
     private async Task ConfirmSheet(bool rememberRule)
     {
         var transaction = sheetTransaction;

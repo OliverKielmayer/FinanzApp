@@ -1,7 +1,13 @@
 @*
     Bottom-Sheet zum Zuordnen einer Kategorie. Ein Tipp auf einen Chip ordnet sofort zu und
-    lässt das Sheet offen — beim Aufräumen mehrerer Buchungen ist das der schnellere Weg.
-    Die Regel auf dem Empfänger-Präfix entsteht erst mit „Fertig“.
+    schaltet auf die nächste Buchung der Liste weiter — beim Aufräumen ist das der ganze Zweck:
+    zuordnen, weiter, zuordnen. Wer eine einzelne Buchung ändern wollte, ist mit dem ersten Tipp
+    ohnehin fertig.
+
+    Weil damit niemand mehr „Fertig“ drückt, entsteht die Regel auf dem Empfänger-Präfix
+    zusammen mit der Zuordnung und nicht erst danach. Der Schalter dafür gehört der aufrufenden
+    Seite: sie setzt ihn je Buchung zurück, sonst hörte das Merken nach dem ersten Abwählen
+    stillschweigend für alle folgenden auf.
 *@
 <button type="button" class="backdrop" aria-label="Schließen" @onclick="OnClose"></button>
 
@@ -55,7 +61,7 @@
                     <div class="sheet-rule">
                         <span class="sheet-rule-text">Regel für „@rulePattern“ merken</span>
                         <label class="radio">
-                            <input type="checkbox" checked="@rememberRule" @onchange="ToggleRule" />
+                            <input type="checkbox" checked="@RememberRule" @onchange="ToggleRule" />
                             <span class="dot"></span>
                         </label>
                     </div>
@@ -144,6 +150,18 @@
 
     [Parameter] public EventCallback OnPickTransfer { get; set; }
 
+    /// <summary>
+    /// Ob zur Zuordnung eine Regel auf dem Empfänger-Präfix entstehen soll.
+    /// </summary>
+    /// <remarks>
+    /// Der Zustand liegt bei der aufrufenden Seite, nicht hier: sie schaltet auf die nächste
+    /// Buchung weiter und muss den Schalter dabei zurücksetzen. Bliebe er hier, hinge er am
+    /// Lebenslauf des Sheets — und das bleibt beim Weiterschalten dasselbe.
+    /// </remarks>
+    [Parameter] public bool RememberRule { get; set; } = true;
+
+    [Parameter] public EventCallback<bool> RememberRuleChanged { get; set; }
+
     /// <summary>Wird mit „Fertig“ ausgelöst; der Wert sagt, ob eine Regel angelegt werden soll.</summary>
     [Parameter] public EventCallback<bool> OnConfirm { get; set; }
 
@@ -156,7 +174,6 @@
 
     private bool confirmingDelete;
 
-    private bool rememberRule = true;
     private string rulePattern = string.Empty;
     private ElementReference sheet;
 
@@ -181,7 +198,7 @@
     private Task OnKeyDown(KeyboardEventArgs e)
         => e.Key == "Escape" ? OnClose.InvokeAsync() : Task.CompletedTask;
 
-    private void ToggleRule(ChangeEventArgs e) => rememberRule = e.Value is true;
+    private Task ToggleRule(ChangeEventArgs e) => RememberRuleChanged.InvokeAsync(e.Value is true);
 
-    private Task Confirm() => OnConfirm.InvokeAsync(rememberRule);
+    private Task Confirm() => OnConfirm.InvokeAsync(RememberRule);
 }
