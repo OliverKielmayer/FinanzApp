@@ -26,6 +26,15 @@ public sealed record ParsedStatement
     public decimal? ClosingBalance { get; init; }
 
     /// <summary>
+    /// Aus wie vielen Auszugsdateien die Sätze stammen. 1 bei einer einzelnen Datei.
+    /// </summary>
+    /// <remarks>
+    /// Ein Archiv wird zu einer Vorschau zusammengelegt. Ohne diese Zahl stünde im Kopf nur der
+    /// Archivname, und die Frage „sind wirklich alle acht drin?“ bliebe unbeantwortet.
+    /// </remarks>
+    public int SourceCount { get; init; } = 1;
+
+    /// <summary>
     /// Alle Sätze der Datei — auch die, aus denen keine Buchung wird. Die tragen dann ein
     /// <see cref="ImportRecord.Problem"/> und stehen in der Liste, statt zu verschwinden.
     /// </summary>

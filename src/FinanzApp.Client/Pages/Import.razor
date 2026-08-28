@@ -32,12 +32,14 @@
 
                         @* Liegt unsichtbar über der ganzen Fläche: derselbe Weg nimmt den Klick
                            und die fallengelassene Datei. *@
-                        <InputFile class="dropzone-input" accept=".xml,.camt,text/xml,application/xml"
+                        <InputFile class="dropzone-input"
+                                   accept=".xml,.camt,.zip,text/xml,application/xml,application/zip"
                                    OnChange="OnFileSelected" aria-label="Kontoauszug auswählen" />
 
                         <span class="kicker">Kontoauszug einlesen</span>
                         <span class="create-help">
-                            camt.052 oder camt.053 hierher ziehen oder anklicken.
+                            camt.052 oder camt.053 hierher ziehen oder anklicken — einzeln oder
+                            als ZIP mit den Tagesauszügen darin.
                         </span>
 
                         @if (problem is { Length: > 0 })
@@ -110,8 +112,15 @@
                 @* Links: was in der Datei steht. *@
                 <div class="scan-source">
                     <div class="detail-block">
+                        @* Bei einem Archiv steht der Archivname da, und die Sätze stammen aus
+                           mehreren Dateien. Ohne die Zahl bliebe offen, ob wirklich alle
+                           gelesen wurden. *@
                         <span class="detail-label">Datei · Format</span>
-                        <span class="detail-value num">@preview.FileName · @preview.Format</span>
+                        <span class="detail-value num">
+                            @preview.FileName@(preview.SourceFileCount > 1
+                                ? $" · {preview.SourceFileCount} Auszüge"
+                                : null) · @preview.Format
+                        </span>
                     </div>
 
                     <div class="detail-block">

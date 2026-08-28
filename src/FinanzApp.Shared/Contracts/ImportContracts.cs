@@ -37,6 +37,16 @@ public sealed record ImportPreviewDto
 {
     public required Guid Id { get; init; }
     public required string FileName { get; init; }
+
+    /// <summary>
+    /// Aus wie vielen Auszugsdateien die Vorschau stammt. 1 bei einer einzelnen Datei.
+    /// </summary>
+    /// <remarks>
+    /// Ein ZIP wird zu einer Vorschau zusammengelegt. Der Kopf nennt sonst nur den Archivnamen,
+    /// und ob wirklich alle Dateien darin gelesen wurden, wäre nicht abzulesen.
+    /// </remarks>
+    public int SourceFileCount { get; init; } = 1;
+
     public required string BankName { get; init; }
 
     /// <summary>Erkanntes Format, z. B. „CAMT.053“.</summary>

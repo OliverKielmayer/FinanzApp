@@ -45,7 +45,8 @@ public sealed class ImportService(
         string? Iban,
         decimal? StatementBalance,
         string? Separator,
-        IReadOnlyList<ImportRecord> Records);
+        IReadOnlyList<ImportRecord> Records,
+        int SourceCount = 1);
 
     /// <summary>
     /// Liest eine hochgeladene Auszugsdatei und legt die Vorschau bereit.
@@ -53,13 +54,12 @@ public sealed class ImportService(
     public async Task<ImportPreviewDto> ReadAsync(
         Stream content, string fileName, CancellationToken ct = default)
     {
-        if (!parser.CanRead(fileName))
-        {
-            throw new StatementFormatException(
-                $"„{fileName}“ sieht nicht nach einem camt-Auszug aus — erwartet wird eine XML-Datei.");
-        }
-
-        var statement = await parser.ParseAsync(content, fileName, ct);
+        // Ein Archiv wird zu einem Auszug zusammengelegt: eine Vorschau, eine Übernahme. Die
+        // Banken liefern Tagesauszüge als ZIP, und acht Dateien einzeln durch denselben Ablauf
+        // zu schicken ist keine Arbeit, die jemand tun sollte.
+        var statement = ZipStatementReader.IsArchive(fileName)
+            ? await new ZipStatementReader(parser).ReadAsync(content, fileName, ct)
+            : await ReadSingleAsync(content, fileName, ct);
 
         var batch = new Batch(
             Id: Guid.NewGuid(),
@@ -69,7 +69,8 @@ public sealed class ImportService(
             Iban: statement.Iban,
             StatementBalance: statement.ClosingBalance,
             Separator: null,
-            Records: statement.Records);
+            Records: statement.Records,
+            SourceCount: statement.SourceCount);
 
         cache.Set(KeyOf(batch.Id), batch, new MemoryCacheEntryOptions
         {
@@ -78,6 +79,19 @@ public sealed class ImportService(
         });
 
         return await BuildAsync(batch, ct);
+    }
+
+    private async Task<ParsedStatement> ReadSingleAsync(
+        Stream content, string fileName, CancellationToken ct)
+    {
+        if (!parser.CanRead(fileName))
+        {
+            throw new StatementFormatException(
+                $"„{fileName}“ sieht nicht nach einem camt-Auszug aus — erwartet wird eine "
+                + "XML-Datei oder ein ZIP-Archiv mit mehreren davon.");
+        }
+
+        return await parser.ParseAsync(content, fileName, ct);
     }
 
     /// <summary>Die eingebaute Beispielvorlage — für den Leerzustand und zum Ausprobieren.</summary>
@@ -328,6 +342,7 @@ public sealed class ImportService(
         {
             Id = batch.Id,
             FileName = batch.FileName,
+            SourceFileCount = batch.SourceCount,
             BankName = batch.BankName,
             Format = batch.Format,
             ProfileName = await ProfileNameAsync(batch, ct),
