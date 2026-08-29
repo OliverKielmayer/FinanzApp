@@ -1,6 +1,6 @@
 # Offene Punkte
 
-Stand **28.08.2026**, nach `3b2f1b5` (PKV-Bilanz aus Handoff 14). Eine Liste, kein Plan: sie sagt,
+Stand **29.08.2026**, nach dem PDF-Scan aus Handoff 15. Eine Liste, kein Plan: sie sagt,
 was noch nicht gebaut ist und woher die Anforderung stammt — die Reihenfolge steht in den
 Handoffs selbst, nicht hier.
 
@@ -12,56 +12,38 @@ Abschnitte 8 (Arbeit & Beruf) und 9 (Dokumenttypen) sowie aus
 (§3b) und die Lade-, Leer-, Offline- und Fehlerzustände (§7); aus Handoff 13 der ganze
 Depot-Abschnitt (§11) — Transaktionen, abgeleitete Positionen, Quartalsaufstellungen und
 Bestandsabgleich; aus [Handoff 14](design-handoff-v5d/design_handoff_v5/README.md) die
-PKV-Bilanz (§12).
+PKV-Bilanz (§12); aus [Handoff 15](design-handoff-v5e/design_handoff_v5/README.md) das
+Einlesen von PDF-Dokumenten (§14).
 
-## In Arbeit: PDF-Dokumente einlesen (Handoff 15, §14)
+## Was beim PDF-Scan (§14) offen blieb
 
-[Handoff 15](design-handoff-v5e/design_handoff_v5/README.md) liegt vor und ist analysiert; gebaut
-ist noch nichts. **Die beiden Beispiel-PDFs stehen aus** — der Nutzer liefert sie nach. Ohne sie
-ließe sich die Feldzuordnung nur raten, und geratene Zuordnungen an echten Dokumenten zu
-korrigieren ist teurer, als einmal zu warten.
+Gebaut ist der ganze Abschnitt: Dokumenttyp-Modell, beide Arten, Analyse-Schrittkette,
+Vorschlag, Werteprüfung mit Herkunftsseite und die Bestätigung, die die Wirkung nennt. Geprüft
+an den beiden echten PDFs des Nutzers. Was dabei liegen blieb:
 
-### Was der Handoff verlangt
+- **Eine Position je Quartalsaufstellung.** Der Extraktor nimmt je Feld den ersten Treffer; ein
+  Depot mit drei Fonds läse nur den ersten. Für mehrere bräuchte der Typ eine Wiederholgruppe.
+  Bis dahin bleibt für solche Aufstellungen die Erfassung von Hand aus §11.2.
+- **Keine Texterkennung.** Beide Originale tragen eine Textebene — der Statusreport eine
+  unsichtbare hinter vier Seitenbildern. Ein abfotografierter Beleg wird deshalb erkannt,
+  abgelegt und mit leerer Maske gemeldet, aber nicht gelesen. Die Schnittstelle
+  `IPdfTextReader` ist der Platz, an dem eine Erkennung andockt.
+- **Die gelernte Ablageregel wird angezeigt, aber nicht gespeichert.** „Absender X + Typ Y →
+  künftig automatisch hierher“ steht auf der Bestätigungsseite; beim nächsten Beleg entsteht
+  der Vorschlag wieder aus dem Typ-Datensatz und nicht aus einer gelernten Regel.
+- **Kein Weg, die vorgeschlagene Ablage zu ändern.** Der Prototyp zeigt den Knopf und lässt ihn
+  ins Leere laufen; hier fehlt er ganz. Der Pfad entsteht aus Bereich, Objekt und Jahr.
 
-Der Beleg-Flow ist heute auf **einen** Einzelfall gebaut (Statusreport, feste Werte). Er soll ein
-**Dokumenttyp-Modell** tragen: jede Art ein Datensatz mit Bezeichnung, Zielobjekt,
-Ablagepfad-Vorlage, Dokumentdatum, fachlichem Stichtag, Seitenzahl, Analyseschritten und
-Feldliste. Vorschlagsschritt, Werteprüfung, Ablagepfad, Bestätigungsseite und Speicherlogik
-entstehen daraus — nichts je Typ hartkodiert. Eine dritte Art wäre dann ein Datensatz, kein
-Screen.
+Zwei Befunde aus den echten Dateien, die im Handoff so nicht stehen und beim Weiterbauen zählen:
 
-Zwei Arten sind beschrieben: **Statusreport Lebensversicherung** (zehn Felder, §14.3) und
-**Quartalsaufstellung MiFID II** (acht Felder, §14.4). Die zweite speist den Bestandsabgleich
-aus §11.3, der schon steht — sie ersetzt keinen Depotwert, sondern belegt ihn.
-
-### Was schon da ist
-
-- `DocumentExtraction` speichert bereits Feldschlüssel, Wert, **Herkunftsseite**, Konfidenz und
-  `Confirmed`. Damit ist §14.6 im Modell erfüllt: nichts Unbestätigtes verändert Vermögenszahlen.
-- `IBillTextExtractor` ist die austauschbare Schnittstelle; `NoBillTextExtractor` liefert leer.
-  Der Handoff sagt ausdrücklich, dass das genügt: „fehlt sie, erscheint dieselbe Maske leer".
-- `DepotStatement` samt Abgleich existiert seit §11.3 — das Ziel für die Quartalsaufstellung.
-
-### Die eine offene Entscheidung
-
-§14.1 macht **Textebene gegen Bild** zum sichtbaren Kern: ein Original-PDF der Versicherung oder
-Bank ist maschinenlesbar, nur Scans brauchen OCR. Das *Erkennen* einer Textebene geht ohne
-fremde Bibliothek (Objekte lesen, Flate-Ströme entpacken, nach Textoperatoren suchen). Das
-*Auslesen* der Felder geht damit nicht — dafür braucht es einen PDF-Leser als Abhängigkeit
-(PdfPig wäre der naheliegende, Apache 2.0). Zu klären, bevor gebaut wird; eine PDF-Abhängigkeit
-war bei der Druckausgabe schon einmal abgelehnt worden, dort allerdings fürs Erzeugen.
-
-### Regeln, die beim Bau tragen
-
-- Der **erreichte Wert gesamt** (Rückkaufswert + Ansammlungsguthaben) ist der Vermögenswert —
-  nicht der Rückkaufswert allein, nicht die Ablaufleistung.
-- **Bewertungsreserven und Schlussüberschüsse sind nicht garantiert**: als `soft` kennzeichnen
-  und in keine Vermögenssumme aufnehmen. Das Dokument sagt es in drei Fußnoten.
-- Die drei Leistungsszenarien nicht vermischen — übernommen wird aus „Wert der Versicherung".
-- **Metadaten aus dem Inhalt, nie aus dem Dateinamen**: im Beispiel heißt die Datei
-  „statusreport 2024", der Inhalt sagt Stichtag 31.07.2025.
-- Die Bestätigungsseite nennt die **Wirkung**, nicht den Vorgang.
-- Der Demoschalter „Beispieldokument" aus dem Prototyp wird **nicht** mitgeliefert.
+- Der Handoff teilt Statusreporte in „Original mit Textebene“ und „abfotografiert, OCR nötig“.
+  Das reale Original ist beides zugleich: vier Seitenbilder mit einer unsichtbaren Textebene
+  darunter. Lesbar, aber nicht das Sichtbare — deshalb zählt so ein Wert etwas weniger.
+- In der Textebene desselben Dokuments steht die Wertspalte stellenweise um **eine Zeile**
+  gegen die Beschriftungen versetzt, an anderen Stellen nicht. Wer Zeilen zählt, liest dort die
+  Abschnittsüberschrift als Rückkaufswert. Die Zuordnung hängt deshalb an Abschnitt und
+  Beschriftung, und am Ende prüft eine Rechenprobe nach: Rückkaufswert + Ansammlungsguthaben
+  muss die ausgewiesene Gesamtleistung ergeben, Nominale × Kurs den Kurswert.
 
 ## Aus dem v5-Handoff, Abschnitt 10
 
@@ -114,10 +96,6 @@ vier als **„vor dem Bau anfragen"**:
 - **Vertragsende** ist ein Feld des Arbeitsverhältnisses, das der Handoff nicht nennt. Ohne es
   könnte nie etwas „beendet" werden, und die Regel „Beendetes zählt nicht als laufende Last"
   bliebe unbedienbar.
-- **Quartalsaufstellungen werden abgetippt, nicht ausgelesen.** Der Handoff nennt sie als PDF;
-  eine Texterkennung gibt es in dieser Anwendung nicht (`NoBillTextExtractor`), und der
-  Beleg-Scan-Flow, auf den §11.5 verweist, lässt die Maske ohnehin von Hand füllen — wie bei
-  den PKV-Belegen. Sobald eine Erkennung angebunden ist, füllt sie dieselbe Maske vor.
 - **Der Bestandsabgleich rechnet den Mindermengenzuschlag in den Einstand.** Die Beispieltabelle
   in §11.3 nennt 28.413 € und lässt ihn damit weg; §11.1 verlangt ausdrücklich, ihn in die
   Anschaffungskosten zu nehmen. Umgesetzt ist §11.1 — an den echten Orders sind es 28.414,45 €.
