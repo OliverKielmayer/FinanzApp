@@ -149,6 +149,47 @@ else if (step == Step.Values && analysis is { } geprueft)
         die Zuordnung hängt an Abschnitt und Beschriftung, und die Probe fängt ab, was dabei
         trotzdem verrutscht.
     *@
+    @*
+        Die Positionen stehen vor den Einzelfeldern — Abschnitt 17.2. Eine Aufstellung ist
+        zuerst eine Liste von Beständen und erst danach ein Kopf mit Nummern.
+    *@
+    @if (geprueft.Repeat is { } gruppe)
+    {
+        <div class="blueprint repeat">
+            <i class="corner tl" aria-hidden="true"></i>
+            <i class="corner tr" aria-hidden="true"></i>
+            <i class="corner bl" aria-hidden="true"></i>
+            <i class="corner br" aria-hidden="true"></i>
+
+            <div class="repeat-head">
+                <span class="label-accent">@gruppe.Title</span>
+                <span class="meta">
+                    @gruppe.Rows.Count @(gruppe.Rows.Count == 1 ? "Zeile" : "Zeilen") · je Zeile geprüft
+                </span>
+            </div>
+
+            @foreach (var zeile in gruppe.Rows)
+            {
+                <div class="repeat-row">
+                    <span class="stack">
+                        <span class="repeat-name">@zeile.Name</span>
+                        <span class="meta">@zeile.Meta</span>
+                    </span>
+                    <span class="repeat-value num">
+                        @(zeile.Value is { } wert ? State.Euro(wert) : "—")
+                    </span>
+                </div>
+            }
+
+            <div class="repeat-sum">
+                <span class="repeat-name">Summe</span>
+                <span class="repeat-value num">@State.Euro(gruppe.Total)</span>
+            </div>
+
+            <span class="meta @(gruppe.Matches ? null : "warn")">@gruppe.Note</span>
+        </div>
+    }
+
     @foreach (var probe in geprueft.Proofs)
     {
         <div class="blueprint proof @(probe.Passed ? null : "failed")">

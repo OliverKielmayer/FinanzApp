@@ -61,11 +61,48 @@ public sealed record ScanAnalysisDto
 
     public required IReadOnlyList<ScanFieldDto> Fields { get; init; }
 
+    /// <summary>
+    /// Die Zeilen der Wiederholgruppe — Abschnitt 17.2. <c>null</c>, wenn der Typ keine hat.
+    /// </summary>
+    /// <remarks>
+    /// Sie stehen im Prüfschritt <em>vor</em> den Einzelfeldern: eine Aufstellung ist zuerst
+    /// eine Liste von Positionen und erst danach ein Kopf mit Nummern.
+    /// </remarks>
+    public ScanRepeatDto? Repeat { get; init; }
+
     /// <summary>Was der Übernahme im Weg steht — <c>null</c>, wenn nichts.</summary>
     public string? Blocker { get; init; }
 
     /// <summary>Wenn nichts erkannt wurde: warum.</summary>
     public string? Note { get; init; }
+}
+
+/// <summary>Eine wiederholte Zeile — eine Position einer Aufstellung.</summary>
+public sealed record ScanRowDto
+{
+    public required string Name { get; init; }
+
+    /// <summary>Die Zeile in Worten: „763 Stück × 125,24 € · IE00B4L5Y983“.</summary>
+    public required string Meta { get; init; }
+
+    /// <summary>Der Wert, den diese Zeile beiträgt.</summary>
+    public required decimal? Value { get; init; }
+}
+
+/// <summary>Die Wiederholgruppe eines Dokuments.</summary>
+public sealed record ScanRepeatDto
+{
+    public required string Title { get; init; }
+    public required IReadOnlyList<ScanRowDto> Rows { get; init; }
+
+    /// <summary>Die Summe der Zeilen.</summary>
+    public required decimal Total { get; init; }
+
+    /// <summary>Ob sie zum ausgewiesenen Gesamtwert passt.</summary>
+    public required bool Matches { get; init; }
+
+    /// <summary>Der Satz unter der Liste.</summary>
+    public required string Note { get; init; }
 }
 
 /// <summary>Eine Rechenprobe mit ihrer Begründung.</summary>

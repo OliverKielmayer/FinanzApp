@@ -5060,3 +5060,55 @@ body {
   flex: none;
   text-align: right;
 }
+
+/* Die Wiederholgruppe im Pruefschritt (Abschnitt 17.2). Eine Aufstellung ist zuerst eine
+   Liste von Bestaenden und erst danach ein Kopf mit Nummern. */
+.repeat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 16px;
+  padding: 14px 16px;
+}
+
+.repeat-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.repeat-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.repeat-row .stack {
+  flex: 1;
+  min-width: 0;
+}
+
+.repeat-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.repeat-value {
+  flex: none;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.repeat-sum {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-text);
+}

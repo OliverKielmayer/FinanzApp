@@ -119,6 +119,48 @@ public sealed record DocumentCheck
     public decimal Tolerance { get; init; } = 0.01m;
 }
 
+/// <summary>
+/// Eine Gruppe gleichartiger Zeilen in einem Dokument — v5-Handoff, Abschnitt 17.2.
+/// </summary>
+/// <remarks>
+/// <para>Ohne sie las der Extraktor je Feld den ersten Treffer, und eine Aufstellung mit drei
+/// Fonds ergab eine Position. Die Gruppe zerlegt das Dokument an einem <see cref="Anchor"/> in
+/// Blöcke und liest die Felder <em>innerhalb</em> eines Blocks — dieselbe Zuordnung wie sonst,
+/// nur auf einem Ausschnitt.</para>
+/// <para>Ein Block ist keine Zeile: in der realen Aufstellung stehen Stückzahl, ISIN,
+/// Bezeichnung und Verwahrart auf sechs Zeilen untereinander. Der Anker eröffnet den Block, die
+/// nächste Ankerzeile beendet ihn.</para>
+/// </remarks>
+public sealed record DocumentRepeatRule
+{
+    /// <summary>Wie die Gruppe im Prüfschritt überschrieben ist.</summary>
+    public required string Title { get; init; }
+
+    /// <summary>Muster, das einen Block eröffnet.</summary>
+    public required string Anchor { get; init; }
+
+    /// <summary>Die Felder je Block.</summary>
+    public required IReadOnlyList<DocumentFieldRule> Fields { get; init; }
+
+    /// <summary>Feldschlüssel des Werts, den eine Zeile beiträgt.</summary>
+    public required string ValueField { get; init; }
+
+    /// <summary>Feldschlüssel, unter dem der Zeilenname steht.</summary>
+    public required string NameField { get; init; }
+
+    /// <summary>
+    /// Feld im Kopf, das die Summe aller Zeilen ausweist.
+    /// </summary>
+    /// <remarks>
+    /// Gegen sie wird die zweite Stufe der Rechenprobe geführt: stimmt die Summe der Zeilen mit
+    /// dem ausgewiesenen Gesamtwert, sitzt jede Zeile richtig.
+    /// </remarks>
+    public string? TotalField { get; init; }
+
+    /// <summary>Die Probe je Zeile.</summary>
+    public DocumentCheck? RowCheck { get; init; }
+}
+
 /// <summary>Woran ein Dokument seinem Typ zugeordnet wird.</summary>
 /// <param name="Text">Zeichenfolge, die im Dokument vorkommen muss.</param>
 public sealed record DocumentMarker(string Text);
@@ -182,6 +224,9 @@ public sealed record DocumentKind
     public required IReadOnlyList<DocumentFieldRule> Fields { get; init; }
 
     public IReadOnlyList<DocumentCheck> Checks { get; init; } = [];
+
+    /// <summary>Die Wiederholgruppe, wenn der Typ eine hat.</summary>
+    public DocumentRepeatRule? Repeat { get; init; }
 
     /// <summary>
     /// Die Analyseschritte, die der Oberfläche als Kette angezeigt werden.
@@ -390,61 +435,94 @@ public static class DocumentKindLibrary
         DocumentDateField = "dokumentdatum",
         TargetNumberField = "depotnummer",
 
+        // Je Bestandszeile ein Block: Stückzahl, ISIN, Bezeichnung und Verwahrart stehen im
+        // realen Dokument auf sechs Zeilen untereinander, und ein Depot mit drei Fonds
+        // wiederholt das dreimal.
+        Repeat = new DocumentRepeatRule
+        {
+            Title = "Positionen in dieser Aufstellung",
+            Anchor = @"^Stück\s+[\d.]+(?:,\d+)?\b",
+            ValueField = "kurswert",
+            NameField = "papier",
+            TotalField = "depotwert",
+
+            Fields =
+            [
+                // Die Bestandszeile ist eine Tabellenzeile, keine Beschriftung mit Wert:
+                // „Stück · 763 · WKN: A0RPWH · EUR 125,240 · 95.558,12 · EUR“.
+                new()
+                {
+                    Key = "nominale", Label = "Nominale", Kind = DocumentValueKind.Quantity,
+                    Locator = DocumentLocator.Pattern, Pattern = @"^Stück\s+([\d.]+(?:,\d+)?)\b",
+                    Lead = true,
+                },
+                new()
+                {
+                    Key = "kurs", Label = "Kurs", Kind = DocumentValueKind.Price,
+                    Locator = DocumentLocator.Pattern, Pattern = @"^Stück\s.*?\bEUR\s+([\d.]+,\d+)",
+                },
+                new()
+                {
+                    Key = "kurswert", Label = "Kurswert", Kind = DocumentValueKind.Money,
+                    Locator = DocumentLocator.Pattern, Pattern = @"^Stück\s.*?([\d.]+,\d{2})\s+EUR$",
+                    Lead = true,
+                },
+
+                new()
+                {
+                    Key = "isin", Label = "ISIN · WKN", Kind = DocumentValueKind.Text,
+                    Labels = ["ISIN"], PairedWith = "wkn",
+                },
+                new()
+                {
+                    Key = "wkn", Label = "WKN", Kind = DocumentValueKind.Text,
+                    Locator = DocumentLocator.Pattern, Pattern = @"\bWKN:\s*([A-Z0-9]{6})\b",
+                },
+
+                // Die Bezeichnung trägt keine Beschriftung; sie steht unter der ISIN.
+                new()
+                {
+                    Key = "papier", Label = "Wertpapier", Kind = DocumentValueKind.Text,
+                    Locator = DocumentLocator.NextLine, Labels = ["ISIN"],
+                },
+
+                new()
+                {
+                    Key = "verwahrart", Label = "Verwahrart · Lagerland", Kind = DocumentValueKind.Text,
+                    Labels = ["Verwahrart"], PairedWith = "lagerland",
+                },
+                new()
+                {
+                    Key = "lagerland", Label = "Lagerland", Kind = DocumentValueKind.Text,
+                    Labels = ["Lagerland"],
+                },
+                new()
+                {
+                    Key = "lagerstelle", Label = "Lagerstelle", Kind = DocumentValueKind.Text,
+                    Labels = ["Lagerstelle"],
+                },
+            ],
+
+            // Erste Stufe der Probe: je Zeile. Bei einer verrutschten Wertspalte fällt genau
+            // eine Zeile heraus — in der Summe allein bliebe das unsichtbar.
+            RowCheck = new DocumentCheck
+            {
+                Result = "kurswert", Parts = ["nominale", "kurs"], Kind = DocumentCheckKind.Product,
+                Note = "Nominale × Kurs",
+                Why = "Nominale mal Kurs muss den ausgewiesenen Kurswert dieser Zeile ergeben. "
+                      + "Stück, Kurs und Kurswert stehen ohne Beschriftung nebeneinander.",
+            },
+        },
+
         Fields =
         [
-            // Die Bestandszeile ist eine Tabellenzeile, keine Beschriftung mit Wert:
-            // „Stück · 763 · WKN: A0RPWH · EUR 125,240 · 95.558,12 · EUR“.
+            // Zweite Stufe der Probe: die Summe der Zeilen gegen diesen Wert.
             new()
             {
-                Key = "nominale", Label = "Nominale", Kind = DocumentValueKind.Quantity,
-                Locator = DocumentLocator.Pattern, Pattern = @"^Stück\s+([\d.]+(?:,\d+)?)\b",
-                Lead = true,
-            },
-            new()
-            {
-                Key = "kurs", Label = "Kurs", Kind = DocumentValueKind.Price,
-                Locator = DocumentLocator.Pattern, Pattern = @"^Stück\s.*?\bEUR\s+([\d.]+,\d+)",
-            },
-            new()
-            {
-                Key = "kurswert", Label = "Kurswert", Kind = DocumentValueKind.Money,
-                Locator = DocumentLocator.Pattern, Pattern = @"^Stück\s.*?([\d.]+,\d{2})\s+EUR$",
-                Lead = true,
+                Key = "depotwert", Label = "Depotwert gesamt", Kind = DocumentValueKind.Money,
+                Labels = ["Depotwert"], Lead = true,
             },
 
-            new()
-            {
-                Key = "isin", Label = "ISIN · WKN", Kind = DocumentValueKind.Text,
-                Labels = ["ISIN"], PairedWith = "wkn",
-            },
-            new()
-            {
-                Key = "wkn", Label = "WKN", Kind = DocumentValueKind.Text,
-                Locator = DocumentLocator.Pattern, Pattern = @"\bWKN:\s*([A-Z0-9]{6})\b",
-            },
-
-            // Die Bezeichnung trägt keine Beschriftung; sie steht unter der ISIN.
-            new()
-            {
-                Key = "papier", Label = "Wertpapier", Kind = DocumentValueKind.Text,
-                Locator = DocumentLocator.NextLine, Labels = ["ISIN"],
-            },
-
-            new()
-            {
-                Key = "verwahrart", Label = "Verwahrart · Lagerland", Kind = DocumentValueKind.Text,
-                Labels = ["Verwahrart"], PairedWith = "lagerland",
-            },
-            new()
-            {
-                Key = "lagerland", Label = "Lagerland", Kind = DocumentValueKind.Text,
-                Labels = ["Lagerland"],
-            },
-            new()
-            {
-                Key = "lagerstelle", Label = "Lagerstelle", Kind = DocumentValueKind.Text,
-                Labels = ["Lagerstelle"],
-            },
             new()
             {
                 Key = "referenz", Label = "Referenz-Nr.", Kind = DocumentValueKind.Text,
@@ -472,20 +550,6 @@ public static class DocumentKindLibrary
             {
                 Key = "absender", Label = "Absender", Kind = DocumentValueKind.Text,
                 Locator = DocumentLocator.Pattern, Pattern = @"^([\w.\-äöüß ]+ Bank AG)\b",
-            },
-        ],
-
-        // 763 × 125,240 = 95.558,12. Geht die Probe auf, stehen Stück, Kurs und Kurswert in den
-        // Spalten, in die sie gehören.
-        Checks =
-        [
-            new()
-            {
-                Result = "kurswert", Parts = ["nominale", "kurs"], Kind = DocumentCheckKind.Product,
-                Note = "Nominale × Kurs",
-                Why = "Nominale mal Kurs muss den ausgewiesenen Kurswert ergeben. Stück, Kurs "
-                      + "und Kurswert stehen in derselben Tabellenzeile ohne Beschriftung; ohne "
-                      + "diese Probe fiele eine verrutschte Spalte nicht auf.",
             },
         ],
 
@@ -558,11 +622,23 @@ public sealed record ReadValue
     public string? Warning { get; init; }
 }
 
+/// <summary>Eine gelesene Zeile einer Wiederholgruppe.</summary>
+public sealed record ReadRow
+{
+    /// <summary>Die Felder dieser Zeile, in der Reihenfolge des Typs.</summary>
+    public required IReadOnlyList<ReadValue> Values { get; init; }
+
+    public ReadValue? this[string key] => Values.FirstOrDefault(v => v.Rule.Key == key);
+}
+
 /// <summary>Was aus einem Dokument herauskam.</summary>
 public sealed record ExtractionResult
 {
     public required IReadOnlyList<ReadValue> Values { get; init; }
     public required IReadOnlyList<ProofResult> Proofs { get; init; }
+
+    /// <summary>Die Zeilen der Wiederholgruppe. Leer, wenn der Typ keine hat.</summary>
+    public IReadOnlyList<ReadRow> Rows { get; init; } = [];
 }
 
 /// <summary>
@@ -625,11 +701,142 @@ public sealed class DocumentFieldExtractor
             }
         }
 
+        var zeilen = kind.Repeat is { } gruppe
+            ? Repeat(gruppe, content, basis, proben)
+            : [];
+
+        if (kind.Repeat is { } summe)
+        {
+            Total(summe, kind, zeilen, werte, proben);
+        }
+
         return new ExtractionResult
         {
             Values = [.. kind.Fields.Where(f => werte.ContainsKey(f.Key)).Select(f => werte[f.Key])],
             Proofs = proben,
+            Rows = zeilen,
         };
+    }
+
+    // ── Wiederholgruppe ────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Zerlegt das Dokument an den Ankerzeilen und liest jeden Block für sich.
+    /// </summary>
+    /// <remarks>
+    /// Ein Block läuft von seiner Ankerzeile bis zur nächsten. Die Feldzuordnung darin ist
+    /// dieselbe wie sonst — nur auf einem Ausschnitt statt auf dem ganzen Dokument. Genau das
+    /// fehlte vorher: der Extraktor nahm je Feld den ersten Treffer im ganzen Text, und drei
+    /// Fonds wurden zu einer Position.
+    /// </remarks>
+    private List<ReadRow> Repeat(
+        DocumentRepeatRule gruppe, PdfContent content, double basis, List<ProofResult> proben)
+    {
+        var anker = new Regex(gruppe.Anchor, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+
+        var starts = content.Lines
+            .Select((zeile, i) => (Index: i, Treffer: anker.IsMatch(zeile.Text)))
+            .Where(x => x.Treffer)
+            .Select(x => x.Index)
+            .ToList();
+
+        var zeilen = new List<ReadRow>();
+
+        for (var i = 0; i < starts.Count; i++)
+        {
+            var bis = i + 1 < starts.Count ? starts[i + 1] : content.Lines.Count;
+            var block = content.Lines.Skip(starts[i]).Take(bis - starts[i]).ToList();
+
+            var werte = new Dictionary<string, ReadValue>();
+
+            foreach (var regel in gruppe.Fields)
+            {
+                if (Find(regel, [], BlockOf(block), basis) is { } wert)
+                {
+                    werte[regel.Key] = wert;
+                }
+            }
+
+            if (gruppe.RowCheck is { } probe && Verify(probe, gruppe.Fields, werte, basis) is { } ergebnis)
+            {
+                // Je Zeile eine Probe, benannt nach ihrem Papier — sonst wüsste niemand,
+                // welche der drei Zeilen nicht aufgeht.
+                var name = werte.GetValueOrDefault(gruppe.NameField)?.Raw;
+                proben.Add(ergebnis with
+                {
+                    Line = (name is { Length: > 0 } ? name + ": " : null) + ergebnis.Line,
+                });
+            }
+
+            zeilen.Add(new ReadRow
+            {
+                Values = [.. gruppe.Fields.Where(f => werte.ContainsKey(f.Key)).Select(f => werte[f.Key])],
+            });
+        }
+
+        return zeilen;
+    }
+
+    /// <summary>Ein Block, so verpackt, dass die vorhandene Suche darauf läuft.</summary>
+    private static PdfContent BlockOf(List<PdfLine> block) => new()
+    {
+        PageCount = block.Count == 0 ? 0 : block.Max(z => z.Page),
+        Lines = block,
+        TextIsInvisible = false,
+        ImageCount = 0,
+    };
+
+    /// <summary>
+    /// Die zweite Stufe der Probe: die Summe der Zeilen gegen den ausgewiesenen Gesamtwert.
+    /// </summary>
+    /// <remarks>
+    /// Je Zeile allein genügt nicht — eine fehlende Zeile ginge durch, weil die vorhandenen für
+    /// sich stimmen. Erst die Summe zeigt, ob alle da sind.
+    /// </remarks>
+    private static void Total(
+        DocumentRepeatRule gruppe,
+        DocumentKind kind,
+        List<ReadRow> zeilen,
+        Dictionary<string, ReadValue> werte,
+        List<ProofResult> proben)
+    {
+        if (gruppe.TotalField is not { } schluessel
+            || !werte.TryGetValue(schluessel, out var gesamt)
+            || gesamt.Number is not { } ausgewiesen
+            || zeilen.Count == 0)
+        {
+            return;
+        }
+
+        var teile = zeilen.Select(z => z[gruppe.ValueField]?.Number).ToList();
+        if (teile.Any(t => t is null))
+        {
+            return;
+        }
+
+        var summe = decimal.Round(teile.Sum(t => t!.Value), 2);
+        var stimmt = Math.Abs(summe - ausgewiesen) <= 0.01m;
+
+        if (!stimmt)
+        {
+            werte[schluessel] = gesamt with
+            {
+                Confidence = Doubtful,
+                Warning = $"Die {zeilen.Count} Zeilen ergeben {Format(gesamt.Rule, summe)} — bitte prüfen",
+            };
+        }
+
+        proben.Add(new ProofResult
+        {
+            Line = $"{zeilen.Count} {(zeilen.Count == 1 ? "Zeile" : "Zeilen")} = {Format(gesamt.Rule, summe)}"
+                   + (stimmt
+                       ? " — entspricht dem ausgewiesenen Gesamtwert."
+                       : $" — ausgewiesen sind {Format(gesamt.Rule, ausgewiesen)}."),
+            Why = "Die Summe der Zeilen muss den ausgewiesenen Gesamtwert ergeben. Je Zeile "
+                  + "allein genügt nicht: eine fehlende Zeile ginge durch, weil die übrigen für "
+                  + "sich stimmen.",
+            Passed = stimmt,
+        });
     }
 
     // ── Abschnitte ─────────────────────────────────────────────────────────────────────────
@@ -715,15 +922,26 @@ public sealed class DocumentFieldExtractor
                     continue;
                 }
 
-                // Steht alles in einer Zelle, ist der Wert der Rest dahinter; sonst die letzte
-                // Zelle der Zeile.
-                var roh = zeile.Cells.Count > 1
-                    ? zeile.Cells[^1]
-                    : kopf[beschriftung.Length..].TrimStart(':', ' ');
-
-                if (Read(regel, roh) is { } wert)
+                // Steht alles in einer Zelle, ist der Wert der Rest dahinter.
+                if (zeile.Cells.Count == 1)
                 {
-                    return wert with { Page = zeile.Page, Confidence = basis };
+                    if (Read(regel, kopf[beschriftung.Length..].TrimStart(':', ' ')) is { } einzeln)
+                    {
+                        return einzeln with { Page = zeile.Page, Confidence = basis };
+                    }
+
+                    continue;
+                }
+
+                // Sonst von rechts nach links die erste Zelle, die sich lesen lässt. Die letzte
+                // ist nicht immer der Wert: „Depotwert · 95.558,12 · EUR“ trägt hinten die
+                // Währung, und wer stur die letzte nimmt, findet dort keinen Betrag.
+                for (var i = zeile.Cells.Count - 1; i >= 1; i--)
+                {
+                    if (Read(regel, zeile.Cells[i]) is { } wert)
+                    {
+                        return wert with { Page = zeile.Page, Confidence = basis };
+                    }
                 }
             }
         }
@@ -778,6 +996,13 @@ public sealed class DocumentFieldExtractor
     /// </summary>
     private static ProofResult? Verify(
         DocumentCheck probe, DocumentKind kind, Dictionary<string, ReadValue> werte, double basis)
+        => Verify(probe, kind.Fields, werte, basis);
+
+    private static ProofResult? Verify(
+        DocumentCheck probe,
+        IReadOnlyList<DocumentFieldRule> felder,
+        Dictionary<string, ReadValue> werte,
+        double basis)
     {
         var teile = probe.Parts.Select(p => werte.TryGetValue(p, out var w) ? w.Number : null).ToList();
         if (teile.Any(t => t is null))
@@ -792,7 +1017,7 @@ public sealed class DocumentFieldExtractor
         if (!werte.TryGetValue(probe.Result, out var ergebnis))
         {
             // Das Dokument nennt den Wert nicht. Dann rechnen wir ihn — und sagen es.
-            var regel = kind.Fields.FirstOrDefault(f => f.Key == probe.Result);
+            var regel = felder.FirstOrDefault(f => f.Key == probe.Result);
             if (regel is null)
             {
                 return null;
@@ -812,7 +1037,7 @@ public sealed class DocumentFieldExtractor
 
             return new ProofResult
             {
-                Line = Sentence(probe, kind, werte, gerundet)
+                Line = Sentence(probe, felder, werte, gerundet)
                        + " — das Dokument nennt die Summe selbst nicht, sie ist gerechnet.",
                 Why = probe.Why,
                 Passed = true,
@@ -824,7 +1049,7 @@ public sealed class DocumentFieldExtractor
             return null;
         }
 
-        var satz = Sentence(probe, kind, werte, decimal.Round(soll, 2));
+        var satz = Sentence(probe, felder, werte, decimal.Round(soll, 2));
 
         if (Math.Abs(steht - soll) <= probe.Tolerance)
         {
@@ -859,11 +1084,14 @@ public sealed class DocumentFieldExtractor
     /// wiedererkennen, die er auf dem Blatt vor sich hat.
     /// </remarks>
     private static string Sentence(
-        DocumentCheck probe, DocumentKind kind, Dictionary<string, ReadValue> werte, decimal ergebnis)
+        DocumentCheck probe,
+        IReadOnlyList<DocumentFieldRule> felder,
+        Dictionary<string, ReadValue> werte,
+        decimal ergebnis)
     {
         var zeichen = probe.Kind == DocumentCheckKind.Sum ? " + " : " \u00D7 ";
         var teile = probe.Parts.Select(p => werte[p].Raw);
-        var regel = kind.Fields.First(f => f.Key == probe.Result);
+        var regel = felder.First(f => f.Key == probe.Result);
 
         return string.Join(zeichen, teile) + " = " + Format(regel, ergebnis);
     }

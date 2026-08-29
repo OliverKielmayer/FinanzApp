@@ -23,6 +23,7 @@ namespace FinanzApp.Api.Application;
 public sealed class DocumentScanService(
     FinanzAppDbContext db,
     DocumentService documents,
+    DocumentPathService paths,
     DepotStatementService statements,
     IPdfTextReader reader,
     IClock clock)
@@ -116,6 +117,7 @@ public sealed class DocumentScanService(
 
             Steps = Steps(art, inhalt, werte, ziel, zeilen.Count, gelesen.Proofs),
             Fields = zeilen,
+            Repeat = Repeat(art, gelesen, werte),
             Proofs =
             [
                 .. gelesen.Proofs.Select(p => new ScanProofDto
@@ -187,10 +189,15 @@ public sealed class DocumentScanService(
 
         var werte = Values(art, rohwerte, request.Values);
 
+        // Die Zeilen einer Wiederholgruppe stehen nicht in der Werteliste — sie sind viele
+        // gleichnamige Felder. Für sie wird die abgelegte Datei noch einmal gelesen; sie liegt
+        // seit der Analyse und ändert sich nicht.
+        var gruppen = art.Repeat is null ? [] : await RowsAsync(art, dokument, ct);
+
         var ergebnis = art.Target switch
         {
             DocumentTargetKind.Policy => await ApplyPolicyAsync(art, dokument, werte, ct),
-            DocumentTargetKind.Depot => await ApplyDepotAsync(art, dokument, werte, ct),
+            DocumentTargetKind.Depot => await ApplyDepotAsync(art, dokument, werte, gruppen, ct),
             _ => throw new RuleViolationException("Für diesen Typ gibt es kein Ziel."),
         };
 
@@ -262,6 +269,75 @@ public sealed class DocumentScanService(
     }
 
     /// <summary>
+    /// Die Wiederholgruppe für den Prüfschritt.
+    /// </summary>
+    /// <remarks>
+    /// Die Summe kommt aus den Zeilen und nicht aus dem Kopf: sie ist die Aussage, die geprüft
+    /// wird. Ob sie zum ausgewiesenen Gesamtwert passt, steht daneben.
+    /// </remarks>
+    private static ScanRepeatDto? Repeat(
+        DocumentKind art, ExtractionResult gelesen, IReadOnlyList<ReadValue> werte)
+    {
+        if (art.Repeat is not { } gruppe || gelesen.Rows.Count == 0)
+        {
+            return null;
+        }
+
+        var zeilen = gelesen.Rows
+            .Select(z => new ScanRowDto
+            {
+                Name = z[gruppe.NameField]?.Raw ?? z["isin"]?.Raw ?? "Position",
+                Meta = RowMeta(z),
+                Value = z[gruppe.ValueField]?.Number,
+            })
+            .ToList();
+
+        var summe = decimal.Round(zeilen.Sum(z => z.Value ?? 0m), 2);
+
+        var ausgewiesen = gruppe.TotalField is { } schluessel
+            ? werte.FirstOrDefault(w => w.Rule.Key == schluessel)?.Number
+            : null;
+
+        var passt = ausgewiesen is not { } gesamt || Math.Abs(gesamt - summe) <= 0.01m;
+
+        return new ScanRepeatDto
+        {
+            Title = gruppe.Title,
+            Rows = zeilen,
+            Total = summe,
+            Matches = passt,
+            Note = ausgewiesen is null
+                ? "Das Dokument weist keinen Gesamtwert aus — geprüft ist jede Zeile für sich."
+                : passt
+                    ? "Die Summe entspricht dem ausgewiesenen Gesamtwert."
+                    : "Die Summe weicht vom ausgewiesenen Gesamtwert ab — bitte prüfen.",
+        };
+    }
+
+    /// <summary>Eine Zeile in Worten.</summary>
+    private static string RowMeta(ReadRow zeile)
+    {
+        var teile = new List<string>();
+
+        if (zeile["nominale"]?.Number is { } menge)
+        {
+            teile.Add($"{GermanFormat.Quantity(menge)} Stück");
+        }
+
+        if (zeile["kurs"]?.Number is { } kurs)
+        {
+            teile.Add("zu " + GermanFormat.Price(kurs));
+        }
+
+        if (zeile["isin"]?.Raw is { Length: > 0 } isin)
+        {
+            teile.Add(isin);
+        }
+
+        return string.Join(" · ", teile);
+    }
+
+    /// <summary>
     /// Legt die Aufstellung als Bestandsnachweis zum Stichtag an.
     /// </summary>
     /// <remarks>
@@ -269,8 +345,95 @@ public sealed class DocumentScanService(
     /// importierten Ausführungen. Was hier entsteht, ist die Gegenseite des Bestandsabgleichs
     /// aus Abschnitt 11.3.
     /// </remarks>
+    /// <summary>Liest die Zeilen der Wiederholgruppe erneut aus der abgelegten Datei.</summary>
+    /// <remarks>
+    /// Kein zweiter Vorschlag: nur die Zeilen. Sie unverändert wiederzufinden ist der Sinn der
+    /// sofortigen Ablage — die Datei ist seit der Analyse dieselbe.
+    /// </remarks>
+    private async Task<IReadOnlyList<ReadRow>> RowsAsync(
+        DocumentKind art, Document dokument, CancellationToken ct)
+    {
+        var absolut = paths.Resolve(dokument.RelativePath);
+
+        if (absolut is null || !File.Exists(absolut))
+        {
+            return [];
+        }
+
+        await using var datei = File.OpenRead(absolut);
+        return extractor.Read(art, reader.Read(datei)).Rows;
+    }
+
+    /// <summary>
+    /// Die Positionen einer Aufstellung.
+    /// </summary>
+    /// <remarks>
+    /// Aus der Wiederholgruppe, wenn der Typ eine hat. Zeilen ohne Nominale, Kurs oder ISIN
+    /// fallen heraus statt mit Null anzukommen — eine Position ohne Stückzahl ist keine.
+    /// </remarks>
+    private static List<CreateDepotStatementPosition> Positions(
+        DocumentKind art,
+        Dictionary<string, ScanValue> werte,
+        IReadOnlyList<ReadRow> zeilen)
+    {
+        if (art.Repeat is not null)
+        {
+            return
+            [
+                .. zeilen
+                    .Select(z => Position(
+                        z["isin"]?.Raw,
+                        z["papier"]?.Raw,
+                        z["wkn"]?.Raw,
+                        z["nominale"]?.Number,
+                        z["kurs"]?.Number,
+                        z["kurswert"]?.Number,
+                        z["verwahrart"]?.Raw,
+                        z["lagerland"]?.Raw,
+                        z["lagerstelle"]?.Raw))
+                    .OfType<CreateDepotStatementPosition>(),
+            ];
+        }
+
+        var einzeln = Position(
+            werte.GetValueOrDefault("isin")?.Text,
+            werte.GetValueOrDefault("papier")?.Text,
+            werte.GetValueOrDefault("wkn")?.Text,
+            werte.GetValueOrDefault("nominale")?.Number,
+            werte.GetValueOrDefault("kurs")?.Number,
+            werte.GetValueOrDefault("kurswert")?.Number,
+            werte.GetValueOrDefault("verwahrart")?.Text,
+            werte.GetValueOrDefault("lagerland")?.Text,
+            werte.GetValueOrDefault("lagerstelle")?.Text);
+
+        return einzeln is null ? [] : [einzeln];
+    }
+
+    private static CreateDepotStatementPosition? Position(
+        string? isin, string? name, string? wkn,
+        decimal? menge, decimal? kurs, decimal? wert,
+        string? verwahrart, string? land, string? stelle)
+        => isin is { Length: > 0 } kennung && menge is { } stueck && kurs is { } preis
+            ? new CreateDepotStatementPosition
+            {
+                SecurityName = name is { Length: > 0 } ? name : kennung,
+                Isin = kennung,
+                Wkn = wkn,
+                Quantity = stueck,
+                Price = preis,
+                Value = wert,
+                SafeCustody = verwahrart,
+                Country = land,
+                Depository = stelle,
+            }
+            : null;
+
     private async Task<ScanResultDto> ApplyDepotAsync(
-        DocumentKind art, Document dokument, Dictionary<string, ScanValue> werte, CancellationToken ct)
+        DocumentKind art,
+        Document dokument,
+        Dictionary<string, ScanValue> werte,
+        IReadOnlyList<ReadRow> gruppen,
+        CancellationToken ct)
     {
         var nummer = werte.GetValueOrDefault(art.TargetNumberField)?.Text;
         var depot = await FindDepotAsync(nummer, ct)
@@ -282,17 +445,15 @@ public sealed class DocumentScanService(
         var stichtag = werte.GetValueOrDefault(art.AsOfField)?.Date
                        ?? throw new RuleViolationException("Ohne Stichtag belegt die Aufstellung nichts.");
 
-        var stueck = werte.GetValueOrDefault("nominale")?.Number;
-        var kurs = werte.GetValueOrDefault("kurs")?.Number;
-        var isin = werte.GetValueOrDefault("isin")?.Text;
+        // Eine Aufstellung mit N Positionen, nicht N Aufstellungen — Abschnitt 17.2. Die
+        // Zuordnung zum Depot geht über die Depotnummer, die der Zeilen über die ISIN.
+        var positionen = Positions(art, werte, gruppen);
 
-        if (stueck is not { } menge || kurs is not { } preis || isin is not { Length: > 0 } kennung)
+        if (positionen.Count == 0)
         {
             throw new RuleViolationException(
                 "Nominale, Kurs und ISIN müssen stehen — sonst ist es kein Bestandsnachweis.");
         }
-
-        var kurswert = werte.GetValueOrDefault("kurswert")?.Number;
 
         var aufstellung = await statements.CreateAsync(depot.Id, new CreateDepotStatementRequest
         {
@@ -302,44 +463,37 @@ public sealed class DocumentScanService(
             Reference = werte.GetValueOrDefault("referenz")?.Text,
             Custodian = werte.GetValueOrDefault("absender")?.Text,
             DocumentId = dokument.Id,
-            Positions =
-            [
-                new CreateDepotStatementPosition
-                {
-                    SecurityName = werte.GetValueOrDefault("papier")?.Text ?? kennung,
-                    Isin = kennung,
-                    Wkn = werte.GetValueOrDefault("wkn")?.Text,
-                    Quantity = menge,
-                    Price = preis,
-                    Value = kurswert,
-                    SafeCustody = werte.GetValueOrDefault("verwahrart")?.Text,
-                    Country = werte.GetValueOrDefault("lagerland")?.Text,
-                    Depository = werte.GetValueOrDefault("lagerstelle")?.Text,
-                },
-            ],
+            Positions = positionen,
         }, ct);
 
         await documents.LinkAsync(dokument.Id, LinkTargetType.Portfolio, depot.Id, ct);
 
-        var wert = kurswert ?? decimal.Round(menge * preis, 2);
+        var wert = decimal.Round(positionen.Sum(p => p.Value ?? p.Quantity * p.Price), 2);
 
         return new ScanResultDto
         {
             Saved = true,
             Title = art.Label + " abgelegt",
             Subtitle = $"bei {depot.Name} · {GermanFormat.Date(stichtag)}",
-            LeadLabel = "Kurswert zum Stichtag",
+            LeadLabel = "Depotwert zum Stichtag",
             LeadNumber = wert,
             LeadIsMoney = true,
-            Effect =
-            [
-                new() { Quantity = menge },
-                new() { Text = "Stück zu" },
-                new() { Price = preis },
-                new() { Text = "· Kurswert" },
-                new() { Money = wert },
-                new() { Text = "zum " + GermanFormat.Date(aufstellung.AsOf) },
-            ],
+            Effect = positionen.Count == 1
+                ?
+                [
+                    new() { Quantity = positionen[0].Quantity },
+                    new() { Text = "Stück zu" },
+                    new() { Price = positionen[0].Price },
+                    new() { Text = "· Kurswert" },
+                    new() { Money = wert },
+                    new() { Text = "zum " + GermanFormat.Date(aufstellung.AsOf) },
+                ]
+                :
+                [
+                    new() { Text = $"{positionen.Count} Positionen · Depotwert" },
+                    new() { Money = wert },
+                    new() { Text = "zum " + GermanFormat.Date(aufstellung.AsOf) },
+                ],
             Rule = $"Absender „{depot.Broker ?? depot.Name}“ + „Quartalsaufstellung“ → künftig automatisch hierher",
             TargetLink = art.TargetLink,
             TargetHref = "/depot",

@@ -87,8 +87,23 @@ public sealed class DocumentKindTests
     /// Tabellenzeile mit sechs Spalten, die Bezeichnung steht unter der ISIN.
     /// </summary>
     private static PdfContent Quarterly(
-        string stueck = "500", string kurs = "100,500", string kurswert = "50.250,00")
-        => Content(
+        string stueck = "500", string kurs = "100,500", string kurswert = "50.250,00",
+        string? gesamt = null)
+        => Quarterly([("IE00TEST0001", "Weltfonds-Muster UCITS ETF", stueck, kurs, kurswert)], gesamt);
+
+    /// <summary>
+    /// Eine Aufstellung mit beliebig vielen Bestandszeilen.
+    /// </summary>
+    /// <remarks>
+    /// Jede Position steht im Original als Block über sechs Zeilen — Stückzahl, ISIN,
+    /// Bezeichnung, Verwahrart. Ein Depot mit drei Fonds wiederholt diesen Block dreimal, und
+    /// genau daran ist die Zuordnung vorher gescheitert.
+    /// </remarks>
+    private static PdfContent Quarterly(
+        IReadOnlyList<(string Isin, string Name, string Stueck, string Kurs, string Wert)> positionen,
+        string? gesamt = null)
+    {
+        List<PdfLine> zeilen =
         [
             Line(1, "Musterbank AG", "85716 Musterstadt"),
             Line(1, "Musterstadt"),
@@ -99,16 +114,30 @@ public sealed class DocumentKindTests
             Line(1, "MIFID II per 30.06.2026"),
             Line(1, "Nominale", "Bezeichnung", "Kurs", "Kurswert in Depot WHG"),
             Line(1, "Fonds"),
-            Line(1, "Stück", stueck, "WKN: TEST99", $"EUR {kurs}", kurswert, "EUR"),
-            Line(1, "ISIN:", "IE00TEST0001"),
-            Line(1, "Weltfonds-Muster UCITS ETF"),
-            Line(1, "Registered Shs USD (Acc) o.N."),
-            Line(1, "Verwahrart:", "Wertpapierrechnung"),
-            Line(1, "Lagerstelle:", "1419"),
-            Line(1, "Lagerland:", "Luxemburg"),
-            Line(1, "Depotwert", kurswert, "EUR"),
-            Line(2, "Seite 2/2"),
-        ]);
+        ];
+
+        foreach (var p in positionen)
+        {
+            zeilen.AddRange(
+            [
+                Line(1, "Stück", p.Stueck, "WKN: TEST99", $"EUR {p.Kurs}", p.Wert, "EUR"),
+                Line(1, "ISIN:", p.Isin),
+                Line(1, p.Name),
+                Line(1, "Registered Shs USD (Acc) o.N."),
+                Line(1, "Verwahrart:", "Wertpapierrechnung"),
+                Line(1, "Lagerstelle:", "1419"),
+                Line(1, "Lagerland:", "Luxemburg"),
+            ]);
+        }
+
+        zeilen.Add(Line(1, "Depotwert", gesamt ?? positionen[0].Wert, "EUR"));
+        zeilen.Add(Line(2, "Seite 2/2"));
+
+        return Content(zeilen);
+    }
+
+    private ExtractionResult ReadQuarterly(PdfContent inhalt)
+        => extractor.Read(DocumentKindLibrary.QuarterlyStatement, inhalt);
 
     private static PdfLine Line(int seite, params string[] zellen) => new(seite, zellen);
 
@@ -318,18 +347,103 @@ public sealed class DocumentKindTests
     [Fact]
     public void Die_Quartalsaufstellung_liest_ihre_acht_Angaben()
     {
-        var werte = Read(DocumentKindLibrary.QuarterlyStatement, Quarterly());
+        var gelesen = ReadQuarterly(Quarterly());
+        var zeile = Assert.Single(gelesen.Rows);
+        var kopf = gelesen.Values.ToDictionary(w => w.Rule.Key);
 
-        Assert.Equal(500m, werte["nominale"].Number);
-        Assert.Equal(100.500m, werte["kurs"].Number);
-        Assert.Equal(50250.00m, werte["kurswert"].Number);
-        Assert.Equal("IE00TEST0001", werte["isin"].Raw);
-        Assert.Equal("TEST99", werte["wkn"].Raw);
-        Assert.Equal("Weltfonds-Muster UCITS ETF", werte["papier"].Raw);
-        Assert.Equal("Wertpapierrechnung", werte["verwahrart"].Raw);
-        Assert.Equal("Luxemburg", werte["lagerland"].Raw);
-        Assert.Equal("1419", werte["lagerstelle"].Raw);
-        Assert.Equal("1032904213", werte["referenz"].Raw);
+        Assert.Equal(500m, zeile["nominale"]!.Number);
+        Assert.Equal(100.500m, zeile["kurs"]!.Number);
+        Assert.Equal(50250.00m, zeile["kurswert"]!.Number);
+        Assert.Equal("IE00TEST0001", zeile["isin"]!.Raw);
+        Assert.Equal("TEST99", zeile["wkn"]!.Raw);
+        Assert.Equal("Weltfonds-Muster UCITS ETF", zeile["papier"]!.Raw);
+        Assert.Equal("Wertpapierrechnung", zeile["verwahrart"]!.Raw);
+        Assert.Equal("Luxemburg", zeile["lagerland"]!.Raw);
+        Assert.Equal("1419", zeile["lagerstelle"]!.Raw);
+
+        Assert.Equal("1032904213", kopf["referenz"].Raw);
+        Assert.Equal(50250.00m, kopf["depotwert"].Number);
+    }
+
+    /// <summary>
+    /// Drei Fonds ergeben drei Zeilen.
+    /// </summary>
+    /// <remarks>
+    /// Der Grund für die Wiederholgruppe: vorher nahm der Extraktor je Feld den ersten Treffer
+    /// im ganzen Dokument, und aus drei Positionen wurde eine — mit dem Wert der ersten.
+    /// </remarks>
+    [Fact]
+    public void Drei_Positionen_ergeben_drei_Zeilen()
+    {
+        var gelesen = ReadQuarterly(Quarterly(
+        [
+            ("IE00TEST0001", "Weltfonds Muster", "152", "120,000", "18.240,00"),
+            ("IE00TEST0002", "Schwellenland Muster", "175", "54,930", "9.612,75"),
+            ("DE000TEST003", "Musterkonzern AG", "18", "341,600", "6.148,80"),
+        ], gesamt: "34.001,55"));
+
+        Assert.Equal(3, gelesen.Rows.Count);
+
+        Assert.Equal("IE00TEST0002", gelesen.Rows[1]["isin"]!.Raw);
+        Assert.Equal(175m, gelesen.Rows[1]["nominale"]!.Number);
+        Assert.Equal("Musterkonzern AG", gelesen.Rows[2]["papier"]!.Raw);
+        Assert.Equal(6148.80m, gelesen.Rows[2]["kurswert"]!.Number);
+    }
+
+    /// <summary>
+    /// Geprüft wird zweifach: je Zeile und in Summe.
+    /// </summary>
+    /// <remarks>
+    /// Je Zeile allein ginge eine fehlende Zeile durch, weil die übrigen für sich stimmen. Die
+    /// Summe allein zeigte nicht, welche Zeile verrutscht ist.
+    /// </remarks>
+    [Fact]
+    public void Die_Probe_laeuft_je_Zeile_und_in_Summe()
+    {
+        var gelesen = ReadQuarterly(Quarterly(
+        [
+            ("IE00TEST0001", "Weltfonds Muster", "152", "120,000", "18.240,00"),
+            ("IE00TEST0002", "Schwellenland Muster", "175", "54,930", "9.612,75"),
+            ("DE000TEST003", "Musterkonzern AG", "18", "341,600", "6.148,80"),
+        ], gesamt: "34.001,55"));
+
+        // Drei Zeilenproben plus die Summenprobe.
+        Assert.Equal(4, gelesen.Proofs.Count);
+        Assert.All(gelesen.Proofs, p => Assert.True(p.Passed));
+
+        Assert.StartsWith("Weltfonds Muster:", gelesen.Proofs[0].Line);
+        Assert.Contains("3 Zeilen = 34.001,55 EUR", gelesen.Proofs[^1].Line);
+    }
+
+    /// <summary>Eine verrutschte Zeile fällt einzeln heraus, nicht nur in der Summe.</summary>
+    [Fact]
+    public void Eine_verrutschte_Zeile_faellt_einzeln_auf()
+    {
+        var gelesen = ReadQuarterly(Quarterly(
+        [
+            ("IE00TEST0001", "Weltfonds Muster", "152", "120,000", "18.240,00"),
+            ("IE00TEST0002", "Schwellenland Muster", "175", "54,930", "9.999,99"),
+        ], gesamt: "28.239,99"));
+
+        var gescheitert = gelesen.Proofs.Where(p => !p.Passed).ToList();
+
+        Assert.Single(gescheitert);
+        Assert.StartsWith("Schwellenland Muster:", gescheitert[0].Line);
+    }
+
+    /// <summary>Eine fehlende Zeile fällt nur der Summenprobe auf.</summary>
+    [Fact]
+    public void Eine_fehlende_Zeile_faellt_der_Summe_auf()
+    {
+        var gelesen = ReadQuarterly(Quarterly(
+        [
+            ("IE00TEST0001", "Weltfonds Muster", "152", "120,000", "18.240,00"),
+        ], gesamt: "34.001,55"));
+
+        // Die eine Zeile stimmt für sich — nur die Summe zeigt, dass zwei fehlen.
+        Assert.True(gelesen.Proofs[0].Passed);
+        Assert.False(gelesen.Proofs[^1].Passed);
+        Assert.Contains("ausgewiesen sind 34.001,55", gelesen.Proofs[^1].Line);
     }
 
     /// <summary>
@@ -359,15 +473,12 @@ public sealed class DocumentKindTests
     [Fact]
     public void Nominale_mal_Kurs_muss_den_Kurswert_ergeben()
     {
-        var stimmt = Read(DocumentKindLibrary.QuarterlyStatement, Quarterly());
-        Assert.Null(stimmt["kurswert"].Warning);
+        Assert.Null(ReadQuarterly(Quarterly()).Rows[0]["kurswert"]!.Warning);
 
-        var falsch = Read(
-            DocumentKindLibrary.QuarterlyStatement,
-            Quarterly(kurswert: "49.000,00"));
+        var falsch = ReadQuarterly(Quarterly(kurswert: "49.000,00"));
 
-        Assert.NotNull(falsch["kurswert"].Warning);
-        Assert.True(falsch["kurswert"].Confidence < 0.8);
+        Assert.NotNull(falsch.Rows[0]["kurswert"]!.Warning);
+        Assert.True(falsch.Rows[0]["kurswert"]!.Confidence < 0.8);
     }
 
     /// <summary>
@@ -376,10 +487,10 @@ public sealed class DocumentKindTests
     [Fact]
     public void Uebernommen_werden_Nominale_und_Kurswert()
     {
-        var leitwerte = DocumentKindLibrary.QuarterlyStatement.Fields
-            .Where(f => f.Lead).Select(f => f.Key).ToList();
+        var art = DocumentKindLibrary.QuarterlyStatement;
 
-        Assert.Equal(["nominale", "kurswert"], leitwerte);
+        Assert.Equal(["nominale", "kurswert"], art.Repeat!.Fields.Where(f => f.Lead).Select(f => f.Key));
+        Assert.Equal(["depotwert"], art.Fields.Where(f => f.Lead).Select(f => f.Key));
     }
 
     // ── Beschaffenheit ─────────────────────────────────────────────────────────────────────
@@ -433,11 +544,10 @@ public sealed class DocumentKindTests
     [Fact]
     public void Die_Probe_der_Aufstellung_nennt_Nominale_mal_Kurs()
     {
-        var ergebnis = extractor.Read(DocumentKindLibrary.QuarterlyStatement, Quarterly());
-        var probe = Assert.Single(ergebnis.Proofs);
+        var probe = ReadQuarterly(Quarterly()).Proofs[0];
 
         Assert.True(probe.Passed);
-        Assert.StartsWith("500 \u00D7 100,500 = 50.250,00 EUR", probe.Line);
+        Assert.Contains("500 \u00D7 100,500 = 50.250,00 EUR", probe.Line);
     }
 
     /// <summary>

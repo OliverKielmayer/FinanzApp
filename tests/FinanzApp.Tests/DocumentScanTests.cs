@@ -69,7 +69,12 @@ public sealed class DocumentScanTests : IDisposable
             NullLogger<DocumentService>.Instance);
 
         return new DocumentScanService(
-            context, documents, new DepotStatementService(context), new StubReader(inhalt), clock);
+            context,
+            documents,
+            TestDatabase.PathService(root),
+            new DepotStatementService(context),
+            new StubReader(inhalt),
+            clock);
     }
 
     private Task<ScanAnalysisDto> AnalyseAsync(PdfContent inhalt, string dateiname = "beleg.pdf")
@@ -110,19 +115,40 @@ public sealed class DocumentScanTests : IDisposable
 
     /// <summary>Eine Quartalsaufstellung mit erfundenen Zahlen.</summary>
     private static PdfContent Quarterly(string stichtag = "30.06.2026", string stueck = "500")
-        => Content(
+        => Quarterly(stichtag, [("IE00TEST0001", "Weltfonds-Muster UCITS ETF", stueck, "100,500", "50.250,00")], "50.250,00");
+
+    /// <summary>Eine Aufstellung mit beliebig vielen Positionen.</summary>
+    private static PdfContent Quarterly(
+        string stichtag,
+        IReadOnlyList<(string Isin, string Name, string Stueck, string Kurs, string Wert)> positionen,
+        string gesamt)
+    {
+        List<PdfLine> zeilen =
+        [
             Line(1, "Musterbank AG"),
             Line(1, "15.07.2026"),
             Line(1, "Depot-Nr.:", "9988776655"),
             Line(1, "Referenz-Nr.:", "1032904213"),
             Line(1, "Quartalsaufstellung nach Art. 63 Delegierte Verordnung"),
             Line(1, "MIFID II per " + stichtag),
-            Line(1, "Stück", stueck, "WKN: TEST99", "EUR 100,500", "50.250,00", "EUR"),
-            Line(1, "ISIN:", "IE00TEST0001"),
-            Line(1, "Weltfonds-Muster UCITS ETF"),
-            Line(1, "Verwahrart:", "Wertpapierrechnung"),
-            Line(1, "Lagerstelle:", "1419"),
-            Line(1, "Lagerland:", "Luxemburg"));
+        ];
+
+        foreach (var p in positionen)
+        {
+            zeilen.AddRange(
+            [
+                Line(1, "Stück", p.Stueck, "WKN: TEST99", $"EUR {p.Kurs}", p.Wert, "EUR"),
+                Line(1, "ISIN:", p.Isin),
+                Line(1, p.Name),
+                Line(1, "Verwahrart:", "Wertpapierrechnung"),
+                Line(1, "Lagerstelle:", "1419"),
+                Line(1, "Lagerland:", "Luxemburg"),
+            ]);
+        }
+
+        zeilen.Add(Line(1, "Depotwert", gesamt, "EUR"));
+        return Content([.. zeilen]);
+    }
 
     private Policy Vertrag()
     {
@@ -546,6 +572,44 @@ public sealed class DocumentScanTests : IDisposable
         Assert.Contains(ergebnis.Effect, t => t.Money == 50250.00m);
         Assert.Contains(ergebnis.Effect, t => t.Text?.Contains("30.06.2026") == true);
         Assert.Equal("/depot", ergebnis.TargetHref);
+    }
+
+    /// <summary>
+    /// Drei Fonds ergeben eine Aufstellung mit drei Positionen.
+    /// </summary>
+    /// <remarks>
+    /// Nicht drei Aufstellungen — Abschnitt 17.2. Die Zuordnung zum Depot geht über die
+    /// Depotnummer, die der Zeilen über die ISIN.
+    /// </remarks>
+    [Fact]
+    public async Task Drei_Positionen_ergeben_eine_Aufstellung_mit_drei_Zeilen()
+    {
+        var inhalt = Quarterly("30.06.2026",
+        [
+            ("IE00TEST0001", "Weltfonds Muster", "152", "120,000", "18.240,00"),
+            ("IE00TEST0002", "Schwellenland Muster", "175", "54,930", "9.612,75"),
+            ("DE000TEST003", "Musterkonzern AG", "18", "341,600", "6.148,80"),
+        ], "34.001,55");
+
+        var vorschlag = await AnalyseAsync(inhalt, "quartal.pdf");
+
+        Assert.Equal(3, vorschlag.Repeat!.Rows.Count);
+        Assert.True(vorschlag.Repeat.Matches);
+        Assert.Equal(34001.55m, vorschlag.Repeat.Total);
+
+        var ergebnis = await Service(inhalt).ConfirmAsync(new() { DocumentId = vorschlag.DocumentId });
+        Assert.True(ergebnis.Saved);
+
+        using var context = database.Context();
+        Assert.Single(context.DepotStatements);
+
+        var positionen = context.DepotStatementPositions.OrderBy(p => p.Id).ToList();
+        Assert.Equal(3, positionen.Count);
+        Assert.Equal(["IE00TEST0001", "IE00TEST0002", "DE000TEST003"], positionen.Select(p => p.Isin));
+        Assert.Equal(175m, positionen[1].Quantity);
+        Assert.Equal(6148.80m, positionen[2].Value);
+
+        Assert.Equal(34001.55m, ergebnis.LeadNumber);
     }
 
     /// <summary>
