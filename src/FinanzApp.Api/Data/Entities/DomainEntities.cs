@@ -437,6 +437,19 @@ public class Employment : IHouseholdOwned
     public int NoticePeriodMonths { get; set; }
 
     /// <summary>
+    /// Einfache Entfernung zur Arbeitsstätte in Kilometern.
+    /// </summary>
+    /// <remarks>
+    /// Zusammen mit <see cref="WorkDaysPerYear"/> die einzige Grundlage der
+    /// Entfernungspauschale. Fehlt eines von beiden, entsteht die Position gar nicht — eine
+    /// Pauschale aus geratener Entfernung wäre keine Schätzung mehr, sondern eine Erfindung.
+    /// </remarks>
+    public decimal? CommuteKilometres { get; set; }
+
+    /// <summary>Arbeitstage im Jahr, an denen der Weg tatsächlich anfiel.</summary>
+    public int? WorkDaysPerYear { get; set; }
+
+    /// <summary>
     /// Ob das Verhältnis läuft.
     /// </summary>
     /// <remarks>
@@ -489,7 +502,16 @@ public class Payslip : IHouseholdOwned
     public DateOnly Month { get; set; }
 
     public decimal Gross { get; set; }
-    public decimal Net { get; set; }
+
+    /// <summary>
+    /// Nettogehalt laut Abrechnung. <c>null</c>, solange es niemand eingetragen hat.
+    /// </summary>
+    /// <remarks>
+    /// Nullable und nicht null: „nicht eingetragen“ und „null Euro“ sind zweierlei, und nur die
+    /// Unterscheidung erlaubt es, eine Schätzung als solche auszuweisen. Eine geschätzte Zahl
+    /// still in die Spalte zu schreiben hieße, sie als erfasst auszugeben.
+    /// </remarks>
+    public decimal? Net { get; set; }
 
     /// <summary>
     /// Was tatsächlich ausgezahlt wurde.

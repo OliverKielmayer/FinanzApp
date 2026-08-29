@@ -56,7 +56,20 @@ public sealed record PayslipRowDto
     public required DateOnly Month { get; init; }
 
     public required decimal Gross { get; init; }
+
+    /// <summary>
+    /// Das Netto — eingetragen oder geschätzt, und <see cref="NetIsEstimated"/> sagt welches.
+    /// </summary>
+    /// <remarks>
+    /// Die Schätzung greift nur, wo nichts eingetragen ist, und sie steht nie unbeschriftet da:
+    /// die Zeile liest sich dann „Netto 5.240 € (geschätzt)“. Ein Faktor, der niemandes
+    /// Steuerklasse kennt, darf nicht unsichtbar in Auswertungen wirken.
+    /// </remarks>
     public required decimal Net { get; init; }
+
+    /// <summary>Das Netto ist gerechnet, nicht abgeschrieben.</summary>
+    public required bool NetIsEstimated { get; init; }
+
     public required decimal Payout { get; init; }
 
     /// <summary>Brutto minus Netto — gerechnet, nicht gespeichert.</summary>
@@ -141,7 +154,12 @@ public sealed record CreatePayslipRequest
     public required DateOnly Month { get; init; }
 
     public required decimal Gross { get; init; }
-    public required decimal Net { get; init; }
+
+    /// <summary>
+    /// Nettogehalt laut Abrechnung. Ohne Angabe schätzt die Anwendung — und schreibt dran, dass
+    /// sie schätzt.
+    /// </summary>
+    public decimal? Net { get; init; }
 
     /// <summary>Auszahlungsbetrag. Ohne Angabe gilt der Nettobetrag.</summary>
     public decimal? Payout { get; init; }

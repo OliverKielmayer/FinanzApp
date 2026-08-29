@@ -84,7 +84,7 @@ public sealed class EmploymentTests : IDisposable
     }
 
     private async Task<int> AbrechnungAsync(
-        int stelleId, int monat, decimal brutto = 8400m, decimal netto = 5240m,
+        int stelleId, int monat, decimal brutto = 8400m, decimal? netto = 5240m,
         decimal? auszahlung = null)
     {
         var zeile = await Service().CreatePayslipAsync(new CreatePayslipRequest
@@ -395,6 +395,73 @@ public sealed class EmploymentTests : IDisposable
 
         // Und die Anzeige kommt ohne Arbeitgeber zurecht, statt zu stolpern.
         Assert.All((await Service().GetAsync()).Payslips, z => Assert.Null(z.Employer));
+    }
+
+    // ── Netto ist ein Eingabefeld (Abschnitt 15.5) ─────────────────────────────────────────
+
+    /// <summary>
+    /// Ohne eingetragenes Netto schätzt die Anzeige — und sagt, dass sie schätzt.
+    /// </summary>
+    /// <remarks>
+    /// Ein Faktor, der niemandes Steuerklasse kennt, darf nicht unsichtbar in Auswertungen
+    /// wirken. Er greift nur, wo nichts steht, und trägt überall sein Kennzeichen.
+    /// </remarks>
+    [Fact]
+    public async Task Ohne_Netto_schaetzt_die_Anzeige_und_kennzeichnet_es()
+    {
+        var stelle = Stelle("EWV", brutto: 8400m);
+        await AbrechnungAsync(stelle, 6, netto: null);
+
+        var zeile = (await Service().GetAsync()).Payslips.Single();
+
+        Assert.True(zeile.NetIsEstimated);
+        Assert.Equal(4956m, zeile.Net);
+
+        // Gespeichert ist nichts: sonst wäre die Schätzung später nicht mehr von einer
+        // erfassten Zahl zu unterscheiden.
+        using var context = database.Context();
+        Assert.Null(context.Payslips.Single().Net);
+    }
+
+    [Fact]
+    public async Task Ein_eingetragenes_Netto_bleibt_unangetastet()
+    {
+        var stelle = Stelle("EWV", brutto: 8400m);
+        await AbrechnungAsync(stelle, 6, netto: 5240m);
+
+        var zeile = (await Service().GetAsync()).Payslips.Single();
+
+        Assert.False(zeile.NetIsEstimated);
+        Assert.Equal(5240m, zeile.Net);
+    }
+
+    /// <summary>
+    /// Ohne Netto und ohne Auszahlungsbetrag steht die Schätzung auch in der Auszahlung.
+    /// </summary>
+    /// <remarks>
+    /// Sie ist die Vergleichsgröße der Zahlungszuordnung. Sie auf null zu lassen hieße, jede
+    /// Buchung als Abweichung zu melden.
+    /// </remarks>
+    [Fact]
+    public async Task Ohne_Netto_folgt_die_Auszahlung_der_Schaetzung()
+    {
+        var stelle = Stelle("EWV", brutto: 8400m);
+        await AbrechnungAsync(stelle, 6, netto: null);
+
+        Assert.Equal(4956m, (await Service().GetAsync()).Payslips.Single().Payout);
+    }
+
+    /// <summary>Derselbe Monat zweimal ist keine zweite Abrechnung.</summary>
+    [Fact]
+    public async Task Ein_doppelter_Monat_wird_abgewiesen()
+    {
+        var stelle = Stelle("EWV", brutto: 8400m);
+        await AbrechnungAsync(stelle, 6);
+
+        var fehler = await Assert.ThrowsAsync<RuleViolationException>(
+            () => AbrechnungAsync(stelle, 6));
+
+        Assert.Contains("schon eine", fehler.Message);
     }
 
     public void Dispose() => database.Dispose();

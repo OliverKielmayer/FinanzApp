@@ -36,10 +36,11 @@ public sealed class EmploymentService(FinanzAppDbContext db, IClock clock)
     /// </summary>
     /// <remarks>
     /// Steuerklasse, Kirche, Kinderfreibetrag und Beitragsbemessungsgrenze sind hier nicht
-    /// bekannt — die Zahl kann nur eine Hausnummer sein. Sie wird darum immer als geschätzt
-    /// ausgewiesen und bleibt überschreibbar.
+    /// bekannt — die Zahl kann nur eine Hausnummer sein. Sie greift deshalb <b>nur</b>, wo das
+    /// Netto leer geblieben ist, und wird überall als geschätzt ausgewiesen: ein Faktor, der
+    /// niemandes Steuerklasse kennt, darf nicht unsichtbar in Auswertungen wirken.
     /// </remarks>
-    private const decimal NetFactor = 0.62m;
+    private const decimal NetFactor = 0.59m;
 
     public async Task<EmploymentOverviewDto> GetAsync(CancellationToken ct = default)
     {
@@ -137,7 +138,10 @@ public sealed class EmploymentService(FinanzAppDbContext db, IClock clock)
         Employer = p.Employment?.Employer,
         Month = p.Month,
         Gross = p.Gross,
-        Net = p.Net,
+
+        // Wo nichts eingetragen ist, steht die Schätzung — und das Kennzeichen daneben.
+        Net = p.Net ?? Estimate(p.Gross),
+        NetIsEstimated = p.Net is null,
         Payout = p.Payout,
         DocumentId = p.DocumentId,
         DocumentTitle = p.Document?.Title,
@@ -160,8 +164,10 @@ public sealed class EmploymentService(FinanzAppDbContext db, IClock clock)
     };
 
     /// <summary>Das erfasste Netto, oder die Schätzung daraus.</summary>
-    public static decimal Net(Employment e)
-        => e.NetMonthly ?? Math.Round(e.GrossMonthly * NetFactor, 2);
+    public static decimal Net(Employment e) => e.NetMonthly ?? Estimate(e.GrossMonthly);
+
+    /// <summary>Was vom Brutto vermutlich übrig bleibt.</summary>
+    public static decimal Estimate(decimal brutto) => Math.Round(brutto * NetFactor, 2);
 
     // ── Abrechnungen ───────────────────────────────────────────────────────────────────────
 
@@ -196,11 +202,15 @@ public sealed class EmploymentService(FinanzAppDbContext db, IClock clock)
             EmploymentId = verhaeltnis.Id,
             Month = monat,
             Gross = request.Gross,
+
+            // Leer bleibt leer. Die Schätzung entsteht bei der Anzeige und wird dort
+            // gekennzeichnet — hier gespeichert wäre sie später nicht mehr von einer erfassten
+            // Zahl zu unterscheiden.
             Net = request.Net,
 
             // Meist gleich dem Netto. Abweichen darf es — Vorschüsse und Pfändungen gehen
             // dazwischen —, aber erfunden wird es nicht.
-            Payout = request.Payout ?? request.Net,
+            Payout = request.Payout ?? request.Net ?? Estimate(request.Gross),
         };
 
         db.Payslips.Add(abrechnung);

@@ -39,11 +39,21 @@
                 <span class="label-muted">Abgabenquote</span>
                 <span class="kpi-value accent num">
                     @(arbeit.Head.DeductionRatePercent is { } quote
-                        ? GermanFormat.Percent(quote, 1)
+                        ? GermanFormat.Percent(quote, 1) + (arbeit.Head.NetIsEstimated ? " *" : null)
                         : "—")
                 </span>
             </div>
         </section>
+
+        @* Das Sternchen braucht seine Erklärung, sonst ist es nur ein Zeichen. Ein Faktor, der
+           niemandes Steuerklasse kennt, darf nicht unsichtbar in eine Kennzahl einfließen. *@
+        @if (arbeit.Head.NetIsEstimated)
+        {
+            <div class="tx-totals-note">
+                * Das Netto ist teilweise geschätzt — trag es aus der Abrechnung ein, dann
+                rechnet die Quote echt.
+            </div>
+        }
 
         @* ── Arbeitsverhältnisse ─────────────────────────────────────────────────────────── *@
 
@@ -124,7 +134,7 @@
                 <span class="stack">
                     <span class="import-row-payee">@GermanFormat.MonthYear(zeile.Month)@Employer(zeile)</span>
                     <span class="meta">
-                        Brutto @State.Euro(zeile.Gross) · Netto @State.Euro(zeile.Net)
+                        Brutto @State.Euro(zeile.Gross) · Netto @State.Euro(zeile.Net)@(zeile.NetIsEstimated ? " (geschätzt)" : null)
                     </span>
                     <span class="meta @(IsIncomplete(zeile) ? "accent" : null)">@StateLine(zeile)</span>
                 </span>
@@ -147,7 +157,9 @@
                         <span class="detail-value num">@State.Euro(zeile.Gross)</span>
                     </div>
                     <div class="detail-block">
-                        <span class="detail-label">Nettogehalt</span>
+                        <span class="detail-label">
+                            Nettogehalt@(zeile.NetIsEstimated ? " (geschätzt)" : null)
+                        </span>
                         <span class="detail-value num">@State.Euro(zeile.Net)</span>
                     </div>
                     <div class="detail-block">
@@ -155,8 +167,11 @@
                         <span class="detail-value num">@State.Euro(zeile.Payout)</span>
                     </div>
                     <div class="detail-block">
-                        @* Gerechnet, nicht erfasst — und darum steht die Rechnung dabei. *@
-                        <span class="detail-label">Abgaben (Brutto − Netto)</span>
+                        @* Gerechnet, nicht erfasst — und darum steht die Rechnung dabei. Steckt
+                           im Netto eine Schätzung, steckt sie auch hier drin. *@
+                        <span class="detail-label">
+                            Abgaben (Brutto − Netto)@(zeile.NetIsEstimated ? " · auf Schätzung" : null)
+                        </span>
                         <span class="detail-value num">@State.Euro(zeile.Deductions)</span>
                     </div>
 
@@ -286,6 +301,7 @@
                         <div class="field">
                             <label for="ab-netto">Nettogehalt</label>
                             <input id="ab-netto" class="input" inputmode="decimal" value="@fresh.Net"
+                                   placeholder="aus der Abrechnung"
                                    @oninput="e => fresh.Net = e.Value?.ToString() ?? string.Empty" />
                         </div>
 
@@ -299,6 +315,14 @@
                             </span>
                         </div>
 
+                        @*
+                            Der Hinweis rechnet mit, was eingetippt ist. Er sagt entweder die
+                            echte Abgabenquote dieser Abrechnung — oder was passiert, wenn das
+                            Netto leer bleibt. Eine Schätzung, die niemand angekündigt hat,
+                            taucht später als erfasste Zahl in Auswertungen auf.
+                        *@
+                        <span class="create-help @(Guessing ? "accent" : null)">@Hint()</span>
+
                         @if (problem is { Length: > 0 })
                         {
                             <span class="create-problem">@problem</span>
@@ -309,6 +333,10 @@
                                     @onclick="SaveAsync">Abrechnung erfassen</button>
                             <button type="button" class="btn btn-secondary" disabled="@busy"
                                     @onclick="CancelCapture">Abbrechen</button>
+                            <button type="button" class="btn btn-secondary" disabled="@busy"
+                                    @onclick="@(() => Navigation.NavigateTo("/scannen"))">
+                                stattdessen scannen
+                            </button>
                         </div>
                     </div>
                 }
@@ -559,11 +587,8 @@
                 return;
             }
 
-            if (Parse(fresh.Net) is not { } netto)
-            {
-                problem = "Das Nettogehalt fehlt.";
-                return;
-            }
+            // Das Netto darf fehlen. Dann schätzt die Anzeige — und sagt es, hier wie überall.
+            var netto = Parse(fresh.Net);
 
             await Api.CreatePayslipAsync(new CreatePayslipRequest
             {
@@ -577,7 +602,9 @@
             capturing = false;
             await LoadAsync();
 
-            Toasts.Show("Abrechnung erfasst");
+            Toasts.Show(netto is null
+                ? "Abrechnung erfasst · Netto geschätzt"
+                : "Abrechnung erfasst");
         }
         catch (ApiException ex)
         {
@@ -588,6 +615,49 @@
             busy = false;
         }
     });
+
+    /// <summary>
+    /// Die Schätzquote, die greift, wenn kein Netto eingetragen wird.
+    /// </summary>
+    /// <remarks>
+    /// Dieselbe Zahl wie im Server. Sie steht hier nur, um sie im Hinweis nennen zu können —
+    /// gerechnet wird mit ihr dort, wo die Abrechnung entsteht.
+    /// </remarks>
+    private const int EstimatedPayoutPercent = 59;
+
+    /// <summary>Ob die Eingabe gerade auf die Schätzung hinausliefe.</summary>
+    private bool Guessing => Parse(fresh.Gross) is not null && Parse(fresh.Net) is null;
+
+    /// <summary>
+    /// Was die eingetippten Zahlen ergeben.
+    /// </summary>
+    /// <remarks>
+    /// Er rechnet die Quote aus <em>dieser</em> Eingabe, nicht aus dem Bestand: wer Brutto und
+    /// Netto abtippt, sieht sofort, ob er sich vertan hat. Fehlt das Netto, nennt er die Folge,
+    /// statt sie eintreten zu lassen.
+    /// </remarks>
+    private string Hint()
+    {
+        var brutto = Parse(fresh.Gross);
+        var netto = Parse(fresh.Net);
+
+        if (brutto is { } b and > 0m && netto is { } n)
+        {
+            var quote = decimal.Round((1m - n / b) * 100m, 0);
+            return $"Abgabenquote dieser Abrechnung: {GermanFormat.Percent(quote)} — "
+                   + "aus deinen Zahlen, nicht geschätzt.";
+        }
+
+        if (brutto is > 0m)
+        {
+            return $"Ohne Netto rechnet die Anwendung mit {EstimatedPayoutPercent} % "
+                   + "Auszahlungsquote und weist das überall als Schätzung aus. Trag das echte "
+                   + "Netto ein, dann stimmt jede Auswertung darüber.";
+        }
+
+        return "Brutto und Netto stehen auf der Abrechnung — der Auszahlungsbetrag weicht ab, "
+               + "wenn Vorschüsse oder Pfändungen dazukommen.";
+    }
 
     /// <summary>Betrag wie getippt: deutsch mit Komma, notfalls mit Punkt.</summary>
     private static decimal? Parse(string text)
