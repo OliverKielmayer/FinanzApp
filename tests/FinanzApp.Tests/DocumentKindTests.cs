@@ -403,7 +403,88 @@ public sealed class DocumentKindTests
 
         Assert.Equal(1.0, offen);
         Assert.True(hinter < offen);
-        Assert.Contains("hinter Seitenbildern", versteckt.Note);
+        Assert.Contains("Seitenbilder mit Textebene darunter", versteckt.Note);
+    }
+
+    // ── Die sichtbare Rechenprobe (Abschnitt 15.6) ─────────────────────────────────────────
+
+    /// <summary>
+    /// Die Probe wird zum Ergebnis, nicht nur zur stillen Prüfung.
+    /// </summary>
+    /// <remarks>
+    /// Sie steht vor der Übernahme auf dem Schirm. Wer eine Zahl in sein Vermögen schreibt,
+    /// soll sehen, woran sie geprüft wurde — eine Prüfung, die nur im Verborgenen stattfindet,
+    /// überzeugt niemanden.
+    /// </remarks>
+    [Fact]
+    public void Die_Rechenprobe_kommt_als_Satz_heraus()
+    {
+        var ergebnis = extractor.Read(DocumentKindLibrary.Statusreport, Statusreport());
+        var probe = Assert.Single(ergebnis.Proofs);
+
+        Assert.True(probe.Passed);
+        Assert.Equal(
+            "12.345,67 EUR + 1.234,56 EUR = 13.580,23 EUR — stimmt mit dem ausgewiesenen Wert überein.",
+            probe.Line);
+
+        Assert.Contains("Zeilenversatz", probe.Why);
+    }
+
+    [Fact]
+    public void Die_Probe_der_Aufstellung_nennt_Nominale_mal_Kurs()
+    {
+        var ergebnis = extractor.Read(DocumentKindLibrary.QuarterlyStatement, Quarterly());
+        var probe = Assert.Single(ergebnis.Proofs);
+
+        Assert.True(probe.Passed);
+        Assert.StartsWith("500 \u00D7 100,500 = 50.250,00 EUR", probe.Line);
+    }
+
+    /// <summary>
+    /// Geht sie nicht auf, sagt sie beide Zahlen.
+    /// </summary>
+    /// <remarks>
+    /// „Ergibt X, ausgewiesen ist Y“ — nur so kann der Nutzer entscheiden, welche der beiden
+    /// stimmt. Eine Meldung „Probe fehlgeschlagen“ ließe ihn im Dunkeln.
+    /// </remarks>
+    [Fact]
+    public void Eine_gescheiterte_Probe_nennt_beide_Zahlen()
+    {
+        var ergebnis = extractor.Read(
+            DocumentKindLibrary.Statusreport, Statusreport(rueckkauf: "9.999,99 EUR"));
+
+        var probe = Assert.Single(ergebnis.Proofs);
+
+        Assert.False(probe.Passed);
+        Assert.Contains("11.234,55", probe.Line);
+        Assert.Contains("13.580,23", probe.Line);
+    }
+
+    /// <summary>Ohne die Teile gibt es keine Probe — und keine Behauptung darüber.</summary>
+    [Fact]
+    public void Ohne_die_Summanden_entsteht_keine_Probe()
+    {
+        var knapp = Content(
+        [
+            Line(1, "Statusreport"),
+            Line(2, "Wert der Versicherung"),
+            Line(2, "Gesamtleistung*", "13.580,23 EUR"),
+        ]);
+
+        Assert.Empty(extractor.Read(DocumentKindLibrary.Statusreport, knapp).Proofs);
+    }
+
+    /// <summary>
+    /// Die Beschaffenheit steht als Beschreibung da, nicht als Ja oder Nein.
+    /// </summary>
+    [Fact]
+    public void Der_Befund_beschreibt_die_Textebene()
+    {
+        var sichtbar = Statusreport();
+        var versteckt = sichtbar with { TextIsInvisible = true, ImageCount = 4 };
+
+        Assert.Equal("durchsuchbarer Text", sichtbar.Note);
+        Assert.Equal("Seitenbilder mit Textebene darunter", versteckt.Note);
     }
 
     [Fact]

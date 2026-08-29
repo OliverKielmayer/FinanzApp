@@ -59,8 +59,8 @@ public sealed record PdfContent
         : !HasTextLayer
             ? "nur Bild — ohne Texterkennung nichts auszulesen"
             : TextIsInvisible
-                ? "Textebene hinter Seitenbildern — lesbar, aber nicht das Sichtbare"
-                : "Textebene vorhanden";
+                ? "Seitenbilder mit Textebene darunter"
+                : "durchsuchbarer Text";
 }
 
 /// <summary>

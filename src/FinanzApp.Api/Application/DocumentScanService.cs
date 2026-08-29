@@ -54,7 +54,8 @@ public sealed class DocumentScanService(
             return await UnknownAsync(buffer, fileName, inhalt, ct);
         }
 
-        var werte = extractor.Extract(art, inhalt);
+        var gelesen = extractor.Read(art, inhalt);
+        var werte = gelesen.Values;
         var stichtag = Date(werte, art.AsOfField);
         var schreiben = Date(werte, art.DocumentDateField);
         var ziel = await TargetAsync(art, Text(werte, art.TargetNumberField), ct);
@@ -113,8 +114,15 @@ public sealed class DocumentScanService(
             DocumentDate = schreiben,
             AsOf = stichtag,
 
-            Steps = Steps(art, inhalt, werte, ziel, zeilen.Count),
+            Steps = Steps(art, inhalt, werte, ziel, zeilen.Count, gelesen.Proofs),
             Fields = zeilen,
+            Proofs =
+            [
+                .. gelesen.Proofs.Select(p => new ScanProofDto
+                {
+                    Line = p.Line, Why = p.Why, Passed = p.Passed,
+                }),
+            ],
             Blocker = Blocker(art, ziel, stichtag, werte),
         };
     }
@@ -144,6 +152,7 @@ public sealed class DocumentScanService(
             HasTextLayer = inhalt.HasTextLayer,
             Steps = ["Text gelesen (" + inhalt.PageCount + " Seiten)", "Typ nicht erkannt"],
             Fields = [],
+            Proofs = [],
             Note = inhalt.HasTextLayer
                 ? "Die Art des Dokuments ist nicht erkennbar. Die Datei ist abgelegt; die Werte "
                   + "bitte am Zielobjekt von Hand eintragen."
@@ -401,9 +410,22 @@ public sealed class DocumentScanService(
 
     /// <summary>Die Analyseschritte mit dem, was tatsächlich gefunden wurde.</summary>
     private static List<string> Steps(
-        DocumentKind art, PdfContent inhalt, IReadOnlyList<ReadValue> werte, Target? ziel, int gezeigt)
+        DocumentKind art,
+        PdfContent inhalt,
+        IReadOnlyList<ReadValue> werte,
+        Target? ziel,
+        int gezeigt,
+        IReadOnlyList<ProofResult> proben)
     {
         var absender = werte.FirstOrDefault(w => w.Rule.Key == "absender")?.Raw;
+
+        // Die Kette endet mit der Probe: sie ist der letzte Schritt, der über die Werte
+        // entscheidet, und ohne sie sähe die Analyse fertiger aus, als sie ist.
+        var abschluss = proben.Count == 0
+            ? []
+            : proben.All(p => p.Passed)
+                ? new[] { "Rechenprobe bestanden" }
+                : ["Rechenprobe nicht aufgegangen — Werte prüfen"];
 
         return
         [
@@ -416,6 +438,7 @@ public sealed class DocumentScanService(
                         ? $"kein {art.TargetNoun} zugeordnet"
                         : $"{art.TargetNoun} {ziel.Name} zugeordnet",
                     StringComparison.Ordinal)),
+            .. abschluss,
         ];
     }
 

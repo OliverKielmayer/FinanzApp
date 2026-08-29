@@ -101,7 +101,7 @@ public sealed class PdfTextReaderTests
 
         Assert.True(versteckt.HasTextLayer);
         Assert.True(versteckt.TextIsInvisible);
-        Assert.Contains("hinter Seitenbildern", versteckt.Note);
+        Assert.Contains("Seitenbilder mit Textebene darunter", versteckt.Note);
     }
 
     /// <summary>

@@ -247,6 +247,35 @@ public sealed class DocumentScanTests : IDisposable
         Assert.Contains("nicht garantiert", vorschlag.Fields.Single(f => f.Key == "reserven").Source);
     }
 
+    /// <summary>
+    /// Die Rechenprobe erreicht den Prüfschritt.
+    /// </summary>
+    /// <remarks>
+    /// Und die Analysekette endet mit ihr: sie ist der letzte Schritt, der über die Werte
+    /// entscheidet. Ohne sie sähe die Analyse fertiger aus, als sie ist.
+    /// </remarks>
+    [Fact]
+    public async Task Die_Rechenprobe_steht_im_Vorschlag()
+    {
+        var vorschlag = await AnalyseAsync(Statusreport());
+
+        var probe = Assert.Single(vorschlag.Proofs);
+        Assert.True(probe.Passed);
+        Assert.Contains("=", probe.Line);
+        Assert.NotEmpty(probe.Why);
+
+        Assert.Equal("Rechenprobe bestanden", vorschlag.Steps[^1]);
+    }
+
+    [Fact]
+    public async Task Eine_gescheiterte_Probe_steht_am_Ende_der_Kette()
+    {
+        var vorschlag = await AnalyseAsync(Statusreport(rueckkauf: "9.999,99"));
+
+        Assert.False(vorschlag.Proofs[0].Passed);
+        Assert.Equal("Rechenprobe nicht aufgegangen — Werte prüfen", vorschlag.Steps[^1]);
+    }
+
     // ── Übernahme ──────────────────────────────────────────────────────────────────────────
 
     /// <summary>

@@ -50,6 +50,15 @@ public sealed record ScanAnalysisDto
     /// <summary>Die Analyseschritte, wie sie gelaufen sind.</summary>
     public required IReadOnlyList<string> Steps { get; init; }
 
+    /// <summary>
+    /// Die Rechenproben, die vor der Übernahme sichtbar sind — Abschnitt 15.6.
+    /// </summary>
+    /// <remarks>
+    /// Sie stehen im Prüfschritt mit ihrer Begründung. Wer eine Zahl in sein Vermögen übernimmt,
+    /// soll sehen, woran sie geprüft wurde — eine stille Prüfung überzeugt niemanden.
+    /// </remarks>
+    public required IReadOnlyList<ScanProofDto> Proofs { get; init; }
+
     public required IReadOnlyList<ScanFieldDto> Fields { get; init; }
 
     /// <summary>Was der Übernahme im Weg steht — <c>null</c>, wenn nichts.</summary>
@@ -57,6 +66,18 @@ public sealed record ScanAnalysisDto
 
     /// <summary>Wenn nichts erkannt wurde: warum.</summary>
     public string? Note { get; init; }
+}
+
+/// <summary>Eine Rechenprobe mit ihrer Begründung.</summary>
+public sealed record ScanProofDto
+{
+    /// <summary>Die Rechnung im Klartext.</summary>
+    public required string Line { get; init; }
+
+    /// <summary>Warum sie gemacht wird.</summary>
+    public required string Why { get; init; }
+
+    public required bool Passed { get; init; }
 }
 
 /// <summary>Ein gelesener Wert mit seiner Herkunft.</summary>

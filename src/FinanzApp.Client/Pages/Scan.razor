@@ -144,6 +144,25 @@ else if (step == Step.Values && analysis is { } geprueft)
         </span>
     </div>
 
+    @*
+        Die Rechenprobe — Abschnitt 15.6. Sie steht vor der Übernahme und nicht im Protokoll:
+        die Zuordnung hängt an Abschnitt und Beschriftung, und die Probe fängt ab, was dabei
+        trotzdem verrutscht.
+    *@
+    @foreach (var probe in geprueft.Proofs)
+    {
+        <div class="blueprint proof @(probe.Passed ? null : "failed")">
+            <i class="corner tl" aria-hidden="true"></i>
+            <i class="corner tr" aria-hidden="true"></i>
+            <i class="corner bl" aria-hidden="true"></i>
+            <i class="corner br" aria-hidden="true"></i>
+
+            <span class="proof-mark">@(probe.Passed ? "Rechenprobe" : "Rechenprobe geht nicht auf")</span>
+            <span class="proof-line num">@probe.Line</span>
+            <span class="meta">@probe.Why</span>
+        </div>
+    }
+
     @foreach (var feld in geprueft.Fields)
     {
         <div class="value-row @(feld.Lead ? "lead" : null)">

@@ -110,6 +110,11 @@ public sealed record DocumentCheck
     /// <summary>Wie die Probe im Klartext heißt, etwa „Rückkaufswert + Ansammlungsguthaben“.</summary>
     public required string Note { get; init; }
 
+    /// <summary>
+    /// Warum diese Probe gemacht wird — im Klartext, für die Anzeige vor der Übernahme.
+    /// </summary>
+    public required string Why { get; init; }
+
     /// <summary>Erlaubte Abweichung. Banken runden je Position, das ist keine Unstimmigkeit.</summary>
     public decimal Tolerance { get; init; } = 0.01m;
 }
@@ -338,6 +343,9 @@ public static class DocumentKindLibrary
             {
                 Result = "gesamt", Parts = ["rueckkauf", "ansammlung"], Kind = DocumentCheckKind.Sum,
                 Note = "Rückkaufswert + Ansammlungsguthaben",
+                Why = "Rückkaufswert plus Ansammlungsguthaben muss die ausgewiesene "
+                      + "Gesamtleistung ergeben. Die Probe fängt Zeilenversatz in der Textebene "
+                      + "ab — dort steht die Wertspalte stellenweise um eine Zeile verschoben.",
             },
         ],
 
@@ -475,6 +483,9 @@ public static class DocumentKindLibrary
             {
                 Result = "kurswert", Parts = ["nominale", "kurs"], Kind = DocumentCheckKind.Product,
                 Note = "Nominale × Kurs",
+                Why = "Nominale mal Kurs muss den ausgewiesenen Kurswert ergeben. Stück, Kurs "
+                      + "und Kurswert stehen in derselben Tabellenzeile ohne Beschriftung; ohne "
+                      + "diese Probe fiele eine verrutschte Spalte nicht auf.",
             },
         ],
 
@@ -507,6 +518,25 @@ public static class DocumentKindLibrary
     }
 }
 
+/// <summary>
+/// Das Ergebnis einer Rechenprobe, wie es der Prüfschritt zeigt.
+/// </summary>
+/// <remarks>
+/// Sie steht sichtbar vor der Übernahme und nicht nur im Protokoll — v5-Handoff, Abschnitt
+/// 15.6. Wer eine Zahl in sein Vermögen übernimmt, soll sehen, woran sie geprüft wurde.
+/// </remarks>
+public sealed record ProofResult
+{
+    /// <summary>Die Rechnung im Klartext: „18.373,87 EUR + 2.107,65 EUR = 20.481,52 EUR“.</summary>
+    public required string Line { get; init; }
+
+    /// <summary>Warum diese Probe überhaupt gemacht wird.</summary>
+    public required string Why { get; init; }
+
+    /// <summary>Ob sie aufgeht.</summary>
+    public required bool Passed { get; init; }
+}
+
 /// <summary>Ein gelesener Wert mit seiner Herkunft.</summary>
 public sealed record ReadValue
 {
@@ -526,6 +556,13 @@ public sealed record ReadValue
 
     /// <summary>Wenn etwas nicht stimmt: was.</summary>
     public string? Warning { get; init; }
+}
+
+/// <summary>Was aus einem Dokument herauskam.</summary>
+public sealed record ExtractionResult
+{
+    public required IReadOnlyList<ReadValue> Values { get; init; }
+    public required IReadOnlyList<ProofResult> Proofs { get; init; }
 }
 
 /// <summary>
@@ -554,6 +591,16 @@ public sealed class DocumentFieldExtractor
     private const double Doubtful = 0.4;
 
     public IReadOnlyList<ReadValue> Extract(DocumentKind kind, PdfContent content)
+        => Read(kind, content).Values;
+
+    /// <summary>
+    /// Die gelesenen Werte samt ihren Rechenproben.
+    /// </summary>
+    /// <remarks>
+    /// Die Proben gehen mit hinaus, weil sie vor der Übernahme sichtbar sein müssen. Eine
+    /// Prüfung, die nur im Verborgenen stattfindet, überzeugt niemanden von einer Zahl.
+    /// </remarks>
+    public ExtractionResult Read(DocumentKind kind, PdfContent content)
     {
         var basis = content.TextIsInvisible ? Behind : Sure;
         var abschnitte = Sections(kind, content);
@@ -568,12 +615,21 @@ public sealed class DocumentFieldExtractor
             }
         }
 
+        var proben = new List<ProofResult>();
+
         foreach (var probe in kind.Checks)
         {
-            Verify(probe, kind, werte, basis);
+            if (Verify(probe, kind, werte, basis) is { } ergebnis)
+            {
+                proben.Add(ergebnis);
+            }
         }
 
-        return [.. kind.Fields.Where(f => werte.ContainsKey(f.Key)).Select(f => werte[f.Key])];
+        return new ExtractionResult
+        {
+            Values = [.. kind.Fields.Where(f => werte.ContainsKey(f.Key)).Select(f => werte[f.Key])],
+            Proofs = proben,
+        };
     }
 
     // ── Abschnitte ─────────────────────────────────────────────────────────────────────────
@@ -720,13 +776,13 @@ public sealed class DocumentFieldExtractor
     /// <summary>
     /// Prüft eine Rechenprobe und leitet das Ergebnis ab, wo das Dokument es nicht nennt.
     /// </summary>
-    private static void Verify(
+    private static ProofResult? Verify(
         DocumentCheck probe, DocumentKind kind, Dictionary<string, ReadValue> werte, double basis)
     {
         var teile = probe.Parts.Select(p => werte.TryGetValue(p, out var w) ? w.Number : null).ToList();
         if (teile.Any(t => t is null))
         {
-            return;
+            return null;
         }
 
         var soll = probe.Kind == DocumentCheckKind.Sum
@@ -739,7 +795,7 @@ public sealed class DocumentFieldExtractor
             var regel = kind.Fields.FirstOrDefault(f => f.Key == probe.Result);
             if (regel is null)
             {
-                return;
+                return null;
             }
 
             var gerundet = decimal.Round(soll, 2);
@@ -754,12 +810,30 @@ public sealed class DocumentFieldExtractor
                 Warning = $"gerechnet: {probe.Note}",
             };
 
-            return;
+            return new ProofResult
+            {
+                Line = Sentence(probe, kind, werte, gerundet)
+                       + " — das Dokument nennt die Summe selbst nicht, sie ist gerechnet.",
+                Why = probe.Why,
+                Passed = true,
+            };
         }
 
-        if (ergebnis.Number is not { } steht || Math.Abs(steht - soll) <= probe.Tolerance)
+        if (ergebnis.Number is not { } steht)
         {
-            return;
+            return null;
+        }
+
+        var satz = Sentence(probe, kind, werte, decimal.Round(soll, 2));
+
+        if (Math.Abs(steht - soll) <= probe.Tolerance)
+        {
+            return new ProofResult
+            {
+                Line = satz + " — stimmt mit dem ausgewiesenen Wert überein.",
+                Why = probe.Why,
+                Passed = true,
+            };
         }
 
         // Die Zuordnung ist verrutscht — genau der Fall, für den die Probe da ist.
@@ -768,6 +842,30 @@ public sealed class DocumentFieldExtractor
             Confidence = Doubtful,
             Warning = $"{probe.Note} ergibt {Format(ergebnis.Rule, decimal.Round(soll, 2))} — bitte prüfen",
         };
+
+        return new ProofResult
+        {
+            Line = satz + $" — ausgewiesen sind {Format(ergebnis.Rule, steht)}.",
+            Why = probe.Why,
+            Passed = false,
+        };
+    }
+
+    /// <summary>
+    /// Die Rechnung als Satz, mit den Zahlen, die tatsächlich gelesen wurden.
+    /// </summary>
+    /// <remarks>
+    /// Aus den gelesenen Rohtexten und nicht neu formatiert: der Nutzer soll die Zahlen
+    /// wiedererkennen, die er auf dem Blatt vor sich hat.
+    /// </remarks>
+    private static string Sentence(
+        DocumentCheck probe, DocumentKind kind, Dictionary<string, ReadValue> werte, decimal ergebnis)
+    {
+        var zeichen = probe.Kind == DocumentCheckKind.Sum ? " + " : " \u00D7 ";
+        var teile = probe.Parts.Select(p => werte[p].Raw);
+        var regel = kind.Fields.First(f => f.Key == probe.Result);
+
+        return string.Join(zeichen, teile) + " = " + Format(regel, ergebnis);
     }
 
     // ── Werte lesen ────────────────────────────────────────────────────────────────────────
