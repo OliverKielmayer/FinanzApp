@@ -282,6 +282,75 @@ public class PortfolioPosition : IHouseholdOwned
 /// Gesamtvermögen netto.</para>
 /// <para>Gespeichert wird, was tatsächlich ausgeführt wurde, nicht was bestellt war.</para>
 /// </remarks>
+/// <summary>
+/// Ein Kurs eines Wertpapiers an einem Tag — v5-Handoff, Abschnitt 16.5.
+/// </summary>
+/// <remarks>
+/// <para><b>Die Reihe gehört der Anwendung, nicht der Quelle.</b> Beide in Frage kommenden
+/// Anbieter sind inoffiziell: keine dokumentierte Schnittstelle, keine Zusage über Bestand oder
+/// Format. Wer seine Vermögenszahlen daran hängt, verliert sie beim ersten Umbau der Gegenseite.
+/// Hier steht deshalb jeder je gesehene Kurs, mit seiner Herkunft, und er bleibt stehen, wenn
+/// die Quelle ausfällt oder gewechselt wird.</para>
+/// <para>Eindeutig über ISIN und Tag: ein zweiter Abruf desselben Tages aktualisiert, statt zu
+/// verdoppeln. Bewertet wird immer mit dem jüngsten <em>gespeicherten</em> Kurs, nie mit einem
+/// Live-Wert, der beim nächsten Aufruf fehlen kann.</para>
+/// </remarks>
+public class Quote : IHouseholdOwned
+{
+    public int Id { get; set; }
+    public int HouseholdId { get; set; }
+
+    public required string Isin { get; set; }
+
+    /// <summary>Der Handelstag, nicht der Abrufzeitpunkt.</summary>
+    public DateOnly Date { get; set; }
+
+    /// <summary>Schlusskurs bzw. letzter festgestellter Kurs des Tages.</summary>
+    public decimal Close { get; set; }
+
+    public required string Currency { get; set; }
+
+    /// <summary>Wer den Kurs geliefert hat. Steht sichtbar an der Position.</summary>
+    public required string Source { get; set; }
+
+    /// <summary>Wann er geholt wurde — getrennt von <see cref="Date"/> und nie mit ihm verwechselt.</summary>
+    public DateTime FetchedAt { get; set; }
+}
+
+/// <summary>
+/// Ein Abrufdurchgang und was er ergab.
+/// </summary>
+/// <remarks>
+/// Der Zustand des Kursbands liest hier und wird nicht aus den Kursen erraten. „Zuletzt
+/// versucht und gescheitert“ ist ein anderer Zustand als „zuletzt erfolgreich, aber schon zwei
+/// Tage her“, und aus einer Kurstabelle allein ließen sich beide nicht unterscheiden.
+/// </remarks>
+public class QuoteRun : IHouseholdOwned
+{
+    public int Id { get; set; }
+    public int HouseholdId { get; set; }
+
+    public DateTime StartedAt { get; set; }
+    public DateTime FinishedAt { get; set; }
+
+    public required string Source { get; set; }
+
+    /// <summary>Wie viele Papiere gefragt wurden.</summary>
+    public int Requested { get; set; }
+
+    /// <summary>Wie viele Kurse danach in der Reihe standen.</summary>
+    public int Stored { get; set; }
+
+    /// <summary>Bei wie vielen es nicht klappte.</summary>
+    public int Failed { get; set; }
+
+    /// <summary>Der erste aufgetretene Grund. <c>null</c>, wenn alles ging.</summary>
+    public string? Problem { get; set; }
+
+    /// <summary>Ob der Durchgang von Hand angestoßen wurde.</summary>
+    public bool Manual { get; set; }
+}
+
 public class DepotTrade : IHouseholdOwned
 {
     public int Id { get; set; }

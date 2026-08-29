@@ -41,13 +41,13 @@ public sealed class HoldingMetaTests : IDisposable
         var dashboard = new DashboardService(
             context,
             new AccountService(context),
-            new PortfolioService(context),
+            TestDatabase.Portfolio(context),
             new LoanService(context),
             new BudgetService(context, clock),
             clock);
 
         return new HoldingsService(
-            context, dashboard, new VehicleService(context, Documents(), clock), new PortfolioService(context), clock);
+            context, dashboard, new VehicleService(context, Documents(), clock), TestDatabase.Portfolio(context), clock);
     }
 
     private PolicyService Policies() => new(database.Context(), Documents(), clock);

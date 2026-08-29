@@ -240,6 +240,23 @@ public static class ApiEndpoints
                 int? jahr, bool? alle, HealthBalanceService service, CancellationToken ct)
             => Results.Ok(await service.GetAsync(jahr, alle == true, ct)));
 
+        // ── Kurse ─────────────────────────────────────────────────────────────────────
+        //
+        // Abgerufen wird nur hier und nach Zeitplan, nie beim Seitenaufruf: die Quelle ist
+        // inoffiziell, und ein Abruf je Betrachter wäre der schnellste Weg zur Sperre.
+        api.MapGet("/quotes/band", async (QuoteService service, CancellationToken ct)
+            => Results.Ok(await service.GetBandAsync(ct)));
+
+        api.MapGet("/quotes/{isin}", async (
+                string isin, QuoteRange? zeitraum, decimal? einstand,
+                QuoteService service, CancellationToken ct)
+            => Results.Ok(await service.GetSeriesAsync(
+                isin, zeitraum ?? QuoteRange.Year, einstand, ct)));
+
+        api.MapPost("/quotes/refresh", async (QuoteService service, CancellationToken ct)
+                => Results.Ok(await service.RefreshAsync(manual: true, ct)))
+            .RequireAuthorization(AuthPolicies.Write);
+
         // Kandidaten mit Belegbezug, keine Steuerberechnung — der Bericht sagt das auch selbst.
         api.MapGet("/reports/tax-year", async (
                 int? jahr, TaxYearService service, CancellationToken ct)

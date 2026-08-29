@@ -127,12 +127,12 @@ public sealed class EmploymentSeedTests : IDisposable
             new DashboardService(
                 context,
                 new AccountService(context),
-                new PortfolioService(context),
+                TestDatabase.Portfolio(context),
                 new LoanService(context),
                 new BudgetService(context, uhr),
                 uhr),
             new VehicleService(context, dokumente, uhr),
-            new PortfolioService(context),
+            TestDatabase.Portfolio(context),
             uhr);
 
         Assert.Equal(bereich, (await bestand.GetAsync(HoldingClass.Work)).Head.Value);

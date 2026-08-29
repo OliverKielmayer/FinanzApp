@@ -58,6 +58,25 @@ public sealed class TestDatabase : IDisposable
     public static IClock ClockAt(int year, int month, int day, int hour = 8, int minute = 0)
         => new FixedClock(new DateTime(year, month, day, hour, minute, 0, DateTimeKind.Local));
 
+    /// <summary>
+    /// Ein <see cref="PortfolioService"/> samt Kursdienst.
+    /// </summary>
+    /// <remarks>
+    /// Bewertet wird aus der gespeicherten Kurszeitreihe; ohne Kurse gilt der Preis der letzten
+    /// Ausführung. Die Verdrahtung steht hier einmal statt in jedem Test.
+    /// </remarks>
+    public static PortfolioService Portfolio(FinanzAppDbContext context, IClock? clock = null)
+        => new(context, Quotes(context, clock));
+
+    /// <summary>Der Kursdienst ohne angebundene Quelle — die Reihe kommt aus dem Bestand.</summary>
+    public static QuoteService Quotes(
+        FinanzAppDbContext context, IClock? clock = null, IQuoteSource? source = null)
+        => new(
+            context,
+            source ?? new NoQuoteSource(),
+            new QuoteOptions { DelayMilliseconds = 0 },
+            clock ?? ClockAt(2026, 8, 29));
+
     public static DocumentPathService PathService(string root)
         => new(
             new DocumentStorageOptions { Root = root },
@@ -88,7 +107,7 @@ public sealed class TestDatabase : IDisposable
                 clock,
                 NullLogger<DocumentService>.Instance),
             SignedIn(userId),
-            new PortfolioService(context));
+            Portfolio(context));
     }
 
     /// <summary>

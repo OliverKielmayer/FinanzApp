@@ -34,7 +34,7 @@ public sealed class DepotTradeTests : IDisposable
 
     private DepotTradeService Service() => new(database.Context(), new OrderCsvParser());
 
-    private PortfolioService Portfolio() => new(database.Context());
+    private PortfolioService Portfolio() => TestDatabase.Portfolio(database.Context());
 
     private const string Header =
         "Name;ISIN;WKN;Anzahl;Anzahl storniert;Status;Orderart;Limit;Stop;Erstellt Datum;"

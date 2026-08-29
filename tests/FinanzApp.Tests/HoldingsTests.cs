@@ -29,7 +29,7 @@ public sealed class HoldingsTests : IDisposable
         return new DashboardService(
             context,
             new AccountService(context),
-            new PortfolioService(context),
+            TestDatabase.Portfolio(context),
             new LoanService(context),
             new BudgetService(context, clock),
             clock);
@@ -45,7 +45,7 @@ public sealed class HoldingsTests : IDisposable
             NullLogger<DocumentService>.Instance);
 
         return new HoldingsService(
-            context, dashboard, new VehicleService(context, documents, clock), new PortfolioService(context), clock);
+            context, dashboard, new VehicleService(context, documents, clock), TestDatabase.Portfolio(context), clock);
     }
 
     private void Arbeitsverhaeltnis(string arbeitgeber, decimal brutto, DateOnly? ende = null)

@@ -64,6 +64,17 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
     /// <summary>Ausgeführte Orders — die Quelle, aus der die Depotpositionen entstehen.</summary>
     public DbSet<DepotTrade> DepotTrades => Set<DepotTrade>();
 
+    /// <summary>
+    /// Die eigene Kurszeitreihe — die Datenhaltung, nicht die Quelle.
+    /// </summary>
+    /// <remarks>
+    /// Sie überlebt Ausfall und Wechsel des Anbieters. Bewertet wird immer aus ihr.
+    /// </remarks>
+    public DbSet<Quote> Quotes => Set<Quote>();
+
+    /// <summary>Die Abrufdurchgänge — daraus liest das Kursband seinen Zustand.</summary>
+    public DbSet<QuoteRun> QuoteRuns => Set<QuoteRun>();
+
     /// <summary>Bestandsnachweise der Bank — die zweite Quelle, gegen die abgeglichen wird.</summary>
     public DbSet<DepotStatement> DepotStatements => Set<DepotStatement>();
     public DbSet<DepotStatementPosition> DepotStatementPositions => Set<DepotStatementPosition>();
@@ -405,6 +416,29 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
             // Ein Satz je Ausführung. Der Index trägt die Duplikatprüfung und verhindert sie
             // auch dann, wenn zwei Importe gleichzeitig laufen.
             e.HasIndex(x => new { x.HouseholdId, x.ImportReference }).IsUnique();
+        });
+
+        b.Entity<Quote>(e =>
+        {
+            e.Property(x => x.Isin).HasMaxLength(12).IsRequired();
+            e.Property(x => x.Currency).HasMaxLength(3).IsRequired();
+            e.Property(x => x.Source).HasMaxLength(80).IsRequired();
+
+            // Kurse mit sechs Nachkommastellen wie überall im Depot: auf Cent gerundet ergäbe
+            // Stück × Kurs nicht mehr den Wert, der in derselben Zeile steht.
+            e.Property(x => x.Close).HasPrecision(18, 6);
+
+            // Ein Kurs je Papier und Tag. Der Index trägt die Aktualisierung beim erneuten
+            // Abruf und verhindert Doppelte auch bei zwei gleichzeitigen Durchgängen.
+            e.HasIndex(x => new { x.HouseholdId, x.Isin, x.Date }).IsUnique();
+        });
+
+        b.Entity<QuoteRun>(e =>
+        {
+            e.Property(x => x.Source).HasMaxLength(80).IsRequired();
+            e.Property(x => x.Problem).HasMaxLength(400);
+
+            e.HasIndex(x => new { x.HouseholdId, x.FinishedAt });
         });
 
         b.Entity<DepotStatement>(e =>

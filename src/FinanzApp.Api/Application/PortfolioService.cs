@@ -17,8 +17,12 @@ namespace FinanzApp.Api.Application;
 /// netto.</para>
 /// <para>Ohne Ausführungen bleibt es bei den gepflegten Positionen — wer sein Depot von Hand
 /// führt, soll nicht erst importieren müssen. Sobald welche da sind, gewinnen sie.</para>
+/// <para>Bewertet wird mit dem jüngsten <b>gespeicherten</b> Kurs aus der eigenen Zeitreihe
+/// (Abschnitt 16.1) — nie mit einem Live-Wert, der beim nächsten Aufruf fehlen kann. Fehlt ein
+/// Kurs, gilt der Preis der letzten Ausführung; er ist belegbar und trägt sein eigenes Datum.
+/// Der ausgewiesene Stichtag ist der Handelstag des Kurses, nicht der Abrufzeitpunkt.</para>
 /// </remarks>
-public sealed class PortfolioService(FinanzAppDbContext db)
+public sealed class PortfolioService(FinanzAppDbContext db, QuoteService quotes)
 {
     public async Task<PortfolioDto?> GetAsync(CancellationToken ct = default)
     {
@@ -64,12 +68,13 @@ public sealed class PortfolioService(FinanzAppDbContext db)
     /// </remarks>
     public async Task<DepotHoldings> GetHoldingsAsync(int depotId, CancellationToken ct = default)
     {
+        var kurse = await quotes.LatestAsync(ct);
         var trades = await TradesAsync(depotId, ct);
 
         if (trades.Count > 0)
         {
-            var bestand = Holdings(trades).Where(x => x.Value.Quantity > 0m).ToList();
-            var abgeleitet = FromTrades(trades);
+            var bestand = Priced(Holdings(trades), kurse);
+            var abgeleitet = FromTrades(bestand);
 
             return new DepotHoldings(
                 abgeleitet,
@@ -83,15 +88,50 @@ public sealed class PortfolioService(FinanzAppDbContext db)
             .Where(p => p.DepotId == depotId)
             .ToListAsync(ct);
 
-        var zeilen = FromRows(gepflegt);
+        var zeilen = FromRows(gepflegt, kurse);
 
         return new DepotHoldings(
             zeilen,
             zeilen.Sum(p => p.Value),
             zeilen.Sum(p => p.CostBasis),
-            Oldest(gepflegt.Select(p => p.PriceAsOf)),
+            Oldest(gepflegt.Select(p => PriceDate(p, kurse))),
             FromTrades: false);
     }
+
+    /// <summary>
+    /// Setzt jedem Bestand seinen jüngsten gespeicherten Kurs vor.
+    /// </summary>
+    /// <remarks>
+    /// Nur wenn der Kurs <em>neuer</em> ist als die letzte Ausführung. Ein alter Punkt der Reihe
+    /// darf einen frischen Abschlusspreis nicht verdrängen: dann sähe der Depotwert älter aus,
+    /// als er ist.
+    /// </remarks>
+    private static List<KeyValuePair<string, Holding>> Priced(
+        Dictionary<string, Holding> bestand, Dictionary<string, Quote> kurse)
+        => [.. bestand
+            .Where(x => x.Value.Quantity > 0m)
+            .Select(x =>
+            {
+                if (!kurse.TryGetValue(x.Key, out var kurs))
+                {
+                    return x;
+                }
+
+                var tag = kurs.Date.ToDateTime(TimeOnly.MinValue);
+
+                return tag < x.Value.PricedAt
+                    ? x
+                    : new KeyValuePair<string, Holding>(
+                        x.Key, x.Value with { Price = kurs.Close, PricedAt = tag });
+            })];
+
+    /// <summary>Der Stichtag einer gepflegten Position — der Kurs schlägt die Pflege, wenn er neuer ist.</summary>
+    private static DateTime PriceDate(PortfolioPosition p, Dictionary<string, Quote> kurse)
+        => p.Isin is { Length: > 0 } isin
+           && kurse.TryGetValue(isin, out var kurs)
+           && kurs.Date.ToDateTime(TimeOnly.MinValue) > p.PriceAsOf
+            ? kurs.Date.ToDateTime(TimeOnly.MinValue)
+            : p.PriceAsOf;
 
     /// <summary>Depotwert für die Vermögensaufstellung — dieselbe Zahl wie im Depot-Hero.</summary>
     public async Task<decimal> GetTotalValueAsync(CancellationToken ct = default)
@@ -164,9 +204,8 @@ public sealed class PortfolioService(FinanzAppDbContext db)
         return bestand;
     }
 
-    private static List<PositionDto> FromTrades(List<DepotTrade> trades)
-        => [.. Holdings(trades)
-            .Where(x => x.Value.Quantity > 0m)
+    private static List<PositionDto> FromTrades(List<KeyValuePair<string, Holding>> bestand)
+        => [.. bestand
             .Select(x => new PositionDto
             {
                 // Abgeleitete Positionen haben keine eigene Zeile in der Ablage. Eine erfundene
@@ -198,20 +237,36 @@ public sealed class PortfolioService(FinanzAppDbContext db)
         return alle.Count == 0 ? DateTime.MinValue : alle.Min();
     }
 
-    private static List<PositionDto> FromRows(IReadOnlyCollection<PortfolioPosition> rows)
+    private static List<PositionDto> FromRows(
+        IReadOnlyCollection<PortfolioPosition> rows, Dictionary<string, Quote> kurse)
         => [.. rows
-            .OrderByDescending(p => p.Quantity * p.Price)
-            .Select(p => new PositionDto
+            .Select(p =>
             {
-                Id = p.Id,
-                Name = p.Name,
-                Isin = p.Isin,
-                Quantity = p.Quantity,
-                Price = p.Price,
-                Value = p.Quantity * p.Price,
-                CostBasis = p.CostBasis,
-                GainPercent = p.CostBasis == 0 ? 0 : ((p.Quantity * p.Price / p.CostBasis) - 1) * 100m,
-            })];
+                var kurs = Price(p, kurse);
+
+                return new PositionDto
+                {
+                    Id = p.Id,
+                    Name = p.Name,
+                    Isin = p.Isin,
+                    Quantity = p.Quantity,
+                    Price = kurs,
+                    Value = p.Quantity * kurs,
+                    CostBasis = p.CostBasis,
+                    GainPercent = p.CostBasis == 0
+                        ? 0
+                        : ((p.Quantity * kurs / p.CostBasis) - 1) * 100m,
+                };
+            })
+            .OrderByDescending(p => p.Value)];
+
+    /// <summary>Der Kurs einer gepflegten Position — aus der Reihe, wenn sie einen neueren hat.</summary>
+    private static decimal Price(PortfolioPosition p, Dictionary<string, Quote> kurse)
+        => p.Isin is { Length: > 0 } isin
+           && kurse.TryGetValue(isin, out var kurs)
+           && kurs.Date.ToDateTime(TimeOnly.MinValue) > p.PriceAsOf
+            ? kurs.Close
+            : p.Price;
 
 }
 

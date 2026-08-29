@@ -26,7 +26,7 @@ public sealed class NetWorthTests : IDisposable
         return new DashboardService(
             context,
             new AccountService(context),
-            new PortfolioService(context),
+            TestDatabase.Portfolio(context),
             new LoanService(context),
             new BudgetService(context, clock),
             clock);

@@ -178,6 +178,27 @@ builder.Services.AddScoped<HealthBalanceService>();
 builder.Services.AddScoped<DocumentScanService>();
 builder.Services.AddScoped<TaxYearService>();
 
+// ── Kurse ─────────────────────────────────────────────────────────────────────────────────
+var quoteOptions = builder.Configuration.GetSection(QuoteOptions.SectionName)
+                       .Get<QuoteOptions>() ?? new QuoteOptions();
+builder.Services.AddSingleton(quoteOptions);
+
+// Die Quelle ist inoffiziell und darf es sein: die Kurszeitreihe gehört der Anwendung, und
+// bewertet wird immer aus ihr. Fällt die Quelle aus, bleibt alles stehen — nur das Datum wird
+// älter, und das steht sichtbar dabei.
+builder.Services.AddHttpClient<IQuoteSource, BoerseFrankfurtQuoteSource>(client =>
+{
+    client.BaseAddress = new Uri("https://api.boerse-frankfurt.de/");
+    client.Timeout = TimeSpan.FromSeconds(quoteOptions.TimeoutSeconds);
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+    client.DefaultRequestHeaders.Add("User-Agent", "FinanzApp/0.4 (privater Haushalt)");
+});
+
+builder.Services.AddScoped<QuoteService>();
+
+// Pull nach Zeitplan, nie beim Seitenaufruf.
+builder.Services.AddHostedService<QuoteRefreshWorker>();
+
 var app = builder.Build();
 
 await using (var scope = app.Services.CreateAsyncScope())
@@ -192,6 +213,13 @@ await using (var scope = app.Services.CreateAsyncScope())
         db,
         scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>(),
         scope.ServiceProvider.GetRequiredService<DocumentPathService>());
+
+    // Die Kurszeitreihe aus dem holen, was längst im Haus ist: jede Ausführung und jede
+    // Position eines Bestandsnachweises trägt einen Kurs mit Datum. Die frei zugängliche
+    // Quelle gibt keine Vergangenheit heraus — ohne diesen Rückgriff bliebe der Verlauf
+    // monatelang leer, obwohl die Punkte da sind. Der Lauf ist wiederholbar und überschreibt
+    // nichts Abgerufenes.
+    await QuoteStartup.BackfillAsync(scope.ServiceProvider, db, logger);
 }
 
 if (app.Environment.IsDevelopment())

@@ -183,5 +183,38 @@ public sealed class HouseholdIsolationTests : IDisposable
         context.SaveChanges();
     }
 
+    /// <summary>
+    /// Ein Kurs gehört dem Haushalt, der ihn geholt hat.
+    /// </summary>
+    /// <remarks>
+    /// Die Reihe ist mandantengefiltert wie alles andere. Sie zu teilen wäre technisch
+    /// naheliegend — ein Schlusskurs ist schließlich für alle derselbe — und trotzdem falsch:
+    /// sie enthält auch Punkte aus Ausführungen und Bestandsnachweisen, und die sagen aus, was
+    /// dieser eine Haushalt gekauft hat.
+    /// </remarks>
+    [Fact]
+    public void Kurse_bleiben_im_eigenen_Haushalt()
+    {
+        using (var meiner = database.Context(mine))
+        {
+            meiner.Quotes.Add(new Quote
+            {
+                Isin = "IE00TEST0001",
+                Date = new DateOnly(2026, 8, 28),
+                Close = 127.50m,
+                Currency = "EUR",
+                Source = "Teststelle",
+                FetchedAt = new DateTime(2026, 8, 29, 18, 0, 0, DateTimeKind.Local),
+            });
+
+            meiner.SaveChanges();
+        }
+
+        using var fremder = database.Context(theirs);
+
+        Assert.Empty(fremder.Quotes);
+        Assert.Empty(fremder.QuoteRuns);
+    }
+
     public void Dispose() => database.Dispose();
 }
