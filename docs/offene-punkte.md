@@ -1,6 +1,6 @@
 # Offene Punkte
 
-Stand **29.08.2026**, nach dem Steuerjahr-Paket aus Handoff 16. Eine Liste, kein Plan: sie sagt,
+Stand **29.08.2026**, nach dem Kursabruf aus Handoff 17. Eine Liste, kein Plan: sie sagt,
 was noch nicht gebaut ist und woher die Anforderung stammt — die Reihenfolge steht in den
 Handoffs selbst, nicht hier.
 
@@ -15,7 +15,9 @@ Bestandsabgleich; aus [Handoff 14](design-handoff-v5d/design_handoff_v5/README.m
 PKV-Bilanz (§12); aus [Handoff 15](design-handoff-v5e/design_handoff_v5/README.md) das
 Einlesen von PDF-Dokumenten (§14); aus
 [Handoff 16](design-handoff-v5f/design_handoff_v5/README.md) das Steuerjahr-Paket mit Druckblatt
-und den vier entschiedenen Rückfragen (§15).
+und den vier entschiedenen Rückfragen (§15); aus
+[Handoff 17](design-handoff-v5g/design_handoff_v5/README.md) die Kurszeitreihe samt Abruf über
+eine Web-API (§16).
 
 ## Was beim PDF-Scan (§14) offen blieb
 
@@ -78,6 +80,36 @@ die folgenden drei als **„vor dem Bau anfragen"**:
 - **Steuer nach Jahr** als eigener Bereich. Der Bericht aus §15 ist die Auswertung, nicht die
   Ablage — er sammelt Kandidaten, verwaltet aber keine Steuerjahre mit Bescheiden und Fristen.
 - **Unterhalt / Scheidung** als Vorgangstyp mit Zahlungsverfolgung.
+
+## Was beim Kursabruf (§16) offen blieb
+
+Gebaut ist die gespeicherte Kurszeitreihe, der Abruf hinter `IQuoteSource` mit der Börse
+Frankfurt als erster Quelle, Zeitplan und Knopf, das Kursband mit seinen vier Zuständen und der
+Kursverlauf je Position samt Einstandslinie. Geprüft mit echten Abrufen gegen die reale
+Schnittstelle.
+
+**Der Befund, der den Bau bestimmt hat:** die frei zugängliche Schnittstelle gibt **keine
+Vergangenheit** heraus. Der Endpunkt `quote_box` liefert den zuletzt festgestellten Kurs und
+verlangt nichts weiter; `price_history` antwortet leer, weil er eine Signatur erwartet, die der
+Anbieter nur seiner eigenen Oberfläche mitgibt. Sie nachzubauen hieße, eine Zugangssperre zu
+umgehen — das ist unterblieben. Die Reihe wächst deshalb Tag für Tag mit den eigenen Abrufen,
+und was an Vergangenheit im Haus ist, wird nachgetragen: Ausführungen, Bestandsnachweise und
+erfasste Positionen tragen alle einen Kurs mit Datum.
+
+Offen:
+
+- **Keine Fremdwährung.** Die Reihe führt eine Währung mit, aber es gibt keinen
+  Umrechnungskurs — der wäre selbst eine Zeitreihe. Xetra und Frankfurt notieren in Euro; ein
+  in Dollar notiertes Papier bewertet die Anwendung derzeit falsch.
+- **Keine Splits und Ausschüttungen.** Ein Split bricht den Verlauf optisch ein, ohne dass
+  Vermögen verloren ging. Erkannt wird er nicht.
+- **Keine Zweitquelle und kein Kurs von Hand.** Beides ist als Implementierung derselben
+  Schnittstelle vorgesehen und nicht gebaut. Für Papiere, die keine Quelle kennt — Anteile an
+  geschlossenen Fonds, Belegschaftsaktien — bleibt es beim Kurs aus der erfassten Position.
+- **Die Einstellungszeile „Kursquelle" zeigt nur an.** Quelle wählen, Abrufzeit ändern und die
+  Zweitquelle einrichten steht in der Konfigurationsdatei, nicht in der Oberfläche.
+- **Kein Intraday.** Gespeichert wird der letzte Kurs eines Tages. Für eine Vermögensübersicht
+  ist alles darunter Rauschen.
 
 ## Was beim Steuerjahr-Paket (§15) offen blieb
 
