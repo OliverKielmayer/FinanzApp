@@ -1,6 +1,6 @@
 # Offene Punkte
 
-Stand **29.08.2026**, nach dem Kursabruf aus Handoff 17. Eine Liste, kein Plan: sie sagt,
+Stand **29.08.2026**, nach der Wiederholgruppe aus Handoff 18 (§17.2). Eine Liste, kein Plan: sie sagt,
 was noch nicht gebaut ist und woher die Anforderung stammt — die Reihenfolge steht in den
 Handoffs selbst, nicht hier.
 
@@ -17,7 +17,8 @@ Einlesen von PDF-Dokumenten (§14); aus
 [Handoff 16](design-handoff-v5f/design_handoff_v5/README.md) das Steuerjahr-Paket mit Druckblatt
 und den vier entschiedenen Rückfragen (§15); aus
 [Handoff 17](design-handoff-v5g/design_handoff_v5/README.md) die Kurszeitreihe samt Abruf über
-eine Web-API (§16).
+eine Web-API (§16); aus [Handoff 18](design-handoff-v5h/design_handoff_v5/README.md) die
+Wiederholgruppe für Aufstellungen mit mehreren Positionen (§17.2).
 
 ## Was beim PDF-Scan (§14) offen blieb
 
@@ -25,9 +26,6 @@ Gebaut ist der ganze Abschnitt: Dokumenttyp-Modell, beide Arten, Analyse-Schritt
 Vorschlag, Werteprüfung mit Herkunftsseite und die Bestätigung, die die Wirkung nennt. Geprüft
 an den beiden echten PDFs des Nutzers. Was dabei liegen blieb:
 
-- **Eine Position je Quartalsaufstellung.** Der Extraktor nimmt je Feld den ersten Treffer; ein
-  Depot mit drei Fonds läse nur den ersten. Für mehrere bräuchte der Typ eine Wiederholgruppe.
-  Bis dahin bleibt für solche Aufstellungen die Erfassung von Hand aus §11.2.
 - **Keine Texterkennung.** Beide Originale tragen eine Textebene — der Statusreport eine
   unsichtbare hinter vier Seitenbildern. Ein abfotografierter Beleg wird deshalb erkannt,
   abgelegt und mit leerer Maske gemeldet, aber nicht gelesen. Die Schnittstelle
@@ -80,6 +78,23 @@ die folgenden drei als **„vor dem Bau anfragen"**:
 - **Steuer nach Jahr** als eigener Bereich. Der Bericht aus §15 ist die Auswertung, nicht die
   Ablage — er sammelt Kandidaten, verwaltet aber keine Steuerjahre mit Bescheiden und Fristen.
 - **Unterhalt / Scheidung** als Vorgangstyp mit Zahlungsverfolgung.
+
+## Aus Handoff 18 (§17) noch nicht gebaut
+
+Umgesetzt ist nur §17.2 — die Wiederholgruppe. Offen und der Reihe nach das Nächste:
+
+- **§17.1 Vermögensentwicklung nach Klasse.** Der letzte große Bericht aus §10b: gestapelte
+  Balken je Stichtag statt einer Linie, gestrichelte Oberkante für fortgeschriebene Werte, und
+  der Block „Wie belastbar ist diese Kurve?". Braucht eine gespeicherte Zeitreihe je Stichtag
+  und Klasse mit dem Kennzeichen *gemessen* oder *fortgeschrieben* — ohne das lässt sich die
+  gestrichelte Kante nicht zeichnen.
+- **§17.3 Ablage ändern.** Der Knopf im Vorschlagsschritt läuft weiter ins Leere. Gedacht sind
+  drei Vorschläge als Chips plus ein freies Feld; nur der Ordner ist änderbar, nicht der
+  Dateiname.
+- **§17.4 Gelernte Ablageregel speichern.** Die Bestätigungsseite zeigt „Absender X + Typ Y →
+  künftig automatisch hierher", ohne dass etwas gespeichert wird. Die Regel gehört in den
+  Kategorieregeln-Schirm, in einen eigenen Block, einzeln löschbar.
+- **§17.5** bleibt offen wie gemeldet: keine Texterkennung für reine Bilder.
 
 ## Was beim Kursabruf (§16) offen blieb
 
