@@ -73,6 +73,17 @@ public class Document : IHouseholdOwned
     /// <summary>Freie Schlagworte, durch Komma getrennt abgelegt.</summary>
     public string? Tags { get; set; }
 
+    /// <summary>
+    /// Der beim Einlesen erkannte Dokumenttyp, etwa <c>statusreport-lv</c>.
+    /// </summary>
+    /// <remarks>
+    /// Nicht zu verwechseln mit <see cref="DocumentTypeId"/>: das ist die gepflegte Typenliste
+    /// des Nutzers, dies hier die maschinelle Erkennung aus dem Text. Sie steht am Dokument und
+    /// nicht am einzelnen gelesenen Wert, weil sie das Dokument beschreibt — und weil die
+    /// Übernahme sonst raten müsste, nach welchen Regeln die gespeicherten Werte entstanden sind.
+    /// </remarks>
+    public string? ScanKind { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

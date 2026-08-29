@@ -152,6 +152,11 @@ builder.Services.AddSingleton<IBillTextExtractor, NoBillTextExtractor>();
 // Anlege-Flow trotzdem — nur mit leerer Maske.
 builder.Services.AddSingleton<IPolicyDocumentAnalyzer, NoPolicyDocumentAnalyzer>();
 
+// Der PDF-Leser hinter derselben Art Schnittstelle. Er braucht keine Texterkennung: Originale
+// von Versicherung und Bank tragen eine Textebene. Was keine hat, wird abgelegt und von Hand
+// erfasst — der Beleg-Flow hängt nicht an ihm.
+builder.Services.AddSingleton<IPdfTextReader, PdfPigTextReader>();
+
 builder.Services.AddScoped<ObjectLabelService>();
 builder.Services.AddScoped<DocumentService>();
 builder.Services.AddScoped<TaskService>();
@@ -170,6 +175,7 @@ builder.Services.AddSingleton<OrderCsvParser>();
 builder.Services.AddScoped<DepotTradeService>();
 builder.Services.AddScoped<DepotStatementService>();
 builder.Services.AddScoped<HealthBalanceService>();
+builder.Services.AddScoped<DocumentScanService>();
 
 var app = builder.Build();
 

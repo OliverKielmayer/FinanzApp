@@ -90,14 +90,30 @@ public sealed class DocumentPathService
     /// Legt eine hochgeladene Datei unter dem Bereichsordner ab und gibt den relativen Pfad zurück.
     /// Ein bereits vergebener Name bekommt einen Zähler — überschrieben wird nie.
     /// </summary>
+    /// <param name="subFolder">
+    /// Vorgeschlagener Unterordner unterhalb des Bereichs, etwa
+    /// <c>Lebensversicherung/Heidelberger Leben/2025</c>. Jedes Segment wird entschärft; leere
+    /// Angabe legt direkt in den Bereichsordner.
+    /// </param>
+    /// <param name="preferredName">
+    /// Gewünschter Dateiname ohne Erweiterung. Die des Originals bleibt erhalten — sie sagt, was
+    /// die Datei ist, und das entscheidet nicht der Vorschlag.
+    /// </param>
     public async Task<string> StoreAsync(
-        Stream content, DocumentArea area, string originalFileName, CancellationToken ct = default)
+        Stream content,
+        DocumentArea area,
+        string originalFileName,
+        string? subFolder = null,
+        string? preferredName = null,
+        CancellationToken ct = default)
     {
-        var folder = FolderFor(area);
-        var directory = Path.Combine(Root, folder);
+        var folder = Combine(FolderFor(area), subFolder);
+        var directory = Path.Combine(Root, folder.Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(directory);
 
-        var safeName = Sanitize(originalFileName);
+        var safeName = Sanitize(preferredName is { Length: > 0 }
+            ? preferredName + Path.GetExtension(originalFileName)
+            : originalFileName);
         var candidate = safeName;
         var counter = 1;
         while (File.Exists(Path.Combine(directory, candidate)))
@@ -114,6 +130,29 @@ public sealed class DocumentPathService
         }
 
         return folder + "/" + candidate;
+    }
+
+    /// <summary>
+    /// Hängt einen vorgeschlagenen Unterordner an den Bereichsordner.
+    /// </summary>
+    /// <remarks>
+    /// Segmentweise entschärft, und der Vorschlag kommt aus Dokumentinhalten — also aus fremdem
+    /// Text. <c>..</c> darin wäre ein Weg aus dem Wurzelordner heraus; <see cref="Sanitize"/>
+    /// macht daraus einen harmlosen Namen, weil Punkte nur zwischen Zeichen überleben.
+    /// </remarks>
+    public static string Combine(string folder, string? subFolder)
+    {
+        if (string.IsNullOrWhiteSpace(subFolder))
+        {
+            return folder;
+        }
+
+        var segmente = subFolder
+            .Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(Sanitize)
+            .Where(s => s.Length > 0);
+
+        return string.Join("/", segmente.Prepend(folder));
     }
 
     /// <summary>Ordnername je Bereich — die Ablage bleibt auch im Dateimanager lesbar.</summary>

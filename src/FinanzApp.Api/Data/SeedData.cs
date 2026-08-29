@@ -415,7 +415,10 @@ public static class SeedData
 
     private static Depot SeedPortfolio(FinanzAppDbContext db)
     {
-        var depot = new Depot { Name = "finanzen.net ZERO", TwrorPercent = 9.8m };
+        var depot = new Depot
+        {
+            Name = "finanzen.net ZERO", Number = "1234567001", TwrorPercent = 9.8m,
+        };
         db.Depots.Add(depot);
 
         var pricesAsOf = new DateTime(2026, 8, 22, 17, 35, 0, DateTimeKind.Local);
@@ -466,6 +469,10 @@ public static class SeedData
                 Name = "Heidelberger Leben",
                 Provider = "Heidelberger Leben",
                 Notes = "MLP bestpartner classic",
+
+                // Über die Vertragsnummer findet der Beleg-Scan sein Ziel — ohne sie könnte ein
+                // eingelesener Statusreport nichts zuordnen.
+                PolicyNumber = "LV-4471-01",
                 CurrentValue = 20481.52m,
                 ValuationDate = new DateOnly(2025, 7, 31),
             },

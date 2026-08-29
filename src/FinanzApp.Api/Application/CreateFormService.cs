@@ -807,7 +807,7 @@ public sealed class CreateFormService(
         buffer.Position = 0;
         var upload = await documents.UploadAsync(
             buffer, fileName, DocumentArea.Insurance, title: null, documentTypeId: null,
-            documentDate: null, ct);
+            documentDate: null, ct: ct);
 
         buffer.Position = 0;
         var fields = await analyzer.AnalyseAsync(buffer, fileName, type, ct);

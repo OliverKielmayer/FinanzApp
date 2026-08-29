@@ -24,6 +24,7 @@ public static class ExtensionEndpoints
         MapCreate(app);
         MapVehicles(app);
         MapScanInbox(app);
+        MapScan(app);
         MapHousing(app);
         MapLiquidity(app);
         MapWork(app);
@@ -90,7 +91,7 @@ public static class ExtensionEndpoints
             {
                 await using var content = file.OpenReadStream();
                 var result = await service.UploadAsync(
-                    content, file.FileName, area, title, documentTypeId, documentDate, ct);
+                    content, file.FileName, area, title, documentTypeId, documentDate, ct: ct);
 
                 return Results.Ok(result);
             }
@@ -312,6 +313,48 @@ public static class ExtensionEndpoints
                     "Der Beleg bleibt im Eingang, bis Typ und Objekt bestimmt sind.",
                     statusCode: StatusCodes.Status409Conflict))
             .RequireAuthorization(AuthPolicies.Write);
+    }
+
+    /// <summary>
+    /// Belege einlesen — Abschnitt 14 des v5-Handoffs.
+    /// </summary>
+    /// <remarks>
+    /// Zwei Endpunkte für alle Dokumenttypen: analysieren und übernehmen. Welche Felder ein Typ
+    /// hat, wohin er gehört und was die Übernahme bewirkt, steht im Typ-Datensatz — nicht in der
+    /// Route und nicht in einem Bildschirm.
+    /// </remarks>
+    private static void MapScan(IEndpointRouteBuilder app)
+    {
+        var api = app.MapGroup("/api/scan").WithTags("Belege").RequireAuthorization();
+
+        api.MapPost("/analyse", async (
+            IFormFile file, DocumentScanService service, CancellationToken ct) =>
+        {
+            await using var content = file.OpenReadStream();
+
+            try
+            {
+                return Results.Ok(await service.AnalyseAsync(content, file.FileName, ct));
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.Write).DisableAntiforgery();
+
+        // Erst hier verändert sich eine Vermögenszahl, und nur, weil ein Mensch es gesagt hat.
+        api.MapPost("/confirm", async (
+            ConfirmScanRequest request, DocumentScanService service, CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(await service.ConfirmAsync(request, ct));
+            }
+            catch (RuleViolationException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.Write);
     }
 
     /// <summary>

@@ -163,6 +163,13 @@ public sealed class DocumentService(
     /// Legt eine hochgeladene Datei ab und verbucht sie als Dokument. Schlägt das Speichern des
     /// Datensatzes fehl, wird die Datei wieder entfernt — sonst bliebe eine Waise im Ordner.
     /// </summary>
+    /// <param name="subFolder">
+    /// Vorgeschlagene Ablageschublade unterhalb des Bereichs, etwa
+    /// <c>Lebensversicherung/Heidelberger Leben/2025</c>. Ohne Angabe direkt in den Bereich.
+    /// </param>
+    /// <param name="preferredName">
+    /// Vorgeschlagener Dateiname ohne Erweiterung. Ohne Angabe bleibt der hochgeladene.
+    /// </param>
     public async Task<DocumentUploadResultDto> UploadAsync(
         Stream content,
         string fileName,
@@ -170,6 +177,8 @@ public sealed class DocumentService(
         string? title,
         int? documentTypeId,
         DateOnly? documentDate,
+        string? subFolder = null,
+        string? preferredName = null,
         CancellationToken ct = default)
     {
         var extension = Path.GetExtension(fileName).ToLowerInvariant();
@@ -178,7 +187,7 @@ public sealed class DocumentService(
             throw new ArgumentException($"Dateityp nicht zugelassen. Erlaubt: {paths.AllowedExtensionList}.");
         }
 
-        var relativePath = await paths.StoreAsync(content, area, fileName, ct);
+        var relativePath = await paths.StoreAsync(content, area, fileName, subFolder, preferredName, ct);
 
         try
         {
