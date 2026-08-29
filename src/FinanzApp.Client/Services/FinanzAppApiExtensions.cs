@@ -164,6 +164,14 @@ public static class FinanzAppApiExtensions
         return await api.PostFormAsync<ExtractedBillDto>("api/health/extract", form, ct);
     }
 
+    /// <summary>
+    /// Der Steuerjahr-Bericht. Ohne Jahr das, für das es am meisten gibt.
+    /// </summary>
+    public static Task<TaxYearDto> GetTaxYearAsync(
+        this FinanzAppApi api, int? year = null, CancellationToken ct = default)
+        => api.GetAsync<TaxYearDto>(
+            year is { } j ? $"api/reports/tax-year?jahr={j}" : "api/reports/tax-year", ct);
+
     // ── Belege einlesen ───────────────────────────────────────────────
 
     /// <summary>

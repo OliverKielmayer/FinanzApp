@@ -3,6 +3,7 @@
 @inherits AppPage
 @using System.Globalization
 @inject IJSRuntime JS
+@inject FinanzAppAuthStateProvider Auth
 
 @*
     Abschnitt 10b. Der Bereich beantwortet drei Fragen: wo sind Einsparpotentiale, welche
@@ -135,7 +136,14 @@
     }
     else if (report == ReportKind.HealthBalance && health is { } pkv)
     {
-        <HealthBalanceReport Data="pkv" Busy="busy" OnPickYear="PickHealthYearAsync" />
+        <HealthBalanceReport Data="pkv" Busy="busy" OnPickYear="PickHealthYearAsync"
+                             OnToTaxYear="ToTaxYearAsync" />
+        <div class="spacer"></div>
+    }
+    else if (report == ReportKind.TaxYear && tax is { } steuer)
+    {
+        <TaxYearReport Data="steuer" Busy="busy" OpenSection="taxSection"
+                       OnPickYear="PickTaxYearAsync" OnPrint="@(() => printing = true)" />
         <div class="spacer"></div>
     }
     else if (report == ReportKind.PortfolioGainLoss)
@@ -312,12 +320,30 @@
     }
 </AsyncView>
 
+@* Über allem, damit sich das Blatt vor dem Drucken beurteilen lässt — und außerhalb der
+   AsyncView, weil ein Nachladen im Hintergrund die Vorschau nicht wegnehmen darf. *@
+@if (printing && tax is { } blatt)
+{
+    <PrintSheet Data="blatt" HouseholdName="@Auth.User?.HouseholdName" UserName="@Auth.User?.Name"
+                OnClose="@(() => printing = false)" />
+}
+
 @code {
     private CostTrendDto? data;
     private FixedCostsDto? fixedCosts;
     private PortfolioGainDto? gain;
     private DataQualityDto? quality;
     private HealthBalanceDto? health;
+    private TaxYearDto? tax;
+
+    /// <summary>Das gewählte Steuerjahr. <c>null</c> heißt: das, für das es am meisten gibt.</summary>
+    private int? taxYear;
+
+    /// <summary>Der Abschnitt, der beim Öffnen aufgeklappt sein soll — für den Sprung aus der PKV-Bilanz.</summary>
+    private TaxSectionKind? taxSection;
+
+    /// <summary>Ob die Druckvorschau über allem liegt.</summary>
+    private bool printing;
     private int? depotId;
 
     /// <summary>
@@ -373,13 +399,17 @@
         (CostTrendSort.Name, "Name"),
     ];
 
-    /// <summary>Die gebauten Berichte — vier aus Abschnitt 10b, dazu die PKV-Bilanz aus §12.</summary>
+    /// <summary>
+    /// Die gebauten Berichte — vier aus Abschnitt 10b, die PKV-Bilanz aus §12, das Steuerjahr
+    /// aus §15.
+    /// </summary>
     private static readonly (ReportKind Kind, string Label, bool Ready)[] Available =
     [
         (ReportKind.CostTrend, "Kostentrend", true),
         (ReportKind.FixedCosts, "Fixkosten", true),
         (ReportKind.PortfolioGainLoss, "Depot G/V", true),
         (ReportKind.HealthBalance, "PKV-Bilanz", true),
+        (ReportKind.TaxYear, "Steuerjahr", true),
         (ReportKind.DataQuality, "Datenqualität", true),
     ];
 
@@ -416,6 +446,11 @@
 
             case ReportKind.HealthBalance:
                 health = await Api.GetHealthBalanceAsync(healthYear, healthAllYears);
+                break;
+
+            case ReportKind.TaxYear:
+                tax = await Api.GetTaxYearAsync(taxYear);
+                taxYear = tax.Year;
                 break;
 
             default:
@@ -459,6 +494,34 @@
     private Task PickDepotAsync(int id)
     {
         depotId = id;
+        return RefreshAsync();
+    }
+
+    private Task PickTaxYearAsync(int jahr)
+    {
+        taxYear = jahr;
+
+        // Der Jahreswechsel schließt die Abschnitte: was in einem Jahr aufgeklappt war, muss im
+        // nächsten nicht dasselbe bedeuten.
+        taxSection = null;
+
+        return RefreshAsync();
+    }
+
+    /// <summary>
+    /// Der Sprung aus der PKV-Bilanz in den Steuerjahr-Bericht.
+    /// </summary>
+    /// <remarks>
+    /// Er nimmt das Jahr der Bilanz mit und klappt die Krankheitskosten auf. Wichtiger als die
+    /// Navigation ist, dass beide dieselbe Zahl nennen: die Eigenanteile werden im Bericht aus
+    /// denselben PKV-Vorgängen gerechnet und nicht abgeschrieben.
+    /// </remarks>
+    private Task ToTaxYearAsync(int jahr)
+    {
+        report = ReportKind.TaxYear;
+        taxYear = jahr;
+        taxSection = TaxSectionKind.Krankheit;
+
         return RefreshAsync();
     }
 

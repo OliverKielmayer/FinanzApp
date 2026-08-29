@@ -1,0 +1,169 @@
+@inject IJSRuntime Js
+@inject AppState State
+
+@*
+    Das Druckblatt — v5-Handoff, Abschnitt 15.3.
+
+    Erstmals gestaltet: das Repo hatte Druck-Stylesheet plus window.print(), ohne dass jemand
+    das Blatt gesehen hatte. Als Vorschau über allem, damit man es vor dem Drucken beurteilen
+    kann.
+
+    Es hat keine eigene Rechnung. Jede Zahl darauf kommt aus demselben TaxYearDto wie der
+    Bildschirm — zwei Rechnungen für eine Aussage laufen irgendwann auseinander, und der Tag,
+    an dem es passiert, fällt niemandem auf.
+*@
+
+<div class="print-backdrop" @onclick="Close"></div>
+
+<div class="print-overlay">
+    <div class="print-bar">
+        <span class="stack">
+            <span class="label-accent">Druckvorschau</span>
+            <span class="meta">@Meta()</span>
+
+            @* Die Maske „Beträge verbergen" gilt für den Bildschirm. Ein Blatt mit •••••• wäre
+               kein Beleg — also stehen hier die Zahlen, und das wird gesagt statt unterschlagen. *@
+            @if (State.AmountsHidden)
+            {
+                <span class="meta warn">Beträge sind auf dem Blatt sichtbar, auch bei aktiver Maske</span>
+            }
+        </span>
+        <button type="button" class="btn btn-primary" @onclick="PrintAsync">Drucken</button>
+        <button type="button" class="btn btn-secondary" @onclick="Close">Schließen</button>
+    </div>
+
+    <div class="print-scroll">
+        <div class="print-sheet">
+
+            <div class="sheet-head">
+                <span class="stack">
+                    <span class="sheet-brand">@Brand()</span>
+                    <span class="sheet-title">Steuerjahr @Data.Year</span>
+                    <span class="sheet-subject">
+                        Absetzbare Kandidaten mit Belegbezug · keine Steuerberechnung
+                    </span>
+                </span>
+                <span class="stack-end">
+                    <span class="sheet-label">erstellt</span>
+                    <span class="sheet-stamp num">@GermanFormat.DateTime(Created)</span>
+                </span>
+            </div>
+
+            <div class="sheet-kpis">
+                <div class="stack">
+                    <span class="sheet-label">Erfasst</span>
+                    <span class="sheet-kpi num">@GermanFormat.Euro(Data.Total)</span>
+                </div>
+                <div class="stack">
+                    <span class="sheet-label">Ohne Beleg</span>
+                    <span class="sheet-kpi num">@Missing()</span>
+                </div>
+                <div class="stack">
+                    <span class="sheet-label">Geschätzt</span>
+                    <span class="sheet-kpi num">@Estimated()</span>
+                </div>
+            </div>
+
+            @foreach (var abschnitt in Data.Sections)
+            {
+                <div class="sheet-section">
+                    <div class="sheet-section-head">
+                        <span class="sheet-section-title">@abschnitt.Title</span>
+                        <span class="sheet-section-sum num">@GermanFormat.Euro(abschnitt.Total)</span>
+                    </div>
+
+                    @foreach (var position in abschnitt.Positions)
+                    {
+                        @* Der Belegbezug steht als zweite Zeile unter der Position. Eine feste
+                           Spalte dafür hatte „aus der PKV-Bilanz" mitten im Wort getrennt und
+                           die Zeilenhöhe verdoppelt. *@
+                        <div class="sheet-row">
+                            <span class="stack">
+                                <span class="sheet-row-label">@position.Label</span>
+                                <span class="sheet-row-doc @Tone(position)">@position.Mark.Text</span>
+                            </span>
+                            <span class="sheet-row-amount num">
+                                @GermanFormat.Euro(position.Amount)
+                            </span>
+                        </div>
+                    }
+                </div>
+            }
+
+            <div class="sheet-foot">
+                <div class="sheet-total">
+                    <span class="sheet-total-label">Summe @Data.Year</span>
+                    <span class="sheet-total-amount num">@GermanFormat.Euro(Data.Total)</span>
+                </div>
+
+                <span class="sheet-note">
+                    Erstellt aus erfassten Buchungen, Verträgen und Dokumenten. ⚠ heißt: der Beleg
+                    fehlt und muss nachgereicht werden. ≈ heißt: der Betrag ist aus vorhandenen
+                    Angaben gerechnet und muss nachgerechnet werden. Höchstbeträge, zumutbare
+                    Belastung und die Trennung Arbeitslohn/Material sind nicht berücksichtigt.
+                </span>
+
+                <div class="sheet-source">
+                    <span>FinanzApp · Auswertungen · Steuerjahr</span>
+                    <span>Seite 1 von 1</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public TaxYearDto Data { get; set; } = default!;
+
+    [Parameter] public string? HouseholdName { get; set; }
+
+    [Parameter] public string? UserName { get; set; }
+
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    /// <summary>
+    /// Der Erstellungszeitpunkt, einmal beim Öffnen genommen.
+    /// </summary>
+    /// <remarks>
+    /// Nicht bei jedem Neuzeichnen: sonst stünde auf dem Blatt eine andere Uhrzeit als in dem
+    /// Moment, in dem der Nutzer es angesehen hat.
+    /// </remarks>
+    private DateTime Created { get; } = DateTime.Now;
+
+    private Task Close() => OnClose.InvokeAsync();
+
+    /// <summary>
+    /// Der Druck bleibt beim Browser.
+    /// </summary>
+    /// <remarks>
+    /// Ausdrücklich statt einer PDF-Abhängigkeit — dieselbe Entscheidung wie beim
+    /// Druck-Stylesheet der übrigen Auswertungen. Das Stylesheet blendet beim Drucken alles
+    /// außer dem Blatt aus.
+    /// </remarks>
+    private async Task PrintAsync() => await Js.InvokeVoidAsync("window.print");
+
+    private string Brand()
+        => string.Join(" · ", new[] { HouseholdName, UserName }.Where(t => t is { Length: > 0 }));
+
+    private string Meta()
+        => $"Steuerjahr {Data.Year} · {Data.PositionCount} "
+           + (Data.PositionCount == 1 ? "Position" : "Positionen") + " · A4 hochkant";
+
+    private string Missing()
+        => Data.MissingCount == 0
+            ? "keine"
+            : $"{GermanFormat.Euro(Data.MissingAmount)} · {Data.MissingCount} Pos.";
+
+    private string Estimated()
+        => Data.EstimatedCount == 0
+            ? "keine"
+            : $"{GermanFormat.Euro(Data.EstimatedAmount)} · {Data.EstimatedCount} Pos.";
+
+    /// <summary>Derselbe Ton wie im Bericht — beide lesen dieselbe Formel.</summary>
+    private static string? Tone(TaxPositionDto p) => p.Mark.Tone switch
+    {
+        TaxMarkTone.Missing => "warn",
+        TaxMarkTone.Estimated => "soft",
+        _ => null,
+    };
+}

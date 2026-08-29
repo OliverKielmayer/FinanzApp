@@ -1,0 +1,204 @@
+@inject AppState State
+
+@*
+    Steuerjahr — v5-Handoff, Abschnitt 15.1.
+
+    Beträge mit Cent, anders als in den übrigen Auswertungen: was hier steht, wird in ein
+    Formular abgetippt. Gerundet nannte der Bericht 562 €, wo die PKV-Bilanz 561,60 € sagt —
+    dieselbe Zahl, und trotzdem sähe der Sprung von dort hierher wie ein Widerspruch aus.
+
+    Der Kopf trägt zwei Kennzahlen nebeneinander, und darunter stehen zwei Zeilen, nicht eine:
+    „ohne Beleg" und „geschätzt" sind verschiedene Mängel mit verschiedenen Abhilfen. Einen
+    fehlenden Beleg reicht man nach, eine Schätzung muss man nachrechnen.
+*@
+
+<div class="kpi two">
+    <div class="kpi-cell">
+        <span class="label-muted">Erfasst @Data.Year</span>
+        <span class="hero-value medium num">@State.Euro(Data.Total)</span>
+        <span class="meta">@Positions()</span>
+    </div>
+
+    <div class="kpi-cell">
+        <span class="label-muted">Belegt</span>
+        <span class="hero-value medium num @(Data.MissingCount > 0 ? "warn" : null)">
+            @(Data.DocumentedPercent is { } quote ? GermanFormat.Percent(quote) : "—")
+        </span>
+
+        @* Zwei Kennzahlen, zwei Zeilen — und beide in derselben Einheit: Euro zuerst,
+           Positionen dahinter. Eine Euro-Quote neben einem Positionszähler erzeugte „belegt
+           100 %" neben „1 Position ohne Beleg". *@
+        <span class="meta @(Data.MissingCount > 0 ? "warn" : null)">@MissingLine()</span>
+        <span class="meta @(Data.EstimatedCount > 0 ? "soft" : null)">@EstimatedLine()</span>
+    </div>
+</div>
+
+<div class="tax-controls">
+    <span class="label-muted">Steuerjahr</span>
+
+    @foreach (var jahr in Data.Years)
+    {
+        var gewaehlt = jahr;
+        <button type="button" class="chip @(jahr == Data.Year ? "active" : null)"
+                disabled="@Busy" @onclick="() => OnPickYear.InvokeAsync(gewaehlt)">@jahr</button>
+    }
+
+    <button type="button" class="link-action" @onclick="OnPrint">Blatt drucken</button>
+</div>
+
+@if (Data.Sections.Count == 0)
+{
+    <EmptyState Title="@($"Für {Data.Year} ist nichts erfasst")"
+                Text="@("Der Bericht leitet ab, was da ist: Beiträge aus Verträgen, Eigenanteile aus "
+                        + "PKV-Vorgängen, Handwerkerleistungen und Werbungskosten aus Buchungen "
+                        + "steuerlich eingeordneter Kategorien. Fehlt beides, bleibt er leer.")" />
+}
+
+@foreach (var abschnitt in Data.Sections)
+{
+    var art = abschnitt.Kind;
+    var offen = open == art;
+
+    <div class="tax-section">
+        <button type="button" class="tax-head @(offen ? "open" : null)" @onclick="() => Toggle(art)">
+            <span class="tax-mark">@(offen ? "–" : "+")</span>
+            <span class="stack">
+                <span class="tax-title">@abschnitt.Title</span>
+                <span class="meta @(abschnitt.NeedsAttention ? "warn" : null)">@abschnitt.Meta</span>
+            </span>
+            <span class="tax-sum num">@State.Euro(abschnitt.Total)</span>
+        </button>
+
+        @if (offen)
+        {
+            <div class="tax-body">
+                @foreach (var position in abschnitt.Positions)
+                {
+                    <a class="tax-row" href="@position.Href">
+                        <span class="stack">
+                            <span class="tax-label">@position.Label</span>
+                            <span class="tax-doc @Tone(position)">@position.Mark.Text</span>
+                        </span>
+                        <span class="tax-amount num">@State.Euro(position.Amount)</span>
+                    </a>
+                }
+
+                @* Die Einschränkung gehört zur Aussage, nicht ins Kleingedruckte: sie
+                   entscheidet, ob die Summe darüber etwas wert ist. *@
+                <span class="meta">@abschnitt.Caveat</span>
+            </div>
+        }
+    </div>
+}
+
+@if (Data.Pending.Count > 0)
+{
+    <div class="tax-block">
+        <span class="label-accent">Erwartet, noch ohne Betrag</span>
+
+        @foreach (var position in Data.Pending)
+        {
+            <div class="tax-line">
+                <span>@position.Label</span>
+                <span class="meta warn">@position.Evidence</span>
+            </div>
+        }
+
+        <span class="meta">
+            Zählt erst mit, sobald ein Betrag erfasst ist — eine Zeile über 0 € ist keine
+            Steuerposition.
+        </span>
+    </div>
+}
+
+<div class="tax-block">
+    <span class="label-muted">Nicht enthalten</span>
+
+    @foreach (var ausnahme in Data.Excluded)
+    {
+        <div class="tax-line">
+            <span class="muted">@ausnahme.Label</span>
+            <span class="meta">@ausnahme.Reason</span>
+        </div>
+    }
+</div>
+
+<div class="tax-block last">
+    <span class="meta">
+        Eine Sammlung von Kandidaten mit Belegbezug, keine Steuerberechnung. Was tatsächlich
+        abzugsfähig ist, hängt von Höchstbeträgen, zumutbarer Belastung und deinem Einkommen
+        ab — die kennt die Anwendung nicht.
+    </span>
+
+    @if (Data.MissingCount > 0)
+    {
+        <button type="button" class="btn btn-secondary" @onclick="@(() => Navigation.NavigateTo("/dokumente"))">
+            @Data.MissingCount @(Data.MissingCount == 1 ? "fehlenden Beleg" : "fehlende Belege") ergänzen
+        </button>
+    }
+</div>
+
+@code {
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    [Parameter, EditorRequired] public TaxYearDto Data { get; set; } = default!;
+
+    [Parameter] public bool Busy { get; set; }
+
+    [Parameter] public EventCallback<int> OnPickYear { get; set; }
+
+    [Parameter] public EventCallback OnPrint { get; set; }
+
+    /// <summary>Welcher Abschnitt aufgeklappt ist — von außen setzbar für den Sprung aus der PKV-Bilanz.</summary>
+    [Parameter] public TaxSectionKind? OpenSection { get; set; }
+
+    private TaxSectionKind? open;
+
+    /// <summary>Welcher Wunsch von außen schon bedient ist.</summary>
+    /// <remarks>
+    /// Ohne dieses Merkmal ließe sich der Abschnitt nach dem Sprung aus der PKV-Bilanz nicht
+    /// mehr zuklappen: das Zuklappen setzt <c>open</c> auf nichts, und der nächste Durchlauf
+    /// öffnete ihn sofort wieder.
+    /// </remarks>
+    private TaxSectionKind? applied;
+
+    protected override void OnParametersSet()
+    {
+        if (OpenSection is { } gewuenscht && applied != gewuenscht)
+        {
+            open = gewuenscht;
+            applied = gewuenscht;
+        }
+    }
+
+    private void Toggle(TaxSectionKind art) => open = open == art ? null : art;
+
+    private string Positions()
+    {
+        var zahl = Data.PositionCount;
+        var abschnitte = Data.Sections.Count;
+
+        return $"{zahl} {(zahl == 1 ? "Position" : "Positionen")} in "
+               + $"{abschnitte} {(abschnitte == 1 ? "Abschnitt" : "Abschnitten")}";
+    }
+
+    private string MissingLine()
+        => Data.MissingCount == 0
+            ? "jede Position hat einen Beleg"
+            : $"{State.Euro(Data.MissingAmount)} ohne Beleg · {Data.MissingCount} "
+              + (Data.MissingCount == 1 ? "Position" : "Positionen");
+
+    private string EstimatedLine()
+        => Data.EstimatedCount == 0
+            ? "kein Betrag geschätzt"
+            : $"{State.Euro(Data.EstimatedAmount)} davon geschätzt · {Data.EstimatedCount} "
+              + (Data.EstimatedCount == 1 ? "Position nachrechnen" : "Positionen nachrechnen");
+
+    /// <summary>Der Ton einer Marke — dieselbe Zuordnung wie auf dem Druckblatt.</summary>
+    private static string? Tone(TaxPositionDto p) => p.Mark.Tone switch
+    {
+        TaxMarkTone.Missing => "warn",
+        TaxMarkTone.Estimated => "soft",
+        _ => null,
+    };
+}

@@ -152,6 +152,18 @@
             Eigenanteile @State.Euro(Data.Split.OwnShare) + Beiträge @State.Euro(jahresbeitrag).
             Was davon zählt, entscheidet die Steuererklärung.
         </span>
+
+        @*
+            Der Weg in den Steuerjahr-Bericht, mit dem Jahr dieser Ansicht. Er führt nicht zu
+            einer zweiten Rechnung: die Eigenanteile dort kommen aus denselben PKV-Vorgängen wie
+            hier — vorher standen 9.620 € gegen 12.798 € für dieselbe Aussage.
+        *@
+        @if (Data.Year is { } jahr)
+        {
+            <button type="button" class="link-action" @onclick="() => OnToTaxYear.InvokeAsync(jahr)">
+                Im Steuerjahr @jahr ansehen
+            </button>
+        }
     </div>
 }
 else
@@ -173,6 +185,9 @@ else
     [Parameter] public bool Busy { get; set; }
 
     [Parameter] public EventCallback<int?> OnPickYear { get; set; }
+
+    /// <summary>Der Sprung in den Steuerjahr-Bericht, mit dem Jahr dieser Ansicht.</summary>
+    [Parameter] public EventCallback<int> OnToTaxYear { get; set; }
 
     private string Zeitraum => Data.Year?.ToString() ?? "über alle Jahre";
 

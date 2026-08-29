@@ -4091,6 +4091,44 @@ body {
   @page {
     margin: 16mm;
   }
+
+  /* Liegt die Druckvorschau offen, ist sie das Blatt. Alles andere waere ein zweiter
+     Ausdruck derselben Zahlen in anderer Form. */
+  .print-overlay {
+    position: static;
+    background: none;
+  }
+
+  .print-backdrop,
+  .print-bar {
+    display: none !important;
+  }
+
+  .print-scroll {
+    overflow: visible;
+    padding: 0;
+    display: block;
+  }
+
+  .print-sheet {
+    max-width: none;
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+  }
+
+  .sheet-brand,
+  .sheet-row-doc.warn,
+  .sheet-row-doc.soft {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .sheet-row,
+  .sheet-section-head,
+  .sheet-total {
+    break-inside: avoid;
+  }
 }
 
 /* ── Navigation v5 ─────────────────────────────────────────────────────────────── */
@@ -4386,4 +4424,459 @@ body {
   flex: none;
   width: 140px;
   text-align: right;
+}
+
+/* ── Steuerjahr (Abschnitt 15) ─────────────────────────────────────────────────── */
+
+/* Zwei Toene fuer zwei verschiedene Maengel. „Fehlt" wiegt schwerer als „geschaetzt":
+   einen Beleg reicht man nach, eine Schaetzung muss man nachrechnen. */
+.meta.warn,
+.hero-value.warn {
+  color: var(--color-accent-800);
+}
+
+.meta.warn {
+  font-weight: 600;
+}
+
+.meta.soft {
+  color: var(--color-accent-700);
+}
+
+.tax-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+/* Eine Schaltflaeche, die wie ein Link aussieht: sie fuehrt woandershin und traegt kein
+   Gewicht in der Reihe der Knoepfe. */
+.link-action {
+  margin-left: auto;
+  padding: 0;
+  background: none;
+  border: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-accent);
+  cursor: pointer;
+}
+
+.link-action:hover {
+  text-decoration: underline;
+}
+
+.tax-section {
+  border-bottom: 1px solid var(--color-text);
+}
+
+.tax-head {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 13px 16px;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tax-head.open {
+  background: var(--color-accent-100);
+}
+
+.tax-head:not(.open):hover {
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+}
+
+.tax-head .stack {
+  flex: 1;
+  min-width: 0;
+}
+
+.tax-mark {
+  flex: none;
+  width: 15px;
+  margin-top: 2px;
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 13px;
+  color: var(--color-accent);
+}
+
+.tax-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.tax-sum {
+  flex: none;
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 15px;
+}
+
+.tax-body {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 0 16px 13px;
+}
+
+.tax-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-divider);
+  color: inherit;
+  text-decoration: none;
+}
+
+.tax-row .stack {
+  flex: 1;
+  min-width: 0;
+}
+
+.tax-label {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tax-doc {
+  font-size: 11px;
+  color: var(--color-neutral-600);
+}
+
+.tax-doc.warn {
+  color: var(--color-accent-800);
+  font-weight: 600;
+}
+
+.tax-doc.soft {
+  color: var(--color-accent-700);
+}
+
+.tax-amount {
+  flex: none;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.tax-block {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.tax-block.last {
+  border-bottom: 0;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.tax-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.tax-line .muted {
+  color: var(--color-neutral-700);
+  min-width: 0;
+}
+
+.label-accent {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+
+/* ── Druckblatt (Abschnitt 15.3) ───────────────────────────────────────────────── */
+
+.print-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: rgba(29, 31, 32, 0.62);
+}
+
+.print-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 71;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-neutral-300);
+}
+
+.print-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 11px 16px;
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-text);
+}
+
+.print-bar .stack {
+  flex: 1;
+  min-width: 0;
+}
+
+.print-scroll {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+
+  /* Oben ausgerichtet, nicht gestreckt: ohne das nimmt das Blatt die Fensterhoehe an, und
+     alles darueber hinaus — Summe, Fussnote, Quellenzeile — steht neben dem Papier. */
+  align-items: flex-start;
+  padding: 20px 16px 26px;
+}
+
+/* Das Blatt traegt seine eigenen Farben und nicht die der Anwendung: es soll aussehen wie
+   das, was aus dem Drucker kommt. */
+.print-sheet {
+  width: 100%;
+  max-width: 620px;
+  padding: 30px 34px 26px;
+  background: #fff;
+  color: #1d1f20;
+  border: 1px solid var(--color-neutral-500);
+  box-shadow: 0 2px 10px rgba(29, 31, 32, 0.18);
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 767px) {
+  .print-sheet {
+    max-width: 100%;
+    padding: 18px 16px 20px;
+  }
+}
+
+.sheet-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding-bottom: 11px;
+  border-bottom: 1.5px solid #1d1f20;
+}
+
+.sheet-head .stack {
+  min-width: 0;
+  gap: 3px;
+}
+
+.sheet-brand {
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+
+.sheet-title {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.sheet-subject {
+  font-size: 11px;
+  color: #4a4d4f;
+}
+
+.sheet-label {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #6a6d6f;
+}
+
+.sheet-stamp {
+  font-size: 11px;
+}
+
+.sheet-kpis {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid #c9cbcc;
+}
+
+.sheet-kpi {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 17px;
+}
+
+.sheet-section {
+  padding: 12px 0 4px;
+}
+
+.sheet-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #1d1f20;
+}
+
+.sheet-section-title {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.sheet-section-sum {
+  flex: none;
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 13px;
+}
+
+.sheet-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid #e3e4e5;
+}
+
+.sheet-row .stack {
+  flex: 1;
+  min-width: 0;
+  gap: 2px;
+}
+
+.sheet-row-label {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+/* Der Belegbezug steht unter der Position und nicht in einer eigenen Spalte: eine feste
+   Breite hatte „aus der PKV-Bilanz" mitten im Wort getrennt und jede Zeile doppelt hoch
+   gemacht. */
+.sheet-row-doc {
+  font-size: 9.5px;
+  line-height: 1.35;
+  color: #6a6d6f;
+}
+
+.sheet-row-doc.warn {
+  color: var(--color-accent-800);
+  font-weight: 600;
+}
+
+.sheet-row-doc.soft {
+  color: var(--color-accent-700);
+}
+
+.sheet-row-amount {
+  flex: none;
+  width: 96px;
+  text-align: right;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.sheet-foot {
+  margin-top: auto;
+  padding-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sheet-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  padding-top: 9px;
+  border-top: 1.5px solid #1d1f20;
+}
+
+.sheet-total-label {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 13px;
+}
+
+.sheet-total-amount {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 16px;
+}
+
+.sheet-note {
+  font-size: 9px;
+  line-height: 1.5;
+  color: #6a6d6f;
+  text-wrap: pretty;
+}
+
+.sheet-source {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 3px;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8a8d8f;
+}
+
+/* Die Rechenprobe im Pruefschritt (Abschnitt 15.6). Im Blueprint-Rahmen, weil sie eine
+   Konstruktionszeichnung der Zahl darueber ist und keine Meldung. */
+.proof {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 12px 16px;
+  padding: 14px 16px;
+}
+
+.proof.failed {
+  background: var(--color-accent-100);
+}
+
+.proof-mark {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+
+.proof.failed .proof-mark {
+  color: var(--color-accent-800);
+  font-weight: 700;
+}
+
+.proof-line {
+  font-size: 13px;
+  line-height: 1.4;
+  text-wrap: pretty;
 }
