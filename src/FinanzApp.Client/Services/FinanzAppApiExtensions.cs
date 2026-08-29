@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Headers;
 using FinanzApp.Shared.Contracts;
 
@@ -171,6 +172,30 @@ public static class FinanzAppApiExtensions
         this FinanzAppApi api, int? year = null, CancellationToken ct = default)
         => api.GetAsync<TaxYearDto>(
             year is { } j ? $"api/reports/tax-year?jahr={j}" : "api/reports/tax-year", ct);
+
+    // ── Kurse ─────────────────────────────────────────────────────────
+
+    /// <summary>Wie es um die Kurse steht.</summary>
+    public static Task<QuoteBandDto> GetQuoteBandAsync(
+        this FinanzAppApi api, CancellationToken ct = default)
+        => api.GetAsync<QuoteBandDto>("api/quotes/band", ct);
+
+    /// <summary>Der gespeicherte Kursverlauf eines Papiers.</summary>
+    public static Task<QuoteSeriesDto> GetQuoteSeriesAsync(
+        this FinanzAppApi api,
+        string isin,
+        QuoteRange range,
+        decimal? averageCost,
+        CancellationToken ct = default)
+        => api.GetAsync<QuoteSeriesDto>(
+            $"api/quotes/{Uri.EscapeDataString(isin)}?zeitraum={range}"
+            + (averageCost is { } k ? $"&einstand={k.ToString(CultureInfo.InvariantCulture)}" : null),
+            ct);
+
+    /// <summary>Stößt einen Abruf an — der einzige Weg außer dem Zeitplan.</summary>
+    public static Task<QuoteRefreshDto> RefreshQuotesAsync(
+        this FinanzAppApi api, CancellationToken ct = default)
+        => api.PostAsync<object, QuoteRefreshDto>("api/quotes/refresh", new { }, ct);
 
     // ── Belege einlesen ───────────────────────────────────────────────
 

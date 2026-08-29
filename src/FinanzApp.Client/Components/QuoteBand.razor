@@ -1,0 +1,102 @@
+@*
+    Das Kursband über der Positionsliste — v5-Handoff, Abschnitt 16.3.
+
+    Kein Zustand blendet Zahlen aus. Er sagt, wie alt sie sind: bei einem Fehlschlag steht der
+    zuletzt gespeicherte Kurs weiter da, und daneben, dass die Quelle nicht antwortet. Dieselbe
+    Regel wie beim Ladefehler aus Abschnitt 7 — vorhandene Daten werden nie durch eine leere
+    Fläche ersetzt.
+*@
+
+<div class="quote-band @Klasse()">
+    <span class="stack">
+        <span class="quote-title">@Titel()</span>
+        <span class="quote-sub">@Zeile()</span>
+    </span>
+
+    @if (Data.CanFetch)
+    {
+        <button type="button" class="link-action" disabled="@Busy" @onclick="OnRefresh">
+            @(Busy ? "läuft …" : "Jetzt abrufen")
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public QuoteBandDto Data { get; set; } = default!;
+
+    /// <summary>Ein Abruf läuft gerade.</summary>
+    [Parameter] public bool Busy { get; set; }
+
+    [Parameter] public EventCallback OnRefresh { get; set; }
+
+    private string? Klasse() => Data.State switch
+    {
+        QuoteState.Failed => "failed",
+        QuoteState.Stale => "stale",
+        _ => null,
+    };
+
+    private string Titel()
+    {
+        if (Busy)
+        {
+            return "Kurse werden abgerufen …";
+        }
+
+        return Data.State switch
+        {
+            QuoteState.Fresh => "Kurse aktuell",
+            QuoteState.Stale => $"Kurse vom {Tag(Data.LatestDate)}",
+            QuoteState.Failed => "Kursabruf fehlgeschlagen",
+            _ => "Noch kein Kurs abgerufen",
+        };
+    }
+
+    /// <summary>
+    /// Die Zeile darunter.
+    /// </summary>
+    /// <remarks>
+    /// Sie nennt beim Fehlschlag ausdrücklich den Kurs, mit dem weitergerechnet wird. „Fehler“
+    /// allein ließe den Leser raten, ob die Zahlen darunter noch etwas wert sind.
+    /// </remarks>
+    private string Zeile()
+    {
+        if (Busy)
+        {
+            return $"{Data.Source} · {Data.SecurityCount} "
+                   + (Data.SecurityCount == 1 ? "Wertpapier" : "Wertpapiere");
+        }
+
+        return Data.State switch
+        {
+            QuoteState.Fresh =>
+                $"{Data.Source} · {Abruf()} · {Verlauf()}",
+
+            QuoteState.Stale =>
+                $"Der letzte Abruf war am {Abruf()}. Bewertet wird mit dem gespeicherten Kurs.",
+
+            QuoteState.Failed =>
+                (Data.Problem ?? "Die Kursquelle antwortet nicht.")
+                + (Data.LatestDate is { } tag
+                    ? $" Angezeigt wird der zuletzt gespeicherte Kurs vom {GermanFormat.Date(tag)}."
+                    : " Es ist noch kein Kurs gespeichert."),
+
+            _ => Data.CanFetch
+                ? $"{Data.Source} · {Verlauf()}"
+                : "Es ist keine Kursquelle eingerichtet. Bewertet wird mit den Kursen aus "
+                  + "Ausführungen und Bestandsnachweisen.",
+        };
+    }
+
+    private string Abruf()
+        => Data.FetchedAt is { } zeit ? GermanFormat.DateTime(zeit) : "nie";
+
+    /// <summary>Was gespeichert ist — der Satz, der die eigentliche Zusage trägt.</summary>
+    private string Verlauf()
+        => Data.StoredCount == 0
+            ? "noch kein Verlauf gespeichert"
+            : $"Verlauf seit {Tag(Data.FirstDate)} gespeichert ({Data.StoredCount} "
+              + (Data.StoredCount == 1 ? "Kurs)" : "Kurse)");
+
+    private static string Tag(DateOnly? tag) => tag is { } t ? GermanFormat.Date(t) : "—";
+}

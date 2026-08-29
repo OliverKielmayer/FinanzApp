@@ -27,12 +27,6 @@
             </div>
         </section>
 
-        @if (portfolio.PricesStale)
-        {
-            <p class="stale-note">
-                Der Kursanbieter ist nicht erreichbar. Angezeigt sind die zuletzt bekannten Kurse.
-            </p>
-        }
 
         <section class="section">
             <div class="section-head">
@@ -77,22 +71,50 @@
                         ActionLabel="Zu den Transaktionen" />
         }
 
+        @if (band is { } zustand)
+        {
+            <QuoteBand Data="zustand" Busy="fetching" OnRefresh="RefreshQuotesAsync" />
+        }
+
         @foreach (var position in portfolio.Positions)
         {
-            <div class="position-row">
-                <div class="position-line">
-                    <span class="position-name">@position.Name</span>
-                    <span class="position-value num">@State.Euro(position.Value)</span>
-                </div>
-                <div class="position-meta">
-                    <span class="num">
-                        @GermanFormat.Quantity(position.Quantity) St. ·
-                        @State.Euro(position.Price) · @position.Isin
-                    </span>
-                    <span class="position-gain num @(position.GainPercent < 0 ? "negative" : null)">
-                        @GermanFormat.Percent(position.GainPercent, 1, withPlusSign: true)
-                    </span>
-                </div>
+            var isin = position.Isin;
+            var offen = open == isin;
+
+            <div class="position-row @(offen ? "open" : null)">
+                <button type="button" class="position-head" @onclick="() => ToggleAsync(position)">
+                    <div class="position-line">
+                        <span class="position-name">@position.Name</span>
+                        <span class="position-value num">@State.Euro(position.Value)</span>
+                    </div>
+                    <div class="position-meta">
+                        <span class="num">
+                            @GermanFormat.Quantity(position.Quantity) St. ·
+                            @State.Euro(position.Price) · @position.Isin
+                        </span>
+                        <span class="position-trend">
+                            @* Die Sparkline zeigt die gespeicherte Reihe, nicht den Gewinn:
+                               beides nebeneinander sagt, ob der Gewinn gerade entsteht oder
+                               vergeht. *@
+                            @if (Spark(isin) is { } linie)
+                            {
+                                <svg class="position-spark" viewBox="0 0 80 22" preserveAspectRatio="none"
+                                     role="img" aria-label="Kursverlauf" focusable="false">
+                                    <polyline fill="none" stroke-width="1.5" points="@linie.Points"
+                                              stroke="@(linie.Rising ? "var(--color-accent)" : "var(--color-neutral-600)")"></polyline>
+                                </svg>
+                            }
+                            <span class="position-gain num @(position.GainPercent < 0 ? "negative" : null)">
+                                @GermanFormat.Percent(position.GainPercent, 1, withPlusSign: true)
+                            </span>
+                        </span>
+                    </div>
+                </button>
+
+                @if (offen && series is { } verlauf && verlauf.Isin == isin)
+                {
+                    <QuoteChart Data="verlauf" Busy="fetching" OnPickRange="PickRangeAsync" />
+                }
             </div>
         }
 
@@ -146,19 +168,127 @@
     private PortfolioDto? data;
     private DepotTab tab = DepotTab.Positions;
 
-    protected override async Task LoadAsync() => data = await Api.GetPortfolioAsync();
+    private QuoteBandDto? band;
+    private QuoteSeriesDto? series;
+
+    /// <summary>Welche Position aufgeklappt ist, über ihre ISIN.</summary>
+    private string? open;
+
+    private QuoteRange range = QuoteRange.Year;
+    private bool fetching;
+
+    protected override async Task LoadAsync()
+    {
+        data = await Api.GetPortfolioAsync();
+
+        // Der Kursstand wird gelesen, nicht abgerufen: ein Abruf bei jedem Seitenaufruf wäre
+        // bei einer inoffiziellen Quelle der schnellste Weg zur Sperre — Abschnitt 16.1.
+        band = data is null ? null : await Api.GetQuoteBandAsync();
+    }
+
+    /// <summary>
+    /// Ein Abruf — der eine Weg neben dem Zeitplan.
+    /// </summary>
+    /// <remarks>
+    /// Danach wird die Seite neu geholt: die Bewertung hängt am jüngsten gespeicherten Kurs,
+    /// und der ist jetzt ein anderer. Kopf, Zeile und Band lesen dieselbe Antwort.
+    /// </remarks>
+    private Task RefreshQuotesAsync() => RunAsync(async () =>
+    {
+        fetching = true;
+        try
+        {
+            var ergebnis = await Api.RefreshQuotesAsync();
+            Toasts.Show(ergebnis.Message);
+
+            await LoadAsync();
+            await LoadSeriesAsync();
+        }
+        finally
+        {
+            fetching = false;
+        }
+    });
+
+    private Task ToggleAsync(PositionDto position)
+    {
+        if (open == position.Isin)
+        {
+            open = null;
+            series = null;
+            return Task.CompletedTask;
+        }
+
+        open = position.Isin;
+        return LoadSeriesAsync();
+    }
+
+    private Task PickRangeAsync(QuoteRange gewaehlt)
+    {
+        range = gewaehlt;
+        return LoadSeriesAsync();
+    }
+
+    /// <summary>Holt den Verlauf der aufgeklappten Position samt ihrem Einstand je Stück.</summary>
+    /// <remarks>
+    /// Der Einstand geht mit, weil die Einstandslinie zur Aussage des Charts gehört — und weil
+    /// nur der Server weiß, was ein Stück gekostet hat.
+    /// </remarks>
+    private Task LoadSeriesAsync() => RunAsync(async () =>
+    {
+        if (open is not { Length: > 0 } isin || data is null)
+        {
+            series = null;
+            return;
+        }
+
+        var position = data.Positions.FirstOrDefault(p => p.Isin == isin);
+        var einstand = position is { Quantity: > 0m } p ? p.CostBasis / p.Quantity : (decimal?)null;
+
+        series = await Api.GetQuoteSeriesAsync(isin, range, einstand);
+    });
+
+    /// <summary>Die Sparkline der Zeile — aus derselben Reihe wie der Chart darunter.</summary>
+    /// <remarks>
+    /// Sie entsteht nur für die aufgeklappte Position: die Reihen aller Papiere im Voraus zu
+    /// holen hieße, für jede Zeile eine Anfrage zu stellen, die niemand angesehen hat.
+    /// </remarks>
+    private (string Points, bool Rising)? Spark(string? isin)
+    {
+        if (series is not { } reihe || reihe.Isin != isin || reihe.Points.Count < 2)
+        {
+            return null;
+        }
+
+        var tief = reihe.Low;
+        var spanne = reihe.High - tief;
+        var letzte = reihe.Points.Count - 1;
+
+        var punkte = string.Join(' ', reihe.Points.Select((p, i) =>
+        {
+            var anteil = spanne == 0m ? 0.5m : (p.Close - tief) / spanne;
+            var y = 22m - 3m - anteil * (22m - 6m);
+
+            return (i * 80m / letzte).ToString("0.0", Invariant) + "," + y.ToString("0.0", Invariant);
+        }));
+
+        return (punkte, reihe.Points[^1].Close >= reihe.Points[0].Close);
+    }
+
+    private static readonly System.Globalization.CultureInfo Invariant =
+        System.Globalization.CultureInfo.InvariantCulture;
 
     /// <summary>
     /// Woher der Kurs stammt.
     /// </summary>
     /// <remarks>
-    /// Bei einem Papier ist es die letzte Ausführung. Bei mehreren nennt der Stichtag den
-    /// <em>ältesten</em> — eine Summe ist nur so frisch wie ihr ältester Bestandteil —, und
-    /// „letzte Ausführung“ wäre dann das falsche Wort.
+    /// <b>Ein Stand, überall derselbe</b> — Abschnitt 16.3. Kopfzeile, Kursband und
+    /// Positionszeilen nennen denselben Tag; vorher stand „Stand 14.08.“ aus der
+    /// Transaktionsableitung neben „heute 17:35“ auf demselben Schirm.
     /// </remarks>
     private static string PriceNote(PortfolioDto portfolio)
     {
-        var stand = GermanFormat.DateTime(portfolio.PricesAsOf);
+        var stand = GermanFormat.Date(DateOnly.FromDateTime(portfolio.PricesAsOf));
 
         if (!portfolio.PricesFromTrades)
         {
@@ -166,8 +296,8 @@
         }
 
         return portfolio.Positions.Count == 1
-            ? $"{stand} · aus der letzten Ausführung"
-            : $"{stand} · älteste der letzten Ausführungen";
+            ? stand
+            : $"{stand} · ältester der Position";
     }
 
     private Task PickAsync(DepotTab gewaehlt)

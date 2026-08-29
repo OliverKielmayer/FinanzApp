@@ -1,0 +1,177 @@
+@inject AppState State
+
+@*
+    Der Kursverlauf einer Position — v5-Handoff, Abschnitt 16.2.
+
+    Die eigentliche Aussage ist nicht der Kurs, sondern sein Verhältnis zum eigenen Einstand.
+    Deshalb die gestrichelte Einstandslinie — und deshalb die Regel, an der der Prototyp zuerst
+    gescheitert ist: sie wird nur gezeichnet, wenn der Einstand im dargestellten Kursbereich
+    liegt. Ein an den Rand geklemmter Wert behauptet eine Größenrelation, die es nicht gibt.
+*@
+
+<div class="quote-detail">
+    <div class="quote-ranges">
+        <span class="label-muted">Kursverlauf</span>
+
+        @foreach (var (zeitraum, name) in Ranges)
+        {
+            var wahl = zeitraum;
+            <button type="button" class="seg-chip @(Data.Range == zeitraum ? "active" : null)"
+                    disabled="@Busy" @onclick="() => OnPickRange.InvokeAsync(wahl)">@name</button>
+        }
+    </div>
+
+    @if (Data.Points.Count < 2)
+    {
+        <div class="quote-empty">
+            <span class="meta">
+                @(Data.StoredCount == 0
+                    ? "Für dieses Papier ist noch kein Kurs gespeichert."
+                    : "Im gewählten Zeitraum liegen zu wenige Kurse für eine Linie.")
+                Der Verlauf wächst mit jedem Abruf — die Quelle gibt keine Vergangenheit heraus.
+            </span>
+        </div>
+    }
+    else
+    {
+        <div class="blueprint quote-frame">
+            <i class="corner tl" aria-hidden="true"></i>
+            <i class="corner tr" aria-hidden="true"></i>
+            <i class="corner bl" aria-hidden="true"></i>
+            <i class="corner br" aria-hidden="true"></i>
+
+            <svg class="quote-svg" viewBox="0 0 320 92" preserveAspectRatio="none"
+                 role="img" aria-label="@Beschreibung()" focusable="false">
+                @* Nur, wenn der Einstand wirklich im Bild liegt. Die Skala wird dafür nicht
+                   aufgeweitet — dann würde die Kurve in kurzen Zeiträumen flach. *@
+                @if (Data.CostInRange)
+                {
+                    <line x1="0" y1="@Y(Data.AverageCost!.Value)" x2="320" y2="@Y(Data.AverageCost!.Value)"
+                          stroke="var(--color-neutral-500)" stroke-width="1" stroke-dasharray="4 3"></line>
+                }
+
+                <polyline fill="none" stroke="var(--color-accent)" stroke-width="2"
+                          points="@Punkte()"></polyline>
+            </svg>
+
+            <div class="quote-axis">
+                <span>@GermanFormat.Date(Data.Points[0].Date)</span>
+                <span>@Einstand()</span>
+                <span>@GermanFormat.Date(Data.Points[^1].Date)</span>
+            </div>
+        </div>
+
+        <div class="quote-stats">
+            <div class="stack">
+                <span class="label-muted">Zeitraum</span>
+                <span class="quote-stat num @(Data.ChangePercent < 0 ? "negative" : "accent")">
+                    @(Data.ChangePercent is { } v ? GermanFormat.Percent(v, 1, withPlusSign: true) : "—")
+                </span>
+            </div>
+            <div class="stack">
+                <span class="label-muted">Tief · Hoch</span>
+                <span class="quote-stat num">
+                    @State.Euro(Data.Low) – @State.Euro(Data.High)
+                </span>
+            </div>
+            <div class="stack">
+                <span class="label-muted">Über Einstand seit</span>
+                <span class="quote-stat num">
+                    @(Data.AboveCostSince is { } seit ? GermanFormat.MonthYear(seit) : "—")
+                </span>
+            </div>
+        </div>
+    }
+
+    <div class="quote-source">
+        <div class="quote-source-row">
+            <span class="meta">Kursquelle</span>
+            <span>@Quellen()</span>
+        </div>
+        <div class="quote-source-row">
+            <span class="meta">Gespeicherte Kurse</span>
+            <span>@Gespeichert()</span>
+        </div>
+    </div>
+
+    <span class="meta">
+        Der Verlauf bleibt gespeichert, auch wenn die Quelle ausfällt oder gewechselt wird.
+        Bewertet wird immer mit dem jüngsten gespeicherten Kurs — sein Datum steht oben.
+    </span>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public QuoteSeriesDto Data { get; set; } = default!;
+
+    [Parameter] public bool Busy { get; set; }
+
+    [Parameter] public EventCallback<QuoteRange> OnPickRange { get; set; }
+
+    private static readonly (QuoteRange Range, string Label)[] Ranges =
+    [
+        (QuoteRange.Month, "1M"),
+        (QuoteRange.HalfYear, "6M"),
+        (QuoteRange.Year, "12M"),
+        (QuoteRange.All, "Alle"),
+    ];
+
+    /// <summary>Die Höhe eines Kurses im Koordinatensystem.</summary>
+    /// <remarks>
+    /// Gestreckt auf Tief bis Hoch des <em>gezeigten</em> Ausschnitts. Eine feste Skala über
+    /// die ganze Reihe machte kurze Zeiträume zu einer waagerechten Linie.
+    /// </remarks>
+    private string Y(decimal wert)
+    {
+        var spanne = Data.High - Data.Low;
+        var anteil = spanne == 0m ? 0.5m : (wert - Data.Low) / spanne;
+
+        return (92m - 6m - anteil * (92m - 12m)).ToString("0.0", Invariant);
+    }
+
+    private string Punkte()
+    {
+        var letzte = Data.Points.Count - 1;
+
+        return string.Join(' ', Data.Points.Select((p, i) =>
+            (i * 320m / letzte).ToString("0.0", Invariant) + "," + Y(p.Close)));
+    }
+
+    /// <summary>
+    /// Die Beschriftung der Einstandslinie.
+    /// </summary>
+    /// <remarks>
+    /// Liegt der Einstand außerhalb, sagt die Legende das ausdrücklich. Ihn wegzulassen ließe
+    /// den Leser glauben, es gäbe keinen.
+    /// </remarks>
+    private string Einstand()
+    {
+        if (Data.AverageCost is not { } einstand)
+        {
+            return "kein Einstand bekannt";
+        }
+
+        if (Data.CostInRange)
+        {
+            return "Einstand " + State.Euro(einstand);
+        }
+
+        return $"Einstand {State.Euro(einstand)} liegt "
+               + (einstand < Data.Low ? "unter" : "über") + " dem Bereich";
+    }
+
+    private string Quellen()
+        => Data.Sources.Count == 0 ? "—" : string.Join(" · ", Data.Sources) + " · " + Data.Isin;
+
+    private string Gespeichert()
+        => Data.StoredCount == 0
+            ? "keine"
+            : $"{Data.StoredCount} {(Data.StoredCount == 1 ? "Kurs" : "Kurse")}"
+              + (Data.FirstStored is { } seit ? $" seit {GermanFormat.Date(seit)}" : null);
+
+    private string Beschreibung()
+        => $"Kursverlauf {Data.Isin}, {Data.Points.Count} Punkte von "
+           + $"{GermanFormat.Date(Data.Points[0].Date)} bis {GermanFormat.Date(Data.Points[^1].Date)}";
+
+    private static readonly System.Globalization.CultureInfo Invariant =
+        System.Globalization.CultureInfo.InvariantCulture;
+}

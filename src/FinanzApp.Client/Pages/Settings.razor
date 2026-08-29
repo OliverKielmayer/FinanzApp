@@ -49,10 +49,18 @@
     private sealed record SettingRow(string Label, string Subtitle, string Value, string? Route);
 
     private MoreOverviewDto? data;
+    private QuoteBandDto? band;
 
-    protected override async Task LoadAsync() => data = await Api.GetMoreOverviewAsync();
+    protected override async Task LoadAsync()
+    {
+        data = await Api.GetMoreOverviewAsync();
 
-    private static IEnumerable<SettingRow> Rows(MoreOverviewDto overview)
+        // Gelesen, nicht abgerufen: der Zeitplan und der Knopf im Depot sind die beiden Wege
+        // zu einem Abruf, und ein dritter über den Seitenaufbau wäre einer zu viel.
+        band = await Api.GetQuoteBandAsync();
+    }
+
+    private IEnumerable<SettingRow> Rows(MoreOverviewDto overview)
     {
         yield return new SettingRow(
             "Kategorien",
@@ -91,12 +99,49 @@
             $"{overview.DocumentTypeCount}",
             "/dokumenttypen");
 
+        // Die Zeile führt ins Depot: dort steht das Band mit dem Zustand, und dort ist auch
+        // der Knopf. Eine Einstellungsseite, die den Abruf selbst anstößt, hätte zwei Orte für
+        // dieselbe Handlung.
+        yield return new SettingRow(
+            "Kursquelle",
+            QuoteLine(),
+            QuoteState(),
+            "/depot");
+
         yield return new SettingRow(
             "Sicherheit & Sicherung",
             SecurityLine(overview.Security),
             overview.Security.TwoFactorEnabled ? "2FA aktiv" : "2FA aus",
             null);
     }
+
+    /// <summary>Was zur Kursquelle unter der Zeile steht.</summary>
+    /// <remarks>
+    /// Der Satz nennt, was die eigentliche Zusage ist: der Verlauf gehört der Anwendung. Ohne
+    /// ihn läse sich die Zeile wie eine Abhängigkeit von einem fremden Dienst.
+    /// </remarks>
+    private string QuoteLine()
+    {
+        if (band is not { } zustand)
+        {
+            return "Kursverlauf wird gespeichert";
+        }
+
+        var stand = zustand.FetchedAt is { } zeit
+            ? "zuletzt " + GermanFormat.DateTime(zeit)
+            : "noch nie abgerufen";
+
+        return $"{zustand.Source} · {stand} · Verlauf wird gespeichert";
+    }
+
+    private string QuoteState() => band?.State switch
+    {
+        FinanzApp.Shared.Contracts.QuoteState.Fresh => "aktuell",
+        FinanzApp.Shared.Contracts.QuoteState.Stale => "veraltet",
+        FinanzApp.Shared.Contracts.QuoteState.Failed => "Fehler",
+        FinanzApp.Shared.Contracts.QuoteState.Never => "nie",
+        _ => "—",
+    };
 
     private static string SecurityLine(SecuritySummaryDto security)
     {
