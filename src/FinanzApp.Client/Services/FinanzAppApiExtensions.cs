@@ -164,6 +164,28 @@ public static class FinanzAppApiExtensions
         return await api.PostFormAsync<ExtractedBillDto>("api/health/extract", form, ct);
     }
 
+    // ── Belege einlesen ───────────────────────────────────────────────
+
+    /// <summary>
+    /// Schickt ein PDF zur Analyse. Die Datei wird dabei abgelegt, die Werte noch nicht
+    /// übernommen.
+    /// </summary>
+    public static async Task<ScanAnalysisDto> AnalyseScanAsync(
+        this FinanzAppApi api, Stream content, string fileName, CancellationToken ct = default)
+    {
+        using var form = new MultipartFormDataContent();
+        using var file = new StreamContent(content);
+        file.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        form.Add(file, "file", fileName);
+
+        return await api.PostFormAsync<ScanAnalysisDto>("api/scan/analyse", form, ct);
+    }
+
+    /// <summary>Übernimmt die geprüften Werte ins Zielobjekt.</summary>
+    public static Task<ScanResultDto> ConfirmScanAsync(
+        this FinanzAppApi api, ConfirmScanRequest request, CancellationToken ct = default)
+        => api.PostAsync<ConfirmScanRequest, ScanResultDto>("api/scan/confirm", request, ct);
+
     // ── Vorsorge & Absicherung ────────────────────────────────────────
 
     /// <summary>Einer der beiden Bereiche — dasselbe Modell, andere Kopfzahl.</summary>

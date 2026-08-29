@@ -122,6 +122,7 @@ public static class ScreenCatalog
 
         // Detailscreens, die aus einem Bereich heraus geöffnet werden.
         new("/gesundheit/scannen", "Erfassen", "Beleg scannen", IsDetail: true, RequiresWrite: true),
+        new("/scannen", "Erfassen", "Beleg einlesen", IsDetail: true, RequiresWrite: true),
         new("/police", "Vertrag", "Vertrag", IsDetail: true, DetailTitle: "Vertrag"),
         new("/neu", "Neu", "Anlegen", IsDetail: true, RequiresWrite: true, DetailTitle: "Anlegen"),
         new("/bearbeiten", "Bearbeiten", "Bearbeiten", IsDetail: true, RequiresWrite: true,

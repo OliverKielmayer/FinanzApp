@@ -1,0 +1,385 @@
+@page "/scannen"
+@attribute [Authorize(Roles = "Owner,Member")]
+@inherits AppPage
+
+@*
+    Beleg einlesen — v5-Handoff, Abschnitt 14.5: erfassen, analysieren, vorschlagen, Werte
+    prüfen, bestätigen. Fünf Schritte in einem Screen, weil sie ein Vorgang sind.
+
+    Was der Prototyp zeigt und hier fehlt: die Auswahl „Beispieldokument". Sie war ein
+    Demoschalter, um beide Wege vorzuführen. Im Betrieb erkennt die Analyse den Typ aus dem
+    Text — der Handoff sagt ausdrücklich, dass der Schalter nicht mitkommt.
+*@
+
+<PageTitle>Beleg einlesen — FinanzApp</PageTitle>
+
+<div class="steps keep">
+    @foreach (var (nummer, name) in StepNames)
+    {
+        <div class="step @(nummer == (int)step ? "active" : null)">
+            <span class="step-num">@nummer</span>
+            <span class="step-label">@name</span>
+        </div>
+    }
+</div>
+
+@if (step == Step.Capture)
+{
+    <div class="detail-block">
+        <span class="detail-label">Beleg</span>
+        <span class="detail-value">
+            Statusreport oder Quartalsaufstellung als PDF. Die Datei wird abgelegt und gelesen;
+            übernommen wird erst, was Sie bestätigen.
+        </span>
+    </div>
+
+    <div class="picker last">
+        <span class="label-strong">Datei</span>
+        <div class="note-field">
+            @* capture="environment" öffnet auf dem Handy direkt die Kamera. *@
+            <InputFile class="input" accept=".pdf,image/*" capture="environment"
+                       OnChange="OnFileSelected" aria-label="Beleg auswählen" />
+        </div>
+    </div>
+}
+else if (step == Step.Analysis)
+{
+    @if (analysis is null)
+    {
+        <div class="state" aria-busy="true">
+            <span class="state-title">@fileName wird gelesen …</span>
+        </div>
+    }
+    else
+    {
+        <div class="chain">
+            @foreach (var schritt in analysis.Steps)
+            {
+                <div class="chain-row">
+                    <span class="chain-mark">✓</span>
+                    <span class="chain-label">@schritt</span>
+                </div>
+            }
+        </div>
+
+        @if (analysis.Note is { Length: > 0 } hinweis)
+        {
+            <div class="notice">
+                <span class="notice-title">Kein bekannter Typ</span>
+                <span class="notice-text">@hinweis</span>
+            </div>
+
+            <div class="actions">
+                <button type="button" class="btn btn-secondary"
+                        @onclick="@(() => Navigation.NavigateTo($"/dokumente/{analysis.DocumentId}"))">
+                    Zum Dokument
+                </button>
+                <button type="button" class="btn btn-secondary" @onclick="Restart">Nächster</button>
+            </div>
+        }
+        else
+        {
+            <div class="actions">
+                <button type="button" class="btn btn-primary" @onclick="@(() => step = Step.Proposal)">
+                    Weiter
+                </button>
+            </div>
+        }
+    }
+}
+else if (step == Step.Proposal && analysis is { } vorschlag)
+{
+    <div class="proposal">
+        <span class="proposal-kicker">@Kicker(vorschlag)</span>
+        <span class="proposal-label">@vorschlag.KindLabel</span>
+    </div>
+
+    <div class="detail-block">
+        <span class="detail-label">Gehört zu</span>
+        <span class="detail-value">@(vorschlag.TargetName ?? "nichts gefunden")</span>
+        @if (vorschlag.TargetSub is { Length: > 0 } zusatz)
+        {
+            <span class="meta">@zusatz</span>
+        }
+    </div>
+
+    <div class="detail-block">
+        <span class="detail-label">Ablage</span>
+        <span class="detail-value break">@vorschlag.RelativePath</span>
+    </div>
+
+    <div class="kpi two">
+        <div class="kpi-cell">
+            <span class="label-muted">Dokumentdatum</span>
+            <span class="kpi-value">@Day(vorschlag.DocumentDate)</span>
+        </div>
+        <div class="kpi-cell">
+            <span class="label-muted">Stichtag</span>
+            <span class="kpi-value accent">@Day(vorschlag.AsOf)</span>
+        </div>
+    </div>
+
+    @if (vorschlag.Blocker is { Length: > 0 } grund)
+    {
+        <div class="notice">
+            <span class="notice-title">Noch nicht übernehmbar</span>
+            <span class="notice-text">@grund</span>
+        </div>
+    }
+
+    <div class="actions">
+        <button type="button" class="btn btn-primary" disabled="@(busy || vorschlag.Blocker is not null)"
+                @onclick="ConfirmAsync">Übernehmen</button>
+        <button type="button" class="btn btn-secondary" @onclick="@(() => step = Step.Values)">
+            Werte prüfen (@vorschlag.Fields.Count)
+        </button>
+    </div>
+}
+else if (step == Step.Values && analysis is { } geprueft)
+{
+    <div class="detail-block">
+        <span class="detail-label">Gelesene Werte</span>
+        <span class="detail-value">
+            Wert, Herkunftsseite, antippen zum Korrigieren. Was hier steht, wird übernommen.
+        </span>
+    </div>
+
+    @foreach (var feld in geprueft.Fields)
+    {
+        <div class="value-row @(feld.Lead ? "lead" : null)">
+            <span class="stack">
+                <span class="value-label">@feld.Label</span>
+                <span class="value-src @(feld.IsUncertain ? "warn" : feld.Soft ? "soft" : feld.Lead ? "lead" : null)">
+                    @feld.Source
+                </span>
+            </span>
+
+            @if (editing == feld.Key)
+            {
+                <input class="input value-input" value="@corrections.GetValueOrDefault(feld.Key, Raw(feld))"
+                       @onchange="e => Correct(feld.Key, e.Value?.ToString())"
+                       @onblur="() => editing = null" autofocus />
+            }
+            else
+            {
+                <button type="button" class="value-amount num" @onclick="() => editing = feld.Key">
+                    @Shown(feld)
+                </button>
+            }
+        </div>
+    }
+
+    <div class="actions">
+        <button type="button" class="btn btn-primary" disabled="@(busy || geprueft.Blocker is not null)"
+                @onclick="ConfirmAsync">Werte übernehmen</button>
+        <button type="button" class="btn btn-secondary" @onclick="@(() => step = Step.Proposal)">
+            Zurück
+        </button>
+    </div>
+}
+else if (step == Step.Done && result is { } fertig)
+{
+    <div class="detail-block">
+        <span class="detail-value strong">@fertig.Title</span>
+        <span class="meta">@fertig.Subtitle</span>
+    </div>
+
+    @if (fertig.LeadLabel is { Length: > 0 } beschriftung)
+    {
+        <div class="import-row plain">
+            <span class="stack">
+                <span class="import-label">@beschriftung</span>
+            </span>
+            <span class="import-count accent">@Lead(fertig)</span>
+        </div>
+    }
+
+    <div class="detail-block">
+        <span class="detail-label">Wirkung</span>
+        <span class="detail-value">@Effect(fertig)</span>
+    </div>
+
+    @if (fertig.Rule is { Length: > 0 } regel)
+    {
+        <div class="detail-block">
+            <span class="detail-label">Regel gelernt</span>
+            <span class="detail-value">@regel</span>
+        </div>
+    }
+
+    <div class="actions">
+        @if (fertig.TargetHref is { Length: > 0 } weg)
+        {
+            <button type="button" class="btn btn-primary"
+                    @onclick="@(() => Navigation.NavigateTo(weg))">@fertig.TargetLink</button>
+        }
+        <button type="button" class="btn btn-secondary" @onclick="Restart">Nächster</button>
+    </div>
+}
+
+<div class="spacer"></div>
+
+@code {
+    /// <summary>Höchstgröße, die der Server annimmt.</summary>
+    private const long MaxBytes = 25L * 1024 * 1024;
+
+    private enum Step
+    {
+        Capture = 1,
+        Analysis = 2,
+        Proposal = 3,
+        Values = 4,
+        Done = 5,
+    }
+
+    private static readonly (int Number, string Name)[] StepNames =
+    [
+        (1, "Erfassen"), (2, "Analyse"), (3, "Vorschlag"), (4, "Werte"), (5, "Fertig"),
+    ];
+
+    private Step step = Step.Capture;
+    private string fileName = string.Empty;
+    private ScanAnalysisDto? analysis;
+    private ScanResultDto? result;
+    private bool busy;
+
+    private string? editing;
+    private readonly Dictionary<string, string> corrections = [];
+
+    // Die Seite lädt nichts — sie beginnt leer und füllt sich aus dem, was hochgeladen wird.
+    protected override Task LoadAsync() => Task.CompletedTask;
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file.Size > MaxBytes)
+        {
+            Toasts.Show("Die Datei ist größer als 25 MB.");
+            return;
+        }
+
+        fileName = file.Name;
+        analysis = null;
+        result = null;
+        corrections.Clear();
+        step = Step.Analysis;
+
+        try
+        {
+            await using var content = file.OpenReadStream(MaxBytes);
+            analysis = await Api.AnalyseScanAsync(content, file.Name);
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message);
+            step = Step.Capture;
+        }
+    }
+
+    private async Task ConfirmAsync()
+    {
+        if (analysis is not { } gelesen)
+        {
+            return;
+        }
+
+        busy = true;
+        try
+        {
+            result = await Api.ConfirmScanAsync(new ConfirmScanRequest
+            {
+                DocumentId = gelesen.DocumentId,
+                Values = corrections.Count == 0 ? null : corrections,
+            });
+
+            step = Step.Done;
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private void Restart()
+    {
+        step = Step.Capture;
+        analysis = null;
+        result = null;
+        fileName = string.Empty;
+        corrections.Clear();
+    }
+
+    private void Correct(string key, string? value)
+    {
+        editing = null;
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            corrections.Remove(key);
+            return;
+        }
+
+        corrections[key] = value.Trim();
+    }
+
+    // ── Darstellung ────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Die Kopfzeile des Vorschlags: wie sicher, und woher die Sicherheit kommt.
+    /// </summary>
+    /// <remarks>
+    /// Die Beschaffenheit der Datei steht hier, weil sie dieselbe Frage beantwortet wie die
+    /// Sicherheit — Abschnitt 14.1. Ein Original mit Textebene ist etwas anderes als ein Scan.
+    /// </remarks>
+    private static string Kicker(ScanAnalysisDto a)
+    {
+        var sicher = a.Fields.All(f => !f.IsUncertain) ? "sicher" : "bitte prüfen";
+        return $"Erkannt · {sicher} · {a.TextNote}";
+    }
+
+    /// <summary>Der Wert einer Zeile, maskierbar wo es Geld ist.</summary>
+    private string Shown(ScanFieldDto feld)
+        => feld is { IsMoney: true, Number: { } betrag } ? State.Euro(betrag) : feld.Display;
+
+    /// <summary>
+    /// Der Wert zum Korrigieren — unmaskiert und im Format des Dokuments.
+    /// </summary>
+    /// <remarks>
+    /// In ein Eingabefeld gehört die Zahl und nicht ihre Maskierung: wer korrigiert, hat den
+    /// Beleg vor sich und will sehen, was dort steht.
+    /// </remarks>
+    private static string Raw(ScanFieldDto feld)
+        => feld is { IsMoney: true, Number: { } betrag }
+            ? GermanFormat.Decimal2(betrag)
+            : feld.Display;
+
+    private string Lead(ScanResultDto r)
+        => r switch
+        {
+            { LeadIsMoney: true, LeadNumber: { } betrag } => State.Euro(betrag),
+            { LeadNumber: { } zahl } => GermanFormat.Quantity(zahl),
+            _ => "—",
+        };
+
+    /// <summary>
+    /// Der Wirkungssatz aus seinen Bausteinen.
+    /// </summary>
+    /// <remarks>
+    /// Zusammengesetzt wird hier und nicht im Server: nur so laufen die Beträge darin durch
+    /// <see cref="AppState.Euro"/> und verschwinden, wenn der Nutzer die Maske einschaltet.
+    /// </remarks>
+    private string Effect(ScanResultDto r)
+        => string.Join(" ", r.Effect.Select(teil => teil switch
+        {
+            { Money: { } betrag } => State.Euro(betrag, teil.Signed),
+            { Quantity: { } menge } => GermanFormat.Quantity(menge),
+            { Price: { } kurs } => GermanFormat.Price(kurs),
+            _ => teil.Text ?? string.Empty,
+        }));
+
+    private static string Day(DateOnly? tag) => tag is { } t ? GermanFormat.Date(t) : "—";
+}

@@ -27,6 +27,11 @@
             <button type="button" class="btn btn-secondary capture-item" @onclick="@(() => Go("/erfassen"))">
                 Buchung erfassen
             </button>
+            @* Statusreport und Quartalsaufstellung liest die Anwendung selbst aus; deshalb
+               steht dieser Weg oben und nicht bei den Masken, die von Hand gefüllt werden. *@
+            <button type="button" class="btn btn-secondary capture-item" @onclick="@(() => Go("/scannen"))">
+                Statusreport / Quartalsaufstellung (PDF)
+            </button>
             <button type="button" class="btn btn-secondary capture-item"
                     @onclick="@(() => Go("/gesundheit/scannen?art=arztrechnung"))">
                 Arztrechnung / PKV
