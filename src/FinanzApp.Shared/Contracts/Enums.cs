@@ -72,6 +72,7 @@ public enum ReportKind
     PortfolioGainLoss = 2,
     DataQuality = 3,
     HealthBalance = 4,
+    TaxYear = 5,
 }
 
 /// <summary>Wonach der Kostentrend seine Kategorien ordnet.</summary>

@@ -319,6 +319,23 @@ public static class ExtensionSeedData
                 -Jahr(152m, 158m, 162m) * saison, sparkasse);
             Add(20, "Apotheke am Markt", "Gesundheit", CategoryDirection.Expense,
                 -Jahr(21m, 33m, 47m) * saison, sparkasse);
+
+            // Steuerlich eingeordnete Posten: einmal im Jahr die Heizungswartung, monatlich der
+            // Berufsverband. Beide speisen den Steuerjahr-Bericht — ohne sie hätte er zwei
+            // Abschnitte weniger und die Regeln dahinter ließen sich nicht ansehen.
+            if (monat.Month == 3)
+            {
+                Add(14, "Heizungswartung Grau", "Handwerker", CategoryDirection.Expense,
+                    -Jahr(182m, 189m, 196m), sparkasse);
+            }
+
+            if (monat.Month == 9)
+            {
+                Add(9, "Schornsteinfeger", "Handwerker", CategoryDirection.Expense,
+                    -Jahr(92m, 96m, 98m), sparkasse);
+            }
+
+            Add(2, "Beitrag Berufsverband", "Beruf", CategoryDirection.Expense, -15m, sparkasse);
         }
     }
 
@@ -570,6 +587,11 @@ public static class ExtensionSeedData
             NetMonthly = 5240m,
             NoticePeriodMonths = 3,
             IsActive = true,
+
+            // Grundlage der Entfernungspauschale im Steuerjahr-Bericht. Ohne beide Felder
+            // entsteht die Position nicht — geraten wird sie nicht.
+            CommuteKilometres = 38m,
+            WorkDaysPerYear = 214,
         };
 
         var klinikum = new Employment
@@ -615,7 +637,11 @@ public static class ExtensionSeedData
                 EmploymentId = ewv.Id,
                 Month = ersten,
                 Gross = 8400m,
-                Net = auszahlung,
+
+                // 05/2026 ohne erfasstes Netto: die Zeile zeigt dann die Schätzung samt
+                // Kennzeichen. Ohne diesen einen Fall ließe sich der Unterschied zwischen
+                // erfasst und geschätzt nirgends ansehen.
+                Net = monat == 5 ? null : auszahlung,
                 Payout = auszahlung,
 
                 // 04/2026 ohne Beleg, 07/2026 ohne Zahlung: beide Akzentzustände des Bereichs

@@ -3,6 +3,7 @@ using System;
 using FinanzApp.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FinanzApp.Api.Data.Migrations
 {
     [DbContext(typeof(FinanzAppDbContext))]
-    partial class FinanzAppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260829124812_Steuerjahr")]
+    partial class Steuerjahr
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.11");

@@ -85,6 +85,16 @@ public class Category : IHouseholdOwned
     public required string Name { get; set; }
     public CategoryDirection Direction { get; set; }
 
+    /// <summary>
+    /// Wie Buchungen dieser Kategorie steuerlich einzuordnen sind.
+    /// </summary>
+    /// <remarks>
+    /// Am Kategorienamen zu erkennen, was eine Handwerkerleistung ist, ginge nur, solange
+    /// niemand seine Kategorien umbenennt. Die Einordnung gehört deshalb an die Kategorie und
+    /// wird gepflegt, nicht geraten.
+    /// </remarks>
+    public TaxCategory TaxCategory { get; set; }
+
     public List<Transaction> Transactions { get; set; } = [];
     public List<Budget> Budgets { get; set; } = [];
     public List<CategorizationRule> Rules { get; set; } = [];

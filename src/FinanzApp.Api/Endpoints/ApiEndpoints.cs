@@ -240,6 +240,11 @@ public static class ApiEndpoints
                 int? jahr, bool? alle, HealthBalanceService service, CancellationToken ct)
             => Results.Ok(await service.GetAsync(jahr, alle == true, ct)));
 
+        // Kandidaten mit Belegbezug, keine Steuerberechnung — der Bericht sagt das auch selbst.
+        api.MapGet("/reports/tax-year", async (
+                int? jahr, TaxYearService service, CancellationToken ct)
+            => Results.Ok(await service.GetAsync(jahr, ct)));
+
         api.MapGet("/reports/data-quality", async (ReportService service, CancellationToken ct)
             => Results.Ok(await service.GetDataQualityAsync(ct)));
 

@@ -183,6 +183,21 @@ public static class SeedData
             yield return new Category { Name = name, Direction = CategoryDirection.Expense };
         }
 
+        // Zwei Kategorien mit steuerlicher Einordnung. Sie stehen getrennt, weil die Einordnung
+        // an der Kategorie hängt und nicht an ihrem Namen — wer „Handwerker“ in „Haus“ umbenennt,
+        // soll die Zuordnung behalten.
+        yield return new Category
+        {
+            Name = "Handwerker", Direction = CategoryDirection.Expense,
+            TaxCategory = TaxCategory.Handwerkerleistung,
+        };
+
+        yield return new Category
+        {
+            Name = "Beruf", Direction = CategoryDirection.Expense,
+            TaxCategory = TaxCategory.Werbungskosten,
+        };
+
         foreach (var name in income)
         {
             yield return new Category { Name = name, Direction = CategoryDirection.Income };
