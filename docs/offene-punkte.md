@@ -1,6 +1,6 @@
 # Offene Punkte
 
-Stand **29.08.2026**, nach dem PDF-Scan aus Handoff 15. Eine Liste, kein Plan: sie sagt,
+Stand **29.08.2026**, nach dem Steuerjahr-Paket aus Handoff 16. Eine Liste, kein Plan: sie sagt,
 was noch nicht gebaut ist und woher die Anforderung stammt — die Reihenfolge steht in den
 Handoffs selbst, nicht hier.
 
@@ -13,7 +13,9 @@ Abschnitte 8 (Arbeit & Beruf) und 9 (Dokumenttypen) sowie aus
 Depot-Abschnitt (§11) — Transaktionen, abgeleitete Positionen, Quartalsaufstellungen und
 Bestandsabgleich; aus [Handoff 14](design-handoff-v5d/design_handoff_v5/README.md) die
 PKV-Bilanz (§12); aus [Handoff 15](design-handoff-v5e/design_handoff_v5/README.md) das
-Einlesen von PDF-Dokumenten (§14).
+Einlesen von PDF-Dokumenten (§14); aus
+[Handoff 16](design-handoff-v5f/design_handoff_v5/README.md) das Steuerjahr-Paket mit Druckblatt
+und den vier entschiedenen Rückfragen (§15).
 
 ## Was beim PDF-Scan (§14) offen blieb
 
@@ -59,43 +61,44 @@ ausführt und sie inzwischen gebaut sind — im Handoff stehengeblieben, hier ge
 | CSV-Spalten-Mapping | Der Import kennt feste Profile. Ein unbekanntes Format lässt sich nicht von Hand zuordnen. |
 | Ablaufende Dokumente als Fristquelle | Schritt 7 des Erweiterungsplans, die eine Hälfte, die nicht mitkam: `TaskItem` leitet Fristen aus Verträgen, Rechnungen und Erstattungen ab, aber nicht aus Dokumenten mit Ablaufdatum. |
 
-## Die vier verbliebenen Berichte (v4-Handoff 10b)
+## Die drei verbliebenen Berichte (v4-Handoff 10b)
 
 Gebaut sind Kostentrend, Fixkosten & vertragliche Bindung, Depot-G/V, Datenqualität, die
-PKV-Bilanz, gespeicherte Ansichten, CSV und Druckansicht. Der Handoff markiert die folgenden
-vier als **„vor dem Bau anfragen"**:
+PKV-Bilanz, das Steuerjahr, gespeicherte Ansichten, CSV und Druckansicht. Der Handoff markiert
+die folgenden drei als **„vor dem Bau anfragen"**:
 
 1. **Vermögensentwicklung nach Klasse** — mit dem Stichtagsproblem: Depotkurse sind
    tagesaktuell, Lebensversicherungswerte bis zu ein Jahr alt. Eine Kurve, die beides in einer
    Linie führt, behauptet eine Gleichzeitigkeit, die es nicht gibt.
 2. **Objektkosten** — Immobilie €/Monat und €/m², Fahrzeuge Gesamtkosten und €/km.
-3. **Steuerjahr-Paket** — Beiträge, Handwerkerleistungen, Werbungskosten-Kandidaten mit
-   Dokumentbezug. Die PKV-Bilanz nennt mit „potenziell absetzbar" schon den Einstieg.
-4. **Liquiditätsprognose 3–6 Monate.**
+3. **Liquiditätsprognose 3–6 Monate.**
 
 ## Aus der Dateiablage ersichtlich, nirgends abgebildet
 
-- **Steuer nach Jahr** als eigener Bereich.
+- **Steuer nach Jahr** als eigener Bereich. Der Bericht aus §15 ist die Auswertung, nicht die
+  Ablage — er sammelt Kandidaten, verwaltet aber keine Steuerjahre mit Bescheiden und Fristen.
 - **Unterhalt / Scheidung** als Vorgangstyp mit Zahlungsverfolgung.
+
+## Was beim Steuerjahr-Paket (§15) offen blieb
+
+Gebaut ist der Bericht mit seinen vier Abschnitten, den beiden getrennten Kennzeichen, dem
+Druckblatt, der Brücke aus der PKV-Bilanz und der sichtbaren Rechenprobe beim Einlesen. Was
+liegen blieb:
+
+- **Die steuerliche Einordnung einer Kategorie lässt sich nur im Seed setzen.** `Category`
+  trägt jetzt `TaxCategory`, aber der Kategorienschirm zeigt das Feld nicht. Ohne eine
+  eingeordnete Kategorie bleiben Handwerkerleistungen und Werbungskosten aus Buchungen leer.
+- **Entfernung und Arbeitstage lassen sich nur beim Anlegen mitgeben**, nicht nachträglich am
+  Arbeitsverhältnis ändern — die Felder stehen im Modell, aber nicht in der Bearbeitenmaske.
+- **Handwerkerleistungen trennen Arbeitslohn und Material nicht.** Der Bericht sagt das im
+  Klartext; die Trennung selbst bräuchte eine Angabe je Rechnung.
+- **Der Druck geht über `window.print()`.** Das Blatt ist gestaltet und geprüft, gedruckt hat es
+  noch niemand — das Ergebnis hängt am Browser und seinen Rändern.
+
+Eine Abweichung vom Prototyp, die bewusst ist: **der Bericht zeigt Cent**, nicht gerundete Euro.
+Der Sprung aus der PKV-Bilanz stellte sonst 562 € neben 561,60 € für dieselbe Zahl. Was in ein
+Formular abgetippt wird, gehört genau hin.
 
 ## Gebaut, aber nie angesehen
 
-- **Druckansicht der Auswertungen.** Umgesetzt als Druck-Stylesheet plus `window.print()` —
-  ausdrücklich statt einer neuen PDF-Abhängigkeit. Wie das Blatt tatsächlich aussieht, hat
-  bisher niemand geprüft.
-
-## Entscheidungen, die eine zweite Meinung vertragen
-
-- **Netto-Schätzfaktor 0,62** (`EmploymentService.NetFactor`). Steuerklasse, Kirche,
-  Kinderfreibetrag und Beitragsbemessungsgrenze sind nicht bekannt, die Zahl kann nur eine
-  Hausnummer sein. Sie wird überall als Schätzung ausgewiesen und ist überschreibbar — aber
-  eine bessere Näherung wäre eine bessere Näherung.
-- **Lohnabrechnung erfassen** ist eine Maske im Screen `/arbeit`. Der v5-Handoff beschreibt die
-  Liste, aber keinen Weg hinein; ohne die Maske bliebe der Abschnitt für immer leer. Wenn
-  Abrechnungen später aus dem Scaneingang kommen, gehört sie überdacht.
-- **Vertragsende** ist ein Feld des Arbeitsverhältnisses, das der Handoff nicht nennt. Ohne es
-  könnte nie etwas „beendet" werden, und die Regel „Beendetes zählt nicht als laufende Last"
-  bliebe unbedienbar.
-- **Der Bestandsabgleich rechnet den Mindermengenzuschlag in den Einstand.** Die Beispieltabelle
-  in §11.3 nennt 28.413 € und lässt ihn damit weg; §11.1 verlangt ausdrücklich, ihn in die
-  Anschaffungskosten zu nehmen. Umgesetzt ist §11.1 — an den echten Orders sind es 28.414,45 €.
+Nichts mehr — das Druckblatt ist gestaltet und in der Vorschau geprüft (§15.3).
