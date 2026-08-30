@@ -75,6 +75,27 @@
                 <span class="stack">
                     <span class="import-row-payee">@category.Name</span>
                     <span class="meta">@Usage(category)</span>
+
+                    @*
+                        Die steuerliche Einordnung — Abschnitt 18.3. Sie stand im Modell und war
+                        nirgends sichtbar; ohne sie bleiben Handwerkerleistungen und
+                        Werbungskosten im Steuerjahr leer, ohne dass jemand sagen kann warum.
+                        Nur bei Ausgaben: eine Einnahme ist keine Handwerkerleistung.
+                    *@
+                    @if (category.Direction == CategoryDirection.Expense)
+                    {
+                        <AuthorizeView Roles="Owner,Member" Context="tax">
+                            <span class="tax-pick">
+                                @foreach (var (art, name) in TaxKinds)
+                                {
+                                    var wahl = art;
+                                    <button type="button"
+                                            class="seg-chip @(category.TaxCategory == art ? "active" : null)"
+                                            disabled="@busy" @onclick="() => SetTaxAsync(id, wahl)">@name</button>
+                                }
+                            </span>
+                        </AuthorizeView>
+                    }
                 </span>
 
                 <AuthorizeView Roles="Owner,Member" Context="row">
@@ -204,6 +225,37 @@
         {
             // Der Grund bleibt stehen — doppelte Namen erkennt man erst an der Meldung.
             problem = ex.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    /// <summary>Die steuerlichen Einordnungen, die eine Kategorie tragen kann.</summary>
+    /// <remarks>
+    /// Nur die beiden Abschnitte, die aus Kontobuchungen entstehen. Vorsorgeaufwendungen kommen
+    /// aus Verträgen und Krankheitskosten aus den PKV-Vorgängen — beide brauchen an der
+    /// Kategorie nichts.
+    /// </remarks>
+    private static readonly (TaxCategory Kind, string Label)[] TaxKinds =
+    [
+        (TaxCategory.None, "—"),
+        (TaxCategory.Handwerkerleistung, "Handwerker"),
+        (TaxCategory.Werbungskosten, "Werbung"),
+    ];
+
+    private Task SetTaxAsync(int id, TaxCategory art) => RunAsync(async () =>
+    {
+        busy = true;
+        try
+        {
+            await Api.SetCategoryTaxAsync(id, art);
+            await LoadAsync();
+
+            Toasts.Show(art == TaxCategory.None
+                ? "Steuerliche Einordnung entfernt"
+                : $"Steuerlich eingeordnet: {TaxKinds.First(k => k.Kind == art).Label}");
         }
         finally
         {

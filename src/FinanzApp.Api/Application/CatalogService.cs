@@ -46,6 +46,7 @@ public sealed class CatalogService(FinanzAppDbContext db)
             .OrderBy(c => c.Id)
             .Select(c => new CategoryUsageDto
             {
+                TaxCategory = c.TaxCategory,
                 Id = c.Id,
                 Name = c.Name,
                 Direction = c.Direction,
@@ -112,6 +113,36 @@ public sealed class CatalogService(FinanzAppDbContext db)
             Category = await CreateAsync(sauber, direction, ct),
             Created = true,
         };
+    }
+
+    /// <summary>
+    /// Ordnet eine Kategorie steuerlich ein — v5-Handoff, Abschnitt 18.3.
+    /// </summary>
+    /// <remarks>
+    /// Die Einordnung hängt an der Kategorie und nicht an ihrem Namen: wer „Handwerker“ in
+    /// „Haus“ umbenennt, soll sie behalten. Nur Ausgabenkategorien kommen in Frage — eine
+    /// Einnahme ist keine Handwerkerleistung.
+    /// </remarks>
+    public async Task<bool> SetTaxCategoryAsync(
+        int id, TaxCategory art, CancellationToken ct = default)
+    {
+        var kategorie = await db.Categories.FirstOrDefaultAsync(c => c.Id == id, ct);
+
+        if (kategorie is null)
+        {
+            return false;
+        }
+
+        if (art != TaxCategory.None && kategorie.Direction != CategoryDirection.Expense)
+        {
+            throw new RuleViolationException(
+                "Nur Ausgabenkategorien lassen sich steuerlich einordnen.");
+        }
+
+        kategorie.TaxCategory = art;
+        await db.SaveChangesAsync(ct);
+
+        return true;
     }
 
     /// <summary>

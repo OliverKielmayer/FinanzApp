@@ -20,6 +20,16 @@ public sealed record CategoryUsageDto
     public required string Name { get; init; }
     public required CategoryDirection Direction { get; init; }
 
+    /// <summary>
+    /// Wie Buchungen dieser Kategorie steuerlich zählen.
+    /// </summary>
+    /// <remarks>
+    /// Sie stand im Modell, war aber nirgends sichtbar — und ohne eingeordnete Kategorie
+    /// blieben Handwerkerleistungen und Werbungskosten im Steuerjahr leer, ohne dass jemand
+    /// sagen konnte warum.
+    /// </remarks>
+    public TaxCategory TaxCategory { get; init; }
+
     public required int TransactionCount { get; init; }
     public required int RuleCount { get; init; }
     public required bool HasBudget { get; init; }
@@ -45,6 +55,12 @@ public sealed record CategoryNameRequest
 {
     public required string Name { get; init; }
     public CategoryDirection Direction { get; init; }
+}
+
+/// <summary>Welche steuerliche Einordnung eine Kategorie bekommt.</summary>
+public sealed record CategoryTaxRequest
+{
+    public required TaxCategory TaxCategory { get; init; }
 }
 
 /// <summary>Was das Umbenennen oder Löschen tatsächlich angefasst hat.</summary>

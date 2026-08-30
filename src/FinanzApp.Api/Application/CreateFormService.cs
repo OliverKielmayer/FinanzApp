@@ -504,6 +504,8 @@ public sealed class CreateFormService(
                     ["gross"] = Money(x.GrossMonthly),
                     ["net"] = x.NetMonthly is { } netto ? Money(netto) : null,
                     ["notice"] = x.NoticePeriodMonths == 0 ? null : x.NoticePeriodMonths.ToString(),
+                    ["commuteKm"] = Hours(x.CommuteKilometres),
+                    ["workDays"] = x.WorkDaysPerYear?.ToString(),
                 };
             }
 
@@ -1493,6 +1495,15 @@ public sealed class CreateFormService(
             Money("net", "Nettogehalt monatlich", required: false,
                 help: "Ohne Angabe wird geschätzt und als Schätzung ausgewiesen."),
             Number("notice", "Kündigungsfrist", required: false, help: "in Monaten"),
+
+            // Abschnitt 18.3: beide standen bisher nur im Modell und in den Demodaten. Wer den
+            // Arbeitsweg nachtrug, kam an sie nicht heran — und die Entfernungspauschale im
+            // Steuerjahr blieb ohne Grund leer.
+            Number("commuteKm", "Entfernung zur Arbeit", required: false,
+                help: "einfache Strecke in Kilometern"),
+            Number("workDays", "Arbeitstage im Jahr", required: false,
+                help: "Zusammen mit der Entfernung die Grundlage der Pauschale — "
+                      + "ohne beides entsteht sie nicht."),
         ],
     };
 
@@ -1585,11 +1596,53 @@ public sealed class CreateFormService(
         employment.NetMonthly = netto;
         employment.NoticePeriodMonths = ParseInt(Value(values, "notice")) ?? 0;
 
+        if (Commute(employment, values) is { } luecke)
+        {
+            return luecke;
+        }
+
         // „Beendet“ ist erst dann wahr, wenn das Datum vorbei ist. Wer heute ein Ende für
         // nächsten Monat einträgt, hat noch ein laufendes Verhältnis — die Auswertung fragt
         // ohnehin über IsRunning nach, und beides muss dasselbe sagen.
         employment.IsActive = true;
 
+        return null;
+    }
+
+    /// <summary>
+    /// Entfernung und Arbeitstage — die beiden Angaben, aus denen die Entfernungspauschale entsteht.
+    /// </summary>
+    /// <remarks>
+    /// <para>Sie werden nur gemeinsam übernommen. Wer nur eine von beiden einträgt, bekäme sonst
+    /// eine Maske, die die Eingabe annimmt, und ein Steuerjahr, in dem trotzdem nichts steht —
+    /// ohne dass irgendwo stünde warum.</para>
+    /// <para>Beide leer ist dagegen in Ordnung: dann gibt es diesen Weg eben nicht.</para>
+    /// </remarks>
+    private static CreateResultDto? Commute(
+        Employment employment, IReadOnlyDictionary<string, string?> values)
+    {
+        var km = ParseMoney(Value(values, "commuteKm"));
+        var tage = ParseInt(Value(values, "workDays"));
+
+        if (km is { } strecke && strecke <= 0m)
+        {
+            return Fail("commuteKm", "Die Entfernung muss über null liegen.");
+        }
+
+        if (tage is { } anzahl && (anzahl <= 0 || anzahl > 366))
+        {
+            return Fail("workDays", "Ein Jahr hat zwischen einem und 366 Arbeitstagen.");
+        }
+
+        if (km is null != tage is null)
+        {
+            return km is null
+                ? Fail("commuteKm", "Ohne Entfernung ergeben die Arbeitstage keine Pauschale.")
+                : Fail("workDays", "Ohne Arbeitstage ergibt die Entfernung keine Pauschale.");
+        }
+
+        employment.CommuteKilometres = km;
+        employment.WorkDaysPerYear = tage;
         return null;
     }
 

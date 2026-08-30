@@ -4994,6 +4994,14 @@ body {
   background: color-mix(in srgb, var(--color-text) 7%, transparent);
 }
 
+/* Die steuerliche Einordnung an der Kategoriezeile. Eigene Zeile unter dem Namen: nebeneinander
+   drängte sie die Verwendung aus dem Bild, sobald der Name lang wird. */
+.tax-pick {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
 .quote-frame {
   display: flex;
   flex-direction: column;

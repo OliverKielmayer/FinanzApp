@@ -193,6 +193,23 @@ public static class ApiEndpoints
             }
         }).RequireAuthorization(AuthPolicies.Write);
 
+        // Die steuerliche Einordnung. Ohne sie bleiben Handwerkerleistungen und
+        // Werbungskosten im Steuerjahr leer, und niemand kann sagen warum.
+        api.MapPatch("/categories/{id:int}/tax", async (
+            int id, CategoryTaxRequest request, CatalogService service, CancellationToken ct) =>
+        {
+            try
+            {
+                return await service.SetTaxCategoryAsync(id, request.TaxCategory, ct)
+                    ? Results.NoContent()
+                    : Results.NotFound();
+            }
+            catch (RuleViolationException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.Write);
+
         api.MapDelete("/categories/{id:int}", async (
             int id, CatalogService service, CancellationToken ct) =>
         {

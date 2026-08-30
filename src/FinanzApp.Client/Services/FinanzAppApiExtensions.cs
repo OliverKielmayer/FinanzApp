@@ -173,6 +173,15 @@ public static class FinanzAppApiExtensions
         => api.GetAsync<TaxYearDto>(
             year is { } j ? $"api/reports/tax-year?jahr={j}" : "api/reports/tax-year", ct);
 
+    /// <summary>Ordnet eine Kategorie steuerlich ein.</summary>
+    public static Task SetCategoryTaxAsync(
+        this FinanzAppApi api, int id, TaxCategory art, CancellationToken ct = default)
+        => api.SendWithoutResultAsync(
+            HttpMethod.Patch,
+            $"api/categories/{id}/tax",
+            new CategoryTaxRequest { TaxCategory = art },
+            ct);
+
     // ── Kurse ─────────────────────────────────────────────────────────
 
     /// <summary>Wie es um die Kurse steht.</summary>

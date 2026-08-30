@@ -52,6 +52,14 @@
 
                 <polyline fill="none" stroke="var(--color-accent)" stroke-width="2"
                           points="@Punkte()"></polyline>
+
+                @* Wo wirklich gemessen wurde. Zwischen zwei Punkten liegt eine gerade Linie und
+                   keine Aussage — bei vier Punkten über zwei Jahre ist das der Unterschied
+                   zwischen einer Kurve und einer Behauptung. *@
+                @foreach (var (x, y) in Marks())
+                {
+                    <circle cx="@x" cy="@y" r="2.5" fill="var(--color-accent)"></circle>
+                }
             </svg>
 
             <div class="quote-axis">
@@ -59,6 +67,8 @@
                 <span>@Einstand()</span>
                 <span>@GermanFormat.Date(Data.Points[^1].Date)</span>
             </div>
+
+            <span class="meta">@Dichte()</span>
         </div>
 
         <div class="quote-stats">
@@ -128,13 +138,41 @@
         return (92m - 6m - anteil * (92m - 12m)).ToString("0.0", Invariant);
     }
 
-    private string Punkte()
-    {
-        var letzte = Data.Points.Count - 1;
+    /// <summary>
+    /// Die waagerechte Lage eines Punktes — nach seinem <b>Datum</b>, nicht nach seiner Nummer.
+    /// </summary>
+    /// <remarks>
+    /// Die Reihe ist ungleich verteilt: sie wächst nur vorwärts, und die Vergangenheit kommt aus
+    /// Ausführungen und Bestandsnachweisen. Vier Punkte über zwei Jahre sind der Normalfall.
+    /// Gleichmäßig verteilt sähe ein Sprung von zwei Jahren aus wie einer von zwei Tagen.
+    /// </remarks>
+    /// <summary>Der waagerechte Rand, damit die Randmessungen nicht auf der Kante liegen.</summary>
+    private const decimal Rand = 6m;
 
-        return string.Join(' ', Data.Points.Select((p, i) =>
-            (i * 320m / letzte).ToString("0.0", Invariant) + "," + Y(p.Close)));
+    private string X(DateOnly tag)
+    {
+        var von = Data.Points[0].Date.DayNumber;
+        var spanne = Data.Points[^1].Date.DayNumber - von;
+
+        var anteil = spanne <= 0 ? 1m : (decimal)(tag.DayNumber - von) / spanne;
+
+        // Sechs Einheiten Rand: ohne sie liegt der erste und der letzte Messpunkt auf der Kante
+        // und wird zur Hälfte abgeschnitten — ausgerechnet die beiden, die die Reihe begrenzen.
+        return (Rand + anteil * (320m - 2m * Rand)).ToString("0.0", Invariant);
     }
+
+    private string Punkte()
+        => string.Join(' ', Data.Points.Select(p => X(p.Date) + "," + Y(p.Close)));
+
+    /// <summary>
+    /// Die Messpunkte selbst.
+    /// </summary>
+    /// <remarks>
+    /// Bei wenigen, weit auseinanderliegenden Punkten trägt die Linie dazwischen keine Messung.
+    /// Die Kreise sagen, wo tatsächlich ein Kurs steht.
+    /// </remarks>
+    private IEnumerable<(string X, string Y)> Marks()
+        => Data.Points.Select(p => (X(p.Date), Y(p.Close)));
 
     /// <summary>
     /// Die Beschriftung der Einstandslinie.
@@ -157,6 +195,30 @@
 
         return $"Einstand {State.Euro(einstand)} liegt "
                + (einstand < Data.Low ? "unter" : "über") + " dem Bereich";
+    }
+
+    /// <summary>
+    /// Wie dicht die Reihe im gezeigten Zeitraum ist.
+    /// </summary>
+    /// <remarks>
+    /// „4 Kurse über 2 Jahre“ sagt mehr über die Belastbarkeit der Linie als die Linie selbst.
+    /// Ohne diesen Satz sieht eine Verbindung zwischen zwei weit entfernten Punkten aus wie ein
+    /// Verlauf.
+    /// </remarks>
+    private string Dichte()
+    {
+        var tage = Data.Points[^1].Date.DayNumber - Data.Points[0].Date.DayNumber;
+        var zahl = Data.Points.Count;
+
+        var zeitraum = tage switch
+        {
+            < 62 => $"{tage} Tage",
+            < 400 => $"{tage / 30} Monate",
+            _ => $"{tage / 365} Jahre",
+        };
+
+        return $"{zahl} {(zahl == 1 ? "Kurs" : "Kurse")} über {zeitraum} — zwischen zwei Punkten "
+               + "liegt keine Messung.";
     }
 
     private string Quellen()
