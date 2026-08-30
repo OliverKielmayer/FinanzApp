@@ -2,6 +2,7 @@ using FinanzApp.Api.Data;
 using FinanzApp.Api.Data.Entities;
 using FinanzApp.Api.Infrastructure;
 using FinanzApp.Shared.Contracts;
+using FinanzApp.Shared.Formatting;
 using Microsoft.EntityFrameworkCore;
 
 namespace FinanzApp.Api.Application;
@@ -54,6 +55,7 @@ public sealed class PolicyService(FinanzAppDbContext db, DocumentService documen
     {
         var policy = await db.Policies.AsNoTracking()
             .Include(p => p.Account)
+            .Include(p => p.Reports)
             .FirstOrDefaultAsync(p => p.Id == id, ct);
 
         if (policy is null)
@@ -92,7 +94,63 @@ public sealed class PolicyService(FinanzAppDbContext db, DocumentService documen
             Notes = policy.Notes,
             Documents = await documents.GetForTargetAsync(LinkTargetType.Policy, policy.Id, ct),
             Payments = await LoadPaymentsAsync(policy, ct),
+            ValueParts = ValueParts(policy),
+            Reports =
+            [
+                .. policy.Reports
+                    .OrderBy(r => r.AsOf)
+                    .Select(r => new PolicyReportDto
+                    {
+                        AsOf = r.AsOf, Value = r.Value, Source = r.Source,
+                    }),
+            ],
         };
+    }
+
+    /// <summary>
+    /// Woraus der erreichte Wert besteht — v5-Handoff, Abschnitt 19.5.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die Bezeichnungen folgen der Vertragsart: Rückkaufswert, Deckungskapital oder
+    /// Sparguthaben. Ein Bausparvertrag hat keinen Rückkaufswert, und ihn so zu nennen machte
+    /// aus einer richtigen Zahl eine falsche Aussage.</para>
+    /// <para>Führt ein Vertrag nur einen Bestandteil, kommt <b>eine</b> Zeile zurück und keine
+    /// Summe: eine Summe aus einem Summanden ist keine.</para>
+    /// </remarks>
+    private static List<PolicyValuePartDto> ValueParts(Policy policy)
+    {
+        if (!policy.IsCapitalForming)
+        {
+            return [];
+        }
+
+        var herkunft = policy.ValuationDate is { } stichtag
+            ? $"{PolicyValueNaming.ReportLabel(policy.Kind)} {GermanFormat.Date(stichtag)}"
+            : "von Hand erfasst";
+
+        var teile = new List<PolicyValuePartDto>();
+
+        if (policy.BaseValue is { } basis)
+        {
+            teile.Add(new PolicyValuePartDto
+            {
+                Label = PolicyValueNaming.BaseValueLabel(policy.Kind),
+                Amount = basis,
+                Origin = herkunft,
+            });
+        }
+
+        if (policy.AccruedBonus is { } ueberschuss && PolicyValueNaming.HasAccruedBonus(policy.Kind))
+        {
+            teile.Add(new PolicyValuePartDto
+            {
+                Label = "Ansammlungsguthaben",
+                Amount = ueberschuss,
+                Origin = herkunft,
+            });
+        }
+
+        return teile;
     }
 
     /// <summary>
@@ -157,14 +215,23 @@ public sealed class PolicyService(FinanzAppDbContext db, DocumentService documen
             : null;
 
     /// <summary>
-    /// Beitragszahlungen. Gesucht wird in den Buchungen nach dem Namen des Anbieters — die
-    /// Zahlungen selbst bleiben Buchungen und werden nicht ein zweites Mal geführt.
+    /// Beitragszahlungen — zugeordnet <b>ausschließlich über die Vertragsnummer</b>.
     /// </summary>
+    /// <remarks>
+    /// <para>Vorher lief die Suche über den Namen des Anbieters. Bei vier Verträgen desselben
+    /// Hauses hängt damit jede Beitragsbuchung an jedem Vertrag, und im Beispiel stand eine
+    /// Buchung über 212 € unter einem Vertrag, der 42 € im Monat kostet. Eine Zuordnung, die
+    /// nach Anbieter geht, ist bei mehreren Verträgen keine Zuordnung.</para>
+    /// <para>Gesucht wird in Verwendungszweck, Buchungstext und Empfänger — die Nummer steht je
+    /// nach Bank an verschiedenen Stellen. Verglichen wird <em>normalisiert</em>: Groß- und
+    /// Kleinschreibung, Leerzeichen, Punkte, Schräg- und Bindestriche fallen weg, weil
+    /// „01511104-01“ und „01511104 01“ dieselbe Nummer sind.</para>
+    /// <para>Die Zahlungen bleiben Buchungen und werden nicht ein zweites Mal geführt.</para>
+    /// </remarks>
     private async Task<IReadOnlyList<LinkedPaymentDto>> LoadPaymentsAsync(
         Policy policy, CancellationToken ct)
     {
-        var keyword = policy.Provider.Split(' ', '-')[0];
-        if (keyword.Length < 3)
+        if (Normalise(policy.PolicyNumber) is not { Length: >= 4 } nummer)
         {
             return [];
         }
@@ -173,24 +240,57 @@ public sealed class PolicyService(FinanzAppDbContext db, DocumentService documen
             .Include(t => t.Account)
             .Where(t => t.Kind == TransactionKind.Expense)
             .OrderByDescending(t => t.BookingDate)
-            .Take(200)
+            .Take(400)
             .ToListAsync(ct);
 
         return
         [
             .. rows
-                .Where(t => t.Payee.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                .Select(t => new { Buchung = t, Fund = Match(t, nummer) })
+                .Where(x => x.Fund is not null)
                 .Take(12)
-                .Select(t => new LinkedPaymentDto
+                .Select(x => new LinkedPaymentDto
                 {
-                    TransactionId = t.Id,
-                    BookingDate = t.BookingDate,
-                    Amount = Math.Abs(t.Amount),
-                    Payee = t.Payee,
-                    AccountName = t.Account?.Name ?? string.Empty,
+                    TransactionId = x.Buchung.Id,
+                    BookingDate = x.Buchung.BookingDate,
+                    Amount = Math.Abs(x.Buchung.Amount),
+                    Payee = x.Buchung.Payee,
+                    AccountName = x.Buchung.Account?.Name ?? string.Empty,
+                    MatchReason = $"Vertragsnummer {policy.PolicyNumber} {x.Fund}",
+                    Reference = x.Buchung.Purpose,
                 }),
         ];
     }
+
+    /// <summary>Wo die Nummer steht — oder <c>null</c>, wenn sie nirgends steht.</summary>
+    private static string? Match(Transaction t, string nummer)
+    {
+        if (Normalise(t.Purpose)?.Contains(nummer, StringComparison.Ordinal) == true)
+        {
+            return "im Verwendungszweck";
+        }
+
+        if (Normalise(t.BookingText)?.Contains(nummer, StringComparison.Ordinal) == true)
+        {
+            return "im Buchungstext";
+        }
+
+        return Normalise(t.Payee)?.Contains(nummer, StringComparison.Ordinal) == true
+            ? "im Empfänger"
+            : null;
+    }
+
+    /// <summary>
+    /// Eine Nummer ohne ihre Schreibweise.
+    /// </summary>
+    /// <remarks>
+    /// „01511104-01“, „01511104 01“ und „01511104/01“ sind dieselbe Vertragsnummer. Ohne diesen
+    /// Schritt fände die Zuordnung nur die eine Schreibweise, die die Bank gerade verwendet.
+    /// </remarks>
+    private static string? Normalise(string? text)
+        => text is not { Length: > 0 }
+            ? null
+            : new string([.. text.Where(char.IsLetterOrDigit)]).ToUpperInvariant();
 
     private PolicyListItemDto ToListItem(Policy policy) => new()
     {
@@ -232,4 +332,47 @@ public sealed class PolicyService(FinanzAppDbContext db, DocumentService documen
     /// Krankenversicherung nicht, und die Suche zeigte darum „Vertrag · Vertrag“.
     /// </remarks>
     public static string KindLabel(PolicyKind kind) => HoldingMeta.KindLabel(kind);
+
+    /// <summary>
+    /// Hält einen gemeldeten Stand in der Berichtsreihe fest.
+    /// </summary>
+    /// <remarks>
+    /// <para>Nur aus dieser Reihe entsteht später ein Verlauf. Ohne sie bliebe am Vertrag ein
+    /// einziger Wert, und jede gezeichnete Kurve wäre erfunden — genau das ist beim ersten Bau
+    /// passiert.</para>
+    /// <para>Ein Stichtag, ein Stand: kommt derselbe Tag ein zweites Mal — korrigierter Bericht,
+    /// nachgetragene Zahl —, wird der vorhandene überschrieben statt ein zweiter Punkt neben den
+    /// ersten gelegt.</para>
+    /// <para>Statisch, weil zwei Wege Stände melden: der eingelesene Bericht und die Maske. Beide
+    /// dürfen das nicht jeder auf seine Art tun.</para>
+    /// </remarks>
+    public static async Task RecordReportAsync(
+        FinanzAppDbContext db,
+        IClock clock,
+        int policyId,
+        DateOnly asOf,
+        decimal value,
+        string source,
+        CancellationToken ct)
+    {
+        var vorhanden = await db.PolicyReports
+            .FirstOrDefaultAsync(r => r.PolicyId == policyId && r.AsOf == asOf, ct);
+
+        if (vorhanden is null)
+        {
+            db.PolicyReports.Add(new PolicyReport
+            {
+                PolicyId = policyId,
+                AsOf = asOf,
+                Value = value,
+                Source = source,
+                CreatedAt = clock.Now,
+            });
+
+            return;
+        }
+
+        vorhanden.Value = value;
+        vorhanden.Source = source;
+    }
 }

@@ -1,6 +1,6 @@
 # Offene Punkte
 
-Stand **29.08.2026**, nach der Wiederholgruppe aus Handoff 18 (§17.2). Eine Liste, kein Plan: sie sagt,
+Stand **30.08.2026**, nach den fünf Vorsorge-Korrekturen aus Handoff 20 (§19). Eine Liste, kein Plan: sie sagt,
 was noch nicht gebaut ist und woher die Anforderung stammt — die Reihenfolge steht in den
 Handoffs selbst, nicht hier.
 
@@ -18,7 +18,9 @@ Einlesen von PDF-Dokumenten (§14); aus
 und den vier entschiedenen Rückfragen (§15); aus
 [Handoff 17](design-handoff-v5g/design_handoff_v5/README.md) die Kurszeitreihe samt Abruf über
 eine Web-API (§16); aus [Handoff 18](design-handoff-v5h/design_handoff_v5/README.md) die
-Wiederholgruppe für Aufstellungen mit mehreren Positionen (§17.2).
+Wiederholgruppe für Aufstellungen mit mehreren Positionen (§17.2); aus
+[Handoff 20](design-handoff-v5i/design_handoff_v5/README.md) die drei Befunde aus §18 und die
+fünf Vorsorge-Korrekturen aus §19.
 
 ## Was beim PDF-Scan (§14) offen blieb
 
@@ -132,11 +134,6 @@ Gebaut ist der Bericht mit seinen vier Abschnitten, den beiden getrennten Kennze
 Druckblatt, der Brücke aus der PKV-Bilanz und der sichtbaren Rechenprobe beim Einlesen. Was
 liegen blieb:
 
-- **Die steuerliche Einordnung einer Kategorie lässt sich nur im Seed setzen.** `Category`
-  trägt jetzt `TaxCategory`, aber der Kategorienschirm zeigt das Feld nicht. Ohne eine
-  eingeordnete Kategorie bleiben Handwerkerleistungen und Werbungskosten aus Buchungen leer.
-- **Entfernung und Arbeitstage lassen sich nur beim Anlegen mitgeben**, nicht nachträglich am
-  Arbeitsverhältnis ändern — die Felder stehen im Modell, aber nicht in der Bearbeitenmaske.
 - **Handwerkerleistungen trennen Arbeitslohn und Material nicht.** Der Bericht sagt das im
   Klartext; die Trennung selbst bräuchte eine Angabe je Rechnung.
 - **Der Druck geht über `window.print()`.** Das Blatt ist gestaltet und geprüft, gedruckt hat es
@@ -146,6 +143,32 @@ Eine Abweichung vom Prototyp, die bewusst ist: **der Bericht zeigt Cent**, nicht
 Der Sprung aus der PKV-Bilanz stellte sonst 562 € neben 561,60 € für dieselbe Zahl. Was in ein
 Formular abgetippt wird, gehört genau hin.
 
+## Was bei den Vorsorge-Korrekturen (§18/§19) offen blieb
+
+Gebaut sind alle acht Befunde: die Kurslinie nach Datum statt nach Nummer (§18.2), die
+steuerliche Einordnung im Kategorienschirm und Entfernung und Arbeitstage in der
+Bearbeitenmaske (§18.3), die Zahlungszuordnung über die Vertragsnummer samt Begründung,
+Gegenprobe und ehrlichem Leerzustand (§19.2), die Dokumentliste je Vertrag mit Typ-Tag (§19.3),
+das Bearbeiten vom Detailschirm aus mit allen Rohfeldern (§19.4) und der Block „So entsteht der
+Wert" samt Berichtsreihe (§19.5 bis §19.7). Zwei Dinge fielen dabei auf und wurden gleich
+miterledigt: der Detailschirm lud nur beim Aufbau — von `/police/1` auf `/police/2` blieben die
+Zahlen des ersten Vertrags stehen —, und der Anlegeweg rechnete die Wertbestandteile nicht
+zusammen, während der Änderungsweg es tat.
+
+Offen:
+
+- **Der Verlauf zeigt keine Werte an den Punkten.** Die Reihe trägt Stichtag und Betrag, die
+  Linie zeigt nur die beiden Enden. Was der dritte Punkt wert war, steht nirgends.
+- **Der erfasste Stand kennt keine Herkunft im Klartext.** In der Reihe steht „erfasst" gegen
+  „Statusreport"; im Schirm ist der Unterschied nicht sichtbar. Wer wissen will, ob eine Zahl
+  aus einem Papier stammt oder von Hand kam, sieht es nicht.
+- **Ein Bericht lässt sich nicht löschen oder korrigieren**, außer durch erneutes Speichern zum
+  selben Stichtag. Ein versehentlich angelegter Stichtag bleibt in der Reihe stehen.
+- **Nur der Vorsorge-Detailschirm führt „bearbeiten".** Immobilie, Fahrzeug und Vertrag haben
+  denselben Aufbau und dieselbe Lücke — dort ist das Bearbeiten weiter nur aus der Liste
+  erreichbar.
+
 ## Gebaut, aber nie angesehen
 
-Nichts mehr — das Druckblatt ist gestaltet und in der Vorschau geprüft (§15.3).
+Nichts mehr — das Druckblatt ist gestaltet und in der Vorschau geprüft (§15.3), die vier
+Vorsorgeverträge sind im laufenden Programm nachgesehen (§19).

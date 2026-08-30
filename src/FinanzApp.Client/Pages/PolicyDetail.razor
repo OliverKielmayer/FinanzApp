@@ -41,7 +41,10 @@
         @if (policy.IsCapitalForming)
         {
             <div class="section" style="padding-bottom:4px">
-                <span class="label-strong">Vertrag</span>
+                <div class="section-head" style="margin-bottom:0">
+                    <span class="label-strong">Vertrag</span>
+                    @Bearbeiten(policy)
+                </div>
             </div>
 
             @if (policy.MaturityValue is { } maturity)
@@ -84,7 +87,10 @@
         {
             @* Die Frist wird nicht gepflegt, sondern gerechnet: Vertragsende minus Kündigungsfrist. *@
             <div class="section" style="padding-bottom:4px">
-                <span class="label-strong">Fristen</span>
+                <div class="section-head" style="margin-bottom:0">
+                    <span class="label-strong">Fristen</span>
+                    @Bearbeiten(policy)
+                </div>
             </div>
 
             @if (policy.NoticeDeadline is { } deadline)
@@ -159,23 +165,140 @@
         @if (policy.Documents.Count == 0)
         {
             <div class="empty-area">
-                <span class="empty-area-text">Kein Dokument hinterlegt.</span>
+                <span class="empty-area-text">
+                    Kein Dokument hinterlegt. Police, Nachträge und
+                    @PolicyValueNaming.ReportPlural(policy.Kind) gehören an den Vertrag —
+                    eingelesen werden sie über den Belegweg.
+                </span>
+                <a class="btn btn-secondary" href="/scannen">Beleg hinzufügen</a>
             </div>
         }
 
+        @* Der neueste Bericht ist der, auf dem der aktuelle Wert steht. Ihn hervorzuheben
+           spart die Suche in einer Liste, die mit jedem Jahr länger wird. *@
+        var neuester = policy.Documents
+            .Where(d => Art(d) == "Bericht")
+            .OrderByDescending(d => d.DocumentDate)
+            .FirstOrDefault();
+
         @foreach (var document in policy.Documents)
         {
-            <button type="button" class="tap doc-row @(document.FileExists ? null : "missing")"
+            var art = Art(document);
+
+            <button type="button" class="tap doc-row @(document.FileExists ? null : "missing") @(document == neuester ? "picked" : null)"
                     @onclick="@(() => Navigation.NavigateTo($"/dokumente/{document.Id}"))">
                 <span class="stack">
                     <span class="doc-name">@document.Title</span>
                     <span class="doc-meta">
                         @(document.FileExists
-                            ? $"{document.TypeName} · {(document.DocumentDate is { } d ? GermanFormat.Date(d) : "ohne Datum")}"
+                            ? (document.DocumentDate is { } d ? GermanFormat.Date(d) : "ohne Datum")
+                              + (document == neuester ? " · aktueller Stand" : null)
                             : "Datei nicht gefunden")
                     </span>
                 </span>
+
+                @* Die Police im Akzent: sie ist das Dokument, das den Vertrag begründet. *@
+                <span class="tag @(art == "Police" ? "tag-accent" : "tag-neutral")">@art</span>
             </button>
+        }
+
+        @if (policy.Documents.Count > 0)
+        {
+            <div class="tx-totals-note">
+                <a href="/scannen">Beleg hinzufügen</a> — ein eingelesener
+                @(PolicyValueNaming.ReportLabel(policy.Kind)) hängt sich an diesen Vertrag und
+                trägt seinen Stand in den Verlauf ein.
+            </div>
+        }
+
+        @*
+            So entsteht der Wert — Abschnitt 19.5. Die Bezeichnungen folgen der Vertragsart;
+            führt ein Vertrag nur einen Bestandteil, steht eine Zeile da und keine Summe.
+        *@
+        @if (policy.ValueParts.Count > 0)
+        {
+            <div class="value-parts">
+                <span class="label-muted">So entsteht der Wert</span>
+
+                @foreach (var teil in policy.ValueParts)
+                {
+                    <div class="value-part">
+                        <span class="stack">
+                            <span>@teil.Label</span>
+                            <span class="meta">@teil.Origin</span>
+                        </span>
+                        <span class="num">@State.Euro(teil.Amount)</span>
+                    </div>
+                }
+
+                @if (policy.ValueParts.Count > 1)
+                {
+                    <div class="value-part total">
+                        <span class="label-strong">Erreichter Wert</span>
+                        <span class="num">@State.Euro(policy.ValueParts.Sum(t => t.Amount))</span>
+                    </div>
+                }
+
+                <span class="meta">
+                    Die Anwendung schreibt den Wert bis zum nächsten Bericht unverändert fort —
+                    er wird nicht verzinst und nicht geschätzt.
+                </span>
+
+                @* Der Ausschluss gilt nur, wo es einen Statusreport gibt, der ihn ausweist. *@
+                @if (PolicyValueNaming.MentionsUnguaranteed(policy.Kind))
+                {
+                    <span class="meta">
+                        Nicht enthalten: Bewertungsreserven und Schlussüberschüsse — der Bericht
+                        weist sie als nicht garantiert aus, deshalb zählen sie in keiner
+                        Vermögenssumme.
+                    </span>
+                }
+            </div>
+        }
+
+        @*
+            Der Verlauf — Abschnitt 19.6. Gezeichnet werden ausschließlich gespeicherte
+            Berichte. Nie eine Kurve aus einem Punkt: wo keine Reihe steht, sagt der Schirm das,
+            statt eine Bewegung zu zeichnen, die niemand gemessen hat.
+        *@
+        @if (policy.Reports.Count >= 2)
+        {
+            <div class="list-head">
+                <span class="label-strong">@PolicyValueNaming.HistoryLabel(policy.Kind)</span>
+                <span class="list-count num">@policy.Reports.Count</span>
+            </div>
+
+            <div class="report-history">
+                <svg class="report-line" viewBox="0 0 320 72" preserveAspectRatio="none"
+                     role="img" aria-label="@Verlaufstext(policy)" focusable="false">
+                    <polyline fill="none" stroke="var(--color-accent)" stroke-width="2"
+                              points="@Linie(policy)"></polyline>
+
+                    @foreach (var (x, y) in Punkte(policy))
+                    {
+                        <circle cx="@x" cy="@y" r="2.5" fill="var(--color-accent)"></circle>
+                    }
+                </svg>
+
+                <div class="report-axis">
+                    <span>@GermanFormat.Date(policy.Reports[0].AsOf)</span>
+                    <span>@policy.Reports.Count @PolicyValueNaming.ReportPlural(policy.Kind) gespeichert</span>
+                    <span>@GermanFormat.Date(policy.Reports[^1].AsOf)</span>
+                </div>
+            </div>
+        }
+        else if (policy.Reports.Count == 1)
+        {
+            <div class="list-head">
+                <span class="label-strong">@PolicyValueNaming.HistoryLabel(policy.Kind)</span>
+            </div>
+
+            <div class="tx-totals-note">
+                Ein @(PolicyValueNaming.ReportLabel(policy.Kind)) gespeichert
+                (@GermanFormat.Date(policy.Reports[0].AsOf) ·
+                @State.Euro(policy.Reports[0].Value)) — für einen Verlauf braucht es einen
+                zweiten. Der nächste wird beim Einlesen automatisch angehängt.
+            </div>
         }
 
         <div class="list-head">
@@ -185,20 +308,62 @@
 
         @if (policy.Payments.Count == 0)
         {
+            @*
+                Ein ehrlicher Leerzustand: er sagt, wonach gesucht wurde. „Nichts gefunden" allein
+                ließe den Nutzer raten, ob die Buchung fehlt oder die Suche nichts taugt.
+            *@
             <div class="empty-area">
-                <span class="empty-area-text">Noch keine Buchung gefunden, die zu diesem Vertrag passt.</span>
+                <span class="empty-area-text">
+                    @(policy.PolicyNumber is { Length: > 0 } nummer
+                        ? $"Keine Buchung nennt die Vertragsnummer {nummer}. Zugeordnet wird "
+                          + "ausschließlich darüber — ein Treffer über den Anbieternamen wäre bei "
+                          + "mehreren Verträgen desselben Hauses falsch."
+                        : "Ohne erfasste Vertragsnummer lässt sich keine Buchung zuordnen. "
+                          + "Zugeordnet wird ausschließlich über die Nummer im Verwendungszweck.")
+                </span>
+                <a class="btn btn-secondary" href="/konten">In Buchungen suchen</a>
             </div>
         }
 
         @foreach (var payment in policy.Payments)
         {
-            <div class="row">
+            <div class="row payment">
                 <div class="stack">
                     <span class="balance-label plain">@payment.Payee</span>
                     <span class="meta num">@GermanFormat.Date(payment.BookingDate) · @payment.AccountName</span>
+
+                    @* Die Begründung an jeder Zeile, darunter der Verwendungszweck im
+                       Original — nachlesbar statt nachvollziehbar-behauptet. *@
+                    @if (payment.MatchReason is { Length: > 0 } grund)
+                    {
+                        <span class="meta accent">@grund</span>
+                    }
+                    @if (payment.Reference is { Length: > 0 } zweck)
+                    {
+                        <span class="meta break">@zweck</span>
+                    }
                 </div>
-                <span class="balance-value num">@State.Euro(payment.Amount)</span>
+                <span class="stack-end">
+                    <span class="balance-value num">@State.Euro(payment.Amount)</span>
+
+                    @* Kein Tag, wo nichts zu vergleichen ist: ohne erfassten Beitrag hieße
+                       „prüfen“, die Buchung sei auffällig — auffällig ist aber nur, dass der
+                       Vertrag seinen Beitrag nicht führt. *@
+                    @if (Matches(policy, payment) is { } passt)
+                    {
+                        <span class="tag @(passt ? "tag-neutral" : "tag-accent")">
+                            @(passt ? "stimmt" : "prüfen")
+                        </span>
+                    }
+                </span>
             </div>
+        }
+
+        @* Die Gegenprobe unter der Liste. Weicht der gebuchte Betrag vom Beitrag ab, ist einer
+           der beiden veraltet — und das ist eine Aussage, keine Fehlermeldung. *@
+        @if (policy.Payments.Count > 0)
+        {
+            <div class="tx-totals-note">@Gegenprobe(policy)</div>
         }
 
         <div class="spacer"></div>
@@ -208,9 +373,121 @@
 @code {
     [Parameter] public int Id { get; set; }
 
+    /// <summary>
+    /// Der Weg in die Rohfelder — Abschnitt 19.4.
+    /// </summary>
+    /// <remarks>
+    /// Bearbeiten war nur aus der Liste erreichbar. Wer über die Übersicht, die Suche oder einen
+    /// eingelesenen Beleg hier landete, sah seine Daten und kam nicht an sie heran.
+    /// </remarks>
+    private RenderFragment Bearbeiten(PolicyDetailDto policy) =>
+        @<AuthorizeView Roles="Owner,Member" Context="edit">
+            <a class="section-link"
+               href="@($"/bearbeiten/{(policy.IsCapitalForming ? "pension" : "protection")}/{policy.Id}")">
+                Vertrag bearbeiten
+            </a>
+        </AuthorizeView>;
+
     private PolicyDetailDto? data;
 
     protected override async Task LoadAsync() => data = await Api.GetPolicyAsync(Id);
+
+    /// <summary>
+    /// Welcher Art ein Dokument am Vertrag ist.
+    /// </summary>
+    /// <remarks>
+    /// Aus dem gepflegten Dokumenttyp und, wo der fehlt, aus dem Titel. Raten ist hier
+    /// vertretbar, weil daran nur eine Beschriftung hängt und keine Zahl.
+    /// </remarks>
+    private static string Art(DocumentListItemDto dokument)
+    {
+        var text = $"{dokument.TypeName} {dokument.Title}";
+
+        if (text.Contains("Police", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("Versicherungsschein", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Police";
+        }
+
+        return text.Contains("Nachtrag", StringComparison.OrdinalIgnoreCase)
+            ? "Nachtrag"
+            : "Bericht";
+    }
+
+    /// <summary>Die Linie durch die gemeldeten Stände.</summary>
+    /// <remarks>
+    /// Waagerecht nach dem Stichtag, nicht nach der Nummer des Berichts: zwischen zwei
+    /// Jahresberichten liegt ein Jahr, zwischen einem Jahres- und einem Sonderbericht vielleicht
+    /// ein Monat. Gleichmäßig verteilt sähe beides gleich aus.
+    /// </remarks>
+    private static string Linie(PolicyDetailDto policy)
+        => string.Join(' ', Punkte(policy).Select(p => p.X + "," + p.Y));
+
+    private static IEnumerable<(string X, string Y)> Punkte(PolicyDetailDto policy)
+    {
+        var berichte = policy.Reports;
+
+        var vonTag = berichte[0].AsOf.DayNumber;
+        var spanneTage = berichte[^1].AsOf.DayNumber - vonTag;
+
+        var tief = berichte.Min(r => r.Value);
+        var spanneWert = berichte.Max(r => r.Value) - tief;
+
+        return berichte.Select(r =>
+        {
+            // Sechs Einheiten Rand, damit der erste und der letzte Stand nicht halb auf der
+            // Kante liegen — es sind die beiden, an denen der Verlauf abgelesen wird.
+            var x = spanneTage <= 0
+                ? 314m
+                : 6m + (decimal)(r.AsOf.DayNumber - vonTag) / spanneTage * 308m;
+            var anteil = spanneWert == 0m ? 0.5m : (r.Value - tief) / spanneWert;
+
+            return (
+                x.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture),
+                (72m - 8m - anteil * 56m).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture));
+        });
+    }
+
+    private static string Verlaufstext(PolicyDetailDto policy)
+        => $"{policy.Reports.Count} gemeldete Stände von "
+           + $"{GermanFormat.Date(policy.Reports[0].AsOf)} bis "
+           + $"{GermanFormat.Date(policy.Reports[^1].AsOf)}";
+
+    /// <summary>
+    /// Ob der gebuchte Betrag zum Beitrag des Vertrags passt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Ein Cent Toleranz, mehr nicht: Beiträge sind feste Beträge. Weicht es ab, heißt das
+    /// nicht, dass die Zuordnung falsch ist — die Nummer stimmt ja —, sondern dass einer der
+    /// beiden Werte nicht mehr aktuell ist.</para>
+    /// <para><c>null</c>, wenn der Vertrag keinen Beitrag führt: dann gibt es keine Gegenprobe,
+    /// und eine zu behaupten hieße, gegen null Euro zu vergleichen.</para>
+    /// </remarks>
+    private static bool? Matches(PolicyDetailDto policy, LinkedPaymentDto payment)
+        => policy.Premium <= 0m ? null : Math.Abs(payment.Amount - policy.Premium) <= 0.01m;
+
+    private string Gegenprobe(PolicyDetailDto policy)
+    {
+        if (policy.Premium <= 0m)
+        {
+            return "Im Vertrag ist kein Beitrag erfasst — der gebuchte Betrag lässt sich mit "
+                   + "nichts vergleichen. Die Zuordnung selbst steht: sie geht über die "
+                   + "Vertragsnummer im Verwendungszweck.";
+        }
+
+        var abweichend = policy.Payments.Count(z => Matches(policy, z) == false);
+
+        if (abweichend == 0)
+        {
+            return $"Jede zugeordnete Buchung entspricht dem Beitrag von {State.Euro(policy.Premium)} "
+                   + $"{IntervalLabel(policy.PremiumInterval).ToLowerInvariant()}.";
+        }
+
+        return $"{abweichend} {(abweichend == 1 ? "Buchung weicht" : "Buchungen weichen")} vom "
+               + $"hinterlegten Beitrag von {State.Euro(policy.Premium)} ab. Die Zuordnung stimmt "
+               + "trotzdem — sie geht über die Vertragsnummer. Abweichend ist der Betrag: "
+               + "entweder ist der Beitrag im Vertrag veraltet oder die Buchung enthält mehr als ihn.";
+    }
 
     private static string IntervalLabel(PremiumInterval interval) => interval switch
     {

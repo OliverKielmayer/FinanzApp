@@ -65,6 +65,11 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
     public DbSet<DepotTrade> DepotTrades => Set<DepotTrade>();
 
     /// <summary>
+    /// Die gemeldeten Vertragsstände — aus ihnen und nur aus ihnen entsteht der Verlauf.
+    /// </summary>
+    public DbSet<PolicyReport> PolicyReports => Set<PolicyReport>();
+
+    /// <summary>
     /// Die eigene Kurszeitreihe — die Datenhaltung, nicht die Quelle.
     /// </summary>
     /// <remarks>
@@ -418,6 +423,19 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
             e.HasIndex(x => new { x.HouseholdId, x.ImportReference }).IsUnique();
         });
 
+        b.Entity<PolicyReport>(e =>
+        {
+            e.Property(x => x.Value).HasConversion(MoneyConverter);
+            e.Property(x => x.Source).HasMaxLength(80).IsRequired();
+
+            e.HasOne(x => x.Policy).WithMany(p => p.Reports)
+                .HasForeignKey(x => x.PolicyId).OnDelete(DeleteBehavior.Cascade);
+
+            // Ein Bericht je Vertrag und Stichtag. Ein zweiter Statusreport zum selben Tag
+            // aktualisiert, statt die Reihe zu verdoppeln.
+            e.HasIndex(x => new { x.HouseholdId, x.PolicyId, x.AsOf }).IsUnique();
+        });
+
         b.Entity<Quote>(e =>
         {
             e.Property(x => x.Isin).HasMaxLength(12).IsRequired();
@@ -553,6 +571,8 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
             e.Property(x => x.PolicyNumber).HasMaxLength(60);
             e.Property(x => x.Notes).HasMaxLength(1000);
             e.Property(x => x.Premium).HasConversion(MoneyConverter);
+            e.Property(x => x.BaseValue).HasConversion(NullableMoneyConverter);
+            e.Property(x => x.AccruedBonus).HasConversion(NullableMoneyConverter);
             e.Property(x => x.CurrentValue).HasConversion(NullableMoneyConverter);
             e.Property(x => x.MaturityValue).HasConversion(NullableMoneyConverter);
             e.Property(x => x.SumInsured).HasConversion(NullableMoneyConverter);

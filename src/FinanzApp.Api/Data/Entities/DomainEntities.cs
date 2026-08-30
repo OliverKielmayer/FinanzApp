@@ -128,8 +128,48 @@ public class Policy : IHouseholdOwned
 
     // ── nur kapitalbildend ────────────────────────────────────────────────────────────────
 
-    /// <summary>Erreichter Wert: Rückkaufswert, Ansammlungsguthaben, Bausparguthaben.</summary>
+    /// <summary>
+    /// Der Hauptbestandteil des erreichten Werts.
+    /// </summary>
+    /// <remarks>
+    /// Er heißt je Vertragsart anders — Rückkaufswert bei der Kapitallebensversicherung,
+    /// Deckungskapital bei Renten- und Riesterverträgen, Sparguthaben beim Bausparen. Die
+    /// Bezeichnung ist eine Funktion der Art und keine Konstante; ein Bausparvertrag hat keinen
+    /// Rückkaufswert.
+    /// </remarks>
+    public decimal? BaseValue { get; set; }
+
+    /// <summary>
+    /// Der erreichte Wert der Überschussbeteiligung.
+    /// </summary>
+    /// <remarks>
+    /// Nur bei Verträgen, die eine führen. Ein Bausparvertrag hat kein Ansammlungsguthaben, und
+    /// eine Summe aus einem Summanden ist keine.
+    /// </remarks>
+    public decimal? AccruedBonus { get; set; }
+
+    /// <summary>
+    /// Erreichter Wert — die Zahl, die ins Vermögen zählt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Gepflegt bleibt sie, weil ein Vertrag auch ohne aufgeschlüsselte Bestandteile einen
+    /// Wert haben darf. Sind die Bestandteile gefüllt, gewinnen sie: die Anzeige zeigt die
+    /// Rechnung, und eine Zahl, die neben ihrer eigenen Summe steht und ihr widerspricht, wäre
+    /// die schlimmere Variante.</para>
+    /// <para>Nicht enthalten sind Bewertungsreserven und Schlussüberschüsse — der Statusreport
+    /// weist sie als nicht garantiert aus (Abschnitt 14.3).</para>
+    /// </remarks>
     public decimal? CurrentValue { get; set; }
+
+    /// <summary>
+    /// Die gemeldeten Werte je Stichtag.
+    /// </summary>
+    /// <remarks>
+    /// Aus ihnen entsteht der Verlauf — und nur aus ihnen. Eine Kurve aus einem Punkt gibt es
+    /// nicht: wo keine Reihe steht, sagt der Schirm das, statt eine Bewegung zu zeichnen, die
+    /// niemand gemessen hat.
+    /// </remarks>
+    public List<PolicyReport> Reports { get; set; } = [];
 
     /// <summary>
     /// Stichtag des erreichten Werts. <b>Pflicht, sobald ein Wert steht</b> — ein Jahresstand ist
@@ -331,6 +371,38 @@ public class DocumentExtraction : IHouseholdOwned
 
     /// <summary>Hat ein Mensch ihn übernommen? Vorher verändert er nichts.</summary>
     public bool Confirmed { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>
+/// Ein gemeldeter Vertragsstand — v5-Handoff, Abschnitt 19.6.
+/// </summary>
+/// <remarks>
+/// <para>Der Anlass ist eine erfundene Historie: der erste Bau zeichnete eine Kurve aus
+/// <c>Wert × [0,72 · 0,81 · 0,91 · 1,0]</c> und beschriftete sie als „Verlauf aus
+/// Statusreports“. Alle Verträge hatten dieselbe Linie, weil nur der aktuelle Wert gespeichert
+/// war — am schärfsten beim Bausparvertrag, dessen steigende Kurve zwei Zeilen unter dem Satz
+/// stand, der Wert werde weder verzinst noch geschätzt.</para>
+/// <para>Ein Bericht je Stichtag und Vertrag. Ein neuer Statusreport setzt den Wert
+/// <em>seines</em> Stichtags, nicht den heutigen.</para>
+/// </remarks>
+public class PolicyReport : IHouseholdOwned
+{
+    public int Id { get; set; }
+    public int HouseholdId { get; set; }
+
+    public int PolicyId { get; set; }
+    public Policy? Policy { get; set; }
+
+    /// <summary>Der Stichtag, den der Bericht ausweist.</summary>
+    public DateOnly AsOf { get; set; }
+
+    /// <summary>Der erreichte Wert zu diesem Stichtag.</summary>
+    public decimal Value { get; set; }
+
+    /// <summary>Woher er kommt — Statusreport, Auszug, von Hand.</summary>
+    public required string Source { get; set; }
 
     public DateTime CreatedAt { get; set; }
 }

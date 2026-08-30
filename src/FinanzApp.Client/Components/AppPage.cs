@@ -35,6 +35,9 @@ public abstract class AppPage : ComponentBase, IDisposable
     /// <summary>Meldung, wenn der Abruf fehlgeschlagen ist.</summary>
     protected string? Error { get; private set; }
 
+    /// <summary>Die Adresse, für die die Daten dieser Seite geholt wurden.</summary>
+    private string? geladeneAdresse;
+
     protected override void OnInitialized()
     {
         State.Changed += OnAppStateChanged;
@@ -43,7 +46,28 @@ public abstract class AppPage : ComponentBase, IDisposable
         Connection.RetryRequested += ReloadAsync;
     }
 
-    protected override Task OnInitializedAsync() => ReloadAsync();
+    /// <summary>
+    /// Holt die Daten beim Aufbau und erneut, sobald die Adresse eine andere ist.
+    /// </summary>
+    /// <remarks>
+    /// <para>Blazor behält die Seite stehen, wenn sich nur der Routenparameter ändert: von
+    /// <c>/police/1</c> auf <c>/police/2</c> wird dieselbe Instanz weiterverwendet. Wer nur beim
+    /// Aufbau lädt, zeigt danach den Namen des zweiten Vertrags über den Zahlen des
+    /// ersten — nachgemessen, nicht vermutet.</para>
+    /// <para>Verglichen wird die volle Adresse samt Abfrageteil, und nur ein Unterschied löst
+    /// aus. Ein <see cref="ComponentBase.StateHasChanged"/> aus der Seite heraus setzt keine
+    /// Parameter und kommt hier nicht an; eine Schleife entsteht deshalb nicht.</para>
+    /// </remarks>
+    protected override async Task OnParametersSetAsync()
+    {
+        if (geladeneAdresse == Navigation.Uri)
+        {
+            return;
+        }
+
+        geladeneAdresse = Navigation.Uri;
+        await ReloadAsync();
+    }
 
     /// <summary>Holt die Daten der Seite. Wird beim Aufbau und beim erneuten Versuch gerufen.</summary>
     protected abstract Task LoadAsync();

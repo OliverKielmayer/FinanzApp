@@ -24,6 +24,26 @@ public sealed record PolicyOverviewDto
     public required IReadOnlyList<PolicyListItemDto> Items { get; init; }
 }
 
+/// <summary>Ein Bestandteil des erreichten Werts.</summary>
+public sealed record PolicyValuePartDto
+{
+    /// <summary>Wie er bei dieser Vertragsart heißt.</summary>
+    public required string Label { get; init; }
+
+    public required decimal Amount { get; init; }
+
+    /// <summary>Woher er stammt, etwa „Statusreport 31.07.2025“.</summary>
+    public required string Origin { get; init; }
+}
+
+/// <summary>Ein gemeldeter Stand.</summary>
+public sealed record PolicyReportDto
+{
+    public required DateOnly AsOf { get; init; }
+    public required decimal Value { get; init; }
+    public required string Source { get; init; }
+}
+
 public sealed record PolicyListItemDto
 {
     public required int Id { get; init; }
@@ -93,6 +113,24 @@ public sealed record PolicyDetailDto
 
     /// <summary>Beitragszahlungen als Verweis auf echte Buchungen.</summary>
     public required IReadOnlyList<LinkedPaymentDto> Payments { get; init; }
+
+    /// <summary>
+    /// Wie der erreichte Wert entsteht — Abschnitt 19.5.
+    /// </summary>
+    /// <remarks>
+    /// Leer, wo kein Bestandteil erfasst ist: dann steht nur die Kopfzahl da, und der Block
+    /// behauptet keine Herkunft, die niemand eingetragen hat.
+    /// </remarks>
+    public IReadOnlyList<PolicyValuePartDto> ValueParts { get; init; } = [];
+
+    /// <summary>
+    /// Die gemeldeten Stände. Nur aus ihnen entsteht ein Verlauf.
+    /// </summary>
+    /// <remarks>
+    /// Bei einem einzigen Bericht wird <b>keine</b> Kurve gezeichnet — eine Linie durch einen
+    /// Punkt ist eine Bewegung, die niemand gemessen hat.
+    /// </remarks>
+    public IReadOnlyList<PolicyReportDto> Reports { get; init; } = [];
 }
 
 /// <summary>Eine Zahlung, die zu einem Fachobjekt gehört — immer ein Verweis, nie eine Kopie.</summary>
@@ -103,6 +141,19 @@ public sealed record LinkedPaymentDto
     public required decimal Amount { get; init; }
     public required string Payee { get; init; }
     public required string AccountName { get; init; }
+
+    /// <summary>
+    /// Warum diese Buchung zu diesem Vertrag gehört.
+    /// </summary>
+    /// <remarks>
+    /// Steht an jeder Zeile, weil eine Zuordnung ohne Begründung nur eine Behauptung ist. Der
+    /// Anlass ist real: zugeordnet wurde einmal über den Anbieternamen, und bei vier Verträgen
+    /// desselben Hauses hing damit jede Buchung an jedem Vertrag.
+    /// </remarks>
+    public string? MatchReason { get; init; }
+
+    /// <summary>Der Verwendungszweck im Original — die Grundlage der Zuordnung.</summary>
+    public string? Reference { get; init; }
 }
 
 // ── Wohnen & Immobilien ────────────────────────────────────────────────────────────────────

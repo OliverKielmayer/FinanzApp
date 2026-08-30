@@ -276,7 +276,7 @@ public static class ExtensionSeedData
                 => monat.Year == 2024 ? y2024 : monat.Year == 2025 ? y2025 : y2026;
 
             void Add(int day, string payee, string cat, CategoryDirection direction,
-                decimal amount, int accountId)
+                decimal amount, int accountId, string? zweck = null)
             {
                 db.Transactions.Add(new Transaction
                 {
@@ -286,6 +286,11 @@ public static class ExtensionSeedData
                     Amount = decimal.Round(amount, 2),
                     AccountId = accountId,
                     CategoryId = category(cat, direction),
+
+                    // Der Verwendungszweck trägt die Vertragsnummer. Über sie und nur über sie
+                    // ordnet der Vertragsschirm eine Beitragsbuchung zu — bei vier Verträgen
+                    // desselben Hauses wäre der Anbietername keine Zuordnung.
+                    Purpose = zweck,
                     ImportReference = "SEED-" + reference++,
                     CreatedAt = new DateTime(monat.Year, monat.Month, day, 6, 0, 0, DateTimeKind.Local),
                 });
@@ -301,8 +306,20 @@ public static class ExtensionSeedData
                 -Jahr(54.90m, 54.90m, 59.90m), sparkasse);
             Add(17, "KFZ-Versicherung Allianz", "Versicherung", CategoryDirection.Expense,
                 -Jahr(72.40m, 75.40m, 78.40m), raiffeisen);
+            // Vier Verträge, vier Beiträge, jeder mit seiner Nummer im Verwendungszweck —
+            // sonst ließe sich die Zuordnung über die Nummer nirgends ansehen.
             Add(18, "Heidelberger Leben Beitrag", "Versicherung", CategoryDirection.Expense,
-                -212m, raiffeisen);
+                -212m, raiffeisen,
+                $"BEITRAG {monat:MM/yyyy} VERTRAG LV-4471-01 KAPITALLEBENSVERSICHERUNG");
+            Add(18, "Raiffeisenbank Lebensversicherung", "Versicherung", CategoryDirection.Expense,
+                -85m, raiffeisen,
+                $"MONATSBEITRAG {monat:MM/yyyy} POLICE RB-2019-8842");
+            Add(20, "Debeka Riesterrente", "Versicherung", CategoryDirection.Expense,
+                -162.75m, sparkasse,
+                $"RIESTER EIGENBEITRAG {monat:MM/yyyy} VERTRAG DB-RI-330914");
+            Add(20, "Bausparkasse Schwaebisch Hall", "Versicherung", CategoryDirection.Expense,
+                -120m, sparkasse,
+                $"BAUSPARBEITRAG BSH 7712 4409 {monat:MM/yyyy}");
             Add(5, "Streaming Abo", "Sonstiges", CategoryDirection.Expense,
                 -Jahr(12.99m, 14.99m, 17.99m), sparkasse);
             Add(5, "Cloud-Speicher", "Sonstiges", CategoryDirection.Expense, -9.99m, sparkasse);

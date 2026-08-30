@@ -427,6 +427,13 @@ public sealed class CreateFormService(
                     ["number"] = x.PolicyNumber,
                     ["premium"] = x.Premium == 0m ? null : Money(x.Premium),
                     ["interval"] = x.PremiumInterval.ToString(),
+
+                    // Die Bestandteile gehören in die Maske zurück. Ohne sie stünde die
+                    // Bearbeitung leer da, der Anwender speicherte, und aus zwei erfassten
+                    // Zahlen würde wieder eine einzelne — Abschnitt 19.4.
+                    ["baseValue"] = x.BaseValue is { } basis ? Money(basis) : null,
+                    ["accruedBonus"] = x.AccruedBonus is { } bonus ? Money(bonus) : null,
+
                     ["value"] = x.CurrentValue is { } value ? Money(value) : null,
                     ["asOf"] = Iso(x.ValuationDate),
                     ["maturesOn"] = Iso(x.MaturesOn),
@@ -623,19 +630,12 @@ public sealed class CreateFormService(
 
         if (capitalForming)
         {
-            if (ParseMoney(Value(values, "value")) is not { } value)
+            if (CapitalValue(policy, values) is { } problem)
             {
-                return Fail("value", "Erreichter Wert ist kein Betrag");
+                return problem;
             }
 
-            if (ParseDate(Value(values, "asOf")) is not { } asOf)
-            {
-                return Fail("asOf", "Stichtag ist kein Datum");
-            }
-
-            policy.CurrentValue = value;
-            policy.ValuationDate = asOf;
-            policy.MaturesOn = ParseDate(Value(values, "maturesOn"));
+            await RecordAsync(policy, ct);
         }
         else
         {
@@ -1051,7 +1051,27 @@ public sealed class CreateFormService(
             Text("provider", "Anbieter", required: true),
             Text("number", "Vertragsnummer", required: false),
             Money("premium", "Beitrag", required: false, help: "Leer lassen, wenn kein laufender Beitrag erfasst ist."),
-            Money("value", "Erreichter Wert", required: true),
+
+            // Die beiden Bestandteile des erreichten Werts — Abschnitt 19.5. Ist einer gefüllt,
+            // rechnet die Anwendung die Summe und schreibt sie ins Wertfeld. Die Bezeichnung
+            // hängt an der Vertragsart und steht im Hinweis; ein Bausparvertrag hat keinen
+            // Rückkaufswert und kein Ansammlungsguthaben.
+            Money("baseValue", "Rückkaufswert / Deckungskapital / Sparguthaben", required: false,
+                help: "Je nach Vertragsart. Zusammen mit dem Ansammlungsguthaben ergibt er den "
+                      + "erreichten Wert."),
+            Money("accruedBonus", "Ansammlungsguthaben", required: false,
+                help: "Der erreichte Wert der Überschussbeteiligung. Bausparen und Riester "
+                      + "führen keines — dann leer lassen."),
+
+            // Nicht als Pflichtfeld beschrieben, aber Pflicht: sind die Bestandteile gefüllt,
+            // entsteht er aus ihnen. Die allgemeine Pflichtprüfung kennt nur „gefüllt oder
+            // nicht“ und wiese sonst eine vollständige Eingabe ab; die Bedingung „eines von
+            // beidem“ prüft CapitalValue und benennt sie im Klartext.
+            Money("value", "Erreichter Wert", required: false,
+                help: "Zählt so ins Vermögen. Sind die Bestandteile darüber gefüllt, ist er "
+                      + "ihre Summe — sonst trage ihn hier ein. Bewertungsreserven und "
+                      + "Schlussüberschüsse gehören nicht dazu; der Bericht weist sie als "
+                      + "nicht garantiert aus."),
             Date("asOf", "Stichtag", required: true),
             Date("maturesOn", "Ablauf", required: false),
             Date("report", "Statusbericht", required: false,
@@ -1125,19 +1145,10 @@ public sealed class CreateFormService(
 
         if (capitalForming)
         {
-            if (ParseMoney(Value(values, "value")) is not { } value)
+            if (CapitalValue(policy, values) is { } problem)
             {
-                return Fail("value", "Erreichter Wert ist kein Betrag");
+                return problem;
             }
-
-            if (ParseDate(Value(values, "asOf")) is not { } asOf)
-            {
-                return Fail("asOf", "Stichtag ist kein Datum");
-            }
-
-            policy.CurrentValue = value;
-            policy.ValuationDate = asOf;
-            policy.MaturesOn = ParseDate(Value(values, "maturesOn"));
 
             // Ein Statusbericht ist ein Jahresrhythmus: aus dem letzten entsteht die Erinnerung
             // an den nächsten.
@@ -1158,8 +1169,64 @@ public sealed class CreateFormService(
         db.Policies.Add(policy);
         await db.SaveChangesAsync(ct);
 
+        if (capitalForming)
+        {
+            await RecordAsync(policy, ct);
+            await db.SaveChangesAsync(ct);
+        }
+
         return Ok(policy.Id, $"/police/{policy.Id}");
     }
+
+    /// <summary>
+    /// Wert, Bestandteile und Stichtag eines wertbildenden Vertrags.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die Bestandteile zuerst: sind sie gefüllt, rechnet die Anwendung die Summe und
+    /// schreibt sie ins Wertfeld — Abschnitt 19.5. Eine Kopfzahl, die neben ihrer eigenen Summe
+    /// steht und ihr widerspricht, wäre die schlimmere Variante.</para>
+    /// <para>Anlegen und Ändern teilen sich diese Stelle; zweimal gerechnet liefen sie
+    /// irgendwann auseinander, und die Maske nähme beim Anlegen Zahlen an, aus denen sie nichts
+    /// macht.</para>
+    /// </remarks>
+    private static CreateResultDto? CapitalValue(
+        Policy policy, IReadOnlyDictionary<string, string?> values)
+    {
+        policy.BaseValue = ParseMoney(Value(values, "baseValue"));
+        policy.AccruedBonus = ParseMoney(Value(values, "accruedBonus"));
+
+        var summe = policy.BaseValue is null && policy.AccruedBonus is null
+            ? (decimal?)null
+            : (policy.BaseValue ?? 0m) + (policy.AccruedBonus ?? 0m);
+
+        if ((summe ?? ParseMoney(Value(values, "value"))) is not { } value)
+        {
+            return Fail("value", "Erreichter Wert fehlt — trage ihn ein oder seine Bestandteile darüber.");
+        }
+
+        if (ParseDate(Value(values, "asOf")) is not { } asOf)
+        {
+            return Fail("asOf", "Stichtag ist kein Datum");
+        }
+
+        policy.CurrentValue = value;
+        policy.ValuationDate = asOf;
+        policy.MaturesOn = ParseDate(Value(values, "maturesOn"));
+        return null;
+    }
+
+    /// <summary>
+    /// Schreibt den erfassten Stand in die Berichtsreihe des Vertrags.
+    /// </summary>
+    /// <remarks>
+    /// Auch von Hand gepflegte Stände sind Stände. Ohne diesen Eintrag überschriebe jede
+    /// Bearbeitung den vorigen Wert spurlos, und ein Vertrag, den niemand einliest, bekäme nie
+    /// einen Verlauf — obwohl jemand ihn Jahr für Jahr gepflegt hat.
+    /// </remarks>
+    private Task RecordAsync(Policy policy, CancellationToken ct)
+        => (policy.CurrentValue, policy.ValuationDate) is ({ } wert, { } stichtag)
+            ? PolicyService.RecordReportAsync(db, clock, policy.Id, stichtag, wert, "erfasst", ct)
+            : Task.CompletedTask;
 
     // ── Immobilie ──────────────────────────────────────────────────────────────────────────
 

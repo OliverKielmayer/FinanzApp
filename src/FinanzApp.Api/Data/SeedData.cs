@@ -488,8 +488,23 @@ public static class SeedData
                 // Über die Vertragsnummer findet der Beleg-Scan sein Ziel — ohne sie könnte ein
                 // eingelesener Statusreport nichts zuordnen.
                 PolicyNumber = "LV-4471-01",
+
+                // Die Bestandteile des erreichten Werts — daraus entsteht der Block „So
+                // entsteht der Wert" am Vertrag.
+                BaseValue = 18373.87m,
+                AccruedBonus = 2107.65m,
                 CurrentValue = 20481.52m,
                 ValuationDate = new DateOnly(2025, 7, 31),
+
+                // Vier gemeldete Stände — daraus entsteht der Verlauf. Ohne sie stünde am
+                // Vertrag ein einziger Wert, und jede gezeichnete Kurve wäre erfunden.
+                Reports =
+                {
+                    Report(2022, 7, 31, 18051.33m, "Statusreport"),
+                    Report(2023, 7, 31, 18827.54m, "Statusreport"),
+                    Report(2024, 7, 31, 19637.12m, "Statusreport"),
+                    Report(2025, 7, 31, 20481.52m, "Statusreport"),
+                },
             },
             new Policy
             {
@@ -498,9 +513,16 @@ public static class SeedData
                 Name = "Raiffeisenbank LV",
                 Provider = "Raiffeisenbank",
                 Notes = "Ablauf 2034",
+                PolicyNumber = "RB-2019-8842",
+                Premium = 85m,
+                PremiumInterval = PremiumInterval.Monthly,
                 CurrentValue = 14208m,
                 ValuationDate = new DateOnly(2025, 12, 31),
                 MaturesOn = new DateOnly(2034, 12, 1),
+
+                // Nur ein Stand: dieser Vertrag zeigt den ehrlichen Fall — ein Bericht ist kein
+                // Verlauf, und der Schirm zeichnet dann keine Linie, sondern sagt das.
+                Reports = { Report(2025, 12, 31, 14208m, "Statusreport") },
             },
             new Policy
             {
@@ -509,8 +531,21 @@ public static class SeedData
                 Name = "Riester Debeka",
                 Provider = "Debeka",
                 Notes = "Zulagen 2025 gebucht",
+                PolicyNumber = "DB-RI-330914",
+                Premium = 162.75m,
+                PremiumInterval = PremiumInterval.Monthly,
+
+                // Ein Bestandteil, keine Summe: eine Riesterrente führt kein
+                // Ansammlungsguthaben, und eine Summe aus einem Summanden ist keine.
+                BaseValue = 11930.40m,
                 CurrentValue = 11930.40m,
                 ValuationDate = new DateOnly(2025, 12, 31),
+                Reports =
+                {
+                    Report(2023, 12, 31, 7612.05m, "Auszug"),
+                    Report(2024, 12, 31, 9686.40m, "Auszug"),
+                    Report(2025, 12, 31, 11930.40m, "Auszug"),
+                },
             },
             new Policy
             {
@@ -519,9 +554,39 @@ public static class SeedData
                 Name = "Bausparen BSK SHA",
                 Provider = "Bausparkasse Schwäbisch Hall",
                 Notes = "Zuteilung möglich",
+                PolicyNumber = "BSH 7712 4409",
+                Premium = 120m,
+                PremiumInterval = PremiumInterval.Monthly,
+                BaseValue = 12320.08m,
                 CurrentValue = 12320.08m,
                 ValuationDate = new DateOnly(2025, 12, 31),
+                Reports =
+                {
+                    Report(2024, 12, 31, 10856.68m, "Auszug"),
+                    Report(2025, 12, 31, 12320.08m, "Auszug"),
+                },
             });
+    }
+
+    /// <summary>
+    /// Ein gemeldeter Stand zu seinem Stichtag.
+    /// </summary>
+    /// <remarks>
+    /// Die Quelle heißt, wie das Papier heißt, auf dem der Stand steht: ein Bausparvertrag
+    /// bekommt einen Auszug, eine Lebensversicherung einen Statusreport. Das Anlagedatum ist der
+    /// Stichtag selbst — die Demodaten tun nicht so, als wäre der Bericht später erfasst worden.
+    /// </remarks>
+    private static PolicyReport Report(int jahr, int monat, int tag, decimal wert, string quelle)
+    {
+        var stichtag = new DateOnly(jahr, monat, tag);
+
+        return new PolicyReport
+        {
+            AsOf = stichtag,
+            Value = wert,
+            Source = quelle,
+            CreatedAt = stichtag.ToDateTime(TimeOnly.MinValue),
+        };
     }
 
     private static void SeedImportProfiles(FinanzAppDbContext db)

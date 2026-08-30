@@ -244,6 +244,15 @@ public sealed class DocumentScanService(
         vertrag.CurrentValue = wert;
         vertrag.ValuationDate = stichtag;
 
+        // Die Bestandteile mit übernehmen: sie tragen den Block „So entsteht der Wert" am
+        // Vertrag (Abschnitt 19.5), und der Bericht nennt sie ohnehin einzeln.
+        vertrag.BaseValue = werte.GetValueOrDefault("rueckkauf")?.Number ?? vertrag.BaseValue;
+        vertrag.AccruedBonus = werte.GetValueOrDefault("ansammlung")?.Number ?? vertrag.AccruedBonus;
+
+        // Und den Stand in die Berichtsreihe — Abschnitt 19.6. Ein neuer Bericht setzt den Wert
+        // **seines** Stichtags; ein zweiter zum selben Tag aktualisiert, statt zu verdoppeln.
+        await PolicyService.RecordReportAsync(db, clock, vertrag.Id, stichtag, wert, art.Label, ct);
+
         // Das Ablaufdatum steht im Bericht; im Vertrag fehlt es oft. Ergänzt, nie überschrieben:
         // was der Nutzer gepflegt hat, weiß er besser als ein Leseergebnis.
         if (werte.GetValueOrDefault("ablauf")?.Date is { } ablauf)
