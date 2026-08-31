@@ -109,6 +109,15 @@
     [Parameter] public int? Id { get; set; }
 
     /// <summary>
+    /// Die Liste bleibt stehen, wenn nur ein anderes Dokument geöffnet wird.
+    /// </summary>
+    /// <remarks>
+    /// Die Adresse wählt hier die zweite Spalte, sie gehört nicht zu den Daten der ersten. Sie
+    /// bei jedem Klick neu zu holen wäre ein Abruf ohne Ergebnis — die Vorschau lädt selbst.
+    /// </remarks>
+    protected override bool ReloadOnNavigation => false;
+
+    /// <summary>
     /// Nach dem Löschen rückt die Vorschau auf den nächsten Eintrag — oder in den Leerzustand.
     /// Eine Vorschau, die auf ein gelöschtes Dokument zeigt, wäre schlimmer als eine leere.
     /// </summary>

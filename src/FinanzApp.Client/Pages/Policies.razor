@@ -71,20 +71,14 @@
     private bool CapitalForming =>
         Navigation.ToBaseRelativePath(Navigation.Uri).StartsWith("vorsorge", StringComparison.OrdinalIgnoreCase);
 
-    protected override void OnInitialized()
-    {
-        base.OnInitialized();
-        Navigation.LocationChanged += OnLocationChanged;
-    }
-
-    protected override async Task LoadAsync() => data = await Api.GetPoliciesAsync(CapitalForming);
-
     /// <summary>
-    /// Beide Routen führen auf dieselbe Komponente — Blazor legt sie beim Wechsel nicht neu an,
-    /// also muss der Wechsel selbst neu laden.
+    /// Beide Routen führen auf dieselbe Komponente — Blazor legt sie beim Wechsel nicht neu an.
     /// </summary>
-    private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
-        => await ReloadAsync();
+    /// <remarks>
+    /// Das Nachladen beim Adresswechsel macht die Basisklasse für alle Seiten. Hier stand dafür
+    /// ein eigener Horcher; er lud nach dem Wechsel ein zweites Mal.
+    /// </remarks>
+    protected override async Task LoadAsync() => data = await Api.GetPoliciesAsync(CapitalForming);
 
     private string Figure(PolicyListItemDto policy)
         => CapitalForming
@@ -151,9 +145,4 @@
     /// verdeckende Fassung würde nie gerufen — der Handler bliebe nach dem Verlassen der Seite
     /// angemeldet und für jede spätere Navigation mitfeuern.
     /// </summary>
-    public override void Dispose()
-    {
-        Navigation.LocationChanged -= OnLocationChanged;
-        base.Dispose();
-    }
 }

@@ -169,7 +169,11 @@
     /// Ab Tablet bleibt die Komponente stehen und bekommt nur eine andere Id — dann muss sie
     /// selbst nachladen, sonst zeigte die Vorschau weiter das vorige Dokument.
     /// </summary>
-    protected override async Task OnParametersSetAsync()
+    /// <remarks>
+    /// Der Haken der Basis, nicht <c>OnParametersSetAsync</c>: dort liegt das erste Laden, und
+    /// eine Überschreibung ohne Basisaufruf ließ die Spalte auf „Wird geladen …“ stehen.
+    /// </remarks>
+    protected override async Task OnParametersChangedAsync()
     {
         if (data is not null && loadedId != Id)
         {
