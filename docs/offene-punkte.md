@@ -26,7 +26,10 @@ fünf Vorsorge-Korrekturen aus §19.
 
 Gebaut ist der ganze Abschnitt: Dokumenttyp-Modell, beide Arten, Analyse-Schrittkette,
 Vorschlag, Werteprüfung mit Herkunftsseite und die Bestätigung, die die Wirkung nennt. Geprüft
-an den beiden echten PDFs des Nutzers. Was dabei liegen blieb:
+an den echten PDFs des Nutzers — **elf Jahresberichte desselben Vertrags, 2014 bis 2024**. Aus
+den Jahrgängen bis 2018 kam zuerst kein einziger Wert heraus; die Leseregeln kennen deren
+Schreibweise jetzt (ausgeschriebenes „Euro“, kürzere Abschnittsnamen, Druckmarken links,
+Stichtag mit Monatsnamen). Was dabei liegen blieb:
 
 - **Keine Texterkennung.** Beide Originale tragen eine Textebene — der Statusreport eine
   unsichtbare hinter vier Seitenbildern. Ein abfotografierter Beleg wird deshalb erkannt,
@@ -37,6 +40,13 @@ an den beiden echten PDFs des Nutzers. Was dabei liegen blieb:
   der Vorschlag wieder aus dem Typ-Datensatz und nicht aus einer gelernten Regel.
 - **Kein Weg, die vorgeschlagene Ablage zu ändern.** Der Prototyp zeigt den Knopf und lässt ihn
   ins Leere laufen; hier fehlt er ganz. Der Pfad entsteht aus Bereich, Objekt und Jahr.
+- **Bewertungsreserven und Schlussüberschüsse liest der ältere Jahrgang nicht.** Er schreibt sie
+  als Fließtext über zwei Zeilen („… belief sich die Bewertungsreserve auf“ / „256,78 Euro“)
+  statt als beschriftete Wertzeile. Beide sind ohnehin nicht garantiert und in keiner
+  Vermögenssumme; sie bleiben leer, statt geraten zu werden.
+- **Das Dokumentdatum fehlt in den älteren Berichten.** Dort steht nur „August 2014“ — ein Monat
+  ohne Tag. Aus ihm einen Ersten zu machen wäre ein erfundenes Datum; der Stichtag, an dem der
+  Wert hängt, wird dagegen gelesen.
 
 Zwei Befunde aus den echten Dateien, die im Handoff so nicht stehen und beim Weiterbauen zählen:
 

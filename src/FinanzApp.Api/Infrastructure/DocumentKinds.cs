@@ -58,14 +58,18 @@ public sealed record DocumentFieldRule
     public DocumentLocator Locator { get; init; } = DocumentLocator.Label;
 
     /// <summary>
-    /// Abschnitt, in dem gesucht wird — <c>null</c> heißt: im ganzen Dokument.
+    /// Abschnitte, in denen gesucht wird — leer heißt: im ganzen Dokument.
     /// </summary>
     /// <remarks>
-    /// Der Anker, ohne den der Statusreport nicht auszulesen wäre: „Gesamtleistung“ steht dort
-    /// dreimal mit drei verschiedenen Beträgen, je einmal unter Ablauf, Beitragsfreistellung und
-    /// Todesfall. Ohne Abschnitt träfe die Suche den erstbesten.
+    /// <para>Der Anker, ohne den der Statusreport nicht auszulesen wäre: „Gesamtleistung“ steht
+    /// dort dreimal mit drei verschiedenen Beträgen, je einmal unter Ablauf, Beitragsfreistellung
+    /// und Todesfall. Ohne Abschnitt träfe die Suche den erstbesten.</para>
+    /// <para><b>Mehrere, weil dieselbe Stelle über die Jahre anders heißt.</b> Derselbe
+    /// Versicherer schrieb bis 2018 „Leistung im Erlebensfall“ und schreibt seit 2019 „Leistung
+    /// im Erlebensfall zum Ablauf“. Gesucht wird im ersten Abschnitt, den das Dokument
+    /// tatsächlich führt — die Reihenfolge hier ist die Rangfolge.</para>
     /// </remarks>
-    public string? Section { get; init; }
+    public string[] Sections { get; init; } = [];
 
     /// <summary>Beschriftungen, unter denen der Wert steht. Der erste Treffer gewinnt.</summary>
     public string[] Labels { get; init; } = [];
@@ -250,7 +254,7 @@ public sealed record DocumentKind
 public static class DocumentKindLibrary
 {
     /// <summary>
-    /// Statusreport Lebensversicherung — Abschnitt 14.3, zehn Felder.
+    /// Statusreport Lebensversicherung — Abschnitt 14.3.
     /// </summary>
     /// <remarks>
     /// <para>Die drei Leistungsszenarien des Dokuments (Ablauf, Beitragsfreistellung, Todesfall)
@@ -274,6 +278,9 @@ public static class DocumentKindLibrary
 
         Markers = [new("Statusreport"), new("Wert der Versicherung")],
 
+        // Die Reihenfolge ist die Rangfolge: die genauere Schreibweise zuerst. „Leistung im
+        // Erlebensfall“ steht deshalb hinten — sonst schluckte sie in den neueren Berichten die
+        // beiden Szenarien, die mit ihr anfangen, und der Ablaufabschnitt käme nie zustande.
         Sections =
         [
             "Leistung im Erlebensfall zum Ablauf",
@@ -281,6 +288,7 @@ public static class DocumentKindLibrary
             "Leistung im Todesfall",
             "Wert der Versicherung",
             "Leistung bei Berufsunfähigkeit",
+            "Leistung im Erlebensfall",
         ],
 
         AsOfField = "stichtag",
@@ -292,12 +300,12 @@ public static class DocumentKindLibrary
             new()
             {
                 Key = "rueckkauf", Label = "Rückkaufswert", Kind = DocumentValueKind.Money,
-                Section = "Wert der Versicherung", Labels = ["Rückkaufswert"],
+                Sections = ["Wert der Versicherung"], Labels = ["Rückkaufswert"],
             },
             new()
             {
                 Key = "ansammlung", Label = "Ansammlungsguthaben", Kind = DocumentValueKind.Money,
-                Section = "Wert der Versicherung",
+                Sections = ["Wert der Versicherung"],
                 Labels = ["erreichter Wert der Überschussbeteiligung"],
             },
 
@@ -305,19 +313,20 @@ public static class DocumentKindLibrary
             new()
             {
                 Key = "gesamt", Label = "Erreichter Wert gesamt", Kind = DocumentValueKind.Money,
-                Section = "Wert der Versicherung", Labels = ["Gesamtleistung"], Lead = true,
+                Sections = ["Wert der Versicherung"], Labels = ["Gesamtleistung"], Lead = true,
             },
 
             new()
             {
                 Key = "garantie", Label = "Garantierte Erlebensfallleistung", Kind = DocumentValueKind.Money,
-                Section = "Leistung im Erlebensfall zum Ablauf",
+                Sections = ["Leistung im Erlebensfall zum Ablauf", "Leistung im Erlebensfall"],
                 Labels = ["garantierte Erlebensfallleistung"],
             },
             new()
             {
                 Key = "ablaufwert", Label = "Gesamtleistung bei Ablauf", Kind = DocumentValueKind.Money,
-                Section = "Leistung im Erlebensfall zum Ablauf", Labels = ["Gesamtleistung"],
+                Sections = ["Leistung im Erlebensfall zum Ablauf", "Leistung im Erlebensfall"],
+                Labels = ["Gesamtleistung"],
             },
 
             // Das Ablaufdatum steht in der Abschnittsüberschrift selbst, nicht in einer Zeile
@@ -332,25 +341,38 @@ public static class DocumentKindLibrary
             new()
             {
                 Key = "todesfall", Label = "Todesfallleistung", Kind = DocumentValueKind.Money,
-                Section = "Leistung im Todesfall", Labels = ["Gesamtleistung"],
+                Sections = ["Leistung im Todesfall"], Labels = ["Gesamtleistung"],
             },
             new()
             {
                 Key = "bu", Label = "Monatliche BU-Rente", Kind = DocumentValueKind.Money,
-                Section = "Leistung bei Berufsunfähigkeit",
-                Labels = ["monatliche Berufsunfähigkeitsrente"],
+                Sections = ["Leistung bei Berufsunfähigkeit"],
+
+                // Beide Schreibweisen desselben Absenders: bis 2021 stand „garantierte“ mit im
+                // Namen der Zeile.
+                Labels = ["monatliche Berufsunfähigkeitsrente", "monatliche garantierte Berufsunfähigkeitsrente"],
+            },
+
+            // Eigenes Feld und nicht dasselbe: mehrere Jahrgänge weisen die Rente **jährlich**
+            // aus. Sie in das Monatsfeld zu lesen wäre eine falsche Zahl in einem richtigen Feld
+            // — zwölfmal zu hoch, und niemand sähe es der Zeile an.
+            new()
+            {
+                Key = "bujahr", Label = "Jährliche BU-Rente", Kind = DocumentValueKind.Money,
+                Sections = ["Leistung bei Berufsunfähigkeit"],
+                Labels = ["jährliche Berufsunfähigkeitsrente", "jährliche garantierte Berufsunfähigkeitsrente"],
             },
 
             new()
             {
                 Key = "reserven", Label = "Bewertungsreserven", Kind = DocumentValueKind.Money,
-                Section = "Wert der Versicherung",
+                Sections = ["Wert der Versicherung"],
                 Labels = ["Für die Zukunft nicht garantierte Bewertungsreserven"], Soft = true,
             },
             new()
             {
                 Key = "schluss", Label = "Schlussüberschüsse", Kind = DocumentValueKind.Money,
-                Section = "Wert der Versicherung",
+                Sections = ["Wert der Versicherung"],
                 Labels = ["Für die Zukunft nicht garantierte Schlussüberschüsse"], Soft = true,
             },
 
@@ -359,7 +381,11 @@ public static class DocumentKindLibrary
             {
                 Key = "stichtag", Label = "Stichtag", Kind = DocumentValueKind.Date,
                 Locator = DocumentLocator.Pattern,
-                Pattern = @"Vertragsstand zum\s+(\d{1,2}\.\d{1,2}\.\d{4})",
+
+                // Beide Schreibweisen: „zum 31.07.2025“ und „zum 31. Juli 2014“ — der ältere
+                // Jahrgang schreibt den Monat aus, und manchmal fehlt das Leerzeichen dahinter.
+                // Ohne den Stichtag wird kein Wert übernommen; er ist die Pflichtangabe.
+                Pattern = @"Vertragsstand zum\s+(\d{1,2}\.\s*(?:\d{1,2}\.|[A-Za-zÄÖÜäöüß]+\s+)\d{4})",
             },
             new()
             {
@@ -376,7 +402,9 @@ public static class DocumentKindLibrary
             {
                 Key = "absender", Label = "Absender", Kind = DocumentValueKind.Text,
                 Locator = DocumentLocator.Pattern,
-                Pattern = @"^([A-ZÄÖÜ][\w.\-äöüß]*(?: [\w.\-äöüß]+)*? (?:Lebensversicherung|Leben) AG)$",
+                // Kein Zeilenende erzwingen: in den älteren Berichten klebt die Anschrift
+                // ohne Leerzeichen hinter der Firma („… AG•Postfach103969“).
+                Pattern = @"^([A-ZÄÖÜ][\w.\-äöüß]*(?: [\w.\-äöüß]+)*? (?:Lebensversicherung|Leben) AG)\b",
             },
         ],
 
@@ -855,8 +883,12 @@ public sealed class DocumentFieldExtractor
 
         foreach (var zeile in content.Lines)
         {
+            // Nicht nur am Zeilenanfang: die älteren Berichte tragen links eine Druckmarke, und
+            // aus „Leistung im Todesfall“ wird in der Textebene „06 · Leistung im Todesfall“.
+            // Ohne diesen Blick auf jede Zelle beginnt der Abschnitt nie, und jedes Feld darin
+            // bleibt leer.
             var ueberschrift = kind.Sections.FirstOrDefault(
-                s => zeile.Text.StartsWith(s, StringComparison.OrdinalIgnoreCase));
+                s => zeile.Cells.Any(z => z.StartsWith(s, StringComparison.OrdinalIgnoreCase)));
 
             if (ueberschrift is not null)
             {
@@ -889,9 +921,7 @@ public sealed class DocumentFieldExtractor
         PdfContent content,
         double basis)
     {
-        var zeilen = regel.Section is { } abschnitt
-            ? abschnitte.TryGetValue(abschnitt, out var treffer) ? treffer : []
-            : content.Lines;
+        var zeilen = Zeilen(regel, abschnitte, content);
 
         return regel.Locator switch
         {
@@ -903,12 +933,46 @@ public sealed class DocumentFieldExtractor
     }
 
     /// <summary>
+    /// Die Zeilen, in denen ein Feld gesucht wird.
+    /// </summary>
+    /// <remarks>
+    /// Nennt die Regel Abschnitte, gewinnt der erste, den das Dokument führt. Führt es keinen
+    /// davon, bleibt die Liste leer — dann wird nicht ersatzweise im ganzen Dokument gesucht:
+    /// „Gesamtleistung“ steht im Statusreport dreimal, und der erstbeste Treffer wäre eine
+    /// falsche Zahl in einem richtigen Feld.
+    /// </remarks>
+    private static IReadOnlyList<PdfLine> Zeilen(
+        DocumentFieldRule regel,
+        Dictionary<string, List<PdfLine>> abschnitte,
+        PdfContent content)
+    {
+        if (regel.Sections.Length == 0)
+        {
+            return content.Lines;
+        }
+
+        foreach (var abschnitt in regel.Sections)
+        {
+            if (abschnitte.TryGetValue(abschnitt, out var treffer))
+            {
+                return treffer;
+            }
+        }
+
+        return [];
+    }
+
+    /// <summary>
     /// Beschriftung links, Wert rechts.
     /// </summary>
     /// <remarks>
-    /// Die Beschriftung muss am <em>Anfang</em> der Zeile stehen. Das schließt Fließtext aus, in
-    /// dem dasselbe Wort mitten im Satz vorkommt — „Die Gesamtleistung Ihrer Versicherung setzt
-    /// sich…“ ist keine Wertzeile und darf keine werden.
+    /// <para>Die Beschriftung muss eine Zelle <em>beginnen</em> — nicht die Zeile. Das schließt
+    /// Fließtext aus, in dem dasselbe Wort mitten im Satz vorkommt („Die Gesamtleistung Ihrer
+    /// Versicherung setzt sich…“ ist keine Wertzeile), lässt aber die Druckmarke links davor
+    /// zu: die älteren Berichte setzen dort eine Nummer, und aus „garantierte
+    /// Erlebensfallleistung · 22.550,00 Euro“ wird „01191591 · garantierte
+    /// Erlebensfallleistung · 22.550,00 Euro“.</para>
+    /// <para>Der Wert steht dann <em>rechts von der Beschriftung</em> und nie links davon.</para>
     /// </remarks>
     private ReadValue? ByLabel(DocumentFieldRule regel, IReadOnlyList<PdfLine> zeilen, double basis)
     {
@@ -916,16 +980,28 @@ public sealed class DocumentFieldExtractor
         {
             foreach (var beschriftung in regel.Labels)
             {
-                var kopf = zeile.Cells[0];
-                if (!kopf.StartsWith(beschriftung, StringComparison.OrdinalIgnoreCase))
+                var stelle = -1;
+
+                for (var i = 0; i < zeile.Cells.Count; i++)
+                {
+                    if (zeile.Cells[i].StartsWith(beschriftung, StringComparison.OrdinalIgnoreCase))
+                    {
+                        stelle = i;
+                        break;
+                    }
+                }
+
+                if (stelle < 0)
                 {
                     continue;
                 }
 
-                // Steht alles in einer Zelle, ist der Wert der Rest dahinter.
-                if (zeile.Cells.Count == 1)
+                // Steht die Beschriftung in der letzten Zelle, ist der Wert der Rest dahinter.
+                if (stelle == zeile.Cells.Count - 1)
                 {
-                    if (Read(regel, kopf[beschriftung.Length..].TrimStart(':', ' ')) is { } einzeln)
+                    var rest = zeile.Cells[stelle][beschriftung.Length..].TrimStart(':', ' ');
+
+                    if (Read(regel, rest) is { } einzeln)
                     {
                         return einzeln with { Page = zeile.Page, Confidence = basis };
                     }
@@ -936,7 +1012,7 @@ public sealed class DocumentFieldExtractor
                 // Sonst von rechts nach links die erste Zelle, die sich lesen lässt. Die letzte
                 // ist nicht immer der Wert: „Depotwert · 95.558,12 · EUR“ trägt hinten die
                 // Währung, und wer stur die letzte nimmt, findet dort keinen Betrag.
-                for (var i = zeile.Cells.Count - 1; i >= 1; i--)
+                for (var i = zeile.Cells.Count - 1; i > stelle; i--)
                 {
                     if (Read(regel, zeile.Cells[i]) is { } wert)
                     {
@@ -1090,8 +1166,20 @@ public sealed class DocumentFieldExtractor
         decimal ergebnis)
     {
         var zeichen = probe.Kind == DocumentCheckKind.Sum ? " + " : " \u00D7 ";
-        var teile = probe.Parts.Select(p => werte[p].Raw);
         var regel = felder.First(f => f.Key == probe.Result);
+
+        // Beträge einheitlich geschrieben statt im Rohtext des Papiers: der ältere Jahrgang
+        // schreibt „6.099,65 Euro“ und setzt stellenweise ein Leerzeichen als Tausenderpunkt.
+        // Alles andere bleibt, wie es dort steht — bei einem Kurs trägt die Schreibweise die
+        // Genauigkeit („100,500“ sind drei Stellen und keine zwei).
+        var teile = probe.Parts.Select(p =>
+        {
+            var teil = felder.FirstOrDefault(f => f.Key == p);
+
+            return teil?.Kind == DocumentValueKind.Money && werte[p].Number is { } zahl
+                ? Format(teil, zahl)
+                : werte[p].Raw;
+        });
 
         return string.Join(zeichen, teile) + " = " + Format(regel, ergebnis);
     }
@@ -1099,6 +1187,17 @@ public sealed class DocumentFieldExtractor
     // ── Werte lesen ────────────────────────────────────────────────────────────────────────
 
     private static readonly CultureInfo German = CultureInfo.GetCultureInfo("de-DE");
+
+    /// <summary>
+    /// Wie ein Datum im Papier stehen kann.
+    /// </summary>
+    /// <remarks>
+    /// Ausdrücklich und nicht über die nachsichtige Prüfung der Kultur: <c>d.M.yyyy</c> ist die
+    /// heutige Schreibweise, <c>d. MMMM yyyy</c> die des älteren Jahrgangs — und der schreibt das
+    /// Leerzeichen nach dem Punkt manchmal nicht.
+    /// </remarks>
+    private static readonly string[] Datumsformate =
+        ["d.M.yyyy", "dd.MM.yyyy", "d. MMMM yyyy", "d.MMMM yyyy"];
 
     /// <summary>
     /// Macht aus dem Rohtext einen Wert der erwarteten Art — oder nichts.
@@ -1128,15 +1227,24 @@ public sealed class DocumentFieldExtractor
 
         if (regel.Kind == DocumentValueKind.Date)
         {
-            return DateOnly.TryParseExact(text, "d.M.yyyy", German, DateTimeStyles.None, out var tag)
+            return DateOnly.TryParseExact(text, Datumsformate, German, DateTimeStyles.None, out var tag)
                 ? new ReadValue { Rule = regel, Raw = text, Date = tag }
                 : null;
         }
 
-        var zahl = text.Replace("EUR", string.Empty, StringComparison.OrdinalIgnoreCase)
+        // „Euro“ vor „EUR“: umgekehrt bliebe von „6.099,65 Euro“ ein „6.099,65 o“ übrig, und der
+        // ganze Jahrgang bis 2018 wäre unlesbar — er schreibt die Währung aus. Genau daran ist es
+        // gescheitert.
+        var zahl = text.Replace("Euro", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace("EUR", string.Empty, StringComparison.OrdinalIgnoreCase)
             .Replace("€", string.Empty, StringComparison.Ordinal)
             .Replace("Stück", string.Empty, StringComparison.OrdinalIgnoreCase)
             .Trim();
+
+        // Leerzeichen innerhalb der Zahl fallen weg: die Textebene setzt stellenweise ein
+        // Leerzeichen als Tausenderpunkt („24 782,58“). Ein Betrag trägt nie eines.
+        zahl = zahl.Replace(" ", string.Empty, StringComparison.Ordinal)
+            .Replace("\u00a0", string.Empty, StringComparison.Ordinal);
 
         return decimal.TryParse(zahl, NumberStyles.Number, German, out var wert)
             ? new ReadValue { Rule = regel, Raw = text, Number = wert }
