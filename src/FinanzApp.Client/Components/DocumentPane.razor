@@ -15,10 +15,37 @@
 
         @if (document.FileExists)
         {
-            <div class="doc-preview">Vorschau — die Datei öffnet in einem neuen Fenster.</div>
+            @*
+                Die Datei selbst, nicht ein Satz über sie. Ein PDF steht im Rahmen, ein Bild als
+                Bild; was der Browser nicht darstellt, sagt das statt eine leere Fläche zu zeigen.
+            *@
+            @switch (DocumentPreview.For(document.Extension, document.FileName))
+            {
+                case DocumentPreviewKind.Frame:
+                    <iframe class="doc-frame" src="@DocumentPreview.FileUrl(document.Id)"
+                            title="@($"Vorschau von {document.FileName}")"></iframe>
+                    break;
+
+                case DocumentPreviewKind.Image:
+                    <img class="doc-image" src="@DocumentPreview.FileUrl(document.Id)"
+                         alt="@($"Vorschau von {document.FileName}")" />
+                    break;
+
+                default:
+                    <div class="doc-preview">
+                        Diese Dateiart lässt sich hier nicht anzeigen@(document.Extension is { Length: > 0 } endung
+                            ? " (" + endung + ")"
+                            : null). Öffnen und Herunterladen gehen trotzdem.
+                    </div>
+                    break;
+            }
+
             <div class="doc-actions">
-                <a class="btn btn-primary" href="@($"/api/documents/{document.Id}/file")"
-                   target="_blank" rel="noopener">Datei öffnen</a>
+                <a class="btn btn-primary" href="@DocumentPreview.FileUrl(document.Id)"
+                   target="_blank" rel="noopener">In neuem Fenster öffnen</a>
+                <a class="btn btn-secondary" href="@DocumentPreview.DownloadUrl(document.Id)">
+                    Herunterladen
+                </a>
             </div>
         }
         else

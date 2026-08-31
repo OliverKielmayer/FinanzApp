@@ -364,7 +364,14 @@ public sealed class DocumentService(
             return null;
         }
 
-        return (File.OpenRead(absolute), document.FileName, ContentTypeFor(document.Extension));
+        // Die Erweiterung ist nicht immer gepflegt — Belege aus dem Scaneingang kamen ohne.
+        // Ohne den Rückfall auf den Dateinamen ginge ein sichtbares PDF als
+        // „application/octet-stream" hinaus, und der Browser lüde es herunter statt es zu zeigen.
+        var extension = document.Extension is { Length: > 0 } gepflegt
+            ? gepflegt
+            : Path.GetExtension(document.FileName);
+
+        return (File.OpenRead(absolute), document.FileName, ContentTypeFor(extension));
     }
 
     private async Task<List<DocumentListItemDto>> LoadAsync(CancellationToken ct)
@@ -414,7 +421,7 @@ public sealed class DocumentService(
     private static string GermanDate(DateOnly date)
         => date.ToString("dd.MM.yyyy", System.Globalization.CultureInfo.InvariantCulture);
 
-    private static string ContentTypeFor(string? extension) => extension switch
+    private static string ContentTypeFor(string? extension) => extension?.ToLowerInvariant() switch
     {
         ".pdf" => "application/pdf",
         ".jpg" or ".jpeg" => "image/jpeg",

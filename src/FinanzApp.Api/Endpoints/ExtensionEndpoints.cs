@@ -55,12 +55,24 @@ public static class ExtensionEndpoints
 
         // Liefert die Datei aus. Fehlt sie, ist das kein Serverfehler, sondern der gestaltete
         // Zustand „Datei nicht gefunden“ — der Client zeigt ihn im Detail an.
-        api.MapGet("/{id:int}/file", async (int id, DocumentService service, CancellationToken ct) =>
+        //
+        // Ohne „download" geht sie zum **Anzeigen** hinaus: mit Dateinamen im Kopf der Antwort
+        // setzt ASP.NET „Content-Disposition: attachment", und dann lädt der Browser die Datei
+        // herunter, statt sie zu zeigen — die Vorschau blieb dadurch leer. Der Download hat
+        // seine eigene Adresse und behält den Dateinamen.
+        api.MapGet("/{id:int}/file", async (
+            int id, bool? download, DocumentService service, CancellationToken ct) =>
         {
             var file = await service.OpenAsync(id, ct);
-            return file is null
-                ? Results.NotFound()
-                : Results.File(file.Value.Content, file.Value.ContentType, file.Value.FileName);
+
+            if (file is null)
+            {
+                return Results.NotFound();
+            }
+
+            return download == true
+                ? Results.File(file.Value.Content, file.Value.ContentType, file.Value.FileName)
+                : Results.File(file.Value.Content, file.Value.ContentType, enableRangeProcessing: true);
         });
 
         // Dateiannahme. Der Schutz vor fremden Formularen liegt beim Anmelde-Cookie mit

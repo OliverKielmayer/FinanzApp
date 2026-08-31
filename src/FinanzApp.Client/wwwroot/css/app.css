@@ -3251,6 +3251,29 @@ body {
   color: var(--color-neutral-600);
 }
 
+/* Die Datei selbst. Hoehe fest, damit die Spalte nicht bei jedem Dokument springt; der Rahmen
+   scrollt innen, sonst waere er der zweite Scroller neben dem Inhaltsbereich. */
+.doc-frame {
+  display: block;
+  flex: none;
+  width: calc(100% - 32px);
+  height: min(420px, 50vh);
+  min-height: 200px;
+  margin: 0 16px 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider);
+}
+
+.doc-image {
+  display: block;
+  max-width: calc(100% - 32px);
+  max-height: 420px;
+  margin: 0 16px 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider);
+  object-fit: contain;
+}
+
 .doc-path {
   display: block;
   padding: 0 16px 12px;

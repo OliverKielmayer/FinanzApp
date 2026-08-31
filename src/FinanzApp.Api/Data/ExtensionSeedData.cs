@@ -789,6 +789,10 @@ public static class ExtensionSeedData
                 Title = Path.GetFileNameWithoutExtension(row.File),
                 Area = DocumentArea.Other,
                 FileName = row.File,
+
+                // Ohne sie ginge der Beleg als „application/octet-stream" hinaus, und die
+                // Vorschau könnte ihn nicht zeigen.
+                Extension = Path.GetExtension(row.File).ToLowerInvariant(),
                 RelativePath = relativePath,
                 DocumentDate = DateOnly.FromDateTime(now.AddDays(-row.DaysAgo)),
                 CreatedAt = now.AddDays(-row.DaysAgo),
@@ -916,9 +920,15 @@ public static class ExtensionSeedData
     }
 
     /// <summary>
-    /// Schreibt eine kleine Textdatei an den Dokumentpfad. Damit prüft die Vorführung echte
+    /// Schreibt eine kleine Datei an den Dokumentpfad. Damit prüft die Vorführung echte
     /// Pfadauflösung statt einer erfundenen Existenz.
     /// </summary>
+    /// <remarks>
+    /// Endet der Pfad auf <c>.pdf</c>, entsteht ein <b>gültiges</b> einseitiges PDF. Vorher stand
+    /// dort Text unter PDF-Namen: die Vorschau bekam <c>application/pdf</c> und einen Inhalt, der
+    /// keines war, und zeigte im Rahmen einen Ladefehler. Eine Vorführung, die den gebauten
+    /// Zustand nicht vorführt, ist schlimmer als keine.
+    /// </remarks>
     private static async Task WritePlaceholderAsync(
         DocumentPathService paths, string relativePath, string title, CancellationToken ct)
     {
@@ -941,6 +951,66 @@ public static class ExtensionSeedData
             Beispieldaten, damit die Pfadauflösung an echten Dateien geprüft werden kann.
             """;
 
-        await File.WriteAllTextAsync(absolute, text, Encoding.UTF8, ct);
+        if (!absolute.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            await File.WriteAllTextAsync(absolute, text, Encoding.UTF8, ct);
+            return;
+        }
+
+        await File.WriteAllBytesAsync(absolute, PlaceholderPdf(title), ct);
+    }
+
+    /// <summary>
+    /// Ein einseitiges PDF mit dem Titel darauf, von Hand zusammengesetzt.
+    /// </summary>
+    /// <remarks>
+    /// Ohne Bibliothek: fünf Objekte, eine Querverweistabelle, fertig. Für einen Platzhalter ist
+    /// das billiger als eine Abhängigkeit — und es muss nur eines können, nämlich sich öffnen
+    /// lassen.
+    /// </remarks>
+    private static byte[] PlaceholderPdf(string title)
+    {
+        // Klammern und Rückstriche sind in einem PDF-Textliteral Steuerzeichen.
+        var beschriftung = title
+            .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("(", "\\(", StringComparison.Ordinal)
+            .Replace(")", "\\)", StringComparison.Ordinal);
+
+        var inhalt = Encoding.Latin1.GetBytes(
+            $"BT /F1 16 Tf 60 760 Td (FinanzApp - Platzhalter) Tj ET\n"
+            + $"BT /F1 12 Tf 60 730 Td ({beschriftung}) Tj ET\n");
+
+        string[] koerper =
+        [
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] "
+                + "/Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",
+            $"<< /Length {inhalt.Length} >>\nstream\n{Encoding.Latin1.GetString(inhalt)}endstream",
+            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        ];
+
+        var datei = new MemoryStream();
+        var kopf = Encoding.Latin1.GetBytes("%PDF-1.4\n");
+        datei.Write(kopf);
+
+        var stellen = new List<long>(koerper.Length);
+        for (var nummer = 1; nummer <= koerper.Length; nummer++)
+        {
+            stellen.Add(datei.Position);
+            datei.Write(Encoding.Latin1.GetBytes($"{nummer} 0 obj\n{koerper[nummer - 1]}\nendobj\n"));
+        }
+
+        var tabelle = datei.Position;
+        datei.Write(Encoding.Latin1.GetBytes($"xref\n0 {koerper.Length + 1}\n0000000000 65535 f \n"));
+        foreach (var stelle in stellen)
+        {
+            datei.Write(Encoding.Latin1.GetBytes($"{stelle:D10} 00000 n \n"));
+        }
+
+        datei.Write(Encoding.Latin1.GetBytes(
+            $"trailer\n<< /Size {koerper.Length + 1} /Root 1 0 R >>\nstartxref\n{tabelle}\n%%EOF\n"));
+
+        return datei.ToArray();
     }
 }
