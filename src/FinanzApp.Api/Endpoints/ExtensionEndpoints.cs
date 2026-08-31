@@ -325,6 +325,23 @@ public static class ExtensionEndpoints
                     "Der Beleg bleibt im Eingang, bis Typ und Objekt bestimmt sind.",
                     statusCode: StatusCodes.Status409Conflict))
             .RequireAuthorization(AuthPolicies.Write);
+
+        // Typ und Objekt nachtragen und den Beleg in einem Zug wegräumen — der Weg für alles,
+        // was die Einlieferung nicht selbst zuordnen konnte.
+        api.MapPost("/{id:int}/assign", async (
+            int id, AssignScanInboxRequest request, ScanInboxService service, CancellationToken ct) =>
+        {
+            try
+            {
+                return await service.AssignAsync(id, request, ct)
+                    ? Results.NoContent()
+                    : Results.NotFound();
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.Write);
     }
 
     /// <summary>
@@ -347,6 +364,40 @@ public static class ExtensionEndpoints
             try
             {
                 return Results.Ok(await service.AnalyseAsync(content, file.FileName, ct));
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.Write).DisableAntiforgery();
+
+        // Die Einlieferung aus einem überwachten Ordner. Sie geht denselben Weg wie „analyse“
+        // und hört am selben Punkt auf: abgelegt, zugeordnet, im Scaneingang. Ein Dienst, der
+        // niemanden fragt, darf nichts übernehmen.
+        //
+        // Größe und Dateiart werden hier geprüft und nicht erst in der Ablage: der Aufrufer ist
+        // ein Dienst, der aus der Antwort ableiten muss, ob ein zweiter Versuch Sinn hat. 400
+        // heißt „diese Datei nie wieder“, 500 heißt „gleich noch einmal“.
+        api.MapPost("/intake", async (
+            IFormFile file, string? source, ScanIntakeService service,
+            DocumentPathService paths, CancellationToken ct) =>
+        {
+            if (file.Length == 0)
+            {
+                return Results.Problem("Die Datei ist leer.", statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            if (file.Length > paths.MaxFileSizeBytes)
+            {
+                return Results.Problem(
+                    $"Die Datei ist größer als {paths.MaxFileSizeBytes / 1024 / 1024} MB.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            try
+            {
+                await using var content = file.OpenReadStream();
+                return Results.Ok(await service.TakeInAsync(content, file.FileName, source, ct));
             }
             catch (ArgumentException ex)
             {

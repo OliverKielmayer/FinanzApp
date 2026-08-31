@@ -6,6 +6,10 @@
     Posteingang statt Einzelbeleg: gescannt wird stapelweise, eingeordnet wird später. Ein Beleg
     bleibt hier stehen, bis Typ und Objekt bestätigt sind — sonst verschwände er in der Ablage,
     ohne dass jemand entschieden hätte, wozu er gehört.
+
+    Hier landet auch, was der Ordnerdienst hereingereicht hat. Zugeordnet hat er, so weit es
+    ohne Rückfrage ging; übernommen hat er nichts. Was ihm gelungen ist, steht als „erkannt“
+    da und kostet einen Tipp; was nicht, trägt der Benutzer über „Zuordnen“ nach.
 *@
 
 <PageTitle>Scaneingang — FinanzApp</PageTitle>
@@ -48,16 +52,85 @@
                     @(item.Recognised ? "erkannt" : "prüfen")
                 </span>
             </button>
+
+            @*
+                Die Zeile führt zum Beleg, die Schalter darunter räumen ihn weg. Zwei Aktionen an
+                einer Zeile brauchen zwei Flächen — ein Tipp, der je nach Stelle etwas anderes
+                tut, trifft irgendwann das Falsche.
+            *@
+            <AuthorizeView Roles="Owner,Member">
+                <div class="doc-actions">
+                    <button type="button" class="btn btn-secondary" disabled="@busy"
+                            @onclick="@(() => assigning = item)">Zuordnen</button>
+
+                    @if (item.Recognised)
+                    {
+                        @* Erkannt heißt: Typ und Objekt stehen schon. Dann fehlt nur das Ja. *@
+                        <button type="button" class="btn btn-ghost" disabled="@busy"
+                                @onclick="@(() => FileAsync(item))">Wegräumen</button>
+                    }
+                </div>
+            </AuthorizeView>
         }
 
         <div class="spacer"></div>
     }
 </AsyncView>
 
+@if (assigning is { } offen)
+{
+    <ScanAssignSheet Item="offen" Types="types"
+                     OnAssigned="AfterAssignAsync"
+                     OnClose="@(() => assigning = null)" />
+}
+
 @code {
     private ScanInboxDto? data;
 
-    protected override async Task LoadAsync() => data = await Api.GetScanInboxAsync();
+    /// <summary>Die Typenliste des Haushalts — für das Zuordnen-Sheet.</summary>
+    private IReadOnlyList<DocumentTypeDto> types = [];
+
+    private ScanInboxItemDto? assigning;
+    private bool busy;
+
+    /// <summary>
+    /// Eingang und Typenliste zusammen. Die Liste im Sheet nachzuladen hieße, sie bei jedem
+    /// Öffnen erneut zu holen — sie ändert sich seltener als der Eingang.
+    /// </summary>
+    protected override async Task LoadAsync()
+    {
+        data = await Api.GetScanInboxAsync();
+        types = await Api.GetAssignableDocumentTypesAsync();
+    }
+
+    private async Task AfterAssignAsync()
+    {
+        assigning = null;
+        await ReloadAsync();
+    }
+
+    /// <summary>
+    /// Räumt einen erkannten Beleg weg.
+    /// </summary>
+    /// <remarks>
+    /// Der Server prüft trotzdem, ob Typ und Objekt wirklich stehen. „Erkannt“ ist die Zusage der
+    /// Einlieferung, nicht der Beweis — dazwischen kann jemand den Vertrag gelöscht haben.
+    /// </remarks>
+    private Task FileAsync(ScanInboxItemDto item) => RunAsync(async () =>
+    {
+        busy = true;
+
+        try
+        {
+            await Api.FileScanInboxAsync(item.Id);
+            Toasts.Show($"{item.FileName} ist eingeordnet.");
+            await ReloadAsync();
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
 
     private static string Describe(ScanInboxItemDto item)
     {

@@ -95,7 +95,10 @@ public sealed class OverviewService(
             PropertyCount = await db.Properties.CountAsync(ct),
             ContractCount = await db.Contracts.CountAsync(ct),
             OpenTaskCount = work.OpenCount,
-            ScanInboxCount = await db.ScanInbox.CountAsync(ct),
+            // Nur die wartenden. Die Zahl steht als Merkzeichen in der Navigation, und ein
+            // Merkzeichen, das auch Erledigtes zählt, wächst für immer — es zählte dann die
+            // Geschichte des Eingangs und nicht seinen Inhalt.
+            ScanInboxCount = await db.ScanInbox.CountAsync(x => x.FiledAt == null, ct),
             HoldingCount = (await holdings.GetAsync(ct: ct)).Rows.Count,
             NetWorth = wealth.NetWorth.Net,
             RisingCategoryCount = trend.RisingCount,

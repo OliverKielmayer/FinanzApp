@@ -1,0 +1,252 @@
+@implements IDisposable
+
+@*
+    Typ und Objekt zu einem wartenden Beleg nachtragen. Der Weg für alles, was die Erkennung
+    nicht selbst hinbekommen hat — ein Scan ohne Textebene, eine Rechnung ohne Leseregel, ein
+    Beleg zu einem Vertrag, den es in der Anwendung noch nicht gibt.
+
+    Beides in einem Sheet und in einem Aufruf: der Eingang verlangt Typ *und* Objekt, und ein
+    Beleg, der nach dem halben Weg mit Typ und ohne Objekt dastünde, wäre immer noch nicht
+    eingeordnet.
+
+    Das Objekt wird gesucht und nicht aus einer Liste gewählt. Ein Haushalt hat Verträge,
+    Immobilien, Fahrzeuge, Rechnungen und Arbeitgeber — eine Auswahlliste über alles wäre
+    länger als jeder Bildschirm, und wer den Beleg in der Hand hat, weiß, wie sein Objekt heißt.
+*@
+<button type="button" class="backdrop" aria-label="Schließen" @onclick="OnClose"></button>
+
+<div @ref="sheet" class="sheet" role="dialog" aria-modal="true" aria-label="Beleg zuordnen"
+     tabindex="-1" @onkeydown="OnKeyDown">
+    <div class="sheet-head">
+        <div class="stack">
+            <span class="kicker">Beleg zuordnen</span>
+            <span class="sheet-payee">@Item.FileName</span>
+            <span class="meta">
+                @(Item.Recognised ? "erkannt" : "prüfen") · eingegangen @GermanFormat.Date(Item.ArrivedOn)
+            </span>
+        </div>
+    </div>
+
+    <div class="sheet-body">
+        <div class="picker">
+            <span class="label-strong">Typ</span>
+            @if (Types.Count == 0)
+            {
+                <span class="meta">
+                    Es gibt noch keinen Dokumenttyp. Unter „Mehr → Dokumenttypen“ lässt sich einer anlegen.
+                </span>
+            }
+            else
+            {
+                <div class="chipcloud">
+                    @foreach (var type in Types)
+                    {
+                        <button type="button" class="chip @(typeId == type.Id ? "active" : null)"
+                                @onclick="() => typeId = type.Id">@type.Name</button>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="picker">
+            <span class="label-strong">Objekt</span>
+
+            @if (picked is { } gewaehlt)
+            {
+                @* Das Gewählte steht statt der Suche da: es ist die Antwort auf die Frage,
+                   und die Suchtreffer darunter wären nur noch Ablenkung. *@
+                <button type="button" class="tap more-row open" @onclick="Reset">
+                    <span class="stack">
+                        <span class="more-label">@gewaehlt.Label</span>
+                        <span class="meta">@gewaehlt.TargetLabel · @gewaehlt.Subtitle</span>
+                    </span>
+                    <span class="tag tag-neutral">ändern</span>
+                </button>
+            }
+            else
+            {
+                <div class="searchbar">
+                    <input class="input" type="search" placeholder="Vertrag, Immobilie, Fahrzeug …"
+                           aria-label="Objekt suchen" value="@term" @oninput="OnSearchInput" />
+                </div>
+
+                @if (searching)
+                {
+                    <span class="meta">Wird gesucht …</span>
+                }
+                else if (term.Trim().Length > 0 && hits.Count == 0)
+                {
+                    <span class="meta">
+                        Kein Objekt passt zu „@term“. Gibt es das Objekt noch nicht, muss es
+                        zuerst angelegt werden — der Beleg bleibt bis dahin im Eingang.
+                    </span>
+                }
+
+                @foreach (var hit in hits)
+                {
+                    <button type="button" class="tap more-row" @onclick="() => picked = hit">
+                        <span class="stack">
+                            <span class="more-label">@hit.Label</span>
+                            <span class="meta">@hit.TargetLabel · @hit.Subtitle</span>
+                        </span>
+                    </button>
+                }
+            }
+        </div>
+    </div>
+
+    <div class="sheet-foot">
+        <button type="button" class="btn btn-primary" disabled="@(!CanAssign)" @onclick="AssignAsync">
+            Zuordnen und wegräumen
+        </button>
+        <button type="button" class="btn btn-secondary" @onclick="OnClose">Abbrechen</button>
+    </div>
+</div>
+
+@code {
+    [Inject] private FinanzAppApi Api { get; set; } = default!;
+
+    [Inject] private ToastService Toasts { get; set; } = default!;
+
+    [Parameter, EditorRequired] public ScanInboxItemDto Item { get; set; } = default!;
+
+    /// <summary>Die gepflegte Typenliste des Haushalts. Sie holt die Seite, nicht das Sheet.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<DocumentTypeDto> Types { get; set; } = [];
+
+    /// <summary>Läuft nach erfolgreicher Zuordnung — die Seite lädt dann neu.</summary>
+    [Parameter] public EventCallback OnAssigned { get; set; }
+
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private int? typeId;
+    private ObjectHitDto? picked;
+    private IReadOnlyList<ObjectHitDto> hits = [];
+    private string term = string.Empty;
+    private bool searching;
+    private bool busy;
+
+    private CancellationTokenSource? debounce;
+    private ElementReference sheet;
+
+    private bool CanAssign => !busy && typeId is not null && picked is not null;
+
+    /// <summary>
+    /// Beim Öffnen wandert der Fokus ins Sheet — sonst bliebe er auf der Zeile dahinter, und die
+    /// Tastatur führte an der Auswahl vorbei.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await sheet.FocusAsync();
+        }
+    }
+
+    private Task OnKeyDown(KeyboardEventArgs e)
+        => e.Key == "Escape" ? OnClose.InvokeAsync() : Task.CompletedTask;
+
+    private void Reset()
+    {
+        picked = null;
+        term = string.Empty;
+        hits = [];
+    }
+
+    /// <summary>
+    /// Sucht nach 250 ms Ruhe. Dieselbe Wartezeit wie in der Dokumentsuche — jeder Anschlag
+    /// wäre eine Anfrage, und die letzte überholte die vorletzte.
+    /// </summary>
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        term = e.Value?.ToString() ?? string.Empty;
+
+        debounce?.Cancel();
+        debounce?.Dispose();
+        debounce = new CancellationTokenSource();
+
+        var laufend = debounce.Token;
+
+        // Ein einzelnes Zeichen trifft halb Haushalt. Die Suche beginnt ab zwei.
+        if (term.Trim().Length < 2)
+        {
+            hits = [];
+            searching = false;
+            return;
+        }
+
+        searching = true;
+
+        try
+        {
+            await Task.Delay(250, laufend);
+
+            // Die Anfrage selbst läuft ohne Abbruchmarke: ein abgebrochener Aufruf käme als
+            // „Der Server hat nicht rechtzeitig geantwortet“ zurück, und das stimmte nicht —
+            // es hat nur jemand weitergetippt. Verworfen wird deshalb das Ergebnis, nicht die
+            // Anfrage.
+            var result = await Api.SearchDocumentsAsync(term.Trim());
+
+            if (laufend.IsCancellationRequested)
+            {
+                return;
+            }
+
+            hits = result.Objects;
+            searching = false;
+            StateHasChanged();
+        }
+        catch (OperationCanceledException)
+        {
+            // Ein neuer Tastenanschlag hat diese Anfrage überholt. „Wird gesucht …“ bleibt
+            // stehen, weil die nächste Anfrage schon läuft.
+        }
+        catch (ApiException ex)
+        {
+            searching = false;
+            Toasts.Show(ex.Message);
+        }
+    }
+
+    private async Task AssignAsync()
+    {
+        if (typeId is not { } type || picked is not { } ziel)
+        {
+            return;
+        }
+
+        busy = true;
+
+        try
+        {
+            await Api.AssignScanInboxAsync(
+                Item.Id,
+                new AssignScanInboxRequest
+                {
+                    DocumentTypeId = type,
+                    TargetType = ziel.TargetType,
+                    TargetId = ziel.TargetId,
+                });
+
+            Toasts.Show($"{Item.FileName} liegt jetzt bei {ziel.Label}.");
+            await OnAssigned.InvokeAsync();
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    /// <summary>
+    /// Die laufende Suche abbrechen. Ohne das lief nach dem Schließen des Sheets noch eine
+    /// Anfrage weiter und schrieb ihr Ergebnis in eine Komponente, die es nicht mehr gibt.
+    /// </summary>
+    public void Dispose()
+    {
+        debounce?.Cancel();
+        debounce?.Dispose();
+    }
+}

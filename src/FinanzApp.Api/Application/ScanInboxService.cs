@@ -16,7 +16,7 @@ namespace FinanzApp.Api.Application;
 /// gehört — und genau solche Dokumente findet später niemand wieder.</para>
 /// <para>Die Datei liegt bereits im Dokumentordner; was fehlt, ist ihre Bedeutung.</para>
 /// </remarks>
-public sealed class ScanInboxService(FinanzAppDbContext db, IClock clock)
+public sealed class ScanInboxService(FinanzAppDbContext db, DocumentService documents, IClock clock)
 {
     public async Task<ScanInboxDto> GetAsync(CancellationToken ct = default)
     {
@@ -61,6 +61,55 @@ public sealed class ScanInboxService(FinanzAppDbContext db, IClock clock)
         db.ScanInbox.Add(item);
         await db.SaveChangesAsync(ct);
         return item.Id;
+    }
+
+    /// <summary>
+    /// Trägt Typ und Objekt nach und räumt den Beleg damit weg.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Weg für alles, was die Erkennung nicht selbst hinbekommen hat — ein Scan ohne
+    /// Textebene, eine Rechnung, für die es keine Leseregel gibt, ein Beleg zu einem Vertrag,
+    /// den es in der Anwendung noch nicht gibt. Er endet dort, wo der erkannte Beleg auch
+    /// endet: eingeordnet und aus dem Eingang verschwunden.</para>
+    /// <para>Der <see cref="Document.Area">Bereich</see> folgt dem gewählten Typ. Die Datei
+    /// selbst bleibt liegen, wo sie liegt: sie zu verschieben hieße, einen Pfad zu ändern, den
+    /// jemand vielleicht schon woanders notiert hat — und der Bereich ist die Angabe, nach der
+    /// gesucht und gefiltert wird, nicht der Ordnername.</para>
+    /// </remarks>
+    /// <exception cref="ArgumentException">
+    /// Der Dokumenttyp oder das Zielobjekt gibt es im eigenen Haushalt nicht.
+    /// </exception>
+    public async Task<bool> AssignAsync(
+        int id, AssignScanInboxRequest request, CancellationToken ct = default)
+    {
+        var item = await db.ScanInbox.FirstOrDefaultAsync(x => x.Id == id && x.FiledAt == null, ct);
+        if (item is null)
+        {
+            return false;
+        }
+
+        var typ = await db.DocumentTypes.FirstOrDefaultAsync(
+                      t => t.Id == request.DocumentTypeId && !t.IsRetired, ct)
+                  ?? throw new ArgumentException("Diesen Dokumenttyp gibt es nicht.");
+
+        var dokument = await db.Documents.FirstOrDefaultAsync(d => d.Id == item.DocumentId, ct);
+        if (dokument is null)
+        {
+            return false;
+        }
+
+        // Erst verknüpfen, dann den Typ setzen: die Verknüpfung ist die Prüfung, ob es das Ziel
+        // überhaupt gibt. Andersherum stünde nach einem falschen Ziel ein geänderter Typ da.
+        await documents.LinkAsync(item.DocumentId, request.TargetType, request.TargetId, ct);
+
+        dokument.DocumentTypeId = typ.Id;
+        dokument.Area = typ.Area;
+        dokument.UpdatedAt = clock.Now;
+        await db.SaveChangesAsync(ct);
+
+        // Über dieselbe Schwelle wie jeder andere Beleg. Die Regel steht einmal, und sie gilt
+        // auch für den Weg, der sie gerade erfüllt hat.
+        return await FileAsync(id, ct);
     }
 
     /// <summary>
