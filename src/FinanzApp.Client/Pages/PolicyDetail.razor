@@ -157,60 +157,6 @@
             </span>
         </div>
 
-        <div class="list-head">
-            <span class="label-strong">Dokumente</span>
-            <span class="list-count num">@policy.Documents.Count</span>
-        </div>
-
-        @if (policy.Documents.Count == 0)
-        {
-            <div class="empty-area">
-                <span class="empty-area-text">
-                    Kein Dokument hinterlegt. Police, Nachträge und
-                    @PolicyValueNaming.ReportPlural(policy.Kind) gehören an den Vertrag —
-                    eingelesen werden sie über den Belegweg.
-                </span>
-                <a class="btn btn-secondary" href="/scannen">Beleg hinzufügen</a>
-            </div>
-        }
-
-        @* Der neueste Bericht ist der, auf dem der aktuelle Wert steht. Ihn hervorzuheben
-           spart die Suche in einer Liste, die mit jedem Jahr länger wird. *@
-        var neuester = policy.Documents
-            .Where(d => Art(d) == "Bericht")
-            .OrderByDescending(d => d.DocumentDate)
-            .FirstOrDefault();
-
-        @foreach (var document in policy.Documents)
-        {
-            var art = Art(document);
-
-            <button type="button" class="tap doc-row @(document.FileExists ? null : "missing") @(document == neuester ? "picked" : null)"
-                    @onclick="@(() => Navigation.NavigateTo($"/dokumente/{document.Id}"))">
-                <span class="stack">
-                    <span class="doc-name">@document.Title</span>
-                    <span class="doc-meta">
-                        @(document.FileExists
-                            ? (document.DocumentDate is { } d ? GermanFormat.Date(d) : "ohne Datum")
-                              + (document == neuester ? " · aktueller Stand" : null)
-                            : "Datei nicht gefunden")
-                    </span>
-                </span>
-
-                @* Die Police im Akzent: sie ist das Dokument, das den Vertrag begründet. *@
-                <span class="tag @(art == "Police" ? "tag-accent" : "tag-neutral")">@art</span>
-            </button>
-        }
-
-        @if (policy.Documents.Count > 0)
-        {
-            <div class="tx-totals-note">
-                <a href="/scannen">Beleg hinzufügen</a> — ein eingelesener
-                @(PolicyValueNaming.ReportLabel(policy.Kind)) hängt sich an diesen Vertrag und
-                trägt seinen Stand in den Verlauf ein.
-            </div>
-        }
-
         @*
             So entsteht der Wert — Abschnitt 19.5. Die Bezeichnungen folgen der Vertragsart;
             führt ein Vertrag nur einen Bestandteil, steht eine Zeile da und keine Summe.
@@ -437,6 +383,65 @@
         @if (policy.Payments.Count > 0)
         {
             <div class="tx-totals-note">@Gegenprobe(policy)</div>
+        }
+
+        @*
+            Die Dokumente stehen unten: erst der Wert, dann sein Verlauf, dann die
+            Zahlungen, dann die Belege. So ordnet es der Prototyp — die Ablage ist der
+            Nachweis zu den Zahlen darüber und nicht ihr Vorspann.
+        *@
+        <div class="list-head">
+            <span class="label-strong">Dokumente</span>
+            <span class="list-count num">@policy.Documents.Count</span>
+        </div>
+
+        @if (policy.Documents.Count == 0)
+        {
+            <div class="empty-area">
+                <span class="empty-area-text">
+                    Kein Dokument hinterlegt. Police, Nachträge und
+                    @PolicyValueNaming.ReportPlural(policy.Kind) gehören an den Vertrag —
+                    eingelesen werden sie über den Belegweg.
+                </span>
+                <a class="btn btn-secondary" href="/scannen">Beleg hinzufügen</a>
+            </div>
+        }
+
+        @* Der neueste Bericht ist der, auf dem der aktuelle Wert steht. Ihn hervorzuheben
+           spart die Suche in einer Liste, die mit jedem Jahr länger wird. *@
+        var neuester = policy.Documents
+            .Where(d => Art(d) == "Bericht")
+            .OrderByDescending(d => d.DocumentDate)
+            .FirstOrDefault();
+
+        @foreach (var document in policy.Documents)
+        {
+            var art = Art(document);
+
+            <button type="button" class="tap doc-row @(document.FileExists ? null : "missing") @(document == neuester ? "picked" : null)"
+                    @onclick="@(() => Navigation.NavigateTo($"/dokumente/{document.Id}"))">
+                <span class="stack">
+                    <span class="doc-name">@document.Title</span>
+                    <span class="doc-meta">
+                        @(document.FileExists
+                            ? (document.DocumentDate is { } d ? GermanFormat.Date(d) : "ohne Datum")
+                              + (document == neuester ? " · aktueller Stand" : null)
+                            : "Datei nicht gefunden")
+                    </span>
+                </span>
+
+                @* Die Police im Akzent: sie ist das Dokument, das den Vertrag begründet. *@
+                <span class="tag @(art == "Police" ? "tag-accent" : "tag-neutral")">@art</span>
+            </button>
+        }
+
+        @if (policy.Documents.Count > 0)
+        {
+            <div class="tx-totals-note">
+                <a href="/scannen">Beleg hinzufügen</a> — ein eingelesener
+                @(PolicyValueNaming.ReportLabel(policy.Kind)) hängt sich an diesen Vertrag und
+                trägt seinen Stand in den Verlauf ein.
+            </div>
         }
 
         <div class="spacer"></div>
