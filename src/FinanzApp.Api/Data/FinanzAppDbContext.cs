@@ -426,10 +426,17 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
         b.Entity<PolicyReport>(e =>
         {
             e.Property(x => x.Value).HasConversion(MoneyConverter);
+            e.Property(x => x.BaseValue).HasConversion(NullableMoneyConverter);
+            e.Property(x => x.AccruedBonus).HasConversion(NullableMoneyConverter);
             e.Property(x => x.Source).HasMaxLength(80).IsRequired();
 
             e.HasOne(x => x.Policy).WithMany(p => p.Reports)
                 .HasForeignKey(x => x.PolicyId).OnDelete(DeleteBehavior.Cascade);
+
+            // Verschwindet das Dokument, bleibt der Stand: gemeldet wurde er trotzdem. Nur die
+            // ausgelesenen Werte sind dann nicht mehr einblendbar.
+            e.HasOne(x => x.Document).WithMany()
+                .HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.SetNull);
 
             // Ein Bericht je Vertrag und Stichtag. Ein zweiter Statusreport zum selben Tag
             // aktualisiert, statt die Reihe zu verdoppeln.

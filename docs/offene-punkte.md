@@ -1,6 +1,6 @@
 # Offene Punkte
 
-Stand **30.08.2026**, nach den fünf Vorsorge-Korrekturen aus Handoff 20 (§19). Eine Liste, kein Plan: sie sagt,
+Stand **30.08.2026**, nach der Berichtsreihe im Vorsorgebereich. Eine Liste, kein Plan: sie sagt,
 was noch nicht gebaut ist und woher die Anforderung stammt — die Reihenfolge steht in den
 Handoffs selbst, nicht hier.
 
@@ -155,15 +155,18 @@ miterledigt: der Detailschirm lud nur beim Aufbau — von `/police/1` auf `/poli
 Zahlen des ersten Vertrags stehen —, und der Anlegeweg rechnete die Wertbestandteile nicht
 zusammen, während der Änderungsweg es tat.
 
+Nachgetragen wurde danach die Berichtsreihe als Liste: jeder gemeldete Stand steht mit
+Stichtag, Betrag und Quelle da, lässt sich wieder entfernen, und wo er aus einem Beleg stammt,
+lassen sich die ausgelesenen Werte einblenden — mit Seite und Sicherheit. Der erreichte Wert
+des Vertrags kommt seitdem **aus dem neuesten Bericht** und ist keine eigene Größe mehr.
+
 Offen:
 
-- **Der Verlauf zeigt keine Werte an den Punkten.** Die Reihe trägt Stichtag und Betrag, die
-  Linie zeigt nur die beiden Enden. Was der dritte Punkt wert war, steht nirgends.
-- **Der erfasste Stand kennt keine Herkunft im Klartext.** In der Reihe steht „erfasst" gegen
-  „Statusreport"; im Schirm ist der Unterschied nicht sichtbar. Wer wissen will, ob eine Zahl
-  aus einem Papier stammt oder von Hand kam, sieht es nicht.
-- **Ein Bericht lässt sich nicht löschen oder korrigieren**, außer durch erneutes Speichern zum
-  selben Stichtag. Ein versehentlich angelegter Stichtag bleibt in der Reihe stehen.
+- **Ein Bericht lässt sich nicht bearbeiten**, nur entfernen oder durch erneutes Speichern zum
+  selben Stichtag berichtigen. Für einen falsch gelesenen Stichtag heißt das: entfernen und neu
+  einlesen.
+- **Der Verlauf beschriftet seine Punkte nicht.** Die Beträge stehen in der Liste darunter, die
+  Linie zeigt weiter nur ihre beiden Enden.
 - **Nur der Vorsorge-Detailschirm führt „bearbeiten".** Immobilie, Fahrzeug und Vertrag haben
   denselben Aufbau und dieselbe Lücke — dort ist das Bearbeiten weiter nur aus der Liste
   erreichbar.

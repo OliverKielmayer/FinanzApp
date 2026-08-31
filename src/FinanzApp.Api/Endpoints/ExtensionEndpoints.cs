@@ -439,6 +439,14 @@ public static class ExtensionEndpoints
             var policy = await service.GetAsync(id, ct);
             return policy is null ? Results.NotFound() : Results.Ok(policy);
         });
+
+        // Einen gemeldeten Stand wieder entfernen. Danach zählt der neueste verbliebene; war es
+        // der letzte, hat der Vertrag keinen erreichten Wert mehr.
+        api.MapDelete("/reports/{reportId:int}", async (
+                int reportId, PolicyService service, CancellationToken ct)
+            => await service.DeleteReportAsync(reportId, ct)
+                ? Results.NoContent()
+                : Results.NotFound()).RequireAuthorization(AuthPolicies.Write);
     }
 
     private static void MapHousing(IEndpointRouteBuilder app)

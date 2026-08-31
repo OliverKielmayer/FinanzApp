@@ -241,17 +241,15 @@ public sealed class DocumentScanService(
         var vorher = vertrag.CurrentValue;
         var vorherStichtag = vertrag.ValuationDate;
 
-        vertrag.CurrentValue = wert;
-        vertrag.ValuationDate = stichtag;
-
-        // Die Bestandteile mit übernehmen: sie tragen den Block „So entsteht der Wert" am
-        // Vertrag (Abschnitt 19.5), und der Bericht nennt sie ohnehin einzeln.
-        vertrag.BaseValue = werte.GetValueOrDefault("rueckkauf")?.Number ?? vertrag.BaseValue;
-        vertrag.AccruedBonus = werte.GetValueOrDefault("ansammlung")?.Number ?? vertrag.AccruedBonus;
-
-        // Und den Stand in die Berichtsreihe — Abschnitt 19.6. Ein neuer Bericht setzt den Wert
-        // **seines** Stichtags; ein zweiter zum selben Tag aktualisiert, statt zu verdoppeln.
-        await PolicyService.RecordReportAsync(db, clock, vertrag.Id, stichtag, wert, art.Label, ct);
+        // Der Stand geht in die Berichtsreihe, und der Vertrag bekommt seinen Kopfwert von dort:
+        // er ist immer der des neuesten Berichts. Die Bestandteile hängen am Bericht, nicht am
+        // Vertrag — sonst zeigte er nach dem Entfernen eines Berichts weiter dessen Aufteilung.
+        // Ein zweiter Bericht zum selben Stichtag aktualisiert, statt zu verdoppeln.
+        await PolicyService.RecordReportAsync(
+            db, clock, vertrag.Id, stichtag, wert, art.Label, ct,
+            werte.GetValueOrDefault("rueckkauf")?.Number,
+            werte.GetValueOrDefault("ansammlung")?.Number,
+            dokument.Id);
 
         // Das Ablaufdatum steht im Bericht; im Vertrag fehlt es oft. Ergänzt, nie überschrieben:
         // was der Nutzer gepflegt hat, weiß er besser als ein Leseergebnis.
@@ -270,7 +268,7 @@ public sealed class DocumentScanService(
             LeadLabel = leitfeld.Label,
             LeadNumber = wert,
             LeadIsMoney = true,
-            Effect = Effect(wert, vorher, vorherStichtag),
+            Effect = Effect(wert, vorher, vorherStichtag, stichtag, vertrag.ValuationDate),
             Rule = $"Absender „{vertrag.Provider}“ + „{art.Label.Split(' ')[0]}“ → künftig automatisch hierher",
             TargetLink = art.TargetLink,
             TargetHref = $"/police/{vertrag.Id}",
@@ -706,9 +704,25 @@ public sealed class DocumentScanService(
     /// Die Veränderung gehört dazu, weil der Betrag allein nichts sagt. Ob ein Vertrag mit
     /// 20.481,52 € gut dasteht, weiß nur, wer den Vorjahresstand daneben sieht.
     /// </remarks>
-    private static List<ScanEffectPart> Effect(decimal wert, decimal? vorher, DateOnly? vorherStichtag)
+    private static List<ScanEffectPart> Effect(
+        decimal wert, decimal? vorher, DateOnly? vorherStichtag,
+        DateOnly stichtag, DateOnly? fuehrend)
     {
         List<ScanEffectPart> satz = [new() { Money = wert }, new() { Text = "übernommen ·" }];
+
+        // Ein nachgetragener alter Bericht ergänzt die Reihe und lässt den erreichten Wert
+        // stehen. Ihn hier gegen den aktuellen Stand zu rechnen behauptete eine Veränderung,
+        // die es nicht gab — der Vertrag steht danach genau da, wo er vorher stand.
+        if (fuehrend is { } tagFuehrend && tagFuehrend != stichtag)
+        {
+            satz.Add(new()
+            {
+                Text = "in die Reihe eingeordnet · der erreichte Wert bleibt der vom "
+                       + GermanFormat.Date(tagFuehrend),
+            });
+
+            return satz;
+        }
 
         if (vorher is not { } alt)
         {

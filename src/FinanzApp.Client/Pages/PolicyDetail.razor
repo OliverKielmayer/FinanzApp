@@ -261,13 +261,16 @@
             Berichte. Nie eine Kurve aus einem Punkt: wo keine Reihe steht, sagt der Schirm das,
             statt eine Bewegung zu zeichnen, die niemand gemessen hat.
         *@
-        @if (policy.Reports.Count >= 2)
+        @if (policy.Reports.Count > 0)
         {
             <div class="list-head">
                 <span class="label-strong">@PolicyValueNaming.HistoryLabel(policy.Kind)</span>
                 <span class="list-count num">@policy.Reports.Count</span>
             </div>
+        }
 
+        @if (policy.Reports.Count >= 2)
+        {
             <div class="report-history">
                 <svg class="report-line" viewBox="0 0 320 72" preserveAspectRatio="none"
                      role="img" aria-label="@Verlaufstext(policy)" focusable="false">
@@ -289,16 +292,86 @@
         }
         else if (policy.Reports.Count == 1)
         {
-            <div class="list-head">
-                <span class="label-strong">@PolicyValueNaming.HistoryLabel(policy.Kind)</span>
+            <div class="tx-totals-note">
+                Ein @(PolicyValueNaming.ReportLabel(policy.Kind)) gespeichert — für einen Verlauf
+                braucht es einen zweiten. Der nächste wird beim Einlesen automatisch angehängt.
+            </div>
+        }
+
+        @*
+            Die Reihe als Liste, neuester zuerst. Sie trägt beides, was ein gemeldeter Stand
+            braucht: die ausgelesenen Werte zum Nachsehen und den Weg, ihn wieder loszuwerden.
+        *@
+        @foreach (var bericht in policy.Reports.OrderByDescending(r => r.AsOf))
+        {
+            var traegt = bericht.AsOf == policy.Reports.Max(r => r.AsOf);
+
+            <div class="row report @(traegt ? "picked" : null)">
+                <div class="stack">
+                    <span class="balance-label plain num">@GermanFormat.Date(bericht.AsOf)</span>
+                    <span class="meta">
+                        @bericht.Source@(bericht.DocumentTitle is { Length: > 0 } titel ? " · " + titel : null)
+                        @(traegt ? " · zählt als erreichter Wert" : null)
+                    </span>
+                </div>
+                <span class="stack-end">
+                    <span class="balance-value num">@State.Euro(bericht.Value)</span>
+                    <span class="rule-actions">
+                        @if (bericht.Values.Count > 0)
+                        {
+                            <button type="button" class="edit-link"
+                                    @onclick="@(() => offen = offen == bericht.Id ? null : bericht.Id)">
+                                @(offen == bericht.Id ? "Werte ausblenden" : "Werte einblenden")
+                            </button>
+                        }
+
+                        <AuthorizeView Roles="Owner,Member" Context="entfernen">
+                            <button type="button" class="edit-link"
+                                    @onclick="@(() => loeschen = loeschen == bericht.Id ? null : bericht.Id)">
+                                Entfernen
+                            </button>
+                        </AuthorizeView>
+                    </span>
+                </span>
             </div>
 
-            <div class="tx-totals-note">
-                Ein @(PolicyValueNaming.ReportLabel(policy.Kind)) gespeichert
-                (@GermanFormat.Date(policy.Reports[0].AsOf) ·
-                @State.Euro(policy.Reports[0].Value)) — für einen Verlauf braucht es einen
-                zweiten. Der nächste wird beim Einlesen automatisch angehängt.
-            </div>
+            @* Was im Papier stand — mit Seite und Sicherheit, damit sich jede Zahl nachschlagen
+               lässt. Nur eingeblendet: sie gehören zum Beleg, nicht zum Vertrag. *@
+            @if (offen == bericht.Id)
+            {
+                <div class="report-values">
+                    @foreach (var wert in bericht.Values)
+                    {
+                        <div class="report-value">
+                            <span class="stack">
+                                <span class="value-label">@wert.Label</span>
+                                <span class="value-src">@Herkunft(wert)</span>
+                            </span>
+                            <span class="num">
+                                @(wert is { IsMoney: true, Number: { } betrag } ? State.Euro(betrag) : wert.Display)
+                            </span>
+                        </div>
+                    }
+
+                    @if (bericht.DocumentId is { } belegId)
+                    {
+                        <a class="section-link" href="@($"/dokumente/{belegId}")">Zum Beleg</a>
+                    }
+                </div>
+            }
+
+            @if (loeschen == bericht.Id)
+            {
+                <div class="report-values">
+                    <span class="meta">@Folge(policy, bericht)</span>
+                    <span class="rule-actions">
+                        <button type="button" class="btn btn-primary delete-confirm" disabled="@busy"
+                                @onclick="() => RemoveAsync(bericht.Id)">Wirklich entfernen</button>
+                        <button type="button" class="btn btn-secondary" disabled="@busy"
+                                @onclick="@(() => loeschen = null)">Behalten</button>
+                    </span>
+                </div>
+            }
         }
 
         <div class="list-head">
@@ -390,7 +463,74 @@
 
     private PolicyDetailDto? data;
 
+    /// <summary>Der Bericht, dessen ausgelesene Werte gerade offen stehen.</summary>
+    private int? offen;
+
+    /// <summary>Der Bericht, für den gerade nach der Bestätigung gefragt wird.</summary>
+    private int? loeschen;
+
+    private bool busy;
+
     protected override async Task LoadAsync() => data = await Api.GetPolicyAsync(Id);
+
+    /// <summary>
+    /// Woher ein ausgelesener Wert kommt — Seite und Sicherheit.
+    /// </summary>
+    /// <remarks>
+    /// Die Seite ist der Grund, warum das überhaupt eingeblendet wird: mit ihr lässt sich die
+    /// Zahl im Papier nachschlagen. Eine unsichere Lesung sagt das dazu, statt so auszusehen wie
+    /// eine sichere.
+    /// </remarks>
+    private static string Herkunft(PolicyReportValueDto wert)
+    {
+        var seite = wert.SourcePage is { } nummer ? $"Seite {nummer}" : "ohne Seitenangabe";
+
+        return wert.Confidence >= 0.95
+            ? seite
+            : $"{seite} · unsicher gelesen ({GermanFormat.Percent((decimal)wert.Confidence * 100m)})";
+    }
+
+    /// <summary>
+    /// Was das Entfernen dieses Berichts bewirkt.
+    /// </summary>
+    /// <remarks>
+    /// Der erreichte Wert kommt aus dem neuesten Bericht. Wer den entfernt, ändert damit die
+    /// Kopfzahl des Vertrags und seinen Beitrag zum Vermögen — das gehört vor die Bestätigung
+    /// und nicht danach in einen Hinweis.
+    /// </remarks>
+    private static string Folge(PolicyDetailDto policy, PolicyReportDto bericht)
+    {
+        if (bericht.AsOf != policy.Reports.Max(r => r.AsOf))
+        {
+            return "Der Stand verschwindet aus dem Verlauf. Der erreichte Wert bleibt, wie er ist "
+                   + "— er kommt aus dem neuesten Bericht.";
+        }
+
+        var uebrig = policy.Reports.Where(r => r.Id != bericht.Id).ToList();
+
+        return uebrig.Count == 0
+            ? "Es ist der einzige gemeldete Stand. Danach hat der Vertrag keinen erreichten Wert "
+              + "mehr und zählt in keiner Vermögenssumme mit."
+            : "Es ist der neueste Stand. Danach zählt der vom "
+              + GermanFormat.Date(uebrig.Max(r => r.AsOf)) + " als erreichter Wert.";
+    }
+
+    private Task RemoveAsync(int reportId) => RunAsync(async () =>
+    {
+        busy = true;
+        try
+        {
+            await Api.DeletePolicyReportAsync(reportId);
+            loeschen = null;
+            offen = null;
+            await ReloadAsync();
+            Toasts.Show("Stand entfernt");
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
 
     /// <summary>
     /// Welcher Art ein Dokument am Vertrag ist.

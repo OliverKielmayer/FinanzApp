@@ -5198,6 +5198,46 @@ body {
   height: 72px;
 }
 
+/* Eine Zeile je gemeldetem Stand. Der, der den erreichten Wert trägt, steht im Akzent —
+   sonst müsste man die Stichtage vergleichen, um ihn zu finden. */
+.row.report {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 16px;
+  border-top: 1px solid var(--color-divider);
+}
+
+.row.report.picked {
+  border-left: 2px solid var(--color-accent);
+}
+
+.row.report .stack-end {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+/* Die ausgelesenen Werte und die Rückfrage vor dem Entfernen: eingerückt unter ihrer Zeile,
+   damit sichtbar bleibt, zu welchem Stand sie gehören. */
+.report-values {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 16px 12px 26px;
+  background: color-mix(in srgb, var(--color-text) 4%, transparent);
+  border-left: 2px solid var(--color-accent-100);
+}
+
+.report-value {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .report-axis {
   display: flex;
   justify-content: space-between;

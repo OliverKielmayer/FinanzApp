@@ -39,9 +39,56 @@ public sealed record PolicyValuePartDto
 /// <summary>Ein gemeldeter Stand.</summary>
 public sealed record PolicyReportDto
 {
+    public required int Id { get; init; }
     public required DateOnly AsOf { get; init; }
     public required decimal Value { get; init; }
     public required string Source { get; init; }
+
+    /// <summary>Die Bestandteile, die dieser Bericht ausgewiesen hat.</summary>
+    public decimal? BaseValue { get; init; }
+
+    /// <inheritdoc cref="BaseValue"/>
+    public decimal? AccruedBonus { get; init; }
+
+    /// <summary>Das Dokument, aus dem er stammt — <c>null</c> bei einem erfassten Stand.</summary>
+    public int? DocumentId { get; init; }
+
+    public string? DocumentTitle { get; init; }
+
+    /// <summary>
+    /// Was beim Einlesen aus dem Dokument gelesen wurde.
+    /// </summary>
+    /// <remarks>
+    /// Der ganze Satz, nicht nur die übernommenen Felder: erst daneben lässt sich sehen, warum
+    /// im Vertrag steht, was dort steht — und ob der Bericht der richtige war.
+    /// </remarks>
+    public IReadOnlyList<PolicyReportValueDto> Values { get; init; } = [];
+}
+
+/// <summary>
+/// Ein aus dem Dokument gelesener Wert.
+/// </summary>
+/// <remarks>
+/// Beträge stehen in <see cref="Number"/> mit <see cref="IsMoney"/> und nicht als fertiger Text:
+/// ein im Server formatierter Euro-Betrag ließe sich von „Beträge verbergen“ nicht mehr
+/// maskieren. Dieselbe Aufteilung wie beim Belegweg.
+/// </remarks>
+public sealed record PolicyReportValueDto
+{
+    public required string Label { get; init; }
+
+    /// <summary>Der Wert als Text — für alles, was kein Geld ist.</summary>
+    public required string Display { get; init; }
+
+    public decimal? Number { get; init; }
+
+    public bool IsMoney { get; init; }
+
+    /// <summary>Seite, auf der er stand.</summary>
+    public int? SourcePage { get; init; }
+
+    /// <summary>0 bis 1.</summary>
+    public double Confidence { get; init; }
 }
 
 public sealed record PolicyListItemDto

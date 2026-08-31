@@ -182,6 +182,12 @@ public static class FinanzAppApiExtensions
             new CategoryTaxRequest { TaxCategory = art },
             ct);
 
+    /// <summary>Entfernt einen gemeldeten Vertragsstand.</summary>
+    public static Task DeletePolicyReportAsync(
+        this FinanzAppApi api, int reportId, CancellationToken ct = default)
+        => api.SendWithoutResultAsync<object?>(
+            HttpMethod.Delete, $"api/policies/reports/{reportId}", null, ct);
+
     // ── Kurse ─────────────────────────────────────────────────────────
 
     /// <summary>Wie es um die Kurse steht.</summary>

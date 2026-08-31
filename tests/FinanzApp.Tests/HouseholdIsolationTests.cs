@@ -216,5 +216,56 @@ public sealed class HouseholdIsolationTests : IDisposable
         Assert.Empty(fremder.QuoteRuns);
     }
 
+    /// <summary>
+    /// Ein fremder Vertragsstand ist weder sichtbar noch entfernbar.
+    /// </summary>
+    /// <remarks>
+    /// Das Entfernen kennt nur die Nummer des Berichts. Ohne den Mandantenfilter ließe sich mit
+    /// einer geratenen Nummer der Stand eines fremden Haushalts löschen — und dessen Vertrag
+    /// stünde danach ohne erreichten Wert da.
+    /// </remarks>
+    [Fact]
+    public async Task Fremde_Vertragsstaende_sind_unsichtbar_und_unloeschbar()
+    {
+        int fremderBericht;
+
+        using (var ihrer = database.Context(theirs))
+        {
+            var vertrag = ihrer.Policies.First();
+
+            var bericht = new PolicyReport
+            {
+                PolicyId = vertrag.Id,
+                AsOf = new DateOnly(2025, 7, 31),
+                Value = 20481.52m,
+                Source = "Statusreport",
+                CreatedAt = new DateTime(2025, 8, 14, 9, 0, 0, DateTimeKind.Local),
+            };
+
+            ihrer.PolicyReports.Add(bericht);
+            ihrer.SaveChanges();
+            fremderBericht = bericht.Id;
+        }
+
+        using var meiner = database.Context(mine);
+
+        Assert.Empty(meiner.PolicyReports);
+
+        var dienst = new PolicyService(
+            meiner,
+            new DocumentService(
+                meiner,
+                TestDatabase.PathService(Path.Combine(Path.GetTempPath(), "finanzapp-tests", "isolation")),
+                new ObjectLabelService(meiner),
+                TestDatabase.ClockAt(2026, 8, 30),
+                NullLogger<DocumentService>.Instance),
+            TestDatabase.ClockAt(2026, 8, 30));
+
+        Assert.False(await dienst.DeleteReportAsync(fremderBericht));
+
+        using var ihrerDanach = database.Context(theirs);
+        Assert.Single(ihrerDanach.PolicyReports);
+    }
+
     public void Dispose() => database.Dispose();
 }

@@ -1225,7 +1225,9 @@ public sealed class CreateFormService(
     /// </remarks>
     private Task RecordAsync(Policy policy, CancellationToken ct)
         => (policy.CurrentValue, policy.ValuationDate) is ({ } wert, { } stichtag)
-            ? PolicyService.RecordReportAsync(db, clock, policy.Id, stichtag, wert, "erfasst", ct)
+            ? PolicyService.RecordReportAsync(
+                db, clock, policy.Id, stichtag, wert, "erfasst", ct,
+                policy.BaseValue, policy.AccruedBonus)
             : Task.CompletedTask;
 
     // ── Immobilie ──────────────────────────────────────────────────────────────────────────

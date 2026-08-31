@@ -500,10 +500,10 @@ public static class SeedData
                 // Vertrag ein einziger Wert, und jede gezeichnete Kurve wäre erfunden.
                 Reports =
                 {
-                    Report(2022, 7, 31, 18051.33m, "Statusreport"),
-                    Report(2023, 7, 31, 18827.54m, "Statusreport"),
-                    Report(2024, 7, 31, 19637.12m, "Statusreport"),
-                    Report(2025, 7, 31, 20481.52m, "Statusreport"),
+                    Report(2022, 7, 31, 18051.33m, "Statusreport", 16400m, 1651.33m),
+                    Report(2023, 7, 31, 18827.54m, "Statusreport", 17000m, 1827.54m),
+                    Report(2024, 7, 31, 19637.12m, "Statusreport", 17680m, 1957.12m),
+                    Report(2025, 7, 31, 20481.52m, "Statusreport", 18373.87m, 2107.65m),
                 },
             },
             new Policy
@@ -542,9 +542,9 @@ public static class SeedData
                 ValuationDate = new DateOnly(2025, 12, 31),
                 Reports =
                 {
-                    Report(2023, 12, 31, 7612.05m, "Auszug"),
-                    Report(2024, 12, 31, 9686.40m, "Auszug"),
-                    Report(2025, 12, 31, 11930.40m, "Auszug"),
+                    Report(2023, 12, 31, 7612.05m, "Auszug", 7612.05m),
+                    Report(2024, 12, 31, 9686.40m, "Auszug", 9686.40m),
+                    Report(2025, 12, 31, 11930.40m, "Auszug", 11930.40m),
                 },
             },
             new Policy
@@ -562,8 +562,8 @@ public static class SeedData
                 ValuationDate = new DateOnly(2025, 12, 31),
                 Reports =
                 {
-                    Report(2024, 12, 31, 10856.68m, "Auszug"),
-                    Report(2025, 12, 31, 12320.08m, "Auszug"),
+                    Report(2024, 12, 31, 10856.68m, "Auszug", 10856.68m),
+                    Report(2025, 12, 31, 12320.08m, "Auszug", 12320.08m),
                 },
             });
     }
@@ -572,11 +572,17 @@ public static class SeedData
     /// Ein gemeldeter Stand zu seinem Stichtag.
     /// </summary>
     /// <remarks>
-    /// Die Quelle heißt, wie das Papier heißt, auf dem der Stand steht: ein Bausparvertrag
+    /// <para>Die Quelle heißt, wie das Papier heißt, auf dem der Stand steht: ein Bausparvertrag
     /// bekommt einen Auszug, eine Lebensversicherung einen Statusreport. Das Anlagedatum ist der
-    /// Stichtag selbst — die Demodaten tun nicht so, als wäre der Bericht später erfasst worden.
+    /// Stichtag selbst — die Demodaten tun nicht so, als wäre der Bericht später erfasst
+    /// worden.</para>
+    /// <para>Die Bestandteile hängen am Bericht, weil der Vertrag seine aus dem neuesten nimmt.
+    /// Ohne sie verschwände der Block „So entsteht der Wert", sobald jemand den obersten Stand
+    /// entfernt.</para>
     /// </remarks>
-    private static PolicyReport Report(int jahr, int monat, int tag, decimal wert, string quelle)
+    private static PolicyReport Report(
+        int jahr, int monat, int tag, decimal wert, string quelle,
+        decimal? basis = null, decimal? bonus = null)
     {
         var stichtag = new DateOnly(jahr, monat, tag);
 
@@ -584,6 +590,8 @@ public static class SeedData
         {
             AsOf = stichtag,
             Value = wert,
+            BaseValue = basis,
+            AccruedBonus = bonus,
             Source = quelle,
             CreatedAt = stichtag.ToDateTime(TimeOnly.MinValue),
         };

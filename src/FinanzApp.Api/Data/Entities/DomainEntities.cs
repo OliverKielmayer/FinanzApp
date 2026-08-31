@@ -129,18 +129,21 @@ public class Policy : IHouseholdOwned
     // ── nur kapitalbildend ────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Der Hauptbestandteil des erreichten Werts.
+    /// Der Hauptbestandteil des erreichten Werts, <b>aus dem neuesten Bericht</b>.
     /// </summary>
     /// <remarks>
-    /// Er heißt je Vertragsart anders — Rückkaufswert bei der Kapitallebensversicherung,
+    /// <para>Er heißt je Vertragsart anders — Rückkaufswert bei der Kapitallebensversicherung,
     /// Deckungskapital bei Renten- und Riesterverträgen, Sparguthaben beim Bausparen. Die
     /// Bezeichnung ist eine Funktion der Art und keine Konstante; ein Bausparvertrag hat keinen
-    /// Rückkaufswert.
+    /// Rückkaufswert.</para>
+    /// <para>Gepflegt wird er nicht hier, sondern am Bericht: <see cref="PolicyReport"/> trägt
+    /// ihn, und diese Zeile führt den des jüngsten Stichtags mit. Wer ihn hier setzt, ohne einen
+    /// Bericht zu schreiben, verliert ihn beim nächsten Bericht.</para>
     /// </remarks>
     public decimal? BaseValue { get; set; }
 
     /// <summary>
-    /// Der erreichte Wert der Überschussbeteiligung.
+    /// Der erreichte Wert der Überschussbeteiligung, aus demselben Bericht.
     /// </summary>
     /// <remarks>
     /// Nur bei Verträgen, die eine führen. Ein Bausparvertrag hat kein Ansammlungsguthaben, und
@@ -149,13 +152,14 @@ public class Policy : IHouseholdOwned
     public decimal? AccruedBonus { get; set; }
 
     /// <summary>
-    /// Erreichter Wert — die Zahl, die ins Vermögen zählt.
+    /// Erreichter Wert — die Zahl, die ins Vermögen zählt. <b>Der des neuesten Berichts.</b>
     /// </summary>
     /// <remarks>
-    /// <para>Gepflegt bleibt sie, weil ein Vertrag auch ohne aufgeschlüsselte Bestandteile einen
-    /// Wert haben darf. Sind die Bestandteile gefüllt, gewinnen sie: die Anzeige zeigt die
-    /// Rechnung, und eine Zahl, die neben ihrer eigenen Summe steht und ihr widerspricht, wäre
-    /// die schlimmere Variante.</para>
+    /// <para>Keine eigene Größe, sondern der jüngste gemeldete Stand aus
+    /// <see cref="Reports"/> — mitgeführt, damit jede Vermögenssumme weiter aus einer Spalte
+    /// rechnen kann. Wer einen Bericht entfernt, ändert damit auch diese Zahl; bleibt keiner
+    /// übrig, bleibt sie leer, und der Vertrag zählt in keiner Summe mehr mit. Eine Zahl ohne
+    /// Beleg wäre dort schlimmer als eine Lücke.</para>
     /// <para>Nicht enthalten sind Bewertungsreserven und Schlussüberschüsse — der Statusreport
     /// weist sie als nicht garantiert aus (Abschnitt 14.3).</para>
     /// </remarks>
@@ -172,9 +176,13 @@ public class Policy : IHouseholdOwned
     public List<PolicyReport> Reports { get; set; } = [];
 
     /// <summary>
-    /// Stichtag des erreichten Werts. <b>Pflicht, sobald ein Wert steht</b> — ein Jahresstand ist
-    /// kein Tageskurs und darf nicht wie einer aussehen.
+    /// Stichtag des erreichten Werts — der des neuesten Berichts.
     /// </summary>
+    /// <remarks>
+    /// <b>Pflicht, sobald ein Wert steht</b>: ein Jahresstand ist kein Tageskurs und darf nicht
+    /// wie einer aussehen. Wert und Stichtag wandern zusammen, weil sie zusammen eine Aussage
+    /// sind.
+    /// </remarks>
     public DateOnly? ValuationDate { get; set; }
 
     /// <summary>Ablaufleistung, falls der Vertrag eine ausweist.</summary>
@@ -401,8 +409,33 @@ public class PolicyReport : IHouseholdOwned
     /// <summary>Der erreichte Wert zu diesem Stichtag.</summary>
     public decimal Value { get; set; }
 
+    /// <summary>
+    /// Die Bestandteile, aus denen der Wert dieses Berichts besteht.
+    /// </summary>
+    /// <remarks>
+    /// Sie hängen am Bericht und nicht am Vertrag: der Vertrag zeigt die des neuesten. Stünden
+    /// sie nur am Vertrag, zeigte er nach dem Entfernen des neuesten Berichts weiter dessen
+    /// Aufteilung — zu einem Wert, den es nicht mehr gibt.
+    /// </remarks>
+    public decimal? BaseValue { get; set; }
+
+    /// <inheritdoc cref="BaseValue"/>
+    public decimal? AccruedBonus { get; set; }
+
     /// <summary>Woher er kommt — Statusreport, Auszug, von Hand.</summary>
     public required string Source { get; set; }
+
+    /// <summary>
+    /// Das eingelesene Dokument, aus dem der Stand stammt.
+    /// </summary>
+    /// <remarks>
+    /// Über es kommen die ausgelesenen Werte zurück an den Vertrag: was im Papier stand, mit
+    /// Seitenzahl und Sicherheit. Ein von Hand erfasster Stand hat keines — dann gibt es nichts
+    /// einzublenden, und der Schirm sagt das.
+    /// </remarks>
+    public int? DocumentId { get; set; }
+
+    public Document? Document { get; set; }
 
     public DateTime CreatedAt { get; set; }
 }
