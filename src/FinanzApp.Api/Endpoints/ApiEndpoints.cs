@@ -25,6 +25,12 @@ public static class ApiEndpoints
         api.MapGet("/accounts", async (AccountService service, CancellationToken ct)
             => Results.Ok(await service.GetAccountsAsync(ct)));
 
+        // Die Gemeinschaftskonten mit Soll und Eingang. Fertig gerechnet: der Schirm stellt
+        // gegenüber, er rechnet nicht.
+        api.MapGet("/accounts/gemeinschaft", async (
+                ParticipationService service, IClock clock, CancellationToken ct)
+            => Results.Ok(await service.JointAccountsAsync(clock.Today, ct)));
+
         api.MapGet("/transactions", async (
                 string? search, int? account, int? category, TransactionKind? kind, bool? offen,
                 int? skip, int? take, TransactionService service, CancellationToken ct)

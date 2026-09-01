@@ -76,6 +76,18 @@ public class AccountShare : IHouseholdOwned
 
     public int UserId { get; set; }
     public User? User { get; set; }
+
+    /// <summary>
+    /// Was diese Person monatlich einzahlen soll — nur beim Gemeinschaftskonto.
+    /// </summary>
+    /// <remarks>
+    /// Null heißt: kein Soll vereinbart. Dann steht am Schirm der Eingang ohne Vergleich; eine
+    /// Null als Soll wäre die Aussage, es sei nichts vereinbart <em>und</em> nichts erwartet.
+    /// </remarks>
+    public decimal? MonthlyTarget { get; set; }
+
+    /// <summary>Tag im Monat, zu dem es erwartet wird — 1 bis 31, oder null.</summary>
+    public int? DueDay { get; set; }
 }
 
 public class Category : IHouseholdOwned

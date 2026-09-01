@@ -23,7 +23,8 @@ public static class ExtensionSeedData
     public const string MissingFileDocument = "Lohn_07_2026.pdf";
 
     public static async Task SeedAsync(
-        FinanzAppDbContext db, DocumentPathService paths, int householdId, CancellationToken ct = default)
+        FinanzAppDbContext db, DocumentPathService paths, int householdId, DateOnly currentMonth,
+        CancellationToken ct = default)
     {
         if (await db.DocumentTypes.IgnoreQueryFilters().AnyAsync(t => t.HouseholdId == householdId, ct))
         {
@@ -37,6 +38,7 @@ public static class ExtensionSeedData
         await db.SaveChangesAsync(ct);
 
         var property = await SeedPropertyAsync(db, policies, ct);
+        await SeedDepositsAsync(db, property, currentMonth, ct);
         var bills = await SeedMedicalBillsAsync(db, ct);
         await SeedHistoryAsync(db, ct);
         await db.SaveChangesAsync(ct);
@@ -354,6 +356,77 @@ public static class ExtensionSeedData
 
             Add(2, "Beitrag Berufsverband", "Beruf", CategoryDirection.Expense, -15m, sparkasse);
         }
+    }
+
+    /// <summary>
+    /// Einlagen auf das Gemeinschaftskonto — Handoff „Gemeinsame Immobilie“, 3.3.
+    /// </summary>
+    /// <remarks>
+    /// <para>Drei Monate, damit der Jahresstand mehr ist als der laufende Monat. Im laufenden
+    /// Monat genau der Fall aus dem Handoff: der eine erfüllt sein Soll, die andere liegt 300 €
+    /// darunter. Ohne diesen Zustand wäre am Schirm nie zu sehen, was der Vergleich leistet.</para>
+    /// <para>Das Vorzeichen ist positiv: auf dem Gemeinschaftskonto kommt die Einlage an. Vom
+    /// eigenen Konto aus wäre dieselbe Buchung ein Abfluss — siehe
+    /// <c>TransactionService.Vorzeichen</c>.</para>
+    /// </remarks>
+    private static async Task SeedDepositsAsync(
+        FinanzAppDbContext db, Property property, DateOnly currentMonth, CancellationToken ct)
+    {
+        var konto = await db.Accounts.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(a => a.HouseholdId == db.CurrentHouseholdId
+                                      && a.Sharing == AccountSharing.Shared, ct);
+
+        var beteiligte = await db.AccountShares.IgnoreQueryFilters()
+            .Where(a => konto != null && a.AccountId == konto.Id)
+            .OrderBy(a => a.Id)
+            .ToListAsync(ct);
+
+        if (konto is null || beteiligte.Count != 2)
+        {
+            return;
+        }
+
+        // Wer am Objekt keinen Anteil hat, legt nichts ein — dieselbe Regel, die der Dienst prüft.
+        var anteile = await db.PropertyShares.IgnoreQueryFilters()
+            .Where(a => a.PropertyId == property.Id)
+            .Select(a => a.UserId)
+            .ToListAsync(ct);
+
+        void Einlage(DateOnly monat, int tag, AccountShare beteiligter, decimal betrag)
+        {
+            if (!anteile.Contains(beteiligter.UserId))
+            {
+                return;
+            }
+
+            var datum = monat.AddDays(tag - 1);
+
+            db.Transactions.Add(new Transaction
+            {
+                BookingDate = datum,
+                Payee = "Einlage Gemeinschaftskonto",
+                Kind = TransactionKind.Deposit,
+                Amount = betrag,
+                AccountId = konto.Id,
+                DepositUserId = beteiligter.UserId,
+                PropertyId = property.Id,
+                CreatedAt = datum.ToDateTime(new TimeOnly(6, 0)),
+            });
+        }
+
+        var (erster, zweite) = (beteiligte[0], beteiligte[1]);
+
+        foreach (var zurueck in (int[])[2, 1])
+        {
+            var monat = currentMonth.AddMonths(-zurueck);
+            Einlage(monat, 1, erster, erster.MonthlyTarget ?? 0m);
+            Einlage(monat, 2, zweite, zweite.MonthlyTarget ?? 0m);
+        }
+
+        Einlage(currentMonth, 1, erster, erster.MonthlyTarget ?? 0m);
+        Einlage(currentMonth, 3, zweite, (zweite.MonthlyTarget ?? 300m) - 300m);
+
+        await db.SaveChangesAsync(ct);
     }
 
     private static async Task<Property> SeedPropertyAsync(

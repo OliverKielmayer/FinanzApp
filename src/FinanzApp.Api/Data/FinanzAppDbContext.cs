@@ -148,14 +148,19 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
             a.HouseholdId == CurrentHouseholdId
             && (a.OwnerUserId == CurrentUserId
                 || a.Sharing == AccountSharing.Household
-                || (a.Sharing == AccountSharing.Named
+
+                // Namentlich und Gemeinschaft teilen die Sichtbarkeitsregel: wer in der Liste
+                // steht, sieht das Konto. Der Unterschied liegt im Einzahlungssoll, nicht im
+                // Zugriff.
+                || ((a.Sharing == AccountSharing.Named || a.Sharing == AccountSharing.Shared)
                     && a.Shares.Any(s => s.UserId == CurrentUserId))));
 
         b.Entity<Transaction>().HasQueryFilter(t =>
             t.HouseholdId == CurrentHouseholdId
             && (t.Account!.OwnerUserId == CurrentUserId
                 || t.Account.Sharing == AccountSharing.Household
-                || (t.Account.Sharing == AccountSharing.Named
+                || ((t.Account.Sharing == AccountSharing.Named
+                     || t.Account.Sharing == AccountSharing.Shared)
                     && t.Account.Shares.Any(s => s.UserId == CurrentUserId))));
     }
 
@@ -163,6 +168,8 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
     {
         b.Entity<AccountShare>(e =>
         {
+            e.Property(x => x.MonthlyTarget).HasConversion(NullableMoneyConverter);
+
             e.HasOne(x => x.Account).WithMany(a => a.Shares)
                 .HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
 

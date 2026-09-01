@@ -128,11 +128,104 @@ public sealed class ParticipationService(FinanzAppDbContext db, CurrentUser user
     }
 
     /// <summary>
+    /// Die Gemeinschaftskonten mit Soll und Eingang — Handoff „Gemeinsame Immobilie“, 3.3.
+    /// </summary>
+    /// <remarks>
+    /// <para>Verglichen wird der laufende Monat, daneben steht der Jahresstand: ein einzelner
+    /// Monat sagt wenig, wer im Mai zweimal gezahlt hat steht im Juni scheinbar im Rückstand.</para>
+    /// <para>Gezählt werden <b>Einlagen</b> auf dieses Konto — nicht jeder Eingang. Eine
+    /// Lohnzahlung auf das Haushaltskonto ist keine Einlage, und sie als eine zu zählen machte
+    /// aus einem Rückstand einen Überschuss.</para>
+    /// <para><b>Kein Mahnen.</b> Der Rückstand ist eine Feststellung; was zwischen zwei Menschen
+    /// vereinbart wurde, nachdem das Soll eingetragen war, weiß die Anwendung nicht.</para>
+    /// </remarks>
+    public async Task<IReadOnlyList<JointAccountDto>> JointAccountsAsync(
+        DateOnly today, CancellationToken ct = default)
+    {
+        var konten = await db.Accounts.AsNoTracking()
+            .Where(a => a.Sharing == AccountSharing.Shared)
+            .Include(a => a.Shares).ThenInclude(s => s.User)
+            .OrderBy(a => a.Name)
+            .ToListAsync(ct);
+
+        if (konten.Count == 0)
+        {
+            return [];
+        }
+
+        var kontoIds = konten.Select(k => k.Id).ToList();
+        var monatsAnfang = new DateOnly(today.Year, today.Month, 1);
+        var jahresAnfang = new DateOnly(today.Year, 1, 1);
+
+        // Beide Zeiträume haben ein Ende. Ohne es zählte eine vordatierte Einlage in jeden Monat
+        // vor ihr — „im September eingezahlt“ stünde dann schon im Juni.
+        var monatsEnde = monatsAnfang.AddMonths(1);
+        var jahresEnde = jahresAnfang.AddYears(1);
+
+        // Nur Zuflüsse: eine Einlage, die von diesem Konto abgeht, ist kein Eingang auf ihm.
+        // Das Vorzeichen trägt die Richtung — siehe TransactionService.Vorzeichen.
+        var einlagen = await db.Transactions.AsNoTracking()
+            .Where(t => t.Kind == TransactionKind.Deposit
+                        && t.DepositUserId != null
+                        && t.Amount > 0
+                        && kontoIds.Contains(t.AccountId)
+                        && t.BookingDate >= jahresAnfang
+                        && t.BookingDate < jahresEnde)
+            .Select(t => new { t.AccountId, User = t.DepositUserId!.Value, t.BookingDate, t.Amount })
+            .ToListAsync(ct);
+
+        return
+        [
+            .. konten.Select(konto =>
+            {
+                decimal Summe(int userId, DateOnly ab, DateOnly bis)
+                    => einlagen
+                        .Where(e => e.AccountId == konto.Id && e.User == userId
+                                    && e.BookingDate >= ab && e.BookingDate < bis)
+                        .Sum(e => e.Amount);
+
+                // Wann zuletzt — der Termin steht neben dem Stand, weil „erfüllt“ ohne Datum
+                // nicht sagt, ob es rechtzeitig war.
+                DateOnly? Zuletzt(int userId)
+                    => einlagen
+                        .Where(e => e.AccountId == konto.Id && e.User == userId
+                                    && e.BookingDate >= monatsAnfang && e.BookingDate < monatsEnde)
+                        .Select(e => (DateOnly?)e.BookingDate)
+                        .Max();
+
+                return new JointAccountDto
+                {
+                    AccountId = konto.Id,
+                    Name = konto.Name,
+                    Month = monatsAnfang,
+                    PaidThisYear = einlagen.Where(e => e.AccountId == konto.Id).Sum(e => e.Amount),
+                    Contributors =
+                    [
+                        .. konto.Shares
+                            .OrderBy(anteil => anteil.User?.Name)
+                            .Select(anteil => new JointContributorDto
+                            {
+                                UserId = anteil.UserId,
+                                Name = anteil.User?.Name ?? "Unbekannt",
+                                MonthlyTarget = anteil.MonthlyTarget,
+                                DueDay = anteil.DueDay,
+                                PaidThisMonth = Summe(anteil.UserId, monatsAnfang, monatsEnde),
+                                PaidThisYear = Summe(anteil.UserId, jahresAnfang, jahresEnde),
+                                LastPaidOn = Zuletzt(anteil.UserId),
+                            }),
+                    ],
+                };
+            }),
+        ];
+    }
+
+    /// <summary>
     /// Die gebuchten Einlagen je Objekt und Person.
     /// </summary>
     /// <remarks>
-    /// Einlagen stehen als Abfluss mit negativem Vorzeichen. Eingebracht ist der Betrag, nicht
-    /// seine Richtung — deshalb der Betragswert.
+    /// Eingebracht ist der Betrag, nicht seine Richtung — deshalb der Betragswert, und zwar
+    /// <b>je Zeile</b>: eine Einlage steht auf dem eigenen Konto als Abfluss, auf dem
+    /// Gemeinschaftskonto als Zufluss. Über die Summe abgewertet hoben sich beide auf.
     /// </remarks>
     private async Task<Dictionary<(int Property, int User), decimal>> DepositsAsync(
         IReadOnlyList<int> propertyIds, CancellationToken ct)
@@ -142,16 +235,24 @@ public sealed class ParticipationService(FinanzAppDbContext db, CurrentUser user
             return [];
         }
 
+        // Zusammengefasst wird hier, nicht in der Abfrage: der Betragswert je Zeile lässt sich
+        // nicht in eine SQL-Gruppierung übersetzen. Einlagen sind wenige Zeilen im Jahr.
         var zeilen = await db.Transactions.AsNoTracking()
             .Where(t => t.Kind == TransactionKind.Deposit
                         && t.PropertyId != null
                         && t.DepositUserId != null
                         && propertyIds.Contains(t.PropertyId!.Value))
-            .GroupBy(t => new { Property = t.PropertyId!.Value, User = t.DepositUserId!.Value })
-            .Select(g => new { g.Key, Summe = g.Sum(t => t.Amount) })
+            .Select(t => new
+            {
+                Property = t.PropertyId!.Value,
+                User = t.DepositUserId!.Value,
+                t.Amount,
+            })
             .ToListAsync(ct);
 
-        return zeilen.ToDictionary(z => (z.Key.Property, z.Key.User), z => Math.Abs(z.Summe));
+        return zeilen
+            .GroupBy(z => (z.Property, z.User))
+            .ToDictionary(g => g.Key, g => g.Sum(z => Math.Abs(z.Amount)));
     }
 
     /// <summary>Die abgeleiteten Größen eines Objekts — Quote, Einlagen, Ausgleich je Person.</summary>

@@ -45,6 +45,17 @@ public enum AccountSharing
 
     /// <summary>Namentlich für einzelne Mitglieder freigegeben.</summary>
     Named = 2,
+
+    /// <summary>
+    /// Gemeinschaftskonto — Handoff „Gemeinsame Immobilie“, 3.3.
+    /// </summary>
+    /// <remarks>
+    /// <para>Mehrere Beteiligte mit <b>Einzahlungssoll</b> je Person. Der Unterschied zu
+    /// „namentlich freigegeben“ ist nicht der Zugriff, sondern die Erwartung: hier zahlt jeder
+    /// monatlich etwas ein, und der Schirm stellt Soll und Eingang gegenüber.</para>
+    /// <para>Er <b>mahnt nicht</b> — er sagt, was steht.</para>
+    /// </remarks>
+    Shared = 3,
 }
 
 /// <summary>Art einer Immobilie. Steht in der Zeile unter dem Namen.</summary>

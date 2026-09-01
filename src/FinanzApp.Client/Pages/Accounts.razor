@@ -61,6 +61,50 @@
 
     <AddRow Route="/neu/account" Label="Konto anlegen" />
 
+    @*
+        Gemeinschaftskonten — Handoff „Gemeinsame Immobilie“, 3.3. Unter der Kontoliste, weil
+        der Block das Konto erklärt und nicht ersetzt: Soll gegen Eingang je Person, daneben der
+        Jahresstand. Er mahnt nicht, er sagt, was steht.
+    *@
+    @foreach (var gemeinschaft in joint)
+    {
+        <div class="list-head">
+            <span class="label-strong">@gemeinschaft.Name · Gemeinschaft</span>
+            <span class="tag tag-outline">Gemeinschaftskonto</span>
+        </div>
+
+        <div class="joint-head">
+            <span class="meta">@Kopfzeile(gemeinschaft)</span>
+
+            @* Der Saldo kommt aus der Kontoliste, nicht aus einer zweiten Rechnung. *@
+            @if (Saldo(gemeinschaft.AccountId) is { } saldo)
+            {
+                <span class="balance-value num">@State.Euro(saldo)</span>
+            }
+        </div>
+
+        @foreach (var person in gemeinschaft.Contributors)
+        {
+            <div class="row joint-row">
+                <span class="joint-name">@person.Name</span>
+
+                @* Kein Vorwurf, wo nichts vereinbart ist: „unter Soll“ ohne Soll hätte keine
+                   Grundlage. Deshalb entscheidet der Stand über die Farbe, nicht der Betrag. *@
+                <span class="joint-state @(person.MonthlyTarget is not null && !person.Fulfilled ? "behind" : null)">
+                    @Stand(person)
+                </span>
+
+                <span class="balance-value num joint-amount">@State.Euro(person.PaidThisMonth)</span>
+            </div>
+        }
+
+        <div class="tx-totals-note">
+            Einlagen zählen in die Beteiligungsrechnung — nicht in Einnahmen, Sparquote oder
+            Liquidität. Die App vergleicht Soll und Eingang; sie mahnt nicht.
+            @Jahreszeile(gemeinschaft)
+        </div>
+    }
+
     <div class="list-head">
         <span class="label-strong">Buchungen</span>
         <span class="list-count num">@list.FilteredCount von @list.TotalCount</span>
@@ -333,6 +377,83 @@ else if (sheetTransaction is { } sheet)
 
     private decimal SelectedAmount => list.Items.Where(t => selected.Contains(t.Id)).Sum(t => t.Amount);
 
+    private IReadOnlyList<JointAccountDto> joint = [];
+
+    /// <summary>
+    /// Soll und Eingang des Monats in einer Zeile.
+    /// </summary>
+    /// <remarks>
+    /// Beide Größen nebeneinander, jede benannt: „Soll“ ist vereinbart, „Eingang“ ist gebucht.
+    /// Ohne vereinbartes Soll bleibt der Eingang allein — verglichen wird nur, was verglichen
+    /// werden kann.
+    /// </remarks>
+    private string Kopfzeile(JointAccountDto konto)
+    {
+        var eingang = "Eingang " + State.Euro0(konto.PaidTotal);
+
+        return konto.HasTargets
+            ? $"Soll {State.Euro0(konto.TargetTotal)}/Monat · {eingang}"
+            : $"{eingang} · kein Soll vereinbart";
+    }
+
+    /// <summary>
+    /// Wie diese Person im Monat steht — und wann sie gezahlt hat.
+    /// </summary>
+    /// <remarks>
+    /// Die Abweichung steht im Klartext, weil eine Zahl allein nicht sagt, ob sie gut ist. Der
+    /// Termin steht daneben: „erfüllt“ ohne Datum sagt nicht, ob es rechtzeitig war.
+    /// </remarks>
+    private string Stand(JointContributorDto person)
+    {
+        var termin = person.LastPaidOn is { } tag
+            ? " · " + GermanFormat.DateShort(tag) + "."
+            : string.Empty;
+
+        if (person.MonthlyTarget is not { } soll)
+        {
+            return person.LastPaidOn is null
+                ? "kein Soll vereinbart"
+                : "eingezahlt" + termin;
+        }
+
+        var abweichung = person.Difference ?? 0m;
+
+        var stand = abweichung == 0m
+            ? "Soll erfüllt"
+            : abweichung > 0m
+                ? State.Euro0(abweichung) + " über Soll"
+                : State.Euro0(-abweichung) + " unter Soll";
+
+        // Ohne Eingang gibt es keinen Termin, aber den vereinbarten Tag — das ist die Auskunft,
+        // die dann weiterhilft.
+        if (person.LastPaidOn is null)
+        {
+            return person.DueDay is { } fällig
+                ? stand + " · vereinbart zum " + fällig + "."
+                : stand;
+        }
+
+        return stand + termin;
+    }
+
+    /// <summary>Der Jahresstand als Satz — ein einzelner Monat sagt wenig.</summary>
+    /// <remarks>
+    /// Wer im Mai zweimal gezahlt hat, steht im Juni scheinbar im Rückstand. Der Jahresstand
+    /// steht deshalb daneben und nicht anstelle des Monats.
+    /// </remarks>
+    private string Jahreszeile(JointAccountDto konto)
+        => $"In diesem Jahr {State.Euro0(konto.PaidThisYear)} eingezahlt.";
+
+    /// <summary>
+    /// Der Kontostand aus der Kontoliste.
+    /// </summary>
+    /// <remarks>
+    /// Nicht neu gerechnet: dieselbe Größe zweimal zu rechnen ist der Fehler, den dieser Handoff
+    /// über fünf Runden gejagt hat. <c>null</c>, wenn das Konto nicht in der Liste steht.
+    /// </remarks>
+    private decimal? Saldo(int accountId)
+        => accounts.FirstOrDefault(a => a.Id == accountId)?.Balance;
+
     protected override async Task LoadAsync()
     {
         // Die Adresse setzt den Filter, bevor die Liste zum ersten Mal geholt wird — sonst
@@ -342,6 +463,7 @@ else if (sheetTransaction is { } sheet)
 
         accounts = await Api.GetAccountsAsync();
         categories = await Api.GetCategoriesAsync();
+        joint = await Api.GetJointAccountsAsync();
         await ReloadListAsync();
     }
 
@@ -750,6 +872,10 @@ else if (sheetTransaction is { } sheet)
             AccountSharing.Named when account.SharedWith.Count == 0 => "privat",
             AccountSharing.Named
                 => "geteilt mit " + string.Join(" + ", account.SharedWith.Select(s => s.Name)),
+
+            // Die vierte Stufe heißt nach dem, was sie ausmacht: nicht der Zugriff, sondern das
+            // Einzahlungssoll.
+            AccountSharing.Shared => "Gemeinschaftskonto",
             _ => "Haushalt",
         };
     }

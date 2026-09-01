@@ -41,9 +41,20 @@ public sealed class TestDatabase : IDisposable
 
     public int HouseholdId { get; }
 
-    /// <summary>Ein Kontext, der auf den angegebenen Haushalt sieht.</summary>
-    public FinanzAppDbContext Context(int? householdId = null)
-        => new(Options) { CurrentHouseholdId = householdId ?? HouseholdId };
+    /// <summary>
+    /// Ein Kontext, der auf den angegebenen Haushalt und als der angegebene Benutzer sieht.
+    /// </summary>
+    /// <remarks>
+    /// Ohne Benutzer bleibt die Kennung 0 — genau wie im Betrieb ohne Sitzung. Dann zeigt der
+    /// Kontofilter nur, was auf „Haushalt“ steht: weniger, nie mehr. Für private, namentliche und
+    /// Gemeinschaftskonten muss der Benutzer mitkommen.
+    /// </remarks>
+    public FinanzAppDbContext Context(int? householdId = null, int? userId = null)
+        => new(Options)
+        {
+            CurrentHouseholdId = householdId ?? HouseholdId,
+            CurrentUserId = userId ?? 0,
+        };
 
     /// <summary>Legt einen Haushalt an und gibt seine Id zurück.</summary>
     public int AddHousehold(string name)

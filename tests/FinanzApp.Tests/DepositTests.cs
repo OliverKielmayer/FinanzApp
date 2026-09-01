@@ -79,11 +79,14 @@ public sealed class DepositTests : IDisposable
         Role = rolle, CreatedAt = clock.Now,
     };
 
-    private TransactionService Buchungen() => new(database.Context(haushalt), clock);
+    private TransactionService Buchungen(int? alsBenutzer = null)
+        => new(database.Context(haushalt, alsBenutzer), clock);
 
     private PropertyService Objekte(int? alsBenutzer)
     {
-        var context = database.Context(haushalt);
+        // Der Benutzer muss in den Kontext: Buchungen auf einem Gemeinschaftskonto sieht nur, wer
+        // in seiner Liste steht, und das prueft der Abfragefilter.
+        var context = database.Context(haushalt, alsBenutzer);
 
         return new PropertyService(
             context,
@@ -157,6 +160,55 @@ public sealed class DepositTests : IDisposable
 
         // Ohne Kategorie und trotzdem nicht in der Triage: sie trägt keine.
         Assert.False(gebucht.IsUncategorized);
+    }
+
+    /// <summary>
+    /// Auf einem Gemeinschaftskonto steht die Einlage als Zufluss.
+    /// </summary>
+    /// <remarks>
+    /// Dort kommt das Geld an. Stünde sie auch hier als Abfluss, fiele der Saldo, während der
+    /// Kontoblock „Eingang“ meldet — zwei Zahlen desselben Vorgangs, die einander widersprechen.
+    /// </remarks>
+    [Fact]
+    public async Task Auf_dem_Gemeinschaftskonto_ist_die_Einlage_ein_Zufluss()
+    {
+        Gemeinschaftskonto();
+
+        var gebucht = await Buchungen(oliver).CreateAsync(Einlage(1500m, oliver, objekt));
+
+        Assert.Equal(1500m, gebucht.Amount);
+    }
+
+    /// <summary>
+    /// Die Richtung ändert nichts daran, was eingebracht wurde.
+    /// </summary>
+    /// <remarks>
+    /// Eingebracht ist der Betrag, nicht seine Richtung. Würde über die Summe abgewertet statt je
+    /// Zeile, hoben sich Zufluss und Abfluss auf und der Ausgleichsstand wäre falsch.
+    /// </remarks>
+    [Fact]
+    public async Task Beide_Richtungen_zaehlen_als_eingebracht()
+    {
+        await Buchungen().CreateAsync(Einlage(2000m, oliver, objekt));
+
+        Gemeinschaftskonto();
+
+        await Buchungen(oliver).CreateAsync(Einlage(500m, oliver, objekt));
+
+        var beteiligung = (await Objekte(oliver).GetAsync(objekt))!.Participation!;
+
+        Assert.Equal(2500m, beteiligung.Participants.Single(p => p.IsSelf).Deposits);
+    }
+
+    /// <summary>Macht aus dem Haushaltskonto ein Gemeinschaftskonto der zwei Beteiligten.</summary>
+    private void Gemeinschaftskonto()
+    {
+        using var context = database.Context(haushalt, oliver);
+
+        context.Accounts.Single(a => a.Id == konto).Sharing = AccountSharing.Shared;
+        context.AccountShares.Add(new AccountShare { AccountId = konto, UserId = oliver });
+        context.AccountShares.Add(new AccountShare { AccountId = konto, UserId = sabine });
+        context.SaveChanges();
     }
 
     // ── Was sie nicht ist ─────────────────────────────────────────────────────────────────

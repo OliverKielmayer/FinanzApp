@@ -81,6 +81,10 @@ public sealed class FinanzAppApi(HttpClient http)
     public Task<IReadOnlyList<AccountDto>> GetAccountsAsync(CancellationToken ct = default)
         => GetAsync<IReadOnlyList<AccountDto>>("api/accounts", ct);
 
+    /// <summary>Die Gemeinschaftskonten samt Einzahlungssoll je Beteiligtem.</summary>
+    public Task<IReadOnlyList<JointAccountDto>> GetJointAccountsAsync(CancellationToken ct = default)
+        => GetAsync<IReadOnlyList<JointAccountDto>>("api/accounts/gemeinschaft", ct);
+
     /// <summary>Ändert die Freigabe eines Kontos. Nur der Eigentümer darf das.</summary>
     public Task<AccountDto> SetAccountSharingAsync(
         int id, AccountSharing sharing, IReadOnlyList<int> userIds, CancellationToken ct = default)

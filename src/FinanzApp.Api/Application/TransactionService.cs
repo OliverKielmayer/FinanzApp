@@ -186,7 +186,10 @@ public sealed class TransactionService(FinanzAppDbContext db, IClock clock)
             throw new RuleViolationException("Der Betrag muss größer als null sein.");
         }
 
-        if (!await db.Accounts.AnyAsync(a => a.Id == request.AccountId, ct))
+        var konto = await db.Accounts.AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Id == request.AccountId, ct);
+
+        if (konto is null)
         {
             throw new RuleViolationException("Unbekanntes Konto.");
         }
@@ -203,7 +206,7 @@ public sealed class TransactionService(FinanzAppDbContext db, IClock clock)
             BookingDate = request.BookingDate ?? clock.Today,
             Payee = string.IsNullOrWhiteSpace(request.Note) ? "Manuelle Buchung" : request.Note.Trim(),
             Kind = request.Kind,
-            Amount = request.Kind == TransactionKind.Income ? request.Amount : -request.Amount,
+            Amount = Vorzeichen(request.Kind, konto) * request.Amount,
             AccountId = request.AccountId,
             CategoryId = categoryId,
             Note = request.Note?.Trim(),
@@ -217,6 +220,26 @@ public sealed class TransactionService(FinanzAppDbContext db, IClock clock)
         await db.SaveChangesAsync(ct);
 
         return (await GetAsync(entity.Id, ct))!;
+    }
+
+    /// <summary>
+    /// In welche Richtung die Buchung auf diesem Konto wirkt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Eine Einnahme kommt an, alles andere geht ab — bis auf einen Fall: eine
+    /// <b>Einlage auf ein Gemeinschaftskonto</b> ist ein Zufluss. Dort kommt das Geld an, das ein
+    /// Beteiligter beisteuert; von seinem eigenen Konto aus wäre dieselbe Einlage ein Abfluss.</para>
+    /// <para>Ohne die Unterscheidung stünde im Kontoblock „Eingang“, während der Saldo fällt —
+    /// zwei Zahlen desselben Vorgangs, die einander widersprechen.</para>
+    /// </remarks>
+    private static int Vorzeichen(TransactionKind kind, Account konto)
+    {
+        if (kind == TransactionKind.Income)
+        {
+            return 1;
+        }
+
+        return kind == TransactionKind.Deposit && konto.Sharing == AccountSharing.Shared ? 1 : -1;
     }
 
     /// <summary>

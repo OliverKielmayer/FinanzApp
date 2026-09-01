@@ -29,6 +29,14 @@ public static class SeedData
 {
     private static readonly DateOnly Today = new(2026, 8, 23);
 
+    /// <summary>Der erste Tag des Monats, in dem der Demo-Bestand steht.</summary>
+    /// <remarks>
+    /// Aus <see cref="Today"/> abgeleitet und nicht aus dem Kalender: „heute“ ist für die
+    /// Anwendung der Stichtag aus <c>Demo:Today</c>. Am echten Datum ausgerichtet lägen die
+    /// Einlagen in einem Monat, den die Anwendung noch nicht erreicht hat.
+    /// </remarks>
+    private static DateOnly CurrentMonth => new(Today.Year, Today.Month, 1);
+
     /// <summary>Zielsalden laut Handoff. Der Anfangsbestand ergibt sich daraus rückwärts.</summary>
     private static readonly Dictionary<string, decimal> TargetBalances = new()
     {
@@ -95,7 +103,7 @@ public static class SeedData
         await db.SaveChangesAsync(ct);
 
         // Die Erweiterung setzt auf denselben Haushalt auf.
-        await ExtensionSeedData.SeedAsync(db, paths, household.Id, ct);
+        await ExtensionSeedData.SeedAsync(db, paths, household.Id, CurrentMonth, ct);
 
         // Sie bringt eigene Buchungen mit. Die Anfangsbestände müssen deshalb noch einmal
         // nachgezogen werden, damit die Salden weiterhin den Demo-Ständen entsprechen.
@@ -243,10 +251,26 @@ public static class SeedData
             privat.Sharing = AccountSharing.Private;
         }
 
+        // Die vierte Stufe am Tagesgeld — und ausdrücklich nicht am Hauptkonto: ein
+        // Gemeinschaftskonto sieht nur, wer in seiner Liste steht. Das Girokonto des Haushalts
+        // umzustellen nähme dem Steuerbüro die Sicht darauf, und das wäre eine Nebenwirkung, die
+        // niemand bestellt hat.
+        //
+        // Ungleiche Sollbeträge zeigen, dass der Vergleich je Person läuft und nicht über die
+        // Summe: 1.500 gegen 1.200, und Sabine zahlt im laufenden Monat 300 € zu wenig.
         if (sabine is not null && accounts.TryGetValue("Tagesgeld Raiffeisen", out var tagesgeld))
         {
-            tagesgeld.Sharing = AccountSharing.Named;
-            db.AccountShares.Add(new AccountShare { AccountId = tagesgeld.Id, UserId = sabine.Id });
+            tagesgeld.Sharing = AccountSharing.Shared;
+
+            db.AccountShares.Add(new AccountShare
+            {
+                AccountId = tagesgeld.Id, UserId = oliver.Id, MonthlyTarget = 1500m, DueDay = 1,
+            });
+
+            db.AccountShares.Add(new AccountShare
+            {
+                AccountId = tagesgeld.Id, UserId = sabine.Id, MonthlyTarget = 1200m, DueDay = 1,
+            });
         }
     }
 
