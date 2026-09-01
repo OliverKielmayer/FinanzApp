@@ -374,6 +374,32 @@ public static class ExtensionSeedData
             LoanId = loan?.Id,
         };
         db.Properties.Add(property);
+        await db.SaveChangesAsync(ct);
+
+        // Beteiligung zu zweit: Eigentum halbe-halbe, Eigenkapital ungleich. Genau der Fall aus
+        // dem Handoff — ohne ihn wäre der Ausgleichsstand im Beispiel immer null, und der
+        // interessante Zustand nie zu sehen.
+        var beteiligte = await db.Users.AsNoTracking()
+            .Where(u => u.Role == HouseholdRole.Owner || u.Role == HouseholdRole.Member)
+            .OrderBy(u => u.Id)
+            .Take(2)
+            .ToListAsync(ct);
+
+        if (beteiligte.Count == 2)
+        {
+            decimal[] eigenkapital = [90000m, 50000m];
+
+            for (var i = 0; i < beteiligte.Count; i++)
+            {
+                db.PropertyShares.Add(new PropertyShare
+                {
+                    PropertyId = property.Id,
+                    UserId = beteiligte[i].Id,
+                    Percent = 50m,
+                    Equity = eigenkapital[i],
+                });
+            }
+        }
 
         (string Name, string Provider, string? Number, decimal Monthly, int NoticeWeeks,
             DateOnly? NoticeTo)[] contracts =

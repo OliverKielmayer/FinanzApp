@@ -14,7 +14,8 @@ namespace FinanzApp.Api.Application;
 /// genau einen Darlehensbereich mit genau einem Tilgungsplan. Die Kostenrechnung summiert echte
 /// Buchungen; eine Rechnung gilt erst als bezahlt, wenn ihr eine Buchung zugeordnet wurde.
 /// </remarks>
-public sealed class PropertyService(FinanzAppDbContext db, DocumentService documents, IClock clock)
+public sealed class PropertyService(
+    FinanzAppDbContext db, DocumentService documents, IClock clock, CurrentUser user)
 {
     private const int NoticeWindowDays = 90;
 
@@ -36,6 +37,7 @@ public sealed class PropertyService(FinanzAppDbContext db, DocumentService docum
         var property = await db.Properties.AsNoTracking()
             .Include(p => p.Loan)
             .Include(p => p.Contracts)
+            .Include(p => p.Shares).ThenInclude(s => s.User)
             .FirstOrDefaultAsync(p => p.Id == id, ct);
 
         if (property is null)
@@ -71,6 +73,73 @@ public sealed class PropertyService(FinanzAppDbContext db, DocumentService docum
             CostParts = parts,
             Contracts = contracts,
             Documents = await documents.GetForTargetAsync(LinkTargetType.Property, property.Id, ct),
+            Participation = Participation(property),
+        };
+    }
+
+    /// <summary>
+    /// Die Beteiligung am Objekt, fertig gerechnet — Handoff „Gemeinsame Immobilie“, 3.1 und 9.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Der Ausgleich ist eine abgeleitete Größe.</b> Er steht nirgends in der Datenbank
+    /// und darf nirgends von Hand gesetzt werden: eingebracht minus Eigentumsanteil an der Summe
+    /// des Eingebrachten. Bei 90.000 zu 50.000 und halbe-halbe sind das ±20.000 — die Hälfte der
+    /// Differenz, weil das Eigentum halb ist. Dieselbe Formel trägt auch ungleiche Anteile und
+    /// mehr als zwei Beteiligte.</para>
+    /// <para><b>Zwei Schuldgrößen, zwei Namen.</b> Die Restschuld bleibt die Restschuld; der
+    /// Haftungsanteil ist eine zusätzliche, eigene Größe. Sie nach der Eigentumsquote zu teilen
+    /// ist das Innenverhältnis — nach außen haftet jeder für alles, und eine verschobene
+    /// Darlehensquote wäre eine Zahl, die die Bank nicht kennt.</para>
+    /// <para>Ohne gepflegte Anteile gibt es keine Beteiligung: dann gehört das Objekt dem
+    /// Haushalt, und der ganze Wert zählt. Eine Quote zu erfinden wäre schlimmer als keine.</para>
+    /// </remarks>
+    public PropertyParticipationDto? Participation(Property property)
+    {
+        if (property.Shares.Count == 0)
+        {
+            return null;
+        }
+
+        var schuld = property.Loan?.RemainingDebt ?? 0m;
+        var eingebrachtGesamt = property.Shares.Sum(s => s.Equity);
+        var meiner = property.Shares.FirstOrDefault(s => s.UserId == user.UserId);
+
+        static decimal Runde(decimal wert) => decimal.Round(wert, 2, MidpointRounding.AwayFromZero);
+
+        decimal Ausgleich(PropertyShare anteil)
+            => Runde(anteil.Equity - (anteil.Percent / 100m * eingebrachtGesamt));
+
+        return new PropertyParticipationDto
+        {
+            Participants =
+            [
+                .. property.Shares
+                    .OrderByDescending(s => s.Percent)
+                    .ThenBy(s => s.User?.Name)
+                    .Select(s => new ParticipantDto
+                    {
+                        UserId = s.UserId,
+                        Name = s.User?.Name ?? "Unbekannt",
+                        Percent = s.Percent,
+                        Equity = s.Equity,
+
+                        // Einlagen kommen aus den Buchungen der Art „Einlage“. Die Buchungsart
+                        // ist noch nicht gebaut — bis dahin steht hier null statt einer
+                        // erfundenen Zahl.
+                        Deposits = 0m,
+                        Settlement = Ausgleich(s),
+                        IsSelf = s.UserId == user.UserId,
+                    }),
+            ],
+            MarketValue = property.MarketValue,
+            DebtTotal = schuld,
+
+            // Ohne eigenen Anteil gibt es keine eigene Sicht. Der Schirm lässt die Kacheln dann
+            // weg, statt eine Null als Anteil auszugeben.
+            ValueShare = meiner is null ? null : Runde(meiner.Percent / 100m * property.MarketValue),
+            DebtShare = meiner is null ? null : Runde(meiner.Percent / 100m * schuld),
+            Settlement = meiner is null ? null : Ausgleich(meiner),
+            PercentComplete = property.Shares.Sum(s => s.Percent) == 100m,
         };
     }
 

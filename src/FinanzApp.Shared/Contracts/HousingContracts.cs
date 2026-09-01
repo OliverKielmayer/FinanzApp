@@ -234,6 +234,16 @@ public sealed record PropertyDetailDto
 
     public required IReadOnlyList<ContractListItemDto> Contracts { get; init; }
     public required IReadOnlyList<DocumentListItemDto> Documents { get; init; }
+
+    /// <summary>
+    /// Die Beteiligung — <c>null</c>, solange das Objekt dem Haushalt allein gehört.
+    /// </summary>
+    /// <remarks>
+    /// Sie kommt fertig gerechnet aus dem Dienst. Der Schirm zeigt Anteile, eigene Sicht und
+    /// Ausgleichsstand, ohne selbst zu rechnen — die Zahl stünde sonst an vier Stellen desselben
+    /// Schirms viermal gerechnet da.
+    /// </remarks>
+    public PropertyParticipationDto? Participation { get; init; }
 }
 
 public sealed record PropertyLoanRefDto

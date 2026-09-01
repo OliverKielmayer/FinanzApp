@@ -252,6 +252,52 @@ public class Property : IHouseholdOwned
     public Loan? Loan { get; set; }
 
     public List<Contract> Contracts { get; set; } = [];
+
+    /// <summary>
+    /// Wer das Objekt zu welchem Anteil besitzt.
+    /// </summary>
+    /// <remarks>
+    /// Leer heißt: das Objekt gehört dem Haushalt als Ganzem, und der volle Wert zählt. Sobald
+    /// Anteile stehen, zählt nur der eigene — sonst führte die Anwendung bei einer Person das
+    /// ganze Haus, das ihr zur Hälfte gehört.
+    /// </remarks>
+    public List<PropertyShare> Shares { get; set; } = [];
+}
+
+/// <summary>
+/// Ein Beteiligter an einer Immobilie — Handoff „Gemeinsame Immobilie“, Abschnitt 3.1.
+/// </summary>
+/// <remarks>
+/// <para>Drei Größen, die auseinanderfallen und nicht verwechselt werden dürfen: der
+/// <b>Eigentumsanteil</b> steht im Grundbuch und ändert sich nicht, das <b>eingebrachte
+/// Eigenkapital</b> fiel einmalig beim Kauf an und ist ungleich, und die <b>laufenden
+/// Einlagen</b> verschieben den Stand weiter. Wer den Anteil mit dem Eingebrachten
+/// verwechselt, beantwortet „wer hat mehr getragen“ mit dem Grundbuch.</para>
+/// <para>Eigene Tabelle wie beim Kontozugriff: die Beteiligung ist eine Beziehung zwischen
+/// Person und Objekt und lässt sich nur so im Abfragefilter auswerten.</para>
+/// </remarks>
+public class PropertyShare : IHouseholdOwned
+{
+    public int Id { get; set; }
+    public int HouseholdId { get; set; }
+
+    public int PropertyId { get; set; }
+    public Property? Property { get; set; }
+
+    public int UserId { get; set; }
+    public User? User { get; set; }
+
+    /// <summary>Eigentumsanteil in Prozent. Die Anteile eines Objekts ergeben 100.</summary>
+    public decimal Percent { get; set; }
+
+    /// <summary>
+    /// Eingebrachtes Eigenkapital beim Kauf.
+    /// </summary>
+    /// <remarks>
+    /// Einmalig und ungleich. Aus ihm und den laufenden Einlagen entsteht der Ausgleichsstand —
+    /// er wird nirgends von Hand gesetzt.
+    /// </remarks>
+    public decimal Equity { get; set; }
 }
 
 /// <summary>Ein laufender Vertrag — Strom, Internet, Wartung.</summary>

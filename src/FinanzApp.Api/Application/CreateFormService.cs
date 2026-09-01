@@ -444,8 +444,16 @@ public sealed class CreateFormService(
 
             case CreateObjectType.Property:
             {
-                var x = await db.Properties.AsNoTracking().FirstOrDefaultAsync(y => y.Id == id, ct);
-                return x is null ? null : new()
+                var x = await db.Properties.AsNoTracking()
+                    .Include(y => y.Shares)
+                    .FirstOrDefaultAsync(y => y.Id == id, ct);
+
+                if (x is null)
+                {
+                    return null;
+                }
+
+                var werte = new Dictionary<string, string?>
                 {
                     ["name"] = x.Name,
                     ["address"] = x.Address,
@@ -454,6 +462,16 @@ public sealed class CreateFormService(
                     ["market"] = x.MarketValue == 0m ? null : Money(x.MarketValue),
                     ["loan"] = x.LoanId?.ToString(),
                 };
+
+                // Die gepflegten Anteile zurück in die Maske: wer nur den Marktwert korrigiert,
+                // darf die Beteiligung dabei nicht verlieren.
+                foreach (var anteil in x.Shares)
+                {
+                    werte[$"share.{anteil.UserId}"] = Hours(anteil.Percent);
+                    werte[$"equity.{anteil.UserId}"] = anteil.Equity == 0m ? null : Money(anteil.Equity);
+                }
+
+                return werte;
             }
 
             case CreateObjectType.Contract:
@@ -653,7 +671,10 @@ public sealed class CreateFormService(
     private async Task<CreateResultDto> UpdatePropertyAsync(
         int id, IReadOnlyDictionary<string, string?> values, CancellationToken ct)
     {
-        var property = await db.Properties.FirstOrDefaultAsync(p => p.Id == id, ct);
+        var property = await db.Properties
+            .Include(p => p.Shares)
+            .FirstOrDefaultAsync(p => p.Id == id, ct);
+
         if (property is null)
         {
             return Fail(null, "Die Immobilie gibt es nicht mehr.");
@@ -670,6 +691,11 @@ public sealed class CreateFormService(
         property.PurchaseDate = purchase;
         property.MarketValue = ParseMoney(Value(values, "market")) ?? 0m;
         property.LoanId = ParseInt(Value(values, "loan"));
+
+        if (await ApplySharesAsync(property, values, ct) is { } problem)
+        {
+            return problem;
+        }
 
         await db.SaveChangesAsync(ct);
         return Ok(id, $"/wohnen/{id}");
@@ -1265,9 +1291,56 @@ public sealed class CreateFormService(
                 Date("purchase", "Kauf", required: true),
                 Money("market", "Marktwert", required: false),
                 Reference("loan", "Bestehendes Darlehen", required: false, loans),
+
+                .. await ShareFieldsAsync(ct),
             ],
         };
     }
+
+    /// <summary>
+    /// Die Beteiligung am Objekt: je Person Eigentumsanteil und eingebrachtes Eigenkapital.
+    /// </summary>
+    /// <remarks>
+    /// <para>Nur bei mehr als einer schreibberechtigten Person im Haushalt — allein besitzt man
+    /// nichts zu Anteilen, und zwei leere Felder wären dort nur Ballast.</para>
+    /// <para>Alle Anteile leer heißt: das Objekt gehört dem Haushalt, und der ganze Wert zählt.
+    /// Stehen Anteile, müssen sie 100 % ergeben; sonst rechnete das Vermögen mit einer
+    /// Teilsumme, ohne dass es jemand merkt.</para>
+    /// </remarks>
+    private async Task<List<CreateFieldDto>> ShareFieldsAsync(CancellationToken ct)
+    {
+        var personen = await ShareUsersAsync(ct);
+
+        if (personen.Count < 2)
+        {
+            return [];
+        }
+
+        var felder = new List<CreateFieldDto>();
+
+        foreach (var person in personen)
+        {
+            felder.Add(Number($"share.{person.Id}", $"Eigentumsanteil {person.Name}", required: false,
+                help: "in Prozent — die Anteile eines Objekts ergeben zusammen 100"));
+
+            felder.Add(Money($"equity.{person.Id}", $"Eigenkapital beim Kauf {person.Name}",
+                required: false,
+                help: "einmalig eingebracht. Daraus entsteht der Ausgleichsstand."));
+        }
+
+        return felder;
+    }
+
+    /// <summary>Wer als Beteiligter in Frage kommt.</summary>
+    /// <remarks>
+    /// Nur Eigentümer und Mitglieder: ein Lesezugriff — das Steuerbüro — besitzt keine
+    /// Immobilie mit.
+    /// </remarks>
+    private async Task<List<User>> ShareUsersAsync(CancellationToken ct)
+        => await db.Users.AsNoTracking()
+            .Where(u => u.Role == HouseholdRole.Owner || u.Role == HouseholdRole.Member)
+            .OrderBy(u => u.Id)
+            .ToListAsync(ct);
 
     private async Task<CreateResultDto> CreatePropertyAsync(
         IReadOnlyDictionary<string, string?> values, CancellationToken ct)
@@ -1294,10 +1367,85 @@ public sealed class CreateFormService(
             LoanId = ParseInt(Value(values, "loan")),
         };
 
+        if (await ApplySharesAsync(property, values, ct) is { } problem)
+        {
+            return problem;
+        }
+
         db.Properties.Add(property);
         await db.SaveChangesAsync(ct);
 
         return Ok(property.Id, $"/wohnen/{property.Id}");
+    }
+
+    /// <summary>
+    /// Übernimmt die Anteile am Objekt und prüft ihre Summe.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Entweder ganz oder gar nicht.</b> Stehen Anteile, müssen sie 100 % ergeben — die
+    /// Anwendung speichert sonst nicht. Mit 90 % gerechnet fehlte ein Zehntel des Objekts in
+    /// jeder Vermögenssumme, und niemand sähe es der Zahl an.</para>
+    /// <para>Eigenkapital ohne Anteil wird abgewiesen: es gehört zu einem Anteil, sonst lässt
+    /// sich kein Ausgleich daraus rechnen.</para>
+    /// </remarks>
+    private async Task<CreateResultDto?> ApplySharesAsync(
+        Property property, IReadOnlyDictionary<string, string?> values, CancellationToken ct)
+    {
+        var personen = await ShareUsersAsync(ct);
+
+        if (personen.Count < 2)
+        {
+            return null;
+        }
+
+        var anteile = new List<PropertyShare>();
+
+        foreach (var person in personen)
+        {
+            var prozent = ParseMoney(Value(values, $"share.{person.Id}"));
+            var eigenkapital = ParseMoney(Value(values, $"equity.{person.Id}")) ?? 0m;
+
+            if (prozent is null && eigenkapital > 0m)
+            {
+                return Fail($"share.{person.Id}",
+                    $"Ohne Eigentumsanteil lässt sich das Eigenkapital von {person.Name} nicht zuordnen.");
+            }
+
+            if (prozent is not { } wert || wert <= 0m)
+            {
+                continue;
+            }
+
+            if (wert > 100m)
+            {
+                return Fail($"share.{person.Id}", "Ein Anteil über 100 % gibt es nicht.");
+            }
+
+            anteile.Add(new PropertyShare
+            {
+                UserId = person.Id,
+                Percent = wert,
+                Equity = eigenkapital,
+            });
+        }
+
+        if (anteile.Count == 0)
+        {
+            property.Shares.Clear();
+            return null;
+        }
+
+        var summe = anteile.Sum(a => a.Percent);
+
+        if (summe != 100m)
+        {
+            return Fail($"share.{anteile[0].UserId}",
+                $"Die Eigentumsanteile ergeben {Hours(summe)} % statt 100 %.");
+        }
+
+        property.Shares.Clear();
+        property.Shares.AddRange(anteile);
+        return null;
     }
 
     // ── Vertrag (Wohnen) ───────────────────────────────────────────────────────────────────

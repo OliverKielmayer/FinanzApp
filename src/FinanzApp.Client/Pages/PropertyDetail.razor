@@ -15,6 +15,102 @@
             <span class="loan-sub">@(property.Address ?? property.Name)</span>
         </section>
 
+        @*
+            Beteiligung — Handoff „Gemeinsame Immobilie“, 3.1. Über dem Darlehen, weil sie die
+            Zahlen darunter erklärt: die Restschuld ist die ganze, mein Anteil daran ist eine
+            andere Größe. Gerechnet wird nichts hier; alles kommt aus dem Aggregat.
+        *@
+        @if (property.Participation is { } beteiligung)
+        {
+            <section class="section">
+                <div class="section-head">
+                    <span class="label-strong">Beteiligung</span>
+                    <AuthorizeView Roles="Owner,Member" Context="anteile">
+                        <a class="section-link" href="@($"/bearbeiten/property/{property.Id}")">Anteile ändern</a>
+                    </AuthorizeView>
+                </div>
+
+                @* Der Balken nennt seine Bezugsgröße. Ein unbeschrifteter Balken, der Anteile
+                   zeigt, während der Leser Eingebrachtes erwartet, ist ein Widerspruch — auch
+                   wenn beide Zahlen stimmen. *@
+                <div class="share-bar" role="img" aria-label="@Verhaeltnis(beteiligung)">
+                    @foreach (var person in beteiligung.Participants)
+                    {
+                        <span class="share-part @(person.IsSelf ? "mine" : null)"
+                              style="@($"flex:{person.Percent.ToString(System.Globalization.CultureInfo.InvariantCulture)}")">
+                            @GermanFormat.Percent(person.Percent, person.Percent % 1 == 0 ? 0 : 2)
+                        </span>
+                    }
+                </div>
+                <span class="meta">Eigentumsanteil laut Grundbuch · @Verhaeltnis(beteiligung)</span>
+
+                @if (!beteiligung.PercentComplete)
+                {
+                    <div class="notice">
+                        <span class="notice-title">Anteile ergeben nicht 100 %</span>
+                        <span class="notice-text">
+                            Solange sie nicht aufgehen, rechnet das Vermögen mit einer Teilsumme.
+                        </span>
+                    </div>
+                }
+
+                @if (beteiligung.ValueShare is { } wertAnteil && beteiligung.DebtShare is { } schuldAnteil)
+                {
+                    <div class="share-tiles">
+                        <div class="blueprint share-tile">
+                            <i class="corner tl" aria-hidden="true"></i>
+                            <i class="corner tr" aria-hidden="true"></i>
+                            <i class="corner bl" aria-hidden="true"></i>
+                            <i class="corner br" aria-hidden="true"></i>
+                            <span class="label-muted">Dein Anteil Wert</span>
+                            <span class="hero-value medium num">@State.Euro0(wertAnteil)</span>
+                            <span class="meta num">von @State.Euro0(beteiligung.MarketValue) Marktwert</span>
+                        </div>
+
+                        <div class="blueprint share-tile">
+                            <i class="corner tl" aria-hidden="true"></i>
+                            <i class="corner tr" aria-hidden="true"></i>
+                            <i class="corner bl" aria-hidden="true"></i>
+                            <i class="corner br" aria-hidden="true"></i>
+                            <span class="label-muted">Dein Anteil Schuld</span>
+                            <span class="hero-value medium num">@State.Euro0(-schuldAnteil)</span>
+                            <span class="meta num">von @State.Euro0(beteiligung.DebtTotal) Restschuld</span>
+                        </div>
+                    </div>
+
+                    @* Die eigene Zahl mit ihrer Herleitung daneben: wer sie nicht aus den
+                       Nachbarzahlen nachrechnen kann, misstraut ihr zu Recht. *@
+                    <div class="detail-block">
+                        <span class="detail-label">Zählt in deinem Vermögen</span>
+                        <span class="detail-value num">
+                            @State.Euro0(beteiligung.NetShare ?? 0m) —
+                            @State.Euro0(wertAnteil) Anteil Wert minus
+                            @State.Euro0(schuldAnteil) Anteil Schuld
+                        </span>
+                    </div>
+                }
+
+                @if (beteiligung.Settlement is { } ausgleich)
+                {
+                    <div class="share-settlement @(ausgleich >= 0 ? null : "owed")">
+                        <span class="stack">
+                            <span class="balance-label plain">
+                                @(ausgleich >= 0 ? "Deine Forderung an die Beteiligten" : "Deine Schuld an die Beteiligten")
+                            </span>
+                            <span class="meta">@Herleitung(beteiligung)</span>
+                        </span>
+                        <span class="balance-value num">@Betrag(Math.Abs(ausgleich))</span>
+                    </div>
+                }
+
+                <div class="tx-totals-note">
+                    Eigentumsanteil, eingebrachtes Eigenkapital und laufende Einlagen sind drei
+                    verschiedene Größen. Der Ausgleich kommt aus den letzten beiden und wird nicht
+                    verzinst — die Anwendung führt ihn, sie treibt ihn nicht ein.
+                </div>
+            </section>
+        }
+
         @if (property.Loan is { } loan)
         {
             @*
@@ -85,6 +181,51 @@
     [Parameter] public int Id { get; set; }
 
     private PropertyDetailDto? data;
+
+    /// <summary>
+    /// Ein Betrag mit Cent nur dann, wenn es welche gibt.
+    /// </summary>
+    /// <remarks>
+    /// Der Ausgleich ist eine Forderung zwischen Personen — Cent zu verschweigen wäre dort
+    /// falsch. Runde Beträge mit „,00“ neben gerundeten Nachbarzahlen zu setzen aber auch.
+    /// </remarks>
+    private string Betrag(decimal wert)
+        => wert % 1 == 0 ? State.Euro0(wert) : State.Euro(wert);
+
+    /// <summary>
+    /// Das Verhältnis der Anteile im Klartext — „50 / 50“.
+    /// </summary>
+    /// <remarks>
+    /// Steht als Beschriftung am Balken und als Vorlesetext. Ein Balken ohne Bezugsgröße lässt
+    /// den Leser raten, ob er Eigentum oder Eingebrachtes zeigt.
+    /// </remarks>
+    private static string Verhaeltnis(PropertyParticipationDto beteiligung)
+        => string.Join(" / ", beteiligung.Participants.Select(
+            p => GermanFormat.Percent(p.Percent, p.Percent % 1 == 0 ? 0 : 2) + " " + p.Name));
+
+    /// <summary>
+    /// Woraus der Ausgleich entsteht.
+    /// </summary>
+    /// <remarks>
+    /// Nicht die Formel, sondern die beiden Zahlen, die sie füttern: eingebracht gegen den
+    /// Anteil am gemeinsam Eingebrachten. Damit lässt sich die Zahl nachrechnen.
+    /// </remarks>
+    private string Herleitung(PropertyParticipationDto beteiligung)
+    {
+        var meiner = beteiligung.Participants.FirstOrDefault(p => p.IsSelf);
+
+        if (meiner is null)
+        {
+            return "abgeleitet aus Eigenkapital und Einlagen";
+        }
+
+        var gesamt = beteiligung.Participants.Sum(p => p.Contributed);
+        var soll = decimal.Round(meiner.Percent / 100m * gesamt, 2, MidpointRounding.AwayFromZero);
+
+        return $"{State.Euro0(meiner.Contributed)} eingebracht · "
+               + $"{GermanFormat.Percent(meiner.Percent, meiner.Percent % 1 == 0 ? 0 : 2)} von "
+               + $"{State.Euro0(gesamt)} wären {State.Euro0(soll)}";
+    }
 
     protected override async Task LoadAsync() => data = await Api.GetPropertyAsync(Id);
 

@@ -69,6 +69,9 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
     /// </summary>
     public DbSet<PolicyReport> PolicyReports => Set<PolicyReport>();
 
+    /// <summary>Die Eigentumsanteile an Immobilien — leer heißt: der Haushalt allein.</summary>
+    public DbSet<PropertyShare> PropertyShares => Set<PropertyShare>();
+
     /// <summary>
     /// Die eigene Kurszeitreihe — die Datenhaltung, nicht die Quelle.
     /// </summary>
@@ -421,6 +424,22 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
             // Ein Satz je Ausführung. Der Index trägt die Duplikatprüfung und verhindert sie
             // auch dann, wenn zwei Importe gleichzeitig laufen.
             e.HasIndex(x => new { x.HouseholdId, x.ImportReference }).IsUnique();
+        });
+
+        b.Entity<PropertyShare>(e =>
+        {
+            e.Property(x => x.Equity).HasConversion(MoneyConverter);
+            e.Property(x => x.Percent).HasPrecision(9, 4);
+
+            e.HasOne(x => x.Property).WithMany(p => p.Shares)
+                .HasForeignKey(x => x.PropertyId).OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.User).WithMany()
+                .HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+
+            // Eine Person, ein Anteil je Objekt. Zwei Zeilen für dieselbe Person ergäben zwei
+            // Anteile, die zusammen nichts bedeuten.
+            e.HasIndex(x => new { x.HouseholdId, x.PropertyId, x.UserId }).IsUnique();
         });
 
         b.Entity<PolicyReport>(e =>

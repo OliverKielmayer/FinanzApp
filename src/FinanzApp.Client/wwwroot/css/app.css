@@ -5221,6 +5221,74 @@ body {
   height: 72px;
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   Beteiligung an einer Immobilie — Handoff „Gemeinsame Immobilie", 3.1.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* Der Proportionsbalken. Die Breite kommt aus dem Anteil, die Beschriftung steht im Balken —
+   ein unbeschrifteter Balken laesst den Leser raten, welche Groesse er zeigt. */
+.share-bar {
+  display: flex;
+  margin: 0 0 6px;
+  border: 1px solid var(--color-text);
+}
+
+.share-part {
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-divider);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.share-part:last-child {
+  border-right: 0;
+}
+
+/* Der eigene Anteil im Akzent: er ist die Zahl, um die es dem Leser geht. */
+.share-part.mine {
+  color: var(--color-bg);
+  background: var(--color-accent);
+}
+
+.share-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 0 4px;
+}
+
+.share-tile {
+  display: flex;
+  flex: 1 1 150px;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+}
+
+/* Der Ausgleichsstand. Eine Forderung steht im Akzent, eine Schuld in der Schuldfarbe —
+   dieselbe Zeile, zwei Vorzeichen, und das Vorzeichen ist die Aussage. */
+.share-settlement {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 11px 14px;
+  background: var(--color-accent-100);
+  border-left: 2px solid var(--color-accent);
+}
+
+.share-settlement.owed {
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
+  border-left-color: var(--color-neutral-600);
+}
+
 /* Eine Zeile je gemeldetem Stand. Der, der den erreichten Wert trägt, steht im Akzent —
    sonst müsste man die Stichtage vergleichen, um ihn zu finden. */
 .row.report {
