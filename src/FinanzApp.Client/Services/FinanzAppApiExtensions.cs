@@ -292,10 +292,18 @@ public static class FinanzAppApiExtensions
         => api.PostAsync<CreateRequest, CreateResultDto>(
             $"api/create/{type}", new CreateRequest { Values = values }, ct);
 
-    /// <summary>Löscht den Dokumenteintrag. Die Datei im Dokumentordner bleibt liegen.</summary>
+    /// <summary>
+    /// Löscht den Dokumenteintrag. Die Datei im Dokumentordner bleibt liegen.
+    /// </summary>
+    /// <remarks>
+    /// <b>Ohne Ergebnis.</b> Der Endpunkt antwortet 204, und ein Leseversuch auf den leeren Rumpf
+    /// endete in „Die Antwort des Servers war unlesbar“ — <em>nachdem</em> der Server gelöscht
+    /// hatte. Der Schirm zeigte dann einen Fehler und behielt die Zeile: gelöscht war es, zu
+    /// sehen war es nicht.
+    /// </remarks>
     public static Task DeleteDocumentAsync(
         this FinanzAppApi api, int id, CancellationToken ct = default)
-        => api.SendAsync<object?, object?>(HttpMethod.Delete, $"api/documents/{id}", null, ct);
+        => api.SendWithoutResultAsync<object?>(HttpMethod.Delete, $"api/documents/{id}", null, ct);
 
     /// <summary>Dasselbe Formular, vorbefüllt — plus der Löschabschnitt.</summary>
     public static Task<CreateFormDto> GetEditFormAsync(
