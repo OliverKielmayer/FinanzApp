@@ -201,7 +201,10 @@
     {
         null => $"Finanzvermögen {State.Euro(kopf.FinancialAssets)} · "
                 + $"Sachwerte {State.Euro(kopf.TangibleAssets)} · "
-                + $"Verbindlichkeiten {State.Euro(-kopf.Liabilities)}",
+                + $"Verbindlichkeiten {State.Euro(-kopf.Liabilities)}"
+                + (kopf.Receivables == 0m
+                    ? string.Empty
+                    : $" · Forderungen {State.Euro(kopf.Receivables)}"),
 
         HoldingClass.Protection => $"{Count(kopf.Count, "Vertrag", "Verträge")} · "
                                    + (kopf.UrgentCount == 0

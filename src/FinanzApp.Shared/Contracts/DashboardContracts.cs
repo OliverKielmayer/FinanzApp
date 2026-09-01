@@ -30,19 +30,48 @@ public sealed record NetWorthDto
     public required decimal FinancialAssets { get; init; }
 
     /// <summary>
-    /// Sachwerte: Immobilien.
+    /// Sachwerte: Immobilien — <b>nur der eigene Anteil</b>.
     /// </summary>
     /// <remarks>
-    /// Fahrzeuge stehen hier nicht. Sie tragen in diesem Bestand keinen Wert, sondern
-    /// Jahreskosten — einen Vermögenswert für sie zu erfinden wäre schlimmer als keiner.
+    /// <para>Fahrzeuge stehen hier nicht. Sie tragen in diesem Bestand keinen Wert, sondern
+    /// Jahreskosten — einen Vermögenswert für sie zu erfinden wäre schlimmer als keiner.</para>
+    /// <para>Gehört ein Objekt mehreren, zählt hier der Anteil des Betrachters. Ohne diese
+    /// Quote stünde bei einer Person das ganze Haus, das ihr zur Hälfte gehört. Der volle
+    /// Objektwert steht daneben in <see cref="TangibleTotal"/> — eine Größe umzudefinieren und
+    /// ihren Namen zu lassen verschiebt den Widerspruch nur.</para>
     /// </remarks>
     public required decimal TangibleAssets { get; init; }
+
+    /// <summary>Der volle Wert aller Objekte, ohne Quote — für die Objektzeile und den Bestand.</summary>
+    public required decimal TangibleTotal { get; init; }
 
     /// <summary>Wie viele Objekte die Sachwerte ausmachen — „3 Immobilien · Marktwert“.</summary>
     public required int TangibleCount { get; init; }
 
-    /// <summary>Summe aller Verbindlichkeiten, positiv geführt.</summary>
+    /// <summary>
+    /// Verbindlichkeiten, positiv geführt — <b>nur der eigene Haftungsanteil</b>.
+    /// </summary>
+    /// <remarks>
+    /// Bei einem gemeinsamen Objekt haftet nach außen jeder für alles; im Innenverhältnis trägt
+    /// jeder seinen Eigentumsanteil. Die Bilanz zeigt deshalb den Anteil, der Tilgungsplan
+    /// weiter die ganze Restschuld — siehe <see cref="LiabilitiesTotal"/>.
+    /// </remarks>
     public required decimal Liabilities { get; init; }
+
+    /// <summary>Die ganze Restschuld, ohne Quote — der Tilgungsplan liest sie.</summary>
+    public required decimal LiabilitiesTotal { get; init; }
+
+    /// <summary>
+    /// Forderungen an Beteiligte, vorzeichenbehaftet — die vierte Größe.
+    /// </summary>
+    /// <remarks>
+    /// <para>Wer beim Kauf mehr Eigenkapital eingebracht hat, als sein Eigentumsanteil verlangt,
+    /// hat eine Forderung gegen die anderen Beteiligten. Ohne sie zählte sein Vermögen um genau
+    /// diesen Betrag zu wenig und das der anderen zu viel.</para>
+    /// <para><b>Abgeleitet, nie erfasst.</b> Quelle sind Eigentumsanteile, eingebrachtes
+    /// Eigenkapital und Einlagen; von Hand gesetzt werden darf sie nirgends.</para>
+    /// </remarks>
+    public required decimal Receivables { get; init; }
 
     /// <summary>
     /// Gesamtvermögen netto — die eine Zahl.
@@ -54,7 +83,7 @@ public sealed record NetWorthDto
     /// eine Immobilie über 395.000 € stand — dann trug der Bestand die Dreiteilung und das
     /// Dashboard weiter die alte Zahl. Zwei Antworten auf dieselbe Frage, 395.000 € auseinander.
     /// </remarks>
-    public decimal Net => FinancialAssets + TangibleAssets - Liabilities;
+    public decimal Net => FinancialAssets + TangibleAssets - Liabilities + Receivables;
 
     /// <summary>
     /// Finanzvermögen abzüglich Verbindlichkeiten.
@@ -109,6 +138,22 @@ public sealed record LiabilityDto
     public required string Label { get; init; }
     public required string Subtitle { get; init; }
 
-    /// <summary>Restschuld, positiv geführt.</summary>
+    /// <summary>
+    /// Der eigene Haftungsanteil, positiv geführt.
+    /// </summary>
+    /// <remarks>
+    /// <b>Nicht die ganze Restschuld.</b> Die Bilanzzeile muss dasselbe sagen wie die Kopfzeile
+    /// über ihr; stünde hier die ganze Schuld, widersprächen sich zwei Zahlen unter demselben
+    /// Wort im selben Schirm.
+    /// </remarks>
     public required decimal Amount { get; init; }
+
+    /// <summary>
+    /// Die ganze Restschuld — gleich <see cref="Amount"/>, wenn nichts geteilt ist.
+    /// </summary>
+    /// <remarks>
+    /// Als Zahl und nicht als fertiger Satz: ein im Server formatierter Betrag ließe sich von
+    /// „Beträge verbergen“ nicht mehr maskieren.
+    /// </remarks>
+    public required decimal AmountTotal { get; init; }
 }

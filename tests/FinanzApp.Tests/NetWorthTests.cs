@@ -29,7 +29,8 @@ public sealed class NetWorthTests : IDisposable
             TestDatabase.Portfolio(context),
             new LoanService(context),
             new BudgetService(context, clock),
-            clock);
+            clock,
+            TestDatabase.SignedIn(null));
     }
 
     private void Konto(decimal stand)

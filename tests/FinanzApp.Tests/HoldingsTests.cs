@@ -32,7 +32,8 @@ public sealed class HoldingsTests : IDisposable
             TestDatabase.Portfolio(context),
             new LoanService(context),
             new BudgetService(context, clock),
-            clock);
+            clock,
+            TestDatabase.SignedIn(null));
     }
 
     private HoldingsService Service()

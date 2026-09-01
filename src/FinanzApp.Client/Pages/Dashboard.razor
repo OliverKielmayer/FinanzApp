@@ -53,7 +53,7 @@
                 <span class="hero-delta-secondary num">
                     Finanzvermögen @State.Euro(dashboard.NetWorth.FinancialAssets) ·
                     Sachwerte @State.Euro(dashboard.NetWorth.TangibleAssets) ·
-                    Verbindlichkeiten @State.Euro(-dashboard.NetWorth.Liabilities)
+                    Verbindlichkeiten @State.Euro(-dashboard.NetWorth.Liabilities)@(Forderung(dashboard.NetWorth))
                 </span>
 
                 @* Die Veränderung stammt aus der Reihe des Finanzvermögens — und sagt es.
@@ -104,7 +104,9 @@
                 <button type="button" class="tap balance-row" @onclick="OpenLoan">
                     <span class="stack">
                         <span class="balance-label plain">@dashboard.Liability.Label</span>
-                        <span class="meta">@dashboard.Liability.Subtitle</span>
+                        <span class="meta">
+                            @dashboard.Liability.Subtitle@(Haftung(dashboard.Liability))
+                        </span>
                     </span>
                     <span class="balance-value debt num">@State.Euro(-dashboard.Liability.Amount)</span>
                 </button>
@@ -236,10 +238,54 @@
     /// Eine Zahl in einer Bilanz ohne Herkunft ist eine Behauptung. Und „Marktwert“ gehört
     /// dazu: es ist eine Schätzung, kein Kontostand.
     /// </remarks>
-    private static string TangibleNote(NetWorthDto vermoegen)
-        => vermoegen.TangibleCount == 0
-            ? "keine erfasst"
-            : $"{vermoegen.TangibleCount} {(vermoegen.TangibleCount == 1 ? "Immobilie" : "Immobilien")} · Marktwert";
+    /// <summary>
+    /// Wovon der Haftungsanteil ein Anteil ist — nur wenn er einer ist.
+    /// </summary>
+    /// <remarks>
+    /// Die Zeile trägt den eigenen Anteil, damit sie der Kopfzeile nicht widerspricht. Ohne
+    /// diesen Zusatz sähe sie aus wie die ganze Restschuld, und der Tilgungsplan dahinter nennt
+    /// eine andere Zahl.
+    /// </remarks>
+    private string Haftung(LiabilityDto schuld)
+        => schuld.Amount == schuld.AmountTotal
+            ? string.Empty
+            : " · dein Anteil von " + State.Euro0(schuld.AmountTotal);
+
+    /// <summary>
+    /// Die vierte Größe in der Aufteilung — nur wenn es sie gibt.
+    /// </summary>
+    /// <remarks>
+    /// Eine Forderung an Beteiligte entsteht, wo ein Objekt mehreren gehört und einer mehr
+    /// eingebracht hat. Wo es sie nicht gibt, gehört sie nicht in die Zeile: eine Null wäre
+    /// eine Aussage über etwas, das nicht existiert.
+    /// </remarks>
+    private string Forderung(NetWorthDto vermoegen)
+        => vermoegen.Receivables == 0m
+            ? string.Empty
+            : " · Forderungen " + State.Euro(vermoegen.Receivables);
+
+    /// <summary>
+    /// Was die Sachwerte ausmacht — und ob dort ein Anteil steht statt des ganzen Werts.
+    /// </summary>
+    /// <remarks>
+    /// Gehört ein Objekt mehreren, zählt hier der eigene Anteil. Ohne diesen Satz stünde in der
+    /// Bilanz die Hälfte des Marktwerts, und der Objektschirm nennt daneben den ganzen — zwei
+    /// Zahlen, die einander widersprechen, obwohl beide stimmen.
+    /// </remarks>
+    private string TangibleNote(NetWorthDto vermoegen)
+    {
+        if (vermoegen.TangibleCount == 0)
+        {
+            return "keine erfasst";
+        }
+
+        var zahl = $"{vermoegen.TangibleCount} "
+                   + (vermoegen.TangibleCount == 1 ? "Immobilie" : "Immobilien");
+
+        return vermoegen.TangibleAssets == vermoegen.TangibleTotal
+            ? zahl + " · Marktwert"
+            : zahl + " · dein Anteil von " + State.Euro0(vermoegen.TangibleTotal) + " Marktwert";
+    }
 
     private void OpenLoan()
     {

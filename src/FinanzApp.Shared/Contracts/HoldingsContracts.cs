@@ -47,6 +47,15 @@ public sealed record HoldingsHeadDto
     /// <summary>Die Sachwerte — nur bei „Alle“ von Belang.</summary>
     public required decimal TangibleAssets { get; init; }
 
+    /// <summary>
+    /// Forderungen an Beteiligte, vorzeichenbehaftet — die vierte Größe.
+    /// </summary>
+    /// <remarks>
+    /// Dieselbe Zahl wie im Dashboard, aus derselben Quelle. Sie steht nur da, wenn es sie
+    /// gibt — eine Null als Forderung wäre eine Aussage über etwas, das nicht existiert.
+    /// </remarks>
+    public decimal Receivables { get; init; }
+
     /// <summary>Verbindlichkeiten, positiv geführt.</summary>
     public required decimal Liabilities { get; init; }
 

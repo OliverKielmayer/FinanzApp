@@ -130,7 +130,8 @@ public sealed class EmploymentSeedTests : IDisposable
                 TestDatabase.Portfolio(context),
                 new LoanService(context),
                 new BudgetService(context, uhr),
-                uhr),
+                uhr,
+                TestDatabase.SignedIn(null)),
             new VehicleService(context, dokumente, uhr),
             TestDatabase.Portfolio(context),
             uhr);

@@ -83,6 +83,7 @@ public sealed class HoldingsService(
             FinancialAssets = vermoegen.FinancialAssets,
             TangibleAssets = vermoegen.TangibleAssets,
             Liabilities = vermoegen.Liabilities,
+            Receivables = vermoegen.Receivables,
             Net = vermoegen.Net,
             Count = filter switch
             {

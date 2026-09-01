@@ -44,7 +44,8 @@ public sealed class HoldingMetaTests : IDisposable
             TestDatabase.Portfolio(context),
             new LoanService(context),
             new BudgetService(context, clock),
-            clock);
+            clock,
+            TestDatabase.SignedIn(null));
 
         return new HoldingsService(
             context, dashboard, new VehicleService(context, Documents(), clock), TestDatabase.Portfolio(context), clock);
