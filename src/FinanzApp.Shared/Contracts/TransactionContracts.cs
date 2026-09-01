@@ -34,7 +34,12 @@ public sealed record TransactionDto
     public bool HasStatementData => ImportReference is not null || Details is not null;
 
     /// <summary>Umbuchungen brauchen keine Kategorie und gelten nie als „nicht zugeordnet“.</summary>
-    public bool IsUncategorized => Kind != TransactionKind.Transfer && CategoryId is null;
+    /// <remarks>
+    /// Umbuchung und Einlage tragen keine Kategorie und fehlen deshalb nicht — sie zählen auch
+    /// nicht in die Triage.
+    /// </remarks>
+    public bool IsUncategorized
+        => Kind is TransactionKind.Expense or TransactionKind.Income && CategoryId is null;
 }
 
 /// <summary>Eine Seite der Buchungsliste inklusive der Zähler für Kopfzeile und Triage-Banner.</summary>
@@ -100,6 +105,18 @@ public sealed record CreateTransactionRequest
     public int? CategoryId { get; init; }
     public string? Note { get; init; }
     public DateOnly? BookingDate { get; init; }
+
+    /// <summary>
+    /// Wer eingezahlt hat — Pflicht bei einer Einlage, sonst ohne Bedeutung.
+    /// </summary>
+    /// <remarks>
+    /// Ohne Person ließe sich die Einlage niemandem zurechnen, und genau davon lebt der
+    /// Ausgleichsstand.
+    /// </remarks>
+    public int? DepositUserId { get; init; }
+
+    /// <summary>Für welches Objekt eingezahlt wurde — Pflicht bei einer Einlage.</summary>
+    public int? PropertyId { get; init; }
 }
 
 /// <summary>Stapelvergabe: eine Kategorie für mehrere Buchungen auf einmal.</summary>

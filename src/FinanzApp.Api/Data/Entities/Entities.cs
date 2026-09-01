@@ -121,6 +121,29 @@ public class Transaction : IHouseholdOwned
     /// nicht an — siehe „Offene Punkte“ in der README.</summary>
     public int? CounterAccountId { get; set; }
 
+    /// <summary>
+    /// Wer eingezahlt hat — nur bei einer Einlage.
+    /// </summary>
+    /// <remarks>
+    /// Eine Einlage ohne Person ließe sich niemandem zurechnen, und der Ausgleichsstand lebt
+    /// davon, wer wie viel eingebracht hat. Der Betrag allein sagt darüber nichts.
+    /// </remarks>
+    public int? DepositUserId { get; set; }
+
+    public User? DepositUser { get; set; }
+
+    /// <summary>
+    /// Für welches Objekt eingezahlt wurde — nur bei einer Einlage.
+    /// </summary>
+    /// <remarks>
+    /// Die Beteiligungsrechnung gehört zum Objekt: zwei Häuser mit verschiedenen Anteilen führen
+    /// zwei Ausgleichsstände. Am Konto hängt sie deshalb nicht — ein Konto kann für mehrere
+    /// Objekte laufen und ein Objekt über mehrere Konten.
+    /// </remarks>
+    public int? PropertyId { get; set; }
+
+    public Property? Property { get; set; }
+
     public string? Note { get; set; }
 
     // ── Auszugsfelder ──────────────────────────────────────────────────────────────────────

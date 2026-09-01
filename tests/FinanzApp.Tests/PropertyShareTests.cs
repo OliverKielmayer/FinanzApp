@@ -71,7 +71,7 @@ public sealed class PropertyShareTests : IDisposable
                 clock,
                 NullLogger<DocumentService>.Instance),
             clock,
-            TestDatabase.SignedIn(alsBenutzer));
+            new ParticipationService(context, TestDatabase.SignedIn(alsBenutzer)));
     }
 
     private (int PropertyId, int Oliver, int Sabine) Objekt(

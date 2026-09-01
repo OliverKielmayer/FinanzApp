@@ -50,16 +50,61 @@
     @* Bei einer Umbuchung gibt es nichts zu kategorisieren — dann fällt der Block ganz weg,
        auch dort, wo sonst alle Schritte zugleich stehen. *@
     <div class="entry-step @(step == 2 ? "active" : null) @(kind == TransactionKind.Transfer ? "gone" : null)">
-        <div class="picker">
-            <span class="label-strong">Kategorie</span>
-            <div class="chipcloud">
-                @foreach (var category in AvailableCategories)
+        @if (kind == TransactionKind.Deposit)
+        {
+            @*
+                Eine Einlage trägt keine Kategorie, sondern eine Person und ein Objekt — ohne
+                beides ließe sie sich niemandem zurechnen und nirgends verrechnen. Der Schritt
+                heißt deshalb hier anders und fragt anderes.
+            *@
+            <div class="picker">
+                <span class="label-strong">Wer zahlt ein</span>
+                <div class="chipcloud">
+                    @foreach (var person in Beteiligte)
+                    {
+                        <button type="button" class="chip @(depositUserId == person.UserId ? "active" : null)"
+                                @onclick="() => depositUserId = person.UserId">@person.Name</button>
+                    }
+                </div>
+
+                <span class="label-strong">Für welches Objekt</span>
+                <div class="chipcloud">
+                    @foreach (var objekt in shared)
+                    {
+                        <button type="button" class="chip @(propertyId == objekt.Id ? "active" : null)"
+                                @onclick="() => PickProperty(objekt.Id)">@objekt.Name</button>
+                    }
+                </div>
+
+                @if (shared.Count == 0)
                 {
-                    <button type="button" class="chip @(categoryId == category.Id ? "active" : null)"
-                            @onclick="() => categoryId = category.Id">@category.Name</button>
+                    <span class="meta">
+                        Keine Immobilie mit Eigentumsanteilen. Eine Einlage braucht ein Objekt mit
+                        Beteiligten — die Anteile stehen am Objekt unter Wohnen.
+                    </span>
+                }
+                else
+                {
+                    <span class="meta">
+                        Zählt in die Beteiligungsrechnung — nicht in Einnahmen, Sparquote oder
+                        Liquidität.
+                    </span>
                 }
             </div>
-        </div>
+        }
+        else
+        {
+            <div class="picker">
+                <span class="label-strong">Kategorie</span>
+                <div class="chipcloud">
+                    @foreach (var category in AvailableCategories)
+                    {
+                        <button type="button" class="chip @(categoryId == category.Id ? "active" : null)"
+                                @onclick="() => categoryId = category.Id">@category.Name</button>
+                    }
+                </div>
+            </div>
+        }
     </div>
 
     <div class="entry-step @(step == 3 ? "active" : null)">
@@ -107,6 +152,7 @@
         (TransactionKind.Expense, "Ausgabe"),
         (TransactionKind.Income, "Einnahme"),
         (TransactionKind.Transfer, "Umbuchung"),
+        (TransactionKind.Deposit, "Einlage"),
     ];
 
     private static readonly string[] Keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ",", "0", "⌫"];
@@ -122,6 +168,11 @@
     private string digits = string.Empty;
     private int? categoryId;
     private int? accountId;
+    private int? depositUserId;
+    private int? propertyId;
+
+    /// <summary>Objekte mit gepflegten Eigentumsanteilen — nur für sie gibt es Einlagen.</summary>
+    private IReadOnlyList<PropertyListItemDto> shared = [];
     private string note = string.Empty;
     private bool saving;
 
@@ -134,6 +185,14 @@
         accounts = await Api.GetAccountsAsync();
         categories = await Api.GetCategoriesAsync();
         accountId ??= accounts.FirstOrDefault()?.Id;
+
+        // Nur Objekte mit Anteilen: ohne Beteiligte gibt es keine Einlage.
+        shared = [.. (await Api.GetPropertiesAsync()).Where(p => p.HasShares)];
+
+        if (shared.Count == 1)
+        {
+            PickProperty(shared[0].Id);
+        }
     }
 
     private decimal Amount => digits.Length == 0 ? 0m : decimal.Parse(digits) / 100m;
@@ -157,8 +216,10 @@
     {
         get
         {
-            var category = categories.FirstOrDefault(c => c.Id == categoryId)?.Name
-                           ?? (kind == TransactionKind.Transfer ? "Umbuchung" : "Kategorie offen");
+            var category = kind == TransactionKind.Deposit
+                ? "Einlage " + (Beteiligte.FirstOrDefault(b => b.UserId == depositUserId)?.Name ?? "ohne Person")
+                : categories.FirstOrDefault(c => c.Id == categoryId)?.Name
+                  ?? (kind == TransactionKind.Transfer ? "Umbuchung" : "Kategorie offen");
             var account = accounts.FirstOrDefault(a => a.Id == accountId)?.Name ?? "kein Konto";
             return $"{category} · {account} · {GermanFormat.Date(DateOnly.FromDateTime(DateTime.Now))}";
         }
@@ -170,6 +231,26 @@
     {
         kind = next;
         categoryId = null;
+    }
+
+    /// <summary>Die Beteiligten des gewählten Objekts.</summary>
+    /// <remarks>
+    /// Wer keinen Anteil hat, zahlt nichts ein, sondern schenkt oder leiht — das wäre eine
+    /// andere Buchung. Der Dienst weist es ab; die Liste zeigt es gar nicht erst an.
+    /// </remarks>
+    private IReadOnlyList<PropertyParticipantDto> Beteiligte
+        => shared.FirstOrDefault(p => p.Id == propertyId)?.Participants ?? [];
+
+    private void PickProperty(int id)
+    {
+        propertyId = id;
+
+        // Die Person gehört zum Objekt: bei einem Wechsel ist eine alte Wahl unter Umständen
+        // dort nicht beteiligt.
+        if (Beteiligte.All(b => b.UserId != depositUserId))
+        {
+            depositUserId = Beteiligte.Count == 1 ? Beteiligte[0].UserId : null;
+        }
     }
 
     /// <summary>
@@ -239,6 +320,14 @@
             return;
         }
 
+        // Vor dem Absenden gefragt, nicht danach gemeldet: der Dienst weist es sonst mit einem
+        // Fehler ab, und der Nutzer sucht die Ursache in der falschen Ecke.
+        if (kind == TransactionKind.Deposit && (depositUserId is null || propertyId is null))
+        {
+            Toasts.Show("Eine Einlage braucht Person und Objekt");
+            return;
+        }
+
         saving = true;
         try
         {
@@ -248,8 +337,10 @@
                 Kind = kind,
                 Amount = Amount,
                 AccountId = account,
-                CategoryId = kind == TransactionKind.Transfer ? null : categoryId,
+                CategoryId = kind is TransactionKind.Transfer or TransactionKind.Deposit ? null : categoryId,
                 Note = string.IsNullOrWhiteSpace(note) ? null : note,
+                DepositUserId = kind == TransactionKind.Deposit ? depositUserId : null,
+                PropertyId = kind == TransactionKind.Deposit ? propertyId : null,
             };
 
             var created = await Api.CreateTransactionAsync(request);

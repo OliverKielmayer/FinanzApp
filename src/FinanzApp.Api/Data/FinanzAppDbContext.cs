@@ -245,6 +245,15 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
             e.Property(x => x.Note).HasMaxLength(500);
             e.Property(x => x.ImportReference).HasMaxLength(120);
             e.Property(x => x.Amount).HasConversion(MoneyConverter);
+
+            // Verschwindet die Person oder das Objekt, bleibt die Buchung: sie hat stattgefunden.
+            // Nur ihre Zurechnung entfällt, und die Beteiligungsrechnung sagt das dann.
+            e.HasOne(x => x.DepositUser).WithMany()
+                .HasForeignKey(x => x.DepositUserId).OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(x => x.Property).WithMany()
+                .HasForeignKey(x => x.PropertyId).OnDelete(DeleteBehavior.SetNull);
+
             e.HasIndex(x => new { x.HouseholdId, x.BookingDate });
             e.HasIndex(x => new { x.HouseholdId, x.ImportReference });
 

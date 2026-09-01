@@ -68,7 +68,7 @@ public sealed class TransactionService(FinanzAppDbContext db, IClock clock)
     /// </summary>
     private static TransactionTotalsDto Totals(IReadOnlyList<TransactionDto> rows)
     {
-        var real = rows.Where(t => t.Kind != TransactionKind.Transfer).ToList();
+        var real = rows.Where(t => BookingKinds.Counts(t.Kind)).ToList();
         var income = real.Where(t => t.Amount > 0).Sum(t => t.Amount);
         var expense = real.Where(t => t.Amount < 0).Sum(t => -t.Amount);
 
@@ -117,9 +117,11 @@ public sealed class TransactionService(FinanzAppDbContext db, IClock clock)
         var category = await db.Categories.AsNoTracking().FirstOrDefaultAsync(c => c.Id == categoryId, ct)
                        ?? throw new RuleViolationException("Unbekannte Kategorie.");
 
+        // Was keine Kategorie trägt, bleibt unangetastet — und wird gezählt, damit die
+        // Rückmeldung sagt, wie viele übersprungen wurden.
         var (targets, transfers) = (
-            rows.Where(t => t.Kind != TransactionKind.Transfer).ToList(),
-            rows.Count(t => t.Kind == TransactionKind.Transfer));
+            rows.Where(t => BookingKinds.TakesCategory(t.Kind)).ToList(),
+            rows.Count(t => !BookingKinds.TakesCategory(t.Kind)));
 
         foreach (var row in targets)
         {
@@ -189,8 +191,12 @@ public sealed class TransactionService(FinanzAppDbContext db, IClock clock)
             throw new RuleViolationException("Unbekanntes Konto.");
         }
 
-        // Umbuchungen tragen keine Kategorie — sie sind weder Einnahme noch Ausgabe.
-        var categoryId = request.Kind == TransactionKind.Transfer ? null : request.CategoryId;
+        // Umbuchung und Einlage tragen keine Kategorie — sie sind weder Einnahme noch Ausgabe.
+        var categoryId = BookingKinds.TakesCategory(request.Kind) ? request.CategoryId : null;
+
+        var (person, objekt) = request.Kind == TransactionKind.Deposit
+            ? await CheckDepositAsync(request, ct)
+            : (null, null);
 
         var entity = new Transaction
         {
@@ -201,6 +207,8 @@ public sealed class TransactionService(FinanzAppDbContext db, IClock clock)
             AccountId = request.AccountId,
             CategoryId = categoryId,
             Note = request.Note?.Trim(),
+            DepositUserId = person,
+            PropertyId = objekt,
             RequestKey = request.RequestKey,
             CreatedAt = clock.Now,
         };
@@ -209,6 +217,43 @@ public sealed class TransactionService(FinanzAppDbContext db, IClock clock)
         await db.SaveChangesAsync(ct);
 
         return (await GetAsync(entity.Id, ct))!;
+    }
+
+    /// <summary>
+    /// Prüft Person und Objekt einer Einlage.
+    /// </summary>
+    /// <remarks>
+    /// <para>Beides ist Pflicht: eine Einlage ohne Person ließe sich niemandem zurechnen, eine
+    /// ohne Objekt nirgends verrechnen. Der Ausgleichsstand lebt von genau diesen zwei Angaben —
+    /// eine Einlage, die keine davon trägt, wäre eine Zahl ohne Aussage.</para>
+    /// <para>Und die Person muss am Objekt beteiligt sein. Wer keinen Anteil hat, zahlt nichts
+    /// ein, sondern schenkt oder leiht — das wäre eine andere Buchung.</para>
+    /// </remarks>
+    private async Task<(int? Person, int? Objekt)> CheckDepositAsync(
+        CreateTransactionRequest request, CancellationToken ct)
+    {
+        if (request.DepositUserId is not { } person)
+        {
+            throw new RuleViolationException(
+                "Eine Einlage braucht die Person, die eingezahlt hat.");
+        }
+
+        if (request.PropertyId is not { } objekt)
+        {
+            throw new RuleViolationException(
+                "Eine Einlage braucht das Objekt, für das eingezahlt wurde.");
+        }
+
+        var beteiligt = await db.PropertyShares.AsNoTracking()
+            .AnyAsync(a => a.PropertyId == objekt && a.UserId == person, ct);
+
+        if (!beteiligt)
+        {
+            throw new RuleViolationException(
+                "Die Person ist an diesem Objekt nicht beteiligt — dann ist es keine Einlage.");
+        }
+
+        return (person, objekt);
     }
 
     /// <summary>
@@ -238,7 +283,7 @@ public sealed class TransactionService(FinanzAppDbContext db, IClock clock)
         }
 
         entity.CategoryId = request.CategoryId;
-        if (request.CategoryId is not null && entity.Kind == TransactionKind.Transfer)
+        if (request.CategoryId is not null && !BookingKinds.TakesCategory(entity.Kind))
         {
             // Eine zugeordnete Kategorie hebt die Umbuchung auf: die Buchung wird wieder
             // Einnahme oder Ausgabe, je nach Vorzeichen.

@@ -62,7 +62,7 @@ public sealed class NetWorthShareTests : IDisposable
             new LoanService(context),
             new BudgetService(context, clock),
             clock,
-            TestDatabase.SignedIn(alsBenutzer));
+            new ParticipationService(context, TestDatabase.SignedIn(alsBenutzer)));
     }
 
     /// <summary>Ein Objekt mit Darlehen, wahlweise geteilt.</summary>

@@ -212,6 +212,25 @@ public sealed record PropertyListItemDto
     public string? Address { get; init; }
     public required decimal MarketValue { get; init; }
     public required int ContractCount { get; init; }
+
+    /// <summary>
+    /// Die Beteiligten, falls Eigentumsanteile gepflegt sind.
+    /// </summary>
+    /// <remarks>
+    /// Sie stehen in der Liste, weil die Erfassenmaske für eine Einlage Objekt <em>und</em>
+    /// Person braucht. Ein zweiter Abruf je Objekt wäre ein Abruf ohne Ergebnis.
+    /// </remarks>
+    public IReadOnlyList<PropertyParticipantDto> Participants { get; init; } = [];
+
+    /// <summary>Ob das Objekt Eigentumsanteile führt.</summary>
+    public bool HasShares => Participants.Count > 0;
+}
+
+/// <summary>Ein Beteiligter, so weit ihn eine Liste braucht.</summary>
+public sealed record PropertyParticipantDto
+{
+    public required int UserId { get; init; }
+    public required string Name { get; init; }
 }
 
 public sealed record PropertyDetailDto

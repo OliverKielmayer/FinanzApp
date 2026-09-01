@@ -15,7 +15,7 @@ public sealed class DashboardService(
     LoanService loans,
     BudgetService budgets,
     IClock clock,
-    CurrentUser user)
+    ParticipationService participation)
 {
     public async Task<DashboardDto> GetAsync(CancellationToken ct = default)
     {
@@ -38,7 +38,7 @@ public sealed class DashboardService(
 
         // Sachwerte kommen aus den Immobilien. Sie gehören ins Vermögen, aber nicht in
         // dieselbe Summe wie das, was auf Konten liegt.
-        var quote = await ShareAsync(ct);
+        var quote = await participation.WealthAsync(debt, ct);
         var tangibleCount = await db.Properties.AsNoTracking().CountAsync(ct);
         var history = await db.NetWorthSnapshots.AsNoTracking()
             .OrderBy(s => s.Month)
@@ -66,70 +66,6 @@ public sealed class DashboardService(
             TopBudgets = await budgets.GetTopAsync(3, ct),
         };
     }
-
-    /// <summary>
-    /// Wie viel von Objekten und Objektschulden dem Betrachter zusteht — Handoff „Gemeinsame
-    /// Immobilie“, 3.2.
-    /// </summary>
-    /// <remarks>
-    /// <para><b>Die Quote wirkt an einer Stelle und schlägt überall durch.</b> Dashboard-Kopf,
-    /// Bestand-Kopf und Vermögensbericht lesen dieselbe Zahl; jede Fläche für sich zu rechnen war
-    /// im Entwurf der Grund, warum dieselbe Größe siebenmal auseinanderlief.</para>
-    /// <para>Objekte ohne gepflegte Anteile gehören dem Haushalt ganz — dort zählt der volle
-    /// Wert. Eine Quote zu erfinden, wo keine gepflegt ist, wäre schlimmer als keine.</para>
-    /// <para>Die Schuld eines Objekts wird nur dann geteilt, wenn das Objekt geteilt ist. Ein
-    /// Darlehen ohne Objekt — Auto, Anschaffung — trägt der Haushalt allein.</para>
-    /// </remarks>
-    private async Task<(decimal TangibleTotal, decimal TangibleShare, decimal DebtShare, decimal Receivables)>
-        ShareAsync(CancellationToken ct)
-    {
-        var objekte = await db.Properties.AsNoTracking()
-            .Include(p => p.Loan)
-            .Include(p => p.Shares)
-            .ToListAsync(ct);
-
-        var schuldenGesamt = await loans.GetTotalDebtAsync(ct);
-
-        var wertGesamt = objekte.Sum(p => p.MarketValue);
-        var wertAnteil = 0m;
-        var objektSchuld = 0m;
-        var objektSchuldAnteil = 0m;
-        var forderung = 0m;
-
-        foreach (var objekt in objekte)
-        {
-            var meiner = objekt.Shares.FirstOrDefault(s => s.UserId == user.UserId);
-            var schuld = objekt.Loan?.RemainingDebt ?? 0m;
-
-            if (objekt.Shares.Count == 0)
-            {
-                wertAnteil += objekt.MarketValue;
-                continue;
-            }
-
-            objektSchuld += schuld;
-
-            if (meiner is null)
-            {
-                continue;
-            }
-
-            var quote = meiner.Percent / 100m;
-            wertAnteil += Runde(quote * objekt.MarketValue);
-            objektSchuldAnteil += Runde(quote * schuld);
-
-            var eingebracht = objekt.Shares.Sum(s => s.Equity);
-            forderung += Runde(meiner.Equity - (quote * eingebracht));
-        }
-
-        // Nur die Schuld geteilter Objekte wird gequotet; alle übrigen Darlehen bleiben ganz.
-        var uebrigeSchuld = schuldenGesamt - objektSchuld;
-
-        return (wertGesamt, wertAnteil, uebrigeSchuld + objektSchuldAnteil, forderung);
-    }
-
-    private static decimal Runde(decimal wert)
-        => decimal.Round(wert, 2, MidpointRounding.AwayFromZero);
 
     private async Task<IReadOnlyList<AssetSliceDto>> BuildAssetsAsync(
         decimal checking, decimal savings, decimal depotValue, decimal pension, DateOnly? pensionAsOf,
@@ -186,7 +122,8 @@ public sealed class DashboardService(
         var to = from.AddMonths(1).AddDays(-1);
 
         var rows = await db.Transactions.AsNoTracking()
-            .Where(t => t.Kind != TransactionKind.Transfer && t.BookingDate >= from && t.BookingDate <= to)
+            .Where(BookingKinds.Counting)
+            .Where(t => t.BookingDate >= from && t.BookingDate <= to)
             .Select(t => new { t.Kind, t.Amount })
             .ToListAsync(ct);
 

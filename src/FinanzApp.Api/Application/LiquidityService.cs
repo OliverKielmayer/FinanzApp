@@ -29,7 +29,8 @@ public sealed class LiquidityService(FinanzAppDbContext db, IClock clock)
         var to = from.AddMonths(1).AddDays(-1);
 
         var booked = await db.Transactions.AsNoTracking()
-            .Where(t => t.Kind != TransactionKind.Transfer && t.BookingDate >= from && t.BookingDate <= to)
+            .Where(BookingKinds.Counting)
+            .Where(t => t.BookingDate >= from && t.BookingDate <= to)
             .Select(t => new { t.Kind, t.Amount })
             .ToListAsync(ct);
 

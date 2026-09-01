@@ -30,7 +30,7 @@ public sealed class NetWorthTests : IDisposable
             new LoanService(context),
             new BudgetService(context, clock),
             clock,
-            TestDatabase.SignedIn(null));
+            new ParticipationService(context, TestDatabase.SignedIn(null)));
     }
 
     private void Konto(decimal stand)

@@ -7,6 +7,18 @@ public enum TransactionKind
     Expense = 0,
     Income = 1,
     Transfer = 2,
+
+    /// <summary>
+    /// Einlage auf ein Gemeinschaftskonto — Handoff „Gemeinsame Immobilie“, 3.4.
+    /// </summary>
+    /// <remarks>
+    /// <para>Keine Einnahme, weil nichts von außen zufließt: das Geld gehörte schon einem der
+    /// Beteiligten. Keine Umbuchung, weil der Eigentümer wechselt — bei einer Umbuchung bleibt
+    /// er derselbe.</para>
+    /// <para>Sie zählt in die Beteiligungsrechnung und <b>nicht</b> in Einnahmen, Sparquote oder
+    /// Liquidität. Sonst stünde dasselbe Geld zweimal im Haushalt.</para>
+    /// </remarks>
+    Deposit = 3,
 }
 
 /// <summary>Für welche Buchungsrichtung eine Kategorie angeboten wird.</summary>

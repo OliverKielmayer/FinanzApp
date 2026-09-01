@@ -165,6 +165,7 @@ builder.Services.AddScoped<PolicyService>();
 builder.Services.AddScoped<VehicleService>();
 builder.Services.AddScoped<ScanInboxService>();
 builder.Services.AddScoped<CreateFormService>();
+builder.Services.AddScoped<ParticipationService>();
 builder.Services.AddScoped<PropertyService>();
 builder.Services.AddScoped<LiquidityService>();
 builder.Services.AddScoped<ReportService>();

@@ -624,7 +624,8 @@ public sealed class ReportService(
 
         // Umbuchungen tragen zu Recht keine Kategorie — sie sind keine Lücke.
         var ohneKategorie = await db.Transactions
-            .CountAsync(t => t.CategoryId == null && t.Kind != TransactionKind.Transfer, ct);
+            .Where(BookingKinds.Counting)
+            .CountAsync(t => t.CategoryId == null, ct);
 
         // „Ohne Datei“ heißt: der gespeicherte Pfad zeigt ins Leere. Das weiß nur, wer gegen
         // die Platte prüft — in der Tabelle steht ein Pfad, und er sieht immer gleich aus.
