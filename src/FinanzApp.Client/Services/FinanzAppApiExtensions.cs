@@ -200,6 +200,17 @@ public static class FinanzAppApiExtensions
             new CategoryPropertyRequest { PropertyRelated = objektbezogen },
             ct);
 
+    /// <summary>
+    /// Den Prüfschritt eines bereits abgelegten Belegs holen.
+    /// </summary>
+    /// <remarks>
+    /// Der Weg für alles, was der Ordnerdienst eingeliefert hat: er legt ab und ordnet zu, die
+    /// Werte übernimmt erst ein Mensch. Ohne diesen Aufruf gäbe es dafür keine Fläche.
+    /// </remarks>
+    public static Task<ScanAnalysisDto> GetScanReviewAsync(
+        this FinanzAppApi api, int documentId, CancellationToken ct = default)
+        => api.GetAsync<ScanAnalysisDto>($"api/scan/{documentId}/review", ct);
+
     /// <summary>Entfernt einen gemeldeten Vertragsstand.</summary>
     public static Task DeletePolicyReportAsync(
         this FinanzAppApi api, int reportId, CancellationToken ct = default)

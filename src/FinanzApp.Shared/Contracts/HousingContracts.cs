@@ -417,6 +417,16 @@ public sealed record ScanInboxItemDto
     /// <summary>„erkannt“ oder „prüfen“.</summary>
     public required bool Recognised { get; init; }
 
+    /// <summary>
+    /// Ob sich aus diesem Beleg Werte übernehmen lassen.
+    /// </summary>
+    /// <remarks>
+    /// Wahr, sobald beim Einlesen eine Dokumentart erkannt wurde — dann gibt es gelesene Werte,
+    /// einen Prüfschritt und eine Rechenprobe. Ohne erkannte Art ist der Beleg abgelegt und
+    /// verknüpfbar, aber es steht nichts darin, das in ein Objekt gehörte.
+    /// </remarks>
+    public required bool CanTakeValues { get; init; }
+
     public required DateOnly ArrivedOn { get; init; }
 }
 

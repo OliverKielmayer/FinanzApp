@@ -63,6 +63,20 @@
                     <button type="button" class="btn btn-secondary" disabled="@busy"
                             @onclick="@(() => assigning = item)">Zuordnen</button>
 
+                    @*
+                        Der vierte Schritt des Belegwegs, nachgeholt. Was der Ordnerdienst
+                        einliefert, ist abgelegt und zugeordnet — die Werte stehen aber erst im
+                        Objekt, wenn jemand sie gesehen und bestätigt hat. Ohne diesen Schalter
+                        gäbe es dafür keinen Weg außer: dieselbe Datei ein zweites Mal einlesen.
+                    *@
+                    @if (item.CanTakeValues)
+                    {
+                        <button type="button" class="btn btn-secondary" disabled="@busy"
+                                @onclick="@(() => Navigation.NavigateTo($"/scannen/{item.DocumentId}"))">
+                            Werte übernehmen
+                        </button>
+                    }
+
                     @if (item.Recognised)
                     {
                         @* Erkannt heißt: Typ und Objekt stehen schon. Dann fehlt nur das Ja. *@

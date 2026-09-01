@@ -74,11 +74,82 @@ public sealed class DocumentScanService(
         var dokument = await db.Documents.FirstAsync(d => d.Id == ablage.DocumentId, ct);
         dokument.ScanKind = art.Key;
 
+        return await DescribeAsync(art, inhalt, gelesen, dokument, fileName, ct);
+    }
+
+    /// <summary>
+    /// Den Prüfschritt eines <b>bereits abgelegten</b> Belegs noch einmal aufbauen.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Weg für alles, was der Ordnerdienst eingeliefert hat. Er legt ab, ordnet zu und
+    /// hört vor der Übernahme auf — ein Dienst, dem niemand zusieht, verändert keine
+    /// Vermögenszahl. Ohne diese Nachschau bliebe es dabei: der Beleg läge richtig einsortiert da,
+    /// und seine Werte kämen nie im Vertrag an, weil kein Weg zur Bestätigung führte.</para>
+    /// <para>Gelesen wird die <em>abgelegte Datei</em> und nicht der gespeicherte Leseabdruck. Sie
+    /// liegt seit der Einlieferung und ändert sich nicht — dieselbe Grundlage wie beim ersten Mal,
+    /// nur mit den Leseregeln von heute. Ein Beleg, der vor einer verbesserten Regel hereinkam,
+    /// wird beim Nachsehen dadurch richtig gelesen.</para>
+    /// </remarks>
+    public async Task<ScanAnalysisDto> ReviewAsync(int documentId, CancellationToken ct = default)
+    {
+        var dokument = await db.Documents.FirstOrDefaultAsync(d => d.Id == documentId, ct)
+                       ?? throw new RuleViolationException("Dieses Dokument gibt es nicht.");
+
+        var art = DocumentKindLibrary.All.FirstOrDefault(a => a.Key == dokument.ScanKind)
+                  ?? throw new RuleViolationException(
+                      "Für dieses Dokument ist kein Typ erkannt worden — es lässt sich nicht übernehmen.");
+
+        if (paths.Resolve(dokument.RelativePath) is not { } absolut || !File.Exists(absolut))
+        {
+            throw new RuleViolationException(
+                $"Die abgelegte Datei fehlt: {dokument.RelativePath}. Ohne sie lässt sich nichts prüfen.");
+        }
+
+        using var buffer = new MemoryStream();
+
+        await using (var datei = File.OpenRead(absolut))
+        {
+            await datei.CopyToAsync(buffer, ct);
+        }
+
+        buffer.Position = 0;
+        var inhalt = reader.Read(buffer);
+
+        return await DescribeAsync(art, inhalt, extractor.Read(art, inhalt), dokument, dokument.FileName, ct);
+    }
+
+    /// <summary>
+    /// Hält den Leseabdruck nach und baut daraus den Prüfschritt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Eine Stelle für den ersten Blick und für die Nachschau. Zwei Fassungen liefen
+    /// auseinander, sobald eine Regel dazukäme — und der Unterschied fiele erst auf, wenn im
+    /// Vertrag eine Zahl steht, die im Prüfschritt anders aussah.</para>
+    /// <para>Der gespeicherte Leseabdruck wird <em>ersetzt</em> und nicht ergänzt. Er ist die
+    /// Grundlage der Übernahme; stünde dort etwas anderes als im Prüfschritt, bestätigte der
+    /// Benutzer eine Zahl und übernähme eine andere.</para>
+    /// </remarks>
+    private async Task<ScanAnalysisDto> DescribeAsync(
+        DocumentKind art,
+        PdfContent inhalt,
+        ExtractionResult gelesen,
+        Document dokument,
+        string fileName,
+        CancellationToken ct)
+    {
+        var werte = gelesen.Values;
+        var stichtag = Date(werte, art.AsOfField);
+        var schreiben = Date(werte, art.DocumentDateField);
+        var ziel = await TargetAsync(art, Text(werte, art.TargetNumberField), ct);
+
+        db.DocumentExtractions.RemoveRange(
+            await db.DocumentExtractions.Where(x => x.DocumentId == dokument.Id).ToListAsync(ct));
+
         foreach (var wert in werte)
         {
             db.DocumentExtractions.Add(new DocumentExtraction
             {
-                DocumentId = ablage.DocumentId,
+                DocumentId = dokument.Id,
                 FieldKey = wert.Rule.Key,
                 Label = wert.Rule.Label,
                 Value = wert.Raw,
@@ -95,9 +166,9 @@ public sealed class DocumentScanService(
 
         return new ScanAnalysisDto
         {
-            DocumentId = ablage.DocumentId,
+            DocumentId = dokument.Id,
             FileName = fileName,
-            RelativePath = ablage.RelativePath,
+            RelativePath = dokument.RelativePath,
             PageCount = inhalt.PageCount,
 
             KindKey = art.Key,
@@ -204,6 +275,17 @@ public sealed class DocumentScanService(
         foreach (var zeile in rohwerte)
         {
             zeile.Confirmed = true;
+        }
+
+        // Übernommen ist mehr als weggeräumt: wartet der Beleg noch im Scaneingang, ist er damit
+        // erledigt. Ihn dort stehen zu lassen hieße, nach der Bestätigung weiter „wartet auf
+        // Zuordnung“ zu behaupten — über einen Beleg, dessen Werte schon im Vertrag stehen.
+        var eingang = await db.ScanInbox
+            .FirstOrDefaultAsync(x => x.DocumentId == dokument.Id && x.FiledAt == null, ct);
+
+        if (eingang is not null)
+        {
+            eingang.FiledAt = clock.Now;
         }
 
         await db.SaveChangesAsync(ct);

@@ -1,4 +1,5 @@
 @page "/scannen"
+@page "/scannen/{DocumentId:int}"
 @attribute [Authorize(Roles = "Owner,Member")]
 @inherits AppPage
 
@@ -297,6 +298,16 @@ else if (step == Step.Done && result is { } fertig)
         (1, "Erfassen"), (2, "Analyse"), (3, "Vorschlag"), (4, "Werte"), (5, "Fertig"),
     ];
 
+    /// <summary>
+    /// Ein bereits abgelegter Beleg, dessen Werte noch niemand übernommen hat.
+    /// </summary>
+    /// <remarks>
+    /// Der Einstieg aus dem Scaneingang. Die ersten drei Schritte sind dort schon passiert — die
+    /// Datei liegt, die Art ist erkannt, das Ziel steht. Offen ist nur der vierte: hinsehen und
+    /// bestätigen.
+    /// </remarks>
+    [Parameter] public int? DocumentId { get; set; }
+
     private Step step = Step.Capture;
     private string fileName = string.Empty;
     private ScanAnalysisDto? analysis;
@@ -306,8 +317,33 @@ else if (step == Step.Done && result is { } fertig)
     private string? editing;
     private readonly Dictionary<string, string> corrections = [];
 
-    // Die Seite lädt nichts — sie beginnt leer und füllt sich aus dem, was hochgeladen wird.
-    protected override Task LoadAsync() => Task.CompletedTask;
+    /// <summary>
+    /// Ohne Belegnummer lädt die Seite nichts — sie beginnt leer und füllt sich aus dem, was
+    /// hochgeladen wird. Mit einer steigt sie beim Prüfschritt ein.
+    /// </summary>
+    protected override async Task LoadAsync()
+    {
+        if (DocumentId is not { } beleg)
+        {
+            return;
+        }
+
+        corrections.Clear();
+        result = null;
+
+        try
+        {
+            analysis = await Api.GetScanReviewAsync(beleg);
+            step = Step.Values;
+        }
+        catch (ApiException ex)
+        {
+            // Kein Typ erkannt, Datei verschwunden: das ist kein Fehler der Seite, sondern eine
+            // Aussage über den Beleg. Sie gehört auf den Schirm, und die Seite bleibt am Anfang.
+            Toasts.Show(ex.Message);
+            step = Step.Capture;
+        }
+    }
 
     private async Task OnFileSelected(InputFileChangeEventArgs e)
     {
@@ -371,6 +407,14 @@ else if (step == Step.Done && result is { } fertig)
         result = null;
         fileName = string.Empty;
         corrections.Clear();
+
+        // Kam die Seite aus dem Scaneingang, steht die Belegnummer noch in der Adresse. Sie zeigte
+        // dann auf einen Beleg, der nicht mehr auf dem Schirm ist — und ein Neuladen führte zurück
+        // in den Prüfschritt eines längst übernommenen Belegs.
+        if (DocumentId is not null)
+        {
+            Navigation.NavigateTo("/scannen");
+        }
     }
 
     private void Correct(string key, string? value)

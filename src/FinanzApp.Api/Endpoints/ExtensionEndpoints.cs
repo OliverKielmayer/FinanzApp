@@ -405,6 +405,25 @@ public static class ExtensionEndpoints
             }
         }).RequireAuthorization(AuthPolicies.Write).DisableAntiforgery();
 
+        // Der Prüfschritt für einen bereits abgelegten Beleg — der Weg für alles, was der
+        // Ordnerdienst eingeliefert hat. Ohne ihn bliebe ein eingelieferter Beleg für immer
+        // unübernommen: er liegt richtig einsortiert da, und keine Fläche führt zur Bestätigung.
+        //
+        // Schreibend, obwohl es sich wie Lesen anfühlt: die Nachschau liest die abgelegte Datei
+        // mit den Regeln von heute und ersetzt damit den gespeicherten Leseabdruck.
+        api.MapGet("/{documentId:int}/review", async (
+            int documentId, DocumentScanService service, CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(await service.ReviewAsync(documentId, ct));
+            }
+            catch (RuleViolationException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.Write);
+
         // Erst hier verändert sich eine Vermögenszahl, und nur, weil ein Mensch es gesagt hat.
         api.MapPost("/confirm", async (
             ConfirmScanRequest request, DocumentScanService service, CancellationToken ct) =>

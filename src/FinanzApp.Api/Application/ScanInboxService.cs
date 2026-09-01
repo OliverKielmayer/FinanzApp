@@ -39,6 +39,7 @@ public sealed class ScanInboxService(FinanzAppDbContext db, DocumentService docu
                     Sender = x.Sender,
                     PageCount = x.PageCount,
                     Recognised = x.Recognised,
+                    CanTakeValues = x.Document != null && x.Document.ScanKind != null,
                     ArrivedOn = DateOnly.FromDateTime(x.CreatedAt),
                 }),
             ],
