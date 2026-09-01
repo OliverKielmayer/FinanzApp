@@ -251,6 +251,25 @@ public class Property : IHouseholdOwned
     public int? LoanId { get; set; }
     public Loan? Loan { get; set; }
 
+    /// <summary>
+    /// Wohnfläche in Quadratmetern — Handoff „Gemeinsame Immobilie“, 3.5.
+    /// </summary>
+    /// <remarks>
+    /// Sie ist der Nenner der €/m²-Zahl im Objektbericht. Fehlt sie, nennt der Bericht keine —
+    /// eine geschätzte Fläche wäre ein erfundener Nenner.
+    /// </remarks>
+    public decimal? LivingArea { get; set; }
+
+    /// <summary>
+    /// Monatliche Instandhaltungsrücklage.
+    /// </summary>
+    /// <remarks>
+    /// Sie zählt zu den Objektkosten und verlässt das Konto <b>nicht</b> — genau der Fall, an dem
+    /// Objektkosten und Kontoabfluss auseinanderfallen. Ohne Angabe zählt der Bericht sie nicht
+    /// mit, statt einen Betrag anzunehmen.
+    /// </remarks>
+    public decimal? MonthlyReserve { get; set; }
+
     public List<Contract> Contracts { get; set; } = [];
 
     /// <summary>

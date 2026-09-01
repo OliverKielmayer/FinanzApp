@@ -632,6 +632,7 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
             e.Property(x => x.Address).HasMaxLength(240);
             e.Property(x => x.PurchasePrice).HasConversion(NullableMoneyConverter);
             e.Property(x => x.MarketValue).HasConversion(MoneyConverter);
+            e.Property(x => x.MonthlyReserve).HasConversion(NullableMoneyConverter);
 
             // Der Verweis auf das bestehende Darlehen — ohne Kopie und ohne Löschwirkung.
             e.HasOne(x => x.Loan).WithMany()

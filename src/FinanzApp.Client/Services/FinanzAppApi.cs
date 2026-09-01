@@ -270,6 +270,19 @@ public sealed class FinanzAppApi(HttpClient http)
         return await GetOrNullAsync<PortfolioGainDto>(url, ct);
     }
 
+    /// <summary>
+    /// Objekt &amp; Beteiligung. <c>null</c>, wenn keine Immobilie erfasst ist.
+    /// </summary>
+    public async Task<PropertyReportDto?> GetPropertyReportAsync(
+        int? propertyId = null, CancellationToken ct = default)
+    {
+        var url = propertyId is { } id
+            ? $"api/reports/objekt?objekt={id}"
+            : "api/reports/objekt";
+
+        return await GetOrNullAsync<PropertyReportDto>(url, ct);
+    }
+
     /// <summary>Die gespeicherten Ansichten des Auswertungsbereichs.</summary>
     public Task<IReadOnlyList<ReportViewDto>> GetReportViewsAsync(CancellationToken ct = default)
         => GetAsync<IReadOnlyList<ReportViewDto>>("api/reports/views", ct);

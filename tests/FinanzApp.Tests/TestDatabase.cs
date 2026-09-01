@@ -104,7 +104,9 @@ public sealed class TestDatabase : IDisposable
     /// </remarks>
     public ReportService Reports(IClock clock, string? documentRoot = null, int? userId = null)
     {
-        var context = Context();
+        // Der Objektbericht sieht auf Buchungen des Gemeinschaftskontos — dafür muss der
+        // Benutzer auch in den Kontext, nicht nur in den CurrentUser.
+        var context = Context(userId: userId);
         var root = documentRoot
                    ?? Path.Combine(Path.GetTempPath(), "finanzapp-tests", Guid.NewGuid().ToString("N"));
 
@@ -118,7 +120,8 @@ public sealed class TestDatabase : IDisposable
                 clock,
                 NullLogger<DocumentService>.Instance),
             SignedIn(userId),
-            Portfolio(context));
+            Portfolio(context),
+            new ParticipationService(context, SignedIn(userId)));
     }
 
     /// <summary>

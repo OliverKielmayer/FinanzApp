@@ -5379,3 +5379,109 @@ body {
   font-size: 10px;
   color: var(--color-neutral-600);
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Objekt & Beteiligung — Handoff „Gemeinsame Immobilie", 3.5.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* Vier Spalten je Posten: Name mit Quelle, Art, Jahresbetrag, Anteil. Betrag und Anteil in
+   fester Breite, damit die Zahlen untereinander stehen und sich vergleichen lassen. */
+.row.obj-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.row.obj-row .stack,
+.row.obj-row .report-row-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.obj-amount {
+  flex: none;
+  width: 88px;
+  text-align: right;
+  font-size: 13px;
+}
+
+.obj-share {
+  flex: none;
+  width: 42px;
+  text-align: right;
+}
+
+.obj-bar-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px 10px;
+}
+
+/* Die Tabelle „wer trägt was": eine Beschriftungsspalte, dann eine Spalte je Beteiligtem.
+   Kein <table>, weil die Zeilen dieselben Zustände tragen wie die Listen daneben. */
+.obj-table {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--color-text);
+}
+
+.obj-trow {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.obj-trow.head {
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--color-text);
+}
+
+.obj-trow.head .obj-cell {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-neutral-700);
+}
+
+/* Die Summenzeile trägt Gewicht, die Ausgleichszeile den Akzent: zwei Zeilen, auf die der
+   Leser zuerst schaut. */
+.obj-trow.strong {
+  background: var(--color-surface);
+  font-weight: 600;
+}
+
+.obj-trow.accent {
+  background: var(--color-accent-100);
+  font-weight: 600;
+  color: var(--color-accent-800);
+  border-bottom: 1px solid var(--color-text);
+}
+
+.obj-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.obj-cell {
+  flex: none;
+  width: 92px;
+  text-align: right;
+  font-size: 13px;
+}
+
+/* Am Telefon wird die Beschriftung schmaler, bevor die Zahlen umbrechen. */
+@media (max-width: 420px) {
+  .obj-cell {
+    width: 78px;
+  }
+
+  .obj-amount {
+    width: 74px;
+  }
+}

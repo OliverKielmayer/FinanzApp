@@ -96,6 +96,9 @@ public enum ReportKind
     DataQuality = 3,
     HealthBalance = 4,
     TaxYear = 5,
+
+    /// <summary>Objekt &amp; Beteiligung — Handoff „Gemeinsame Immobilie“, 3.5.</summary>
+    PropertyParticipation = 6,
 }
 
 /// <summary>Wonach der Kostentrend seine Kategorien ordnet.</summary>

@@ -22,7 +22,7 @@ namespace FinanzApp.Api.Application;
 /// </remarks>
 public sealed class ReportService(
     FinanzAppDbContext db, IClock clock, DocumentService documents, CurrentUser current,
-    PortfolioService portfolio)
+    PortfolioService portfolio, ParticipationService participation)
 {
     /// <summary>Ab hier gilt eine Kategorie als steigend oder sinkend.</summary>
     private const decimal Threshold = 5m;
@@ -408,6 +408,281 @@ public sealed class ReportService(
               + "Vertrag wurde in diesem Zeitraum abgebucht.";
     }
 
+    // ── Objekt & Beteiligung ───────────────────────────────────────────────────────────────
+
+    /// <summary>So viele nicht objektbezogene Kategorien nennt der Ausschlussblock.</summary>
+    private const int NamedExclusions = 6;
+
+    /// <summary>
+    /// Was das Objekt kostet, was davon objektbezogen ist und wer wie viel getragen hat —
+    /// Handoff „Gemeinsame Immobilie“, 3.5.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Zwei Kostenzahlen mit zwei Namen.</b> „Angefallen“ ist <em>gemessen</em>: Summe
+    /// der Buchungen auf objektbezogene Kategorien im laufenden Jahr. „Aufs Jahr“ ist
+    /// <em>fortgeschrieben</em>: Darlehen, Verträge, Policen und Rücklage aus dem Bestand. Sie
+    /// müssen nicht übereinstimmen — die eine kommt aus dem Kontoauszug, die andere aus den
+    /// Verträgen —, und keine darf den Namen der anderen tragen.</para>
+    /// <para><b>Die Beteiligung wird nicht nachgerechnet.</b> Anteile, Eingebrachtes und
+    /// Ausgleich kommen aus <see cref="ParticipationService"/>, der einzigen Stelle, die sie
+    /// rechnet. Der Handoff hat sieben Runden gebraucht, um genau das durchzusetzen.</para>
+    /// </remarks>
+    public async Task<PropertyReportDto?> GetPropertyReportAsync(
+        int? propertyId, CancellationToken ct = default)
+    {
+        var objekte = await db.Properties.AsNoTracking()
+            .OrderBy(p => p.Id)
+            .Select(p => new PropertyChoiceDto { Id = p.Id, Name = p.Name })
+            .ToListAsync(ct);
+
+        if (objekte.Count == 0)
+        {
+            return null;
+        }
+
+        // Eine unbekannte Kennung fällt auf das erste Objekt zurück statt auf einen Fehler: der
+        // Bericht wird auch aus Adressen geöffnet, die aus einer älteren Sitzung stammen.
+        var id = propertyId is { } gewaehlt && objekte.Any(o => o.Id == gewaehlt)
+            ? gewaehlt
+            : objekte[0].Id;
+
+        var objekt = await db.Properties.AsNoTracking()
+            .Include(p => p.Loan)
+            .Include(p => p.Contracts)
+            .FirstAsync(p => p.Id == id, ct);
+
+        var (posten, darlehen) = await CostRowsAsync(objekt, ct);
+
+        var jahr = decimal.Round(posten.Sum(p => p.YearAmount), 2);
+        var monat = decimal.Round(jahr / 12m, 2);
+
+        var zeilen = posten
+            .Select(p => p with
+            {
+                SharePercent = jahr <= 0m ? 0 : (int)decimal.Round(p.YearAmount / jahr * 100m),
+            })
+            .ToList();
+
+        var (angefallen, buchungen) = await IncurredAsync(ct);
+        var monatsAnfang = new DateOnly(clock.Today.Year, clock.Today.Month, 1);
+
+        // Der Abfluss kommt aus derselben Rechnung wie der Kontoschirm — nicht aus einer zweiten.
+        var gemeinschaft = await participation.JointAccountsAsync(clock.Today, ct);
+        var ausschluss = await ExclusionsAsync(ct);
+
+        return new PropertyReportDto
+        {
+            PropertyId = objekt.Id,
+            Name = objekt.Name,
+            Address = objekt.Address,
+            Properties = objekte,
+
+            Items = zeilen,
+            YearTotal = jahr,
+            MonthlyTotal = monat,
+            SharePercentSum = zeilen.Sum(z => z.SharePercent),
+            Loan = darlehen,
+
+            Incurred = angefallen,
+            IncurredMonths = clock.Today.Month,
+            IncurredFrom = new DateOnly(clock.Today.Year, 1, 1),
+            IncurredTo = clock.Today,
+            IncurredBookings = buchungen,
+
+            LivingArea = objekt.LivingArea,
+            PerSquareMetre = objekt.LivingArea is { } flaeche && flaeche > 0m
+                ? decimal.Round(monat / flaeche, 2)
+                : null,
+            MonthlyReserve = objekt.MonthlyReserve,
+
+            Outflow = gemeinschaft.Count == 0 ? null : gemeinschaft.Sum(k => k.Outflow),
+            OutflowPropertyRelated = gemeinschaft.Count == 0
+                ? null
+                : gemeinschaft.Sum(k => k.OutflowPropertyRelated),
+            OutflowMonth = monatsAnfang,
+
+            Excluded = ausschluss.Genannt,
+            ExcludedMore = ausschluss.Weitere,
+
+            Participation = await participation.ForPropertyAsync(objekt.Id, ct),
+        };
+    }
+
+    /// <summary>
+    /// Die Posten der Objektkosten, auf das Jahr gerechnet.
+    /// </summary>
+    /// <remarks>
+    /// <para>Aus dem Bestand, nicht aus Buchungen: Darlehen, die objektbezogenen Verträge des
+    /// Objekts, Gebäude- und Hausratversicherung und die Rücklage.</para>
+    /// <para>Die Rate wird geteilt. Zins ist Aufwand, <b>Tilgung baut Vermögen auf</b> — sie
+    /// steht als eigener Posten mit eigener Art, weil sie sonst als Kosten gelesen würde.</para>
+    /// </remarks>
+    private async Task<(List<PropertyCostRowDto> Rows, PropertyLoanSplitDto? Loan)> CostRowsAsync(
+        Property objekt, CancellationToken ct)
+    {
+        var zeilen = new List<PropertyCostRowDto>();
+        PropertyLoanSplitDto? split = null;
+
+        if (objekt.Loan is { Installment: > 0m } kredit)
+        {
+            // Aus dem Tilgungsplan, nicht aus einer Faustregel: der Zinsanteil fällt mit der
+            // Restschuld, und damit ist er im nächsten Jahr ein anderer.
+            var plan = LoanService.BuildSchedule(
+                kredit.RemainingDebt, kredit.InterestRatePercent, kredit.Installment,
+                kredit.NextPaymentDate, 12);
+
+            var zins = decimal.Round(plan.Sum(p => p.Interest), 2);
+            var tilgung = decimal.Round(plan.Sum(p => p.Principal), 2);
+
+            split = new PropertyLoanSplitDto
+            {
+                Name = kredit.Name,
+                YearInstalment = decimal.Round(zins + tilgung, 2),
+                YearInterest = zins,
+                YearPrincipal = tilgung,
+                MonthlyInstalment = kredit.Installment,
+                MonthlyPrincipal = plan.Count == 0
+                    ? 0m
+                    : decimal.Round(tilgung / plan.Count, 2),
+            };
+
+            var quelle = $"{kredit.Lender} · {GermanFormat.Percent(kredit.InterestRatePercent, 2)}";
+
+            zeilen.Add(new PropertyCostRowDto
+            {
+                Label = "Darlehen — Zins",
+                Source = quelle,
+                Kind = PropertyCostKind.Expense,
+                YearAmount = zins,
+                SharePercent = 0,
+            });
+
+            zeilen.Add(new PropertyCostRowDto
+            {
+                Label = "Darlehen — Tilgung",
+                Source = quelle,
+                Kind = PropertyCostKind.Equity,
+                YearAmount = tilgung,
+                SharePercent = 0,
+            });
+        }
+
+        // Nur die objektbezogenen: der Internetanschluss hängt am Haus und zieht doch mit den
+        // Leuten um — Handoff 3.4.
+        foreach (var vertrag in objekt.Contracts
+                     .Where(c => c.PropertyRelated && c.MonthlyAmount != 0m)
+                     .OrderByDescending(c => c.MonthlyAmount))
+        {
+            zeilen.Add(new PropertyCostRowDto
+            {
+                Label = vertrag.Name,
+                Source = vertrag.Provider,
+                Kind = PropertyCostKind.Expense,
+                YearAmount = decimal.Round(vertrag.MonthlyAmount * 12m, 2),
+                SharePercent = 0,
+            });
+        }
+
+        // Nach Art, nicht nach Namen: wer seine Police „Haus“ nennt, soll sie behalten.
+        var policen = await db.Policies.AsNoTracking()
+            .Where(p => p.Kind == PolicyKind.Building || p.Kind == PolicyKind.HouseholdContents)
+            .OrderBy(p => p.Name)
+            .ToListAsync(ct);
+
+        foreach (var police in policen.Where(p => p.Premium != 0m))
+        {
+            zeilen.Add(new PropertyCostRowDto
+            {
+                Label = police.Name,
+
+                // Die Einschränkung steht in der Zeile und nicht in einer Fußnote: eine Police
+                // hängt an keinem Objekt, und bei zwei Häusern zählte sie sonst stillschweigend
+                // bei beiden.
+                Source = $"{police.Provider} · keinem Objekt zugeordnet",
+                Kind = PropertyCostKind.Expense,
+                YearAmount = decimal.Round(PerMonth(police.Premium, police.PremiumInterval) * 12m, 2),
+                SharePercent = 0,
+            });
+        }
+
+        if (objekt.MonthlyReserve is { } ruecklage && ruecklage > 0m)
+        {
+            zeilen.Add(new PropertyCostRowDto
+            {
+                Label = "Instandhaltung (Rücklage)",
+                Source = "am Objekt hinterlegt · verlässt das Konto nicht",
+                Kind = PropertyCostKind.Expense,
+                YearAmount = decimal.Round(ruecklage * 12m, 2),
+                SharePercent = 0,
+            });
+        }
+
+        return (zeilen, split);
+    }
+
+    /// <summary>
+    /// Was im laufenden Jahr auf objektbezogene Kategorien gebucht wurde.
+    /// </summary>
+    /// <remarks>
+    /// Gemessen, nicht fortgeschrieben. Umbuchungen und Einlagen zählen nicht mit — sie
+    /// verbrauchen nichts. Eine Rückzahlung auf dieselbe Kategorie mindert den Betrag, weil sie
+    /// die Kosten wirklich mindert.
+    /// </remarks>
+    private async Task<(decimal Amount, int Count)> IncurredAsync(CancellationToken ct)
+    {
+        var von = new DateOnly(clock.Today.Year, 1, 1);
+
+        var betraege = await db.Transactions.AsNoTracking()
+            .Where(BookingKinds.Counting)
+            .Where(t => t.Category != null
+                        && t.Category.PropertyRelated
+                        && t.BookingDate >= von
+                        && t.BookingDate <= clock.Today)
+            .Select(t => t.Amount)
+            .ToListAsync(ct);
+
+        return (decimal.Round(-betraege.Sum(), 2), betraege.Count);
+    }
+
+    /// <summary>
+    /// Was bewusst nicht zu den Objektkosten zählt.
+    /// </summary>
+    /// <remarks>
+    /// Die Ausgabenkategorien <em>ohne</em> Kennzeichen, die im laufenden Jahr Buchungen tragen —
+    /// gezählt, nicht aufgezählt. Eine feste Liste („Lebensmittel, Freizeit, Mobilität“) nennte
+    /// womöglich Posten, die es in diesem Haushalt nicht gibt, und verschwiege die, die es gibt.
+    /// </remarks>
+    private async Task<(List<PropertyExcludedDto> Genannt, int Weitere)> ExclusionsAsync(
+        CancellationToken ct)
+    {
+        var von = new DateOnly(clock.Today.Year, 1, 1);
+
+        var zeilen = await db.Transactions.AsNoTracking()
+            .Where(BookingKinds.Counting)
+            .Where(t => t.Category != null
+                        && !t.Category.PropertyRelated
+                        && t.Category.Direction == CategoryDirection.Expense
+                        && t.BookingDate >= von
+                        && t.BookingDate <= clock.Today)
+            .GroupBy(t => t.Category!.Name)
+            .Select(g => new { Name = g.Key, Summe = g.Sum(t => t.Amount) })
+            .ToListAsync(ct);
+
+        var sortiert = zeilen
+            .Select(z => new PropertyExcludedDto
+            {
+                Name = z.Name,
+                YearAmount = decimal.Round(-z.Summe, 2),
+            })
+            .Where(z => z.YearAmount > 0m)
+            .OrderByDescending(z => z.YearAmount)
+            .ToList();
+
+        return (
+            [.. sortiert.Take(NamedExclusions)],
+            Math.Max(0, sortiert.Count - NamedExclusions));
+    }
+
     // ── Depot: Gewinn und Verlust ──────────────────────────────────────────────────────────
 
     /// <summary>
@@ -560,6 +835,8 @@ public sealed class ReportService(
             ReportKind.PortfolioGainLoss => "Depot G/V",
             ReportKind.DataQuality => "Datenqualität",
             ReportKind.HealthBalance => "PKV-Bilanz",
+            ReportKind.TaxYear => "Steuerjahr",
+            ReportKind.PropertyParticipation => "Objekt & Beteiligung",
             _ => "Kostentrend",
         };
 
@@ -570,9 +847,11 @@ public sealed class ReportService(
             return bericht;
         }
 
-        // Depot-G/V und PKV-Bilanz ebenso: das eine hängt am Depot, das andere am Kalenderjahr.
-        // Zeitraum und Vergleich der übrigen Berichte gelten für sie nicht.
-        if (request.Report is ReportKind.PortfolioGainLoss or ReportKind.HealthBalance)
+        // Depot-G/V, PKV-Bilanz, Steuerjahr und Objekt & Beteiligung ebenso: das eine hängt am
+        // Depot, die anderen am Kalenderjahr. Zeitraum und Vergleich der übrigen Berichte gelten
+        // für sie nicht — angehängt behaupteten sie eine Einstellung, die es dort nicht gibt.
+        if (request.Report is ReportKind.PortfolioGainLoss or ReportKind.HealthBalance
+            or ReportKind.TaxYear or ReportKind.PropertyParticipation)
         {
             return bericht;
         }

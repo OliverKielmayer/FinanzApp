@@ -302,6 +302,14 @@ public static class ApiEndpoints
                 int? jahr, TaxYearService service, CancellationToken ct)
             => Results.Ok(await service.GetAsync(jahr, ct)));
 
+        // Ohne Objekt im Bestand gibt es nichts zu berichten — 404 statt einer Hülle aus Nullen.
+        api.MapGet("/reports/objekt", async (
+            int? objekt, ReportService service, CancellationToken ct) =>
+        {
+            var bericht = await service.GetPropertyReportAsync(objekt, ct);
+            return bericht is null ? Results.NotFound() : Results.Ok(bericht);
+        });
+
         api.MapGet("/reports/data-quality", async (ReportService service, CancellationToken ct)
             => Results.Ok(await service.GetDataQualityAsync(ct)));
 

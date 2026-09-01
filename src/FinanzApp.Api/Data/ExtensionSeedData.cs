@@ -445,6 +445,13 @@ public static class ExtensionSeedData
 
             // Verweis auf das vorhandene Darlehen — es wird nicht kopiert.
             LoanId = loan?.Id,
+
+            // Beide für den Objektbericht (Handoff 3.5): ohne Fläche keine €/m²-Zahl, ohne
+            // Rücklage fehlt der Posten, an dem Objektkosten und Kontoabfluss auseinanderfallen.
+            // Die 142 m² stehen schon in der Hausratpolice — zwei verschiedene Flächen im
+            // Bestand wären ein Widerspruch, den niemand auflösen könnte.
+            LivingArea = 142m,
+            MonthlyReserve = 500m,
         };
         db.Properties.Add(property);
         await db.SaveChangesAsync(ct);
@@ -536,7 +543,9 @@ public static class ExtensionSeedData
                 TransactionId = paidTransaction,
             });
 
-        // Die Wohngebäude- und Hausratversicherung gehören zur Immobilie.
+        // Die Wohngebäude- und Hausratversicherung gehören zur Immobilie. Verknüpft sind sie
+        // nicht — der Objektbericht liest sie über ihre Art (Gebäude, Hausrat) und sagt in der
+        // Zeile, dass sie keinem Objekt zugeordnet sind.
         _ = policies;
         return property;
     }

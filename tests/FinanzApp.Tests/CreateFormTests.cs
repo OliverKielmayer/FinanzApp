@@ -348,6 +348,83 @@ public sealed class CreateFormTests : IDisposable
         Assert.Equal(0, await Service().ConfirmExtractionsAsync(documentId));
     }
 
+    // ── Vorbelegung von Zahlenfeldern ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Eine Zahl mit Nachkommastelle kommt mit Punkt zurück in die Maske.
+    /// </summary>
+    /// <remarks>
+    /// <para>Zahlenfelder rendern als <c>&lt;input type="number"&gt;</c>, und ein solches Feld
+    /// verwirft „38,5“ als ungültig: es steht dann <em>leer</em> da, und das nächste Speichern
+    /// löscht die gepflegte Angabe. Betroffen waren Arbeitszeit, Entfernung zur Arbeit,
+    /// Eigentumsanteil und Wohnfläche.</para>
+    /// <para>Derselbe Fehler wie bei den Wertbestandteilen einer Police (Handoff 20, §19.4):
+    /// eine Vorbelegung, die das Feld nicht annimmt, ist ein stiller Datenverlust.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Ein_Zahlenfeld_wird_mit_Punkt_vorbelegt()
+    {
+        int objekt;
+
+        using (var context = database.Context())
+        {
+            var haus = new Property
+            {
+                Name = "Haus mit halben Metern",
+                PurchaseDate = new DateOnly(2019, 4, 1),
+                MarketValue = 400000m,
+                LivingArea = 150.5m,
+            };
+
+            context.Properties.Add(haus);
+            context.SaveChanges();
+            objekt = haus.Id;
+        }
+
+        var maske = await Service().GetFormAsync(CreateObjectType.Property, objekt);
+
+        Assert.Equal("150.5", maske!.Values!["area"]);
+
+        // Und zurückgeschickt landet derselbe Wert wieder im Bestand — nicht 1505 und nicht null.
+        var ergebnis = await Service().UpdateAsync(
+            CreateObjectType.Property, objekt, maske.Values);
+
+        Assert.True(ergebnis.Ok);
+
+        using var pruefung = database.Context();
+        Assert.Equal(150.5m, pruefung.Properties.Single(p => p.Id == objekt).LivingArea);
+    }
+
+    /// <summary>Ganze Zahlen bleiben ohne Nachkomma-Anhang.</summary>
+    /// <remarks>
+    /// „142“ und nicht „142.00“: das Feld soll aussehen wie eingegeben, sonst liest es sich wie
+    /// eine Genauigkeit, die niemand gemeint hat.
+    /// </remarks>
+    [Fact]
+    public async Task Eine_ganze_Zahl_bleibt_ganz()
+    {
+        int objekt;
+
+        using (var context = database.Context())
+        {
+            var haus = new Property
+            {
+                Name = "Haus mit ganzen Metern",
+                PurchaseDate = new DateOnly(2019, 4, 1),
+                MarketValue = 400000m,
+                LivingArea = 142m,
+            };
+
+            context.Properties.Add(haus);
+            context.SaveChanges();
+            objekt = haus.Id;
+        }
+
+        var maske = await Service().GetFormAsync(CreateObjectType.Property, objekt);
+
+        Assert.Equal("142", maske!.Values!["area"]);
+    }
+
     public void Dispose()
     {
         database.Dispose();

@@ -1,6 +1,6 @@
 # Offene Punkte
 
-Stand **01.09.2026**, nach dem Gemeinschaftskonto und dem Kennzeichen „objektbezogen“. Eine Liste, kein Plan: sie sagt,
+Stand **01.09.2026**, nach dem achten Bericht „Objekt & Beteiligung“. Eine Liste, kein Plan: sie sagt,
 was noch nicht gebaut ist und woher die Anforderung stammt — die Reihenfolge steht in den
 Handoffs selbst, nicht hier.
 
@@ -194,18 +194,42 @@ nicht an ihrer Richtung — auf dem Gemeinschaftskonto kommt sie an, vom eigenen
 gebucht wurde immer als Abfluss —, und der Monatsvergleich hatte kein Ende, sodass eine
 vordatierte Einlage in jeden Monat vor ihr zählte.
 
+Dazu der **achte Bericht „Objekt & Beteiligung“ (§3.5)**, der dritte Reiter der Auswertungen:
+drei Kacheln (angefallen / hochgerechnet / Ausgleichsstand), die Postentabelle mit der Spalte Art,
+der Ausschlussblock, der Proportionsbalken mit seiner Bezugsgröße, die Beteiligungstabelle mit der
+Ausgleichszeile, CSV mit beiden Tabellen. Er löst den offenen Bericht „Objektkosten“ aus §10b mit.
+
+Zwei Größen tragen dort ausdrücklich zwei Namen: **angefallen** ist gemessen (Buchungen auf
+objektbezogene Kategorien im laufenden Jahr), **hochgerechnet** ist fortgeschrieben (Darlehen,
+Verträge, Policen, Rücklage). Sie stimmen nicht überein und sollen es nicht — die eine kommt aus
+dem Kontoauszug, die andere aus dem Bestand. Zwei Angaben am Objekt kamen dafür neu hinzu:
+Wohnfläche (Nenner der €/m²-Zahl) und Instandhaltungsrücklage.
+
+Zwei Befunde fielen dabei auf und sind mit erledigt: **Zahlenfelder wurden mit Komma
+vorbelegt** — ein `input type="number"` verwirft „38,5“, das Feld stand leer da und das nächste
+Speichern löschte die Angabe (betroffen waren Arbeitszeit, Entfernung, Eigentumsanteil) —, und
+**gespeicherte Ansichten hießen „Kostentrend“**, auch wenn sie aus dem Steuerjahr kamen.
+
 Offen:
 
-- **Der achte Bericht „Objekt & Beteiligung“ (§3.5)** ist nicht gebaut: die drei Kacheln, die
-  Postentabelle mit der Spalte Art (Zins ist Aufwand, Tilgung ist Vermögensaufbau), der
-  Ausschlussblock und die Beteiligungstabelle mit der Ausgleichszeile. Er löst den offenen
-  Bericht „Objektkosten“ aus §10b mit.
 - **Die Forderung als eigene Vermögensklasse (§9.4)** hängt an §17.1 — der Vermögensbericht nach
   Klasse ist selbst noch nicht gebaut.
-- **Im Demo-Bestand ist die objektbezogene Teilmenge nicht zu sehen.** Das Gemeinschaftskonto ist
-  das Tagesgeld — das Girokonto umzustellen nähme dem Steuerbüro die Sicht darauf —, und von dort
-  geht im Demo-Monat nichts ab. Die Zeile erscheint erst, wenn etwas abgeht; geprüft ist sie mit
-  zwei Probebuchungen im laufenden Programm.
+- **Im Demo-Bestand ist die objektbezogene Teilmenge des Kontoabflusses nicht zu sehen.** Das
+  Gemeinschaftskonto ist das Tagesgeld — das Girokonto umzustellen nähme dem Steuerbüro die Sicht
+  darauf —, und von dort geht im Demo-Monat nichts ab. Die Zeile erscheint erst, wenn etwas
+  abgeht; geprüft ist sie mit zwei Probebuchungen im laufenden Programm.
+- **Die gemessene Zahl mischt im Demo-Bestand zwei Wohnsituationen.** Die Kategorie „Wohnen“
+  trägt dort die Miete der Wohnung <em>und</em> die Kosten des Hauses. Das Kennzeichen sitzt an
+  der Kategorie; wer beides trennen will, teilt sie im Bestand. Der Bericht sagt das auch selbst.
+- **Wohngebäude- und Hausratversicherung hängen an keinem Objekt.** Der Bericht liest sie über
+  ihre Art und schreibt „keinem Objekt zugeordnet“ in die Zeile. Bei zwei Immobilien zählen sie
+  bei beiden mit.
+- **Der Knopf „Ausgleich verrechnen“ aus dem Prototyp fehlt.** Es gibt keine Buchungsart für eine
+  Ausgleichszahlung, und §4 sagt ausdrücklich, dass die Anwendung den Stand führt und nicht
+  eintreibt. Eine Zahlung lässt sich heute nur als gewöhnliche Umbuchung erfassen.
+- **Eine gespeicherte Ansicht merkt sich das Objekt nicht.** Sie stellt den Reiter wieder her, aber
+  bei mehreren Immobilien immer die erste — wie beim Steuerjahr und der PKV-Bilanz, die sich ihr
+  Jahr auch nicht merken.
 - **Mehr als zwei Beteiligte, Verkauf und Trennung** sind im Handoff selbst offen (§7) und hier
   nur der Vollständigkeit halber genannt.
 

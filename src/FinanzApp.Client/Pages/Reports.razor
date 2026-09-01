@@ -146,6 +146,25 @@
                        OnPickYear="PickTaxYearAsync" OnPrint="@(() => printing = true)" />
         <div class="spacer"></div>
     }
+    else if (report == ReportKind.PropertyParticipation)
+    {
+        @if (propertyReport is { } objekt)
+        {
+            <PropertyReport Data="objekt" Busy="busy" OnPick="PickPropertyAsync" />
+        }
+        else
+        {
+            <div class="import-nothing">
+                <span class="label-strong">Keine Immobilie erfasst</span>
+                <span class="create-help">
+                    Ohne Objekt gibt es keine Objektkosten und keine Beteiligung — und nichts,
+                    wovon sich ein Ausgleich ableiten ließe.
+                </span>
+            </div>
+        }
+
+        <div class="spacer"></div>
+    }
     else if (report == ReportKind.PortfolioGainLoss)
     {
         @if (gain is { } depot)
@@ -361,6 +380,12 @@
     /// <summary>Die gespeicherten Ansichten des angemeldeten Benutzers.</summary>
     private IReadOnlyList<ReportViewDto> views = [];
 
+    /// <summary>Objekt & Beteiligung — der achte Bericht.</summary>
+    private PropertyReportDto? propertyReport;
+
+    /// <summary>Welches Objekt der Bericht zeigt. Ohne Wahl das erste.</summary>
+    private int? propertyId;
+
     private PeriodScope period = PeriodScope.Month;
     private ComparisonBasis comparison = ComparisonBasis.PreviousYear;
     private CostTrendSort sort = CostTrendSort.Increase;
@@ -401,12 +426,13 @@
 
     /// <summary>
     /// Die gebauten Berichte — vier aus Abschnitt 10b, die PKV-Bilanz aus §12, das Steuerjahr
-    /// aus §15.
+    /// aus §15, Objekt &amp; Beteiligung aus dem Handoff „Gemeinsame Immobilie“, 3.5.
     /// </summary>
     private static readonly (ReportKind Kind, string Label, bool Ready)[] Available =
     [
         (ReportKind.CostTrend, "Kostentrend", true),
         (ReportKind.FixedCosts, "Fixkosten", true),
+        (ReportKind.PropertyParticipation, "Objekt & Beteiligung", true),
         (ReportKind.PortfolioGainLoss, "Depot G/V", true),
         (ReportKind.HealthBalance, "PKV-Bilanz", true),
         (ReportKind.TaxYear, "Steuerjahr", true),
@@ -434,6 +460,11 @@
             case ReportKind.FixedCosts:
                 fixedCosts = await Api.GetFixedCostsAsync(
                     new FixedCostsRequest(period, comparison, [.. excluded]));
+                break;
+
+            case ReportKind.PropertyParticipation:
+                propertyReport = await Api.GetPropertyReportAsync(propertyId);
+                propertyId = propertyReport?.PropertyId;
                 break;
 
             case ReportKind.PortfolioGainLoss:
@@ -494,6 +525,12 @@
     private Task PickDepotAsync(int id)
     {
         depotId = id;
+        return RefreshAsync();
+    }
+
+    private Task PickPropertyAsync(int id)
+    {
+        propertyId = id;
         return RefreshAsync();
     }
 
@@ -717,10 +754,21 @@
             var bericht = report switch
             {
                 ReportKind.FixedCosts => "fixkosten",
+                ReportKind.PropertyParticipation => "objekt-beteiligung",
                 ReportKind.PortfolioGainLoss => "depot",
                 ReportKind.DataQuality => "datenqualitaet",
                 _ => "kostentrend",
             };
+
+            // Der Objektbericht kennt den Zeitraum der Kopfleiste nicht: seine Zahlen hängen am
+            // Kalenderjahr. Den Rahmen des Kostentrends in seinen Dateinamen zu schreiben hieße,
+            // einen Zeitraum zu behaupten, den die Datei nicht zeigt.
+            if (report == ReportKind.PropertyParticipation)
+            {
+                return propertyReport is { } objekt
+                    ? $"{bericht}-{objekt.IncurredFrom:yyyy}.csv"
+                    : $"{bericht}.csv";
+            }
 
             var stand = data?.Range ?? fixedCosts?.Range;
 
@@ -768,6 +816,27 @@
                     p.CostPerUnit is { } e ? Num(e) : string.Empty,
                     Num(p.Price), Num(p.Value), Num(p.Gain),
                     p.GainPercent is { } g ? Num(g) : string.Empty)));
+                break;
+
+            // Zwei Tabellen in einer Datei, durch eine Leerzeile getrennt: Posten und
+            // Beteiligung sind zwei Aussagen, und in eine gemeinsame Spaltenreihe gepresst
+            // wären sie beide unleserlich.
+            case ReportKind.PropertyParticipation when propertyReport is { } objekt:
+                zeilen.Add("Posten;Quelle;Art;Jahresbetrag;Anteil %");
+                zeilen.AddRange(objekt.Items.Select(p => string.Join(';',
+                    Cell(p.Label), Cell(p.Source),
+                    Cell(p.Kind == PropertyCostKind.Equity ? "Vermögen" : "Aufwand"),
+                    Num(p.YearAmount), p.SharePercent)));
+
+                if (objekt.Participation is { IsShared: true } beteiligt)
+                {
+                    zeilen.Add(string.Empty);
+                    zeilen.Add("Beteiligter;Anteil %;Eigenkapital;Einlagen;Eingebracht;Ausgleich");
+                    zeilen.AddRange(beteiligt.Participants.Select(p => string.Join(';',
+                        Cell(p.Name), Num(p.Percent), Num(p.Equity), Num(p.Deposits),
+                        Num(p.Contributed), Num(p.Settlement))));
+                }
+
                 break;
 
             case ReportKind.DataQuality when quality is { } luecken:

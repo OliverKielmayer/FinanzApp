@@ -461,13 +461,15 @@ public sealed class CreateFormService(
                     ["purchase"] = Iso(x.PurchaseDate),
                     ["market"] = x.MarketValue == 0m ? null : Money(x.MarketValue),
                     ["loan"] = x.LoanId?.ToString(),
+                    ["area"] = NumberValue(x.LivingArea),
+                    ["reserve"] = x.MonthlyReserve is { } ruecklage ? Money(ruecklage) : null,
                 };
 
                 // Die gepflegten Anteile zurück in die Maske: wer nur den Marktwert korrigiert,
                 // darf die Beteiligung dabei nicht verlieren.
                 foreach (var anteil in x.Shares)
                 {
-                    werte[$"share.{anteil.UserId}"] = Hours(anteil.Percent);
+                    werte[$"share.{anteil.UserId}"] = NumberValue(anteil.Percent);
                     werte[$"equity.{anteil.UserId}"] = anteil.Equity == 0m ? null : Money(anteil.Equity);
                 }
 
@@ -526,11 +528,11 @@ public sealed class CreateFormService(
                     ["kind"] = x.Kind.ToString(),
                     ["start"] = Iso(x.StartsOn),
                     ["end"] = Iso(x.EndsOn),
-                    ["hours"] = Hours(x.HoursPerWeek),
+                    ["hours"] = NumberValue(x.HoursPerWeek),
                     ["gross"] = Money(x.GrossMonthly),
                     ["net"] = x.NetMonthly is { } netto ? Money(netto) : null,
                     ["notice"] = x.NoticePeriodMonths == 0 ? null : x.NoticePeriodMonths.ToString(),
-                    ["commuteKm"] = Hours(x.CommuteKilometres),
+                    ["commuteKm"] = NumberValue(x.CommuteKilometres),
                     ["workDays"] = x.WorkDaysPerYear?.ToString(),
                 };
             }
@@ -692,6 +694,8 @@ public sealed class CreateFormService(
         property.PurchaseDate = purchase;
         property.MarketValue = ParseMoney(Value(values, "market")) ?? 0m;
         property.LoanId = ParseInt(Value(values, "loan"));
+        property.LivingArea = ParseMoney(Value(values, "area"));
+        property.MonthlyReserve = ParseMoney(Value(values, "reserve"));
 
         if (await ApplySharesAsync(property, values, ct) is { } problem)
         {
@@ -1294,6 +1298,13 @@ public sealed class CreateFormService(
                 Money("market", "Marktwert", required: false),
                 Reference("loan", "Bestehendes Darlehen", required: false, loans),
 
+                // Beide nur für den Objektbericht: die Fläche ist der Nenner der €/m²-Zahl, die
+                // Rücklage der Posten, der zu den Objektkosten zählt und das Konto nicht verlässt.
+                Number("area", "Wohnfläche in m²", required: false,
+                    help: "Ohne sie nennt der Objektbericht keine €/m²-Zahl."),
+                Money("reserve", "Instandhaltungsrücklage je Monat", required: false,
+                    help: "Zählt zu den Objektkosten und verlässt das Konto nicht."),
+
                 .. await ShareFieldsAsync(ct),
             ],
         };
@@ -1367,6 +1378,8 @@ public sealed class CreateFormService(
             PurchaseDate = purchase,
             MarketValue = ParseMoney(Value(values, "market")) ?? 0m,
             LoanId = ParseInt(Value(values, "loan")),
+            LivingArea = ParseMoney(Value(values, "area")),
+            MonthlyReserve = ParseMoney(Value(values, "reserve")),
         };
 
         if (await ApplySharesAsync(property, values, ct) is { } problem)
@@ -1442,7 +1455,7 @@ public sealed class CreateFormService(
         if (summe != 100m)
         {
             return Fail($"share.{anteile[0].UserId}",
-                $"Die Eigentumsanteile ergeben {Hours(summe)} % statt 100 %.");
+                $"Die Eigentumsanteile ergeben {GermanNumber(summe)} % statt 100 %.");
         }
 
         property.Shares.Clear();
@@ -1870,9 +1883,22 @@ public sealed class CreateFormService(
         return null;
     }
 
-    /// <summary>Stunden im Eingabeformat des Formulars: deutsch, ohne überflüssige Nullen.</summary>
-    private static string? Hours(decimal? value)
-        => value?.ToString("0.##", CultureInfo.InvariantCulture).Replace('.', ',');
+    /// <summary>
+    /// Eine Zahl für ein <see cref="CreateFieldKind.Number"/>-Feld.
+    /// </summary>
+    /// <remarks>
+    /// <b>Mit Punkt, nicht mit Komma.</b> Die Maske rendert Zahlenfelder als
+    /// <c>&lt;input type="number"&gt;</c>, und ein solches Feld verwirft jeden Wert, der kein
+    /// gültiger Fließkommawert nach HTML ist — „38,5“ kommt als <em>leeres</em> Feld heraus, und
+    /// das nächste Speichern löscht die gepflegte Angabe. Genau diese Stelle hat schon einmal
+    /// Werte verloren (Handoff 20, §19.4), damals bei den Wertbestandteilen einer Police.
+    /// </remarks>
+    private static string? NumberValue(decimal? value)
+        => value?.ToString("0.##", CultureInfo.InvariantCulture);
+
+    /// <summary>Eine Zahl im Klartext einer Meldung: deutsch, ohne überflüssige Nullen.</summary>
+    private static string GermanNumber(decimal value)
+        => value.ToString("0.##", CultureInfo.InvariantCulture).Replace('.', ',');
 
     // ── Bausteine ──────────────────────────────────────────────────────────────────────────
 

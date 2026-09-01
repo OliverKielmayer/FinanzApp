@@ -1,0 +1,431 @@
+@using System.Globalization
+
+@*
+    Objekt & Beteiligung — Handoff „Gemeinsame Immobilie", 3.5. Der achte Bericht.
+
+    Drei getrennte Aussagen, in dieser Reihenfolge: was das Objekt kostet, was davon
+    objektbezogen ist, wer wie viel getragen hat.
+
+    Gerechnet wird nichts hier. „Angefallen" und „aufs Jahr" kommen aus zwei verschiedenen
+    Quellen und tragen darum zwei verschiedene Namen; die Beteiligungszahlen kommen aus dem
+    Aggregat, das sie als einzige Stelle rechnet.
+*@
+
+@if (Data.Properties.Count > 1)
+{
+    <div class="report-sort">
+        <span class="label-muted">Objekt</span>
+
+        @foreach (var objekt in Data.Properties)
+        {
+            var wahl = objekt;
+            <button type="button" class="chip @(objekt.Id == Data.PropertyId ? "active" : null)"
+                    disabled="@Busy" @onclick="() => OnPick.InvokeAsync(wahl.Id)">
+                @objekt.Name
+            </button>
+        }
+    </div>
+}
+
+@* ── 1. Was kostet das Objekt ─────────────────────────────────────────────── *@
+
+<div class="kpi">
+    @*
+        Gemessen. Der Zeitraum steht dabei, weil acht Monate kein Jahr sind — eine
+        Achtmonatssumme als Jahresstand beschriftet wäre der Fehler, den der Handoff als Regel 2
+        nennt.
+    *@
+    <div class="kpi-cell">
+        <span class="label-muted">Angefallen @Data.IncurredFrom.Year</span>
+        <span class="kpi-value num">@State.Euro0(Data.Incurred)</span>
+        <span class="meta">@Gemessen()</span>
+    </div>
+
+    @* Fortgeschrieben — aus Verträgen, nicht aus dem Kontoauszug. *@
+    <div class="kpi-cell">
+        <span class="label-muted">Hochgerechnet aufs Jahr</span>
+        <span class="kpi-value num">@State.Euro0(Data.YearTotal)</span>
+        <span class="meta">@Fortgeschrieben()</span>
+    </div>
+
+    <div class="kpi-cell">
+        <span class="label-muted">Ausgleichsstand</span>
+        <span class="kpi-value num @(Ausgleich is null ? null : "accent")">@Stand()</span>
+        <span class="meta">@StandNote()</span>
+    </div>
+</div>
+
+<div class="list-head">
+    <span class="label-strong">Wohin es geht · Jahreswerte</span>
+    <span class="list-count num">@Data.Items.Count</span>
+</div>
+
+@if (Data.Items.Count == 0)
+{
+    <div class="import-nothing">
+        <span class="label-strong">Keine Kostenposten am Objekt</span>
+        <span class="create-help">
+            Der Bericht liest Darlehen, die objektbezogenen Verträge des Objekts, Gebäude- und
+            Hausratversicherung und die Rücklage. Bislang steht keines davon im Bestand.
+        </span>
+    </div>
+}
+
+@foreach (var posten in Data.Items)
+{
+    <div class="row obj-row">
+        <span class="stack">
+            <span class="report-row-name">@posten.Label</span>
+            <span class="meta">@posten.Source</span>
+        </span>
+
+        @*
+            Die Art entscheidet, ob die Zahl Kosten sind: von einer Rate ist nur der Zins
+            Aufwand, die Tilgung wird Eigentum. Ohne das Kennzeichen läse sich die ganze Rate
+            als Kosten — das Haus wäre teurer, als es ist.
+        *@
+        <span class="tag @(posten.Kind == PropertyCostKind.Equity ? "tag-accent" : "tag-neutral")">
+            @ArtLabel(posten.Kind)
+        </span>
+
+        <span class="balance-value num obj-amount">@State.Euro0(posten.YearAmount)</span>
+        <span class="meta obj-share num">@posten.SharePercent %</span>
+    </div>
+}
+
+@if (Data.Loan is { } darlehen)
+{
+    @* Herleitbar: wer die Zahl nicht aus den Nachbarzahlen nachrechnen kann, misstraut ihr
+       zu Recht. *@
+    <div class="tx-totals-note">@Ratezeile(darlehen)</div>
+}
+
+@if (Data.Outflow is > 0m)
+{
+    <div class="tx-totals-note">@Abflusszeile()</div>
+}
+
+@if (Data.SharePercentSum != 100 && Data.Items.Count > 0)
+{
+    <div class="tx-totals-note">
+        Anteile je Posten gerundet — die Spalte summiert deshalb auf @Data.SharePercentSum %.
+    </div>
+}
+
+@* ── 2. Was ist objektbezogen ─────────────────────────────────────────────── *@
+
+<div class="list-head">
+    <span class="label-strong">Was nicht dazugehört</span>
+    <span class="list-count num">@(Data.Excluded.Count + Data.ExcludedMore)</span>
+</div>
+
+@if (Data.Excluded.Count == 0)
+{
+    <div class="tx-totals-note">
+        Im laufenden Jahr ist nichts gebucht, was außerhalb des Objekts liegt — entweder ist
+        alles objektbezogen gekennzeichnet, oder es fehlen die Buchungen.
+    </div>
+}
+else
+{
+    @foreach (var kategorie in Data.Excluded)
+    {
+        <div class="row obj-row">
+            <span class="report-row-name">@kategorie.Name</span>
+            <span class="balance-value num obj-amount">@State.Euro0(kategorie.YearAmount)</span>
+        </div>
+    }
+
+    <div class="tx-totals-note">
+        @Ausschlusszeile() Sie gehören zur Lebenshaltung und zählen nicht in die Objektkosten —
+        sonst wäre jede €/m²-Zahl falsch, weil Lebensmittel vom selben Konto abgehen. Das
+        Kennzeichen sitzt an der <em>Kategorie</em>: eine gemischte Kategorie steht ganz auf
+        einer Seite, und wer sie trennen will, teilt sie im Bestand.
+    </div>
+}
+
+@* ── 3. Wer hat wie viel getragen ─────────────────────────────────────────── *@
+
+@if (Data.Participation is { IsShared: true } beteiligung)
+{
+    <div class="list-head">
+        <span class="label-strong">Wer trägt was</span>
+        <span class="list-count">@beteiligung.Participants.Count Beteiligte</span>
+    </div>
+
+    @*
+        Der Balken zeigt das Eingebrachte, nicht den Eigentumsanteil — und sagt es. Ein
+        unbeschrifteter Balken, der 63/37 zeigt, während der Leser 50/50 erwartet, ist ein
+        Widerspruch, auch wenn beide Zahlen stimmen.
+    *@
+    <div class="obj-bar-wrap">
+        <div class="share-bar" role="img" aria-label="@Balkenzeile(beteiligung)">
+            @foreach (var person in beteiligung.Participants)
+            {
+                <span class="share-part @(person.IsSelf ? "mine" : null)"
+                      style="@Breite(beteiligung, person)">
+                    @Vorname(person.Name) @Anteil(beteiligung, person)
+                </span>
+            }
+        </div>
+        <span class="meta">@Balkenzeile(beteiligung)</span>
+    </div>
+
+    <div class="obj-table">
+        <div class="obj-trow head">
+            <span class="obj-label"></span>
+            @foreach (var person in beteiligung.Participants)
+            {
+                <span class="obj-cell">@Vorname(person.Name)</span>
+            }
+        </div>
+
+        <div class="obj-trow">
+            <span class="obj-label">Eigenkapital beim Kauf</span>
+            @foreach (var person in beteiligung.Participants)
+            {
+                <span class="obj-cell num">@State.Euro0(person.Equity)</span>
+            }
+        </div>
+
+        <div class="obj-trow">
+            <span class="obj-label">Einlagen</span>
+            @foreach (var person in beteiligung.Participants)
+            {
+                <span class="obj-cell num">@State.Euro0(person.Deposits)</span>
+            }
+        </div>
+
+        <div class="obj-trow strong">
+            <span class="obj-label">Zusammen eingebracht</span>
+            @foreach (var person in beteiligung.Participants)
+            {
+                <span class="obj-cell num">@State.Euro0(person.Contributed)</span>
+            }
+        </div>
+
+        <div class="obj-trow">
+            <span class="obj-label">Anteil laut Grundbuch</span>
+            @foreach (var person in beteiligung.Participants)
+            {
+                <span class="obj-cell num">@GermanFormat.Percent(person.Percent, person.Percent % 1 == 0 ? 0 : 2)</span>
+            }
+        </div>
+
+        <div class="obj-trow accent">
+            <span class="obj-label">Ausgleich</span>
+            @foreach (var person in beteiligung.Participants)
+            {
+                <span class="obj-cell num">@State.Euro0(person.Settlement, withPlusSign: true)</span>
+            }
+        </div>
+    </div>
+
+    @if (Forderung(beteiligung) is { } satz)
+    {
+        <div class="share-settlement">
+            <span class="stack">
+                <span class="balance-label plain">@satz</span>
+                <span class="meta">@Herleitung(beteiligung)</span>
+            </span>
+        </div>
+    }
+
+    <div class="tx-totals-note">
+        Beim Verkauf zählt die Reihenfolge: erst den Erlös nach Eigentumsanteil teilen, dann den
+        Ausgleich daraus verrechnen. Umgekehrt käme ein anderes Ergebnis heraus. Die Anwendung
+        führt den Stand als zinsfreie Forderung im Vermögen — sie mahnt ihn nicht an und treibt
+        ihn nicht ein.
+    </div>
+}
+else
+{
+    <div class="list-head">
+        <span class="label-strong">Wer trägt was</span>
+    </div>
+
+    <div class="tx-totals-note">
+        Am Objekt sind keine Anteile gepflegt — dann gehört es dem Haushalt als Ganzem, und es
+        gibt niemanden, gegen den sich etwas ausgleichen ließe.
+    </div>
+}
+
+@code {
+    [Parameter]
+    [EditorRequired]
+    public PropertyReportDto Data { get; set; } = default!;
+
+    [Parameter]
+    public bool Busy { get; set; }
+
+    [Parameter]
+    public EventCallback<int> OnPick { get; set; }
+
+    [Inject] private AppState State { get; set; } = default!;
+
+    private decimal? Ausgleich => Data.Participation?.Settlement;
+
+    private static string ArtLabel(PropertyCostKind kind)
+        => kind == PropertyCostKind.Equity ? "Vermögen" : "Aufwand";
+
+    private static string Vorname(string name) => name.Split(' ')[0];
+
+    /// <summary>
+    /// Woraus die gemessene Zahl kommt — und über welchen Zeitraum.
+    /// </summary>
+    /// <remarks>
+    /// Ohne eine einzige Buchung steht das da, statt eine Null als Ergebnis auszugeben: die Null
+    /// wäre richtig und würde doch etwas anderes behaupten, nämlich dass nichts angefallen ist.
+    /// </remarks>
+    private string Gemessen()
+    {
+        var zeitraum = $"{Data.IncurredFrom:MM}–{Data.IncurredTo:MM}/{Data.IncurredTo:yyyy}";
+
+        return Data.IncurredBookings == 0
+            ? $"keine Buchung auf einer objektbezogenen Kategorie · {zeitraum}"
+            : $"gemessen aus {Data.IncurredBookings} Buchungen · "
+              + $"{Data.IncurredMonths} von 12 Monaten · {zeitraum}";
+    }
+
+    /// <summary>Monat, Quadratmeter und Rücklage — jede Angabe nur, wenn sie da ist.</summary>
+    private string Fortgeschrieben()
+    {
+        var teile = new List<string> { State.Euro0(Data.MonthlyTotal) + "/Monat" };
+
+        if (Data.PerSquareMetre is { } quadratmeter)
+        {
+            teile.Add(State.Euro(quadratmeter) + "/m²");
+        }
+
+        if (Data.MonthlyReserve is { } ruecklage && ruecklage > 0m)
+        {
+            teile.Add("inkl. " + State.Euro0(ruecklage) + " Rücklage");
+        }
+
+        return string.Join(" · ", teile);
+    }
+
+    private string Stand()
+        => Ausgleich is { } betrag ? State.Euro0(betrag, withPlusSign: true) : "—";
+
+    private string StandNote()
+        => Ausgleich is null
+            ? "keine Anteile gepflegt"
+            : "aus der Tabelle abgeleitet · zinsfrei";
+
+    /// <summary>
+    /// Die Herleitung der Rate.
+    /// </summary>
+    /// <remarks>
+    /// Sie sagt zweierlei: welcher Teil der Rate wirklich Kosten sind, und dass sich die
+    /// Anteil-Spalte auf die Objektkosten bezieht und nicht auf die Rate. Zwei Bezugsgrößen im
+    /// selben Block ohne diesen Satz waren im Entwurf der häufigste Widerspruch.
+    /// </remarks>
+    private string Ratezeile(PropertyLoanSplitDto darlehen)
+        => $"Rate {State.Euro0(darlehen.YearInstalment)}/Jahr = "
+           + $"{State.Euro0(darlehen.MonthlyInstalment)}/Monat: Zins "
+           + $"{State.Euro0(darlehen.YearInterest)} sind Kosten, Tilgung "
+           + $"{State.Euro0(darlehen.YearPrincipal)} ({State.Euro0(darlehen.MonthlyPrincipal)}/Monat) "
+           + $"baut Vermögen auf — nur {darlehen.InterestPercent} % der Rate sind Aufwand. "
+           + $"Die Anteil-Spalte bezieht sich dagegen auf die {State.Euro0(Data.YearTotal)} Objektkosten.";
+
+    /// <summary>
+    /// Objektkosten gegen Kontoabfluss.
+    /// </summary>
+    /// <remarks>
+    /// Zwei verschiedene Größen, die nie dieselbe Zahl tragen dürfen: die Rücklage zählt zu den
+    /// Objektkosten und verlässt das Konto nicht.
+    /// </remarks>
+    private string Abflusszeile()
+    {
+        var satz = $"Objektkosten ≠ Kontoabfluss: vom Gemeinschaftskonto gehen im "
+                   + $"{GermanFormat.MonthName(Data.OutflowMonth.Month)} {State.Euro0(Data.Outflow ?? 0m)} ab — "
+                   + $"{State.Euro0(Data.OutflowPropertyRelated ?? 0m)} objektbezogen plus "
+                   + $"{State.Euro0(Data.OutflowOther ?? 0m)} übrige gemeinsame.";
+
+        return Data.MonthlyReserve is { } ruecklage && ruecklage > 0m
+            ? satz + $" Die {State.Euro0(ruecklage)} Rücklage zählt zu den Objektkosten, "
+                   + "verlässt das Konto aber nicht."
+            : satz;
+    }
+
+    private string Ausschlusszeile()
+    {
+        var summe = State.Euro0(Data.Excluded.Sum(a => a.YearAmount));
+
+        return Data.ExcludedMore == 0
+            ? $"{summe} in diesem Jahr."
+            : $"{summe} in diesem Jahr, dazu {Data.ExcludedMore} weitere Kategorien.";
+    }
+
+    /// <summary>Die Breite im Balken kommt aus dem Eingebrachten.</summary>
+    private static string Breite(PropertyParticipationDto beteiligung, ParticipantDto person)
+    {
+        var gesamt = beteiligung.Participants.Sum(p => p.Contributed);
+
+        var gewicht = gesamt <= 0m
+            ? 1m
+            : decimal.Round(person.Contributed / gesamt * 100m, 2);
+
+        return "flex:" + gewicht.ToString(CultureInfo.InvariantCulture);
+    }
+
+    private static string Anteil(PropertyParticipationDto beteiligung, ParticipantDto person)
+    {
+        var gesamt = beteiligung.Participants.Sum(p => p.Contributed);
+
+        return gesamt <= 0m
+            ? "—"
+            : GermanFormat.Percent(decimal.Round(person.Contributed / gesamt * 100m), 0);
+    }
+
+    /// <summary>Was der Balken zeigt — im Klartext, mit den Beträgen dahinter.</summary>
+    private string Balkenzeile(PropertyParticipationDto beteiligung)
+    {
+        var eingebracht = string.Join(" / ",
+            beteiligung.Participants.Select(p => State.Euro0(p.Contributed)));
+
+        var anteile = string.Join(" / ", beteiligung.Participants.Select(
+            p => GermanFormat.Percent(p.Percent, p.Percent % 1 == 0 ? 0 : 2)));
+
+        return $"Der Balken zeigt das Eingebrachte ({eingebracht}), nicht den Eigentumsanteil — "
+               + $"der ist {anteile}.";
+    }
+
+    /// <summary>Wer wem etwas schuldet — oder niemand.</summary>
+    /// <remarks>
+    /// Der Betrag läuft über die Maske wie jeder andere: „Beträge verbergen“ schirmt den Schirm
+    /// ab, und ein Satz ist keine Ausnahme.
+    /// </remarks>
+    private string? Forderung(PropertyParticipationDto beteiligung)
+    {
+        var forderung = beteiligung.Participants
+            .OrderByDescending(p => p.Settlement)
+            .FirstOrDefault();
+
+        if (forderung is null || forderung.Settlement <= 0m)
+        {
+            return "Alle haben im Verhältnis ihrer Anteile eingebracht — kein Ausgleich offen.";
+        }
+
+        var schuldner = beteiligung.Participants
+            .Where(p => p.Settlement < 0m)
+            .Select(p => Vorname(p.Name))
+            .ToList();
+
+        return schuldner.Count == 0
+            ? null
+            : $"{string.Join(" und ", schuldner)} schuldet {Vorname(forderung.Name)} "
+              + $"{State.Euro0(forderung.Settlement)}";
+    }
+
+    /// <summary>Die Rechnung hinter dem Stand.</summary>
+    private string Herleitung(PropertyParticipationDto beteiligung)
+    {
+        var gesamt = beteiligung.Participants.Sum(p => p.Contributed);
+
+        return $"Eingebracht zusammen {State.Euro0(gesamt)}, verteilt nach Eigentumsanteil — "
+               + "die Differenz zum eigenen Anteil ist der Stand. Kachel oben, Tabellenzeile und "
+               + "dieser Satz sind eine abgeleitete Größe.";
+    }
+}

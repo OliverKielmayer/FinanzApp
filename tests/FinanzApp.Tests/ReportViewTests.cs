@@ -71,6 +71,27 @@ public sealed class ReportViewTests : IDisposable
         Assert.Equal("Depot G/V", ansicht.Name);
     }
 
+    /// <summary>
+    /// Jeder Bericht nennt sich mit seinem eigenen Namen.
+    /// </summary>
+    /// <remarks>
+    /// Steuerjahr und Objekt &amp; Beteiligung hießen in der gespeicherten Ansicht
+    /// „Kostentrend · Monat / Vorjahr“ — der Name des Berichts, in dem man gerade nicht war, samt
+    /// einer Einstellung, die es dort nicht gibt.
+    /// </remarks>
+    [Theory]
+    [InlineData(ReportKind.TaxYear, "Steuerjahr")]
+    [InlineData(ReportKind.PropertyParticipation, "Objekt & Beteiligung")]
+    [InlineData(ReportKind.DataQuality, "Datenqualität")]
+    [InlineData(ReportKind.HealthBalance, "PKV-Bilanz")]
+    public async Task Jeder_Bericht_nennt_sich_selbst(ReportKind bericht, string name)
+    {
+        var ansicht = await For(1).SaveViewAsync(new SaveReportViewRequest(
+            bericht, PeriodScope.Year, ComparisonBasis.PreviousPeriod));
+
+        Assert.Equal(name, ansicht.Name);
+    }
+
     [Fact]
     public async Task Ein_eigener_Name_bleibt_stehen()
     {
