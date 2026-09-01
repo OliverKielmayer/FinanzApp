@@ -560,7 +560,7 @@ public sealed class DocumentScanService(
     /// </remarks>
     private static string Folder(DocumentKind art, Target? ziel, DateOnly? stichtag)
         => art.FolderTemplate
-            .Replace("{ziel}", ziel?.Name ?? "Unbekannt", StringComparison.Ordinal)
+            .Replace("{ziel}", ziel?.Name ?? DocumentKind.UnknownTarget, StringComparison.Ordinal)
             .Replace("{jahr}", (stichtag?.Year)?.ToString() ?? "Ohne Jahr", StringComparison.Ordinal);
 
     private static string FileName(DocumentKind art, DateOnly? stichtag)

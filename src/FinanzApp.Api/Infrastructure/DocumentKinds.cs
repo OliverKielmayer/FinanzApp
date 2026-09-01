@@ -188,6 +188,17 @@ public enum DocumentTargetKind
 /// </remarks>
 public sealed record DocumentKind
 {
+    /// <summary>
+    /// Der Platzhalter im Ablagepfad, solange das Objekt nicht feststeht.
+    /// </summary>
+    /// <remarks>
+    /// Er steht hier und nicht als Zeichenkette in der Ablage, weil eine zweite Stelle ihn
+    /// wiedererkennen muss: wird das Objekt später im Scaneingang nachgetragen, wandert die
+    /// Datei aus diesem Ordner heraus. Zwei Schreibweisen desselben Wortes hießen, dass sie für
+    /// immer unter „Unbekannt“ läge.
+    /// </remarks>
+    public const string UnknownTarget = "Unbekannt";
+
     public required string Key { get; init; }
     public required string Label { get; init; }
 

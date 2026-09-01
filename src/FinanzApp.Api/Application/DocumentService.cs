@@ -288,6 +288,55 @@ public sealed class DocumentService(
         return await GetAsync(id, ct);
     }
 
+    /// <summary>
+    /// Holt einen Beleg aus dem Ordner <c>Unbekannt</c> heraus, sobald sein Objekt feststeht.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Ablagepfad wird aus dem Objekt gebildet. Konnte die Einlieferung es nicht
+    /// bestimmen, steht dort <c>Unbekannt</c> — und dabei bliebe es für immer, obwohl der Beleg
+    /// im Scaneingang längst zugeordnet wurde. Der Ordner behauptete dann etwas, das nicht mehr
+    /// stimmt.</para>
+    /// <para><b>Nur diesen einen Ordner.</b> Kommt <c>Unbekannt</c> im Pfad nicht genau einmal
+    /// vor, liegt der Beleg dort, wo ein Mensch ihn haben wollte — und dann fasst ihn niemand
+    /// an. Was der Dienst selbst abgelegt hat, räumt er nach; eingerichtete Ablagen bleiben.</para>
+    /// <para>Gibt den neuen Pfad zurück oder <c>null</c>, wenn nichts zu tun war.</para>
+    /// </remarks>
+    public async Task<string?> RefileAsync(
+        int documentId, string targetName, CancellationToken ct = default)
+    {
+        var document = await db.Documents.FirstOrDefaultAsync(d => d.Id == documentId, ct);
+
+        // Der Name zuerst, dann die Entschärfung: aus einem leeren Namen macht sie „Dokument“,
+        // und der Beleg läge danach in einem Ordner, den niemand so genannt hat.
+        if (document is null
+            || string.IsNullOrWhiteSpace(targetName)
+            || DocumentPathService.Sanitize(targetName) is not { Length: > 0 } ordner)
+        {
+            return null;
+        }
+
+        var segmente = document.RelativePath.Split('/');
+
+        if (segmente.Count(s => s == DocumentKind.UnknownTarget) != 1)
+        {
+            return null;
+        }
+
+        segmente[Array.IndexOf(segmente, DocumentKind.UnknownTarget)] = ordner;
+
+        if (paths.Move(document.RelativePath, string.Join('/', segmente)) is not { } neu)
+        {
+            return null;
+        }
+
+        document.RelativePath = neu;
+        document.FileName = Path.GetFileName(neu);
+        document.UpdatedAt = clock.Now;
+
+        await db.SaveChangesAsync(ct);
+        return neu;
+    }
+
     /// <summary>Hängt ein Dokument an ein Fachobjekt. Prüft, dass das Ziel im Haushalt existiert.</summary>
     public async Task<DocumentLinkDto?> LinkAsync(
         int documentId, LinkTargetType type, int targetId, CancellationToken ct = default)

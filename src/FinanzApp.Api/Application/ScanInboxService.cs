@@ -100,12 +100,21 @@ public sealed class ScanInboxService(FinanzAppDbContext db, DocumentService docu
 
         // Erst verknüpfen, dann den Typ setzen: die Verknüpfung ist die Prüfung, ob es das Ziel
         // überhaupt gibt. Andersherum stünde nach einem falschen Ziel ein geänderter Typ da.
-        await documents.LinkAsync(item.DocumentId, request.TargetType, request.TargetId, ct);
+        var verknuepfung = await documents.LinkAsync(item.DocumentId, request.TargetType, request.TargetId, ct);
 
         dokument.DocumentTypeId = typ.Id;
         dokument.Area = typ.Area;
         dokument.UpdatedAt = clock.Now;
         await db.SaveChangesAsync(ct);
+
+        // Und die Datei hinterher: eine Einlieferung ohne erkanntes Objekt legt sie unter
+        // „Unbekannt“ ab. Bliebe sie dort, behauptete der Ordner nach dem Zuordnen etwas, das
+        // nicht mehr stimmt — und wer im Dateimanager sucht, fände den Beleg nicht bei seinem
+        // Vertrag.
+        if (verknuepfung is { Label.Length: > 0 } gefunden)
+        {
+            await documents.RefileAsync(item.DocumentId, gefunden.Label, ct);
+        }
 
         // Über dieselbe Schwelle wie jeder andere Beleg. Die Regel steht einmal, und sie gilt
         // auch für den Weg, der sie gerade erfüllt hat.

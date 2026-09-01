@@ -133,6 +133,100 @@ public sealed class DocumentPathService
     }
 
     /// <summary>
+    /// Verschiebt eine abgelegte Datei an einen anderen Platz im Dokumentordner.
+    /// </summary>
+    /// <remarks>
+    /// <para>Gibt den tatsächlichen neuen Pfad zurück — er kann vom gewünschten abweichen, wenn
+    /// dort schon eine Datei gleichen Namens liegt. Überschrieben wird nie: zwei Berichte
+    /// desselben Stichtags sind zwei Berichte.</para>
+    /// <para><c>null</c> heißt: nicht verschoben. Fehlt die Datei oder scheitert das Verschieben,
+    /// bleibt der Eintrag auf seinem alten Pfad stehen — ein Eintrag, der auf ein Nichts zeigt,
+    /// wäre schlimmer als einer, der auf den alten Ordner zeigt.</para>
+    /// </remarks>
+    public string? Move(string relativePath, string targetRelativePath)
+    {
+        if (Resolve(relativePath) is not { } quelle || !File.Exists(quelle))
+        {
+            return null;
+        }
+
+        if (Resolve(targetRelativePath) is not { } ziel)
+        {
+            return null;
+        }
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(ziel)!);
+
+            var ordner = targetRelativePath[..targetRelativePath.LastIndexOf('/')];
+            var name = Path.GetFileName(targetRelativePath);
+            var stamm = Path.GetFileNameWithoutExtension(name);
+            var endung = Path.GetExtension(name);
+            var zaehler = 1;
+
+            while (File.Exists(ziel))
+            {
+                name = $"{stamm}_{zaehler++}{endung}";
+                ziel = Path.Combine(Path.GetDirectoryName(ziel)!, name);
+            }
+
+            File.Move(quelle, ziel);
+            Aufraeumen(Path.GetDirectoryName(quelle)!);
+
+            return ordner + "/" + name;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            log.LogWarning(
+                ex, "Datei {Quelle} ließ sich nicht nach {Ziel} verschieben.",
+                relativePath, targetRelativePath);
+
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Räumt die Ordner weg, die durch das Verschieben leer geworden sind.
+    /// </summary>
+    /// <remarks>
+    /// <para>Aufwärts, solange leer: <c>Unbekannt/2020</c> und das <c>Unbekannt</c> darüber
+    /// verschwinden gemeinsam. Bliebe der obere stehen, sagte er im Dateimanager weiter
+    /// „unbekannt“ über einen Vertrag, der längst zugeordnet ist — der halbe Sinn des
+    /// Umhängens.</para>
+    /// <para>Gelöscht wird nur, was <em>vollständig</em> leer ist, und nie der Wurzelordner. Ein
+    /// Ordner mit Inhalt beendet den Aufstieg.</para>
+    /// </remarks>
+    private void Aufraeumen(string folder)
+    {
+        var wurzel = Path.TrimEndingDirectorySeparator(Root);
+        var aktuell = folder;
+
+        try
+        {
+            while (!string.Equals(
+                       Path.TrimEndingDirectorySeparator(aktuell), wurzel, StringComparison.OrdinalIgnoreCase)
+                   && Directory.Exists(aktuell)
+                   && !Directory.EnumerateFileSystemEntries(aktuell).Any())
+            {
+                var eltern = Path.GetDirectoryName(aktuell);
+                Directory.Delete(aktuell);
+
+                if (eltern is not { Length: > 0 })
+                {
+                    return;
+                }
+
+                aktuell = eltern;
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Ein leerer Ordner, der stehen bleibt, ist kein Schaden.
+        }
+    }
+
+    /// <summary>
     /// Hängt einen vorgeschlagenen Unterordner an den Bereichsordner.
     /// </summary>
     /// <remarks>
