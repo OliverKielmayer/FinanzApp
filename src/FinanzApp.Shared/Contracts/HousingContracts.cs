@@ -380,3 +380,19 @@ public sealed record ScanInboxItemDto
 
     public required DateOnly ArrivedOn { get; init; }
 }
+
+/// <summary>
+/// Trägt Typ und Objekt an einem wartenden Beleg nach.
+/// </summary>
+/// <remarks>
+/// Der Weg für alles, was die Erkennung nicht selbst hinbekommen hat. Beides zusammen in einem
+/// Aufruf, weil der Eingang beides zusammen verlangt: ein Beleg mit Typ, aber ohne Objekt wäre
+/// nach dem halben Weg immer noch nicht eingeordnet — und stünde nach einem gescheiterten
+/// zweiten Aufruf halb geändert da.
+/// </remarks>
+public sealed record AssignScanInboxRequest
+{
+    public required int DocumentTypeId { get; init; }
+    public required LinkTargetType TargetType { get; init; }
+    public required int TargetId { get; init; }
+}

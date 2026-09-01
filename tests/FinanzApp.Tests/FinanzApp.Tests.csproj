@@ -30,6 +30,9 @@
     <!-- Nur für FinanzAppApi: der HTTP-Zugriff des Clients wird gegen einen Attrappen-Handler
          geprüft. Die Razor-Komponenten selbst laufen hier nicht. -->
     <ProjectReference Include="..\..\src\FinanzApp.Client\FinanzApp.Client.csproj" />
+    <!-- Nur für den Ordnerdienst: geprüft wird, wann eine Datei als fertig geschrieben gilt und
+         wohin sie danach wandert. Beides ist reine Dateiarbeit und läuft auf jedem System. -->
+    <ProjectReference Include="..\..\src\FinanzApp.Ordnerdienst\FinanzApp.Ordnerdienst.csproj" />
   </ItemGroup>
 
 </Project>

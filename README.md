@@ -23,6 +23,7 @@ Wie die Anwendung bedient wird, steht in der [Bedieneranleitung](docs/bedienung.
 | Dokumente | Dateien im Dateisystem unter `DocumentRoot`, nur der relative Pfad in der Datenbank |
 | Anmeldung | Cookie-Authentifizierung, PBKDF2-Hashing, serverseitig widerrufbare Sitzungen |
 | Mailversand | MailKit über SMTP |
+| Ordnerdienst | Windows-Dienst (.NET 10 Worker), liefert Belege aus einem überwachten Ordner ein |
 | Tests | xUnit gegen SQLite im Arbeitsspeicher |
 | Verträge | gemeinsames Projekt `FinanzApp.Shared`, von Client und API referenziert |
 
@@ -114,6 +115,7 @@ src/
     Application/           Fachlogik je Bereich
     Endpoints/             HTTP-Oberfläche, ohne Fachlogik
     Infrastructure/        Uhr, aktueller Benutzer, Rollen, Mail, Dokumentablage, Belegerkennung
+  FinanzApp.Ordnerdienst/  Windows-Dienst: überwachter Ordner → POST /api/scan/intake
   FinanzApp.Client/
     Layout/                Kopfzeile, Tab-Bar, Seitennavigation, Anmelderahmen
     Pages/                 die Screens
@@ -261,6 +263,39 @@ Der **Scaneingang** ist ein Posteingang: gescannt wird stapelweise, eingeordnet 
 Beleg bleibt darin, bis Typ **und** Objekt bestimmt sind. Ohne diese Schwelle verschwände er in
 der Ablage, ohne dass jemand entschieden hätte, wozu er gehört — und genau solche Dokumente
 findet später niemand wieder.
+
+Was die Erkennung nicht selbst hinbekommen hat, trägt der Benutzer im Eingang nach: **Zuordnen**
+fragt nach Typ und Objekt und räumt den Beleg in einem Aufruf weg. Beides zusammen, weil der
+Eingang beides verlangt — ein Beleg mit Typ und ohne Objekt wäre nach dem halben Weg immer noch
+nicht eingeordnet und stünde nach einem gescheiterten zweiten Aufruf halb geändert da.
+
+### Ordnerdienst — Belege aus einem überwachten Ordner
+
+Ein Windows-Dienst (`src/FinanzApp.Ordnerdienst`) überwacht einen Scanordner und reicht jede neue
+Datei an `POST /api/scan/intake` weiter. Die Anwendung liest sie mit **derselben** Analyse wie der
+Flow „Beleg einlesen“, legt sie im passenden Bereich ab, verknüpft sie mit ihrem Objekt und stellt
+sie in den Scaneingang. Die Einrichtung steht in
+[der Anleitung des Dienstes](src/FinanzApp.Ordnerdienst/README.md).
+
+Drei Entscheidungen tragen das Ganze:
+
+1. **Der Dienst übernimmt keine Werte.** Ablegen, den Dokumenttyp setzen und mit dem Vertrag
+   verknüpfen ist Einordnung: sichtbar, und mit einem Griff zu ändern. Ein erreichter Wert im
+   Vertrag ist das nicht — er stünde danach in einer Vermögenssumme, die nie jemand geprüft hat.
+   Die Übernahme bleibt `POST /api/scan/confirm` und damit dem Menschen vorbehalten.
+2. **Jede Einlieferung landet im Eingang**, auch die vollständig zugeordnete. Sonst käme ein Beleg
+   an, ohne dass irgendwo stünde, dass er angekommen ist — und ein Ordnerdienst, dessen Ergebnis
+   man nicht sieht, ist einer, dem man nicht trauen kann. Erkannt heißt dann: es fehlt nur noch
+   ein Tipp.
+3. **Der Dienst legt keinen Dokumenttyp an.** Welche Typen es gibt, entscheidet der Haushalt. Er
+   nimmt den gleichnamigen, wenn es ihn gibt, und lässt das Feld sonst leer — dann trägt ihn der
+   Nutzer im Eingang nach. Ein Haushalt, der „Statusreport Lebensversicherung“ in seine Typenliste
+   aufnimmt, bekommt die Einlieferung damit vollständig automatisch.
+
+Der Dienst selbst analysiert nichts. Zwei Fassungen derselben Leseregeln liefen zwangsläufig
+auseinander; er sorgt nur dafür, dass keine Datei liegen bleibt und keine zweimal hinausgeht.
+Dafür ist **der Ordner die Warteschlange** — was noch daliegt, ist noch nicht übergeben; was
+übergeben ist, liegt im Unterordner `_erledigt`. Ein Neustart mitten im Betrieb kostet nichts.
 
 ### Anlegen
 
@@ -573,6 +608,8 @@ Inhaber oder Mitglied.
 | Darlehen | `GET /api/loans/primary`, `/api/loans/{id}?months=` |
 | Import | `GET /api/import/preview` · `POST /api/import/{id}/commit` |
 | Dokumente | `GET /api/documents`, `/types`, `/search`, `/{id}`, `/{id}/file`, `/for/{typ}/{id}` · `POST /api/documents` (Upload), `/{id}/links` · `PUT /{id}`, `/{id}/path` · `DELETE /{id}`, `/links/{id}` |
+| Belege | `POST /api/scan/analyse`, `/api/scan/intake` (Ordnerdienst), `/api/scan/confirm` |
+| Scaneingang | `GET /api/scan-inbox` · `POST /api/scan-inbox/{id}/assign`, `/{id}/file` |
 | Vorgänge | `GET /api/tasks`, `/summary` · `POST /api/tasks` · `PATCH /api/tasks/{id}/state` |
 | Gesundheit | `GET /api/health/bills`, `/{id}`, `/{id}/payment-candidates` · `POST /api/health/bills`, `/{id}/payment`, `/api/health/extract` · `PATCH /{id}/status` |
 | Versicherungen | `GET /api/insurances`, `/{id}` |
@@ -600,7 +637,7 @@ Inhaber oder Mitglied.
 
 ## Tests
 
-`dotnet test` — 48 Tests. Abgedeckt sind die Stellen, an denen ein Fehler teuer wäre:
+`dotnet test` — 621 Tests. Abgedeckt sind die Stellen, an denen ein Fehler teuer wäre:
 
 - **Eigenanteil zählt nicht als offene Forderung**, Teilerstattung, abgelehnter Vorgang,
   Zahlungsvorschlag mit bestem Treffer.
@@ -611,6 +648,11 @@ Inhaber oder Mitglied.
   Regelpräfix, deutsche Formatierung, Passwortbewertung.
 - **Start gegen eine Datenbank ohne Migrationshistorie** — der Fall, der sonst in einer
   unverständlichen SQLite-Meldung endet.
+- **Die Einlieferung aus dem überwachten Ordner verändert keine Vermögenszahl**, ordnet zu, was
+  ohne Rückfrage geht, und stellt jeden Beleg sichtbar in den Scaneingang — auch den, zu dem es
+  kein Objekt gibt. Dazu das Nachtragen von Typ und Objekt und der Fall, in dem es scheitert.
+- **Wann eine Datei fertig geschrieben ist**: erster Blick, wachsende Datei, leere Datei, von
+  einem anderen Programm belegte Datei — und wohin sie danach wandert, ohne je zu überschreiben.
 
 Der erste Testlauf hat dabei eine echte Lücke gefunden: der Haushalts-Stempel griff nur im
 asynchronen `SaveChanges`.

@@ -195,6 +195,29 @@ Absicherung.
 feststehen — erst dann verschwindet es daraus. Die Zeile sagt, ob etwas erkannt wurde
 („erkannt“) oder ob jemand hinsehen muss („prüfen“), dazu Absender und Seitenzahl.
 
+Unter jeder Zeile stehen die beiden Schalter, mit denen der Beleg den Eingang verlässt:
+
+- **Zuordnen** öffnet ein Fenster mit zwei Fragen: welcher **Typ** und welches **Objekt**. Den
+  Typ wählen Sie aus den Chips, das Objekt suchen Sie — ab zwei Buchstaben erscheinen die
+  Treffer mit ihrer Art daneben („Vertrag“, „Immobilie“, „Fahrzeug“). Ein Tipp auf *Zuordnen und
+  wegräumen* trägt beides ein und nimmt den Beleg aus dem Eingang.
+- **Wegräumen** steht nur bei erkannten Belegen: dort sind Typ und Objekt schon eingetragen, es
+  fehlt nur Ihr Ja.
+
+Gibt es das Objekt in der App noch nicht, legen Sie es zuerst an — der Beleg bleibt bis dahin
+liegen und geht nicht verloren.
+
+### Belege aus einem überwachten Ordner
+
+Neben dem Einlesen von Hand kann ein **Ordnerdienst** auf dem Rechner einen Scanordner
+überwachen und jede neue Datei selbst hereinreichen. Was dabei ankommt, landet ebenfalls hier im
+Scaneingang: abgelegt im passenden Bereich und, wo es ging, schon mit dem Objekt verknüpft.
+
+Der Dienst **übernimmt keine Werte**. Ein erreichter Vertragswert steht erst dann im Vermögen,
+wenn Sie ihn im Prüfschritt gesehen und bestätigt haben — daran ändert auch ein Ordner nichts,
+der sich selbst leert. Eingerichtet wird der Dienst einmal am Rechner; wie, steht in
+`src/FinanzApp.Ordnerdienst/README.md`.
+
 ## 8c. Ändern und Löschen
 
 Alles, was sich anlegen lässt, lässt sich auch ändern und löschen. Der Weg dorthin hängt

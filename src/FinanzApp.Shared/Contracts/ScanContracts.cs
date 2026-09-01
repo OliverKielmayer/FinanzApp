@@ -259,3 +259,69 @@ public sealed record ConfirmScanRequest
     public required int DocumentId { get; init; }
     public IReadOnlyDictionary<string, string>? Values { get; init; }
 }
+
+// ── Einlieferung aus einem überwachten Ordner ───────────────────────────────────────────────
+
+/// <summary>Wie weit eine eingelieferte Datei gekommen ist.</summary>
+public enum ScanIntakeOutcome
+{
+    /// <summary>
+    /// Bereich, Typ und Objekt stehen. Der Beleg wartet im Scaneingang nur noch darauf,
+    /// dass ein Mensch ihn bestätigt.
+    /// </summary>
+    Assigned = 0,
+
+    /// <summary>
+    /// Etwas fehlt. Die Datei ist abgelegt und liegt im Scaneingang, bis jemand nachträgt,
+    /// wozu sie gehört.
+    /// </summary>
+    Waiting = 1,
+}
+
+/// <summary>
+/// Was aus einer Datei geworden ist, die ein überwachter Ordner hereingereicht hat.
+/// </summary>
+/// <remarks>
+/// <para>Die Antwort auf <c>POST /api/scan/intake</c>. Sie geht an einen Dienst und nicht an
+/// einen Bildschirm — deshalb steht in <see cref="Summary"/> ein fertiger Satz fürs Protokoll.
+/// Beträge kommen darin nicht vor: die Einlieferung ordnet ein, sie übernimmt keine Werte.</para>
+/// <para><b>Nichts hier verändert eine Vermögenszahl.</b> Ein unbeaufsichtigter Dienst kann
+/// keinen Menschen ersetzen, der die gelesenen Werte neben ihrer Herkunftsseite gesehen hat —
+/// die Übernahme bleibt <c>POST /api/scan/confirm</c> und damit dem Nutzer vorbehalten.</para>
+/// </remarks>
+public sealed record ScanIntakeResultDto
+{
+    public required int DocumentId { get; init; }
+
+    /// <summary>Der Eintrag im Scaneingang, unter dem der Beleg wartet.</summary>
+    public required int InboxId { get; init; }
+
+    public required string FileName { get; init; }
+
+    /// <summary>Pfad unter dem Dokumentordner — wo die Datei nun wirklich liegt.</summary>
+    public required string RelativePath { get; init; }
+
+    /// <summary>Der Bereich, in den sie eingeordnet wurde.</summary>
+    public required DocumentArea Area { get; init; }
+
+    public required ScanIntakeOutcome Outcome { get; init; }
+
+    public required int PageCount { get; init; }
+
+    /// <summary>Erkannte Dokumentart, <c>null</c>, wenn keine passt.</summary>
+    public string? KindKey { get; init; }
+    public string? KindLabel { get; init; }
+
+    /// <summary>Gesetzter Dokumenttyp aus der Liste des Haushalts.</summary>
+    public string? TypeName { get; init; }
+
+    /// <summary>Das verknüpfte Objekt und wie es heißt („Vertrag“, „Depot“).</summary>
+    public string? TargetName { get; init; }
+    public string? TargetNoun { get; init; }
+
+    /// <summary>Was zur vollständigen Zuordnung noch fehlt — <c>null</c>, wenn nichts.</summary>
+    public string? Missing { get; init; }
+
+    /// <summary>Eine Zeile fürs Protokoll des einliefernden Dienstes.</summary>
+    public required string Summary { get; init; }
+}

@@ -30,7 +30,16 @@ public static class FinanzAppApiExtensions
             "api/documents" + (query.Count == 0 ? string.Empty : "?" + string.Join('&', query)), ct);
     }
 
-    public static Task<IReadOnlyList<DocumentTypeDto>> GetDocumentTypesAsync(
+    /// <summary>
+    /// Die vergebbaren Dokumenttypen — für Auswahllisten.
+    /// </summary>
+    /// <remarks>
+    /// Nicht <c>GetDocumentTypesAsync</c>: so heißt die Typenverwaltung, und die liefert die
+    /// Übersicht samt Verwendungszahlen und stillgelegten Einträgen. Zwei gleich benannte
+    /// Methoden mit verschiedenen Ergebnissen wären eine Falle — die Instanzmethode gewänne
+    /// stillschweigend gegen die Erweiterung.
+    /// </remarks>
+    public static Task<IReadOnlyList<DocumentTypeDto>> GetAssignableDocumentTypesAsync(
         this FinanzAppApi api, CancellationToken ct = default)
         => api.GetAsync<IReadOnlyList<DocumentTypeDto>>("api/documents/types", ct);
 
@@ -313,6 +322,23 @@ public static class FinanzAppApiExtensions
     public static Task<ScanInboxDto> GetScanInboxAsync(
         this FinanzAppApi api, CancellationToken ct = default)
         => api.GetAsync<ScanInboxDto>("api/scan-inbox", ct);
+
+    /// <summary>Räumt einen Beleg weg, dessen Typ und Objekt schon stehen.</summary>
+    public static Task FileScanInboxAsync(
+        this FinanzAppApi api, int id, CancellationToken ct = default)
+        => api.SendWithoutResultAsync<object?>(
+            HttpMethod.Post, $"api/scan-inbox/{id}/file", null, ct);
+
+    /// <summary>
+    /// Trägt Typ und Objekt nach und räumt den Beleg damit weg.
+    /// </summary>
+    /// <remarks>
+    /// Ein Aufruf für beides. Zwei hintereinander hinterließen nach einem Fehlschlag einen
+    /// halb geänderten Beleg — mit Typ, ohne Objekt, und weiter im Eingang.
+    /// </remarks>
+    public static Task AssignScanInboxAsync(
+        this FinanzAppApi api, int id, AssignScanInboxRequest request, CancellationToken ct = default)
+        => api.SendWithoutResultAsync(HttpMethod.Post, $"api/scan-inbox/{id}/assign", request, ct);
 
     /// <summary>Vermerkt die gelesenen Werte als übernommen.</summary>
     public static Task<int> ConfirmExtractionsAsync(

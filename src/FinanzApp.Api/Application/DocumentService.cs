@@ -13,8 +13,18 @@ public sealed class DocumentService(
     IClock clock,
     ILogger<DocumentService> log)
 {
+    /// <summary>
+    /// Die Typen, die sich vergeben lassen.
+    /// </summary>
+    /// <remarks>
+    /// Ohne die stillgelegten: sie stehen nur noch an den Dokumenten, die sie schon tragen. In
+    /// einer Auswahlliste wären sie eine Falle — anbieten und beim Speichern ablehnen ist
+    /// schlechter, als sie gar nicht erst zu zeigen. Wer sie <em>mit</em> ihrer Verwendung sehen
+    /// will, nimmt die Typenverwaltung.
+    /// </remarks>
     public async Task<IReadOnlyList<DocumentTypeDto>> GetTypesAsync(CancellationToken ct = default)
         => await db.DocumentTypes.AsNoTracking()
+            .Where(t => !t.IsRetired)
             .OrderBy(t => t.SortOrder).ThenBy(t => t.Name)
             .Select(t => new DocumentTypeDto { Id = t.Id, Name = t.Name, Area = t.Area })
             .ToListAsync(ct);
