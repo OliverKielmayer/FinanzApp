@@ -1,6 +1,6 @@
 # Offene Punkte
 
-Stand **30.08.2026**, nach der Berichtsreihe im Vorsorgebereich. Eine Liste, kein Plan: sie sagt,
+Stand **01.09.2026**, nach dem Gemeinschaftskonto und dem Kennzeichen „objektbezogen“. Eine Liste, kein Plan: sie sagt,
 was noch nicht gebaut ist und woher die Anforderung stammt — die Reihenfolge steht in den
 Handoffs selbst, nicht hier.
 
@@ -180,6 +180,34 @@ Offen:
 - **Nur der Vorsorge-Detailschirm führt „bearbeiten".** Immobilie, Fahrzeug und Vertrag haben
   denselben Aufbau und dieselbe Lücke — dort ist das Bearbeiten weiter nur aus der Liste
   erreichbar.
+
+## Was aus [Handoff 21](design-handoff-v5j/design_handoff_immobilie/README.md) noch fehlt
+
+Gebaut sind die Beteiligung am Objekt (§3.1/§3.2) mit einer Stelle, die Quote, Einlagen und
+Ausgleich rechnet, die Buchungsart „Einlage“ (§3.4), das **Gemeinschaftskonto** als vierte
+Freigabestufe (§3.3) samt Soll-gegen-Eingang je Person und Jahresstand, und das **Kennzeichen
+„objektbezogen“** an Kategorie und Vertrag (§3.4) mit der objektbezogenen Teilmenge des
+Kontoabflusses.
+
+Zwei Dinge fielen dabei auf und wurden gleich miterledigt: das Vorzeichen einer Einlage hing
+nicht an ihrer Richtung — auf dem Gemeinschaftskonto kommt sie an, vom eigenen Konto geht sie ab,
+gebucht wurde immer als Abfluss —, und der Monatsvergleich hatte kein Ende, sodass eine
+vordatierte Einlage in jeden Monat vor ihr zählte.
+
+Offen:
+
+- **Der achte Bericht „Objekt & Beteiligung“ (§3.5)** ist nicht gebaut: die drei Kacheln, die
+  Postentabelle mit der Spalte Art (Zins ist Aufwand, Tilgung ist Vermögensaufbau), der
+  Ausschlussblock und die Beteiligungstabelle mit der Ausgleichszeile. Er löst den offenen
+  Bericht „Objektkosten“ aus §10b mit.
+- **Die Forderung als eigene Vermögensklasse (§9.4)** hängt an §17.1 — der Vermögensbericht nach
+  Klasse ist selbst noch nicht gebaut.
+- **Im Demo-Bestand ist die objektbezogene Teilmenge nicht zu sehen.** Das Gemeinschaftskonto ist
+  das Tagesgeld — das Girokonto umzustellen nähme dem Steuerbüro die Sicht darauf —, und von dort
+  geht im Demo-Monat nichts ab. Die Zeile erscheint erst, wenn etwas abgeht; geprüft ist sie mit
+  zwei Probebuchungen im laufenden Programm.
+- **Mehr als zwei Beteiligte, Verkauf und Trennung** sind im Handoff selbst offen (§7) und hier
+  nur der Vollständigkeit halber genannt.
 
 ## Gebaut, aber nie angesehen
 
