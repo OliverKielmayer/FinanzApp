@@ -149,6 +149,7 @@ Freigaben nichts zu suchen.
 | `Anmeldung als … abgelehnt` | Zugang prüfen; nach zehn Fehlversuchen je Minute bremst die API |
 | `Die FinanzApp … ist nicht erreichbar` | Adresse, Zertifikat, Firewall. Es bleibt alles liegen — nichts geht verloren |
 | `Der überwachte Ordner … ist nicht da` | Pfad falsch geschrieben, oder das Netzlaufwerk ist noch nicht verbunden |
+| `DoneFolder zeigt auf den überwachten Ordner selbst` | Ziel- und Eingangsordner sind derselbe. So verschöbe der Dienst jede Datei in den Eingang zurück und lieferte sie erneut ein — er startet deshalb nicht |
 | `… abgelehnt: Dateityp nicht zugelassen` | `Documents:AllowedExtensions` der API oder `Extensions` hier anpassen |
 | `… abgelehnt: 300 MB — mehr als die erlaubten 25 MB` | Zu groß. `MaxMegabytes` hier und `Documents:MaxFileSizeMegabytes` dort heben, oder die Datei teilen |
 | `… liegt aber noch im Eingang` | Der Dienst darf im Ordner nicht schreiben. Bis dahin geht die Datei erneut hinaus |

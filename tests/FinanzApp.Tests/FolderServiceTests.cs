@@ -346,6 +346,57 @@ public sealed class FolderServiceTests : IDisposable
     public void Der_Statuscode_bestimmt_den_Weg(HttpStatusCode code, HandoverStatus erwartet)
         => Assert.Equal(erwartet, Handover.StatusFor(code));
 
+    /// <summary>
+    /// Der überwachte Ordner darf nicht sein eigenes Ziel sein.
+    /// </summary>
+    /// <remarks>
+    /// Sonst verschiebt der Dienst jede Datei dorthin zurück, wo er sie genommen hat, weicht dem
+    /// belegten Namen aus — und liefert sie im nächsten Durchgang erneut ein. Das hört nie auf
+    /// und fällt erst auf, wenn der Scaneingang hundert Kopien desselben Belegs führt.
+    /// </remarks>
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public void Ein_Zielordner_darf_nicht_der_ueberwachte_sein(bool erledigt, bool fehlgeschlagen)
+    {
+        var eigen = new WatchOptions
+        {
+            WatchFolder = root,
+            Email = options.Email,
+            Password = options.Password,
+            DoneFolder = erledigt ? root : string.Empty,
+            FailedFolder = fehlgeschlagen ? root : string.Empty,
+        };
+
+        Assert.Contains(eigen.Problems(), p => p.Contains("überwachten Ordner selbst"));
+    }
+
+    /// <summary>Dieselbe Stelle anders geschrieben ist dieselbe Stelle.</summary>
+    /// <remarks>
+    /// Ein abschließender Trennstrich oder ein <c>.</c> im Pfad macht aus dem Ordner keinen
+    /// anderen — die Schleife entstünde trotzdem.
+    /// </remarks>
+    [Fact]
+    public void Auch_anders_geschrieben_ist_es_derselbe_Ordner()
+    {
+        var eigen = new WatchOptions
+        {
+            WatchFolder = root,
+            Email = options.Email,
+            Password = options.Password,
+            DoneFolder = Path.Combine(root, ".") + Path.DirectorySeparatorChar,
+        };
+
+        Assert.Contains(eigen.Problems(), p => p.Contains("überwachten Ordner selbst"));
+    }
+
+    /// <summary>Die Vorgabe darf nicht als Falle gelten — sie liegt im Ordner, ist aber nicht er.</summary>
+    [Fact]
+    public void Die_vorgegebenen_Unterordner_sind_keine_Falle()
+    {
+        Assert.DoesNotContain(options.Problems(), p => p.Contains("überwachten Ordner selbst"));
+    }
+
     /// <summary>Ohne eigene Angabe entstehen die beiden Unterordner im überwachten Ordner.</summary>
     [Fact]
     public void Die_Ergebnisordner_liegen_im_ueberwachten_Ordner()

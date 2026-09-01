@@ -21,7 +21,7 @@ namespace FinanzApp.Ordnerdienst;
 /// nicht wiederholt: dasselbe Passwort wird beim zweiten Mal nicht richtig, und die
 /// Anmeldebremse der API zählt jeden Versuch mit.</para>
 /// </remarks>
-public sealed class IntakeClient : IDisposable
+public sealed class IntakeClient : IIntakeClient, IDisposable
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
     {
@@ -36,13 +36,24 @@ public sealed class IntakeClient : IDisposable
     private bool signedIn;
 
     public IntakeClient(WatchOptions options, ILogger<IntakeClient> log)
+        // Eigener Handler mit Cookie-Behälter: das Anmelde-Cookie muss über alle Anfragen hinweg
+        // erhalten bleiben, und genau dafür ist er da.
+        : this(options, log, new HttpClientHandler { CookieContainer = new CookieContainer() })
+    {
+    }
+
+    /// <summary>
+    /// Mit eigenem Übertragungsweg — für Prüfungen ohne Server.
+    /// </summary>
+    /// <remarks>
+    /// Die Einordnung eines Fehlschlags entscheidet, ob eine Datei liegen bleibt, beiseitewandert
+    /// oder den Durchgang beendet. Das lässt sich gegen einen echten Server nicht verlässlich
+    /// herstellen — ein Server, der auf Kommando 401 sagt und danach 200, ist kein Server.
+    /// </remarks>
+    public IntakeClient(WatchOptions options, ILogger<IntakeClient> log, HttpMessageHandler handler)
     {
         this.options = options;
         this.log = log;
-
-        // Eigener Handler mit Cookie-Behälter: das Anmelde-Cookie muss über alle Anfragen hinweg
-        // erhalten bleiben, und genau dafür ist er da.
-        var handler = new HttpClientHandler { CookieContainer = new CookieContainer() };
 
         http = new HttpClient(handler)
         {

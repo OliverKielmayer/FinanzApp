@@ -20,7 +20,7 @@ namespace FinanzApp.Ordnerdienst;
 public sealed class FolderWorker(
     WatchOptions options,
     FolderInbox inbox,
-    IntakeClient client,
+    IIntakeClient client,
     ILogger<FolderWorker> log) : BackgroundService
 {
     /// <summary>Der Wecker der Ordnerüberwachung. Höchstens ein Weckruf wartet.</summary>

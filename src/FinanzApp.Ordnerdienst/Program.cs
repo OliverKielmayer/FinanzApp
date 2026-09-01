@@ -29,7 +29,7 @@ var options = builder.Configuration.GetSection(WatchOptions.SectionName).Get<Wat
 
 builder.Services.AddSingleton(options);
 builder.Services.AddSingleton<FolderInbox>();
-builder.Services.AddSingleton<IntakeClient>();
+builder.Services.AddSingleton<IIntakeClient, IntakeClient>();
 builder.Services.AddHostedService<FolderWorker>();
 
 var host = builder.Build();

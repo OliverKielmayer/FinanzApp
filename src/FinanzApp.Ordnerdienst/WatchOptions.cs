@@ -153,6 +153,24 @@ public sealed class WatchOptions
             problems.Add($"{SectionName}:MaxMegabytes darf nicht negativ sein.");
         }
 
+        // Der Ordner darf nicht sein eigenes Ziel sein. Sonst verschiebt der Dienst jede Datei
+        // in den Ordner zurück, aus dem er sie genommen hat, weicht dem belegten Namen aus — und
+        // liefert sie im nächsten Durchgang erneut ein. Das hört nie auf und fällt erst auf,
+        // wenn der Scaneingang hundert Kopien desselben Belegs führt.
+        foreach (var (ziel, name) in new[]
+                 {
+                     (ResolvedDoneFolder, nameof(DoneFolder)),
+                     (ResolvedFailedFolder, nameof(FailedFolder)),
+                 })
+        {
+            if (IsSameFolder(WatchFolder, ziel))
+            {
+                problems.Add(
+                    $"{SectionName}:{name} zeigt auf den überwachten Ordner selbst. Eine dorthin "
+                    + "verschobene Datei würde sofort wieder eingeliefert.");
+            }
+        }
+
         return problems;
     }
 
@@ -172,6 +190,32 @@ public sealed class WatchOptions
 
     /// <summary>Ob die Datei klein genug ist, um überhaupt angeboten zu werden.</summary>
     public bool IsSmallEnough(long bytes) => MaxMegabytes <= 0 || bytes <= MaxMegabytes * 1024L * 1024L;
+
+    /// <summary>Ob zwei Pfade denselben Ordner meinen.</summary>
+    /// <remarks>
+    /// Über den vollständigen Pfad: <c>C:\Scans\Eingang</c>, <c>C:\Scans\Eingang\</c> und
+    /// <c>C:\Scans\.\Eingang</c> sind derselbe Ordner. Lässt sich ein Pfad nicht auflösen, ist
+    /// er nicht dieser hier — die fehlende Angabe meldet ohnehin schon jemand anders.
+    /// </remarks>
+    private static bool IsSameFolder(string one, string other)
+    {
+        if (string.IsNullOrWhiteSpace(one) || string.IsNullOrWhiteSpace(other))
+        {
+            return false;
+        }
+
+        try
+        {
+            return string.Equals(
+                Path.TrimEndingDirectorySeparator(Path.GetFullPath(one)),
+                Path.TrimEndingDirectorySeparator(Path.GetFullPath(other)),
+                StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return false;
+        }
+    }
 
     private string Fallback(string configured, string name)
         => string.IsNullOrWhiteSpace(configured)
