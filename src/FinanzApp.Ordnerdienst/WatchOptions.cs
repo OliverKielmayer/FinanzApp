@@ -121,11 +121,23 @@ public sealed class WatchOptions
             problems.Add($"{SectionName}:WatchFolder ist leer — welcher Ordner überwacht werden soll.");
         }
 
-        if (string.IsNullOrWhiteSpace(Email) || string.IsNullOrWhiteSpace(Password))
+        // Jedes fehlende Feld einzeln. „Email und Password fehlen“ als eine Meldung schickt
+        // beim Einrichten in die falsche Richtung: es stimmt schon, wenn nur eines von beiden
+        // fehlt — und dann sucht man am falschen Ende.
+        if (string.IsNullOrWhiteSpace(Email))
         {
             problems.Add(
-                $"{SectionName}:Email und {SectionName}:Password fehlen — der Dienst braucht einen "
-                + "eigenen Zugang mit Schreibrecht.");
+                $"{SectionName}:Email ist leer — der Dienst braucht einen eigenen Zugang mit "
+                + "Schreibrecht.");
+        }
+
+        if (string.IsNullOrWhiteSpace(Password))
+        {
+            problems.Add(
+                $"{SectionName}:Password ist leer. Es gehört nicht in appsettings.json: im Betrieb "
+                + $"in die Umgebungsvariable {SectionName}__Password des Dienstkontos, in der "
+                + "Entwicklung in dotnet user-secrets — die gelten allerdings nur, wenn die "
+                + "Umgebung Development ist.");
         }
 
         if (!Uri.TryCreate(BaseAddress, UriKind.Absolute, out _))

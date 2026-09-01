@@ -488,3 +488,8 @@ $RECYCLE.BIN/
 
 # Dokumentablage der Beispieldaten
 src/FinanzApp.Api/App_Data/
+
+# Rechnerbezogene Einstellungen des Ordnerdienstes: Scanpfad und Zugang gehoeren
+# nicht ins Repository. Die Vorlage steht in appsettings.json.
+src/FinanzApp.Ordnerdienst/appsettings.Local.json
+src/FinanzApp.Ordnerdienst/appsettings.Production.json

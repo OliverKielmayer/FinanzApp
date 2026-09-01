@@ -235,10 +235,34 @@ public sealed class FolderServiceTests : IDisposable
         var leer = new WatchOptions { BaseAddress = "kein-uri" };
         var probleme = leer.Problems();
 
-        Assert.Equal(3, probleme.Count);
+        Assert.Equal(4, probleme.Count);
         Assert.Contains(probleme, p => p.Contains("WatchFolder"));
+        Assert.Contains(probleme, p => p.Contains("Email"));
         Assert.Contains(probleme, p => p.Contains("Password"));
         Assert.Contains(probleme, p => p.Contains("BaseAddress"));
+    }
+
+    /// <summary>
+    /// Fehlt nur eines von Zugang und Passwort, nennt die Meldung genau das.
+    /// </summary>
+    /// <remarks>
+    /// Vorher stand für beide eine gemeinsame Zeile — „Email und Password fehlen“, auch wenn nur
+    /// das Passwort fehlte. Beim Einrichten schickt das an das falsche Ende: man prüft die
+    /// Zugangsdaten, während in Wahrheit die Umgebungsvariable nicht ankommt.
+    /// </remarks>
+    [Fact]
+    public void Nur_das_fehlende_Feld_wird_genannt()
+    {
+        var ohnePasswort = new WatchOptions { WatchFolder = root, Email = options.Email };
+
+        var problem = Assert.Single(ohnePasswort.Problems());
+
+        Assert.Contains("Password", problem);
+        Assert.DoesNotContain("Email ist leer", problem);
+
+        var ohneZugang = new WatchOptions { WatchFolder = root, Password = options.Password };
+
+        Assert.Contains("Email", Assert.Single(ohneZugang.Problems()));
     }
 
     /// <summary>Leere Liste heißt: alles anbieten und den Server entscheiden lassen.</summary>

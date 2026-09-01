@@ -33,7 +33,14 @@ deshalb nichts.
 
 ## Einstellungen
 
-`appsettings.json` neben der ausführbaren Datei, Abschnitt `Ordnerdienst`:
+`appsettings.json` neben der ausführbaren Datei, Abschnitt `Ordnerdienst`. Die mitgelieferte
+Datei ist eine **Vorlage mit leeren Feldern** — sie liegt im Repository und soll dort keinen
+Scanpfad und keinen Zugang tragen.
+
+Die Werte dieses Rechners gehören in eine **`appsettings.Local.json`** daneben. Sie überschreibt
+die Vorlage feldweise, ist von der Versionierung ausgenommen und gilt **in jeder Umgebung** — ein
+Dienst läuft in `Production`, ein Ausprobieren mit user-secrets in `Development`, und beide
+überwachen denselben Ordner:
 
 | Schlüssel | Vorgabe | Bedeutung |
 | --- | --- | --- |
@@ -64,11 +71,25 @@ sc.exe config FinanzAppOrdnerdienst obj= "NT AUTHORITY\NetworkService"
 [Environment]::SetEnvironmentVariable('Ordnerdienst__Password', 'geheim', 'Machine')
 ```
 
-In der Entwicklung:
+Beim Ausprobieren am einfachsten dieselbe Variable, gesetzt fürs Fenster (PowerShell kennt kein
+vorangestelltes `NAME=wert` wie eine Unix-Shell):
 
-```bash
-dotnet user-secrets --project src/FinanzApp.Ordnerdienst set "Ordnerdienst:Password" "geheim"
+```powershell
+$env:Ordnerdienst__Password = 'geheim'
+dotnet run --project src/FinanzApp.Ordnerdienst
 ```
+
+Der andere Weg sind user-secrets:
+
+```powershell
+dotnet user-secrets --project src/FinanzApp.Ordnerdienst set "Ordnerdienst:Password" "geheim"
+$env:DOTNET_ENVIRONMENT = 'Development'
+dotnet run --project src/FinanzApp.Ordnerdienst
+```
+
+> **Achtung, hier ist eine Stunde zu verlieren:** user-secrets gelten nur, wenn die Umgebung
+> `Development` ist. Ein Dienst startet — und `dotnet run` startet ihn — in `Production`, und dort
+> werden sie **nicht** gelesen. Ohne die zweite Zeile oben sucht man am falschen Ende.
 
 ### Der Zugang
 
@@ -96,7 +117,7 @@ unterscheiden. Ohne die eigene Prüfung hielte ein einziger 300-MB-Scan den ganz
 
 Derselbe Build läuft von Hand in einer Konsole — `AddWindowsService` ist dort wirkungslos:
 
-```bash
+```powershell
 dotnet run --project src/FinanzApp.Ordnerdienst
 ```
 
@@ -146,6 +167,7 @@ Freigaben nichts zu suchen.
 | Im Protokoll steht | Was zu tun ist |
 | --- | --- |
 | `WatchFolder ist leer` | `appsettings.json` liegt nicht neben der `.exe` oder der Abschnitt fehlt |
+| `Ordnerdienst:Password ist leer` | Die Umgebungsvariable kommt nicht an, oder user-secrets werden nicht gelesen, weil die Umgebung nicht `Development` ist |
 | `Anmeldung als … abgelehnt` | Zugang prüfen; nach zehn Fehlversuchen je Minute bremst die API |
 | `Die FinanzApp … ist nicht erreichbar` | Adresse, Zertifikat, Firewall. Es bleibt alles liegen — nichts geht verloren |
 | `Der überwachte Ordner … ist nicht da` | Pfad falsch geschrieben, oder das Netzlaufwerk ist noch nicht verbunden |
