@@ -1,4 +1,7 @@
 using FinanzApp.Ordnerdienst;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration.EnvironmentVariables;
+using Microsoft.Extensions.Configuration.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -24,7 +27,21 @@ var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
 // überwachen denselben Ordner. Eine appsettings.Production.json wäre beim Ausprobieren
 // stillschweigend weg. Die Datei liegt neben der Anwendung, ist freiwillig und gehört nicht ins
 // Repository — die versionierte appsettings.json bleibt die Vorlage mit leeren Feldern.
-builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: false);
+//
+// Eingehängt **vor** den Umgebungsvariablen und nicht dahinter. Angehängt gewinnt sie gegen sie,
+// und dann ließe sich der Ordner für einen einzelnen Lauf nicht mehr umbiegen — beim ersten
+// Versuch überwachte der Dienst prompt den Ordner aus der Datei statt den vorgegebenen.
+var lokal = new JsonConfigurationSource
+{
+    Path = "appsettings.Local.json",
+    Optional = true,
+    ReloadOnChange = false,
+};
+
+var quellen = builder.Configuration.Sources;
+var vorUmgebung = quellen.ToList().FindIndex(q => q is EnvironmentVariablesConfigurationSource);
+
+quellen.Insert(vorUmgebung < 0 ? quellen.Count : vorUmgebung, lokal);
 
 // Als Dienst: der Lebenszyklus hängt am Dienststeuerungsmanager, und das Protokoll geht ins
 // Ereignisprotokoll von Windows. Läuft dasselbe Programm von Hand in einer Konsole, ist der
