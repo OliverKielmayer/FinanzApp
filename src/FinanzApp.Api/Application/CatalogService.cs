@@ -47,6 +47,7 @@ public sealed class CatalogService(FinanzAppDbContext db)
             .Select(c => new CategoryUsageDto
             {
                 TaxCategory = c.TaxCategory,
+                PropertyRelated = c.PropertyRelated,
                 Id = c.Id,
                 Name = c.Name,
                 Direction = c.Direction,
@@ -140,6 +141,36 @@ public sealed class CatalogService(FinanzAppDbContext db)
         }
 
         kategorie.TaxCategory = art;
+        await db.SaveChangesAsync(ct);
+
+        return true;
+    }
+
+    /// <summary>
+    /// Ordnet eine Kategorie dem Objekt zu oder nimmt sie heraus — Handoff „Gemeinsame
+    /// Immobilie“, 3.4.
+    /// </summary>
+    /// <remarks>
+    /// Nur Ausgaben: eine Einnahme ist keine Objektkost. Wie die steuerliche Einordnung hängt das
+    /// Kennzeichen an der Kategorie und nicht an ihrem Namen — es wird gepflegt, nicht geraten.
+    /// </remarks>
+    public async Task<bool> SetPropertyRelatedAsync(
+        int id, bool objektbezogen, CancellationToken ct = default)
+    {
+        var kategorie = await db.Categories.FirstOrDefaultAsync(c => c.Id == id, ct);
+
+        if (kategorie is null)
+        {
+            return false;
+        }
+
+        if (objektbezogen && kategorie.Direction != CategoryDirection.Expense)
+        {
+            throw new RuleViolationException(
+                "Nur Ausgabenkategorien lassen sich dem Objekt zuordnen.");
+        }
+
+        kategorie.PropertyRelated = objektbezogen;
         await db.SaveChangesAsync(ct);
 
         return true;

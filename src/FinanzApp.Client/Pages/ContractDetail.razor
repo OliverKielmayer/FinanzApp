@@ -24,6 +24,19 @@
             </span>
         </div>
 
+        @*
+            Objektbezogen — Handoff „Gemeinsame Immobilie“, 3.4. Die Zuordnung sagt, zu welchem
+            Objekt der Vertrag gehört; das Kennzeichen sagt, ob seine Kosten dem Objekt zuzurechnen
+            sind. Beide stehen deshalb in einer Zeile.
+        *@
+        <div class="detail-block">
+            <span class="detail-label">Kosten zählen</span>
+            <span class="detail-value">
+                @(contract.PropertyRelated ? "objektbezogen" : "Lebenshaltung")
+                @(contract.PropertyName is { Length: > 0 } objekt ? " · " + objekt : string.Empty)
+            </span>
+        </div>
+
         @if (contract.NoticeDeadline is { } deadline && contract.NoticeIsDue)
         {
             <div class="notice">

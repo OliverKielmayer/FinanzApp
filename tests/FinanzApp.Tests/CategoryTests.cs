@@ -186,6 +186,52 @@ public sealed class CategoryTests : IDisposable
         Assert.Single(context.Categories.Where(c => c.Name == "Wohnen"));
     }
 
+    // ── Objektbezogen — Handoff „Gemeinsame Immobilie“, 3.4 ───────────────────────────────
+
+    /// <summary>
+    /// Das Kennzeichen wird gesetzt und wieder abgewählt.
+    /// </summary>
+    /// <remarks>
+    /// Es trennt Hauskosten von Lebenshaltung. Ohne die Trennung wäre jede €/m²-Zahl falsch, weil
+    /// Lebensmittel vom selben Konto abgehen wie der Strom für das Haus.
+    /// </remarks>
+    [Fact]
+    public async Task Eine_Kategorie_wird_dem_Objekt_zugeordnet()
+    {
+        Assert.True(await Service().SetPropertyRelatedAsync(wohnen, true));
+
+        var eintrag = (await Service().GetUsageAsync(CategoryDirection.Expense))
+            .Single(c => c.Id == wohnen);
+
+        Assert.True(eintrag.PropertyRelated);
+
+        Assert.True(await Service().SetPropertyRelatedAsync(wohnen, false));
+
+        Assert.False((await Service().GetUsageAsync(CategoryDirection.Expense))
+            .Single(c => c.Id == wohnen).PropertyRelated);
+    }
+
+    /// <summary>
+    /// Eine Einnahme ist keine Objektkost.
+    /// </summary>
+    /// <remarks>
+    /// Mietertrag oder Gehalt dem Objekt zuzurechnen machte aus Einnahmen Kosten. Dieselbe Regel
+    /// wie bei der steuerlichen Einordnung: nur Ausgaben kommen in Frage.
+    /// </remarks>
+    [Fact]
+    public async Task Eine_Einnahmenkategorie_wird_abgewiesen()
+    {
+        var fehler = await Assert.ThrowsAsync<RuleViolationException>(
+            () => Service().SetPropertyRelatedAsync(gehalt, true));
+
+        Assert.Contains("Ausgabenkategorien", fehler.Message);
+    }
+
+    /// <summary>Eine Kategorie, die es nicht gibt, meldet sich als nicht gefunden.</summary>
+    [Fact]
+    public async Task Eine_unbekannte_Kategorie_ist_nicht_gefunden()
+        => Assert.False(await Service().SetPropertyRelatedAsync(9999, true));
+
     [Fact]
     public async Task Die_Richtung_trennt_auch_hier()
     {

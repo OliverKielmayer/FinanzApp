@@ -485,6 +485,7 @@ public sealed class CreateFormService(
                     ["amount"] = Money(x.MonthlyAmount),
                     ["account"] = x.AccountId?.ToString(),
                     ["property"] = x.PropertyId?.ToString(),
+                    ["objekt"] = x.PropertyRelated ? FlagOn : FlagOff,
                     ["notice"] = x.NoticePeriodWeeks == 0 ? null : x.NoticePeriodWeeks.ToString(),
                 };
             }
@@ -721,6 +722,7 @@ public sealed class CreateFormService(
         contract.MonthlyAmount = amount;
         contract.AccountId = ParseInt(Value(values, "account"));
         contract.PropertyId = ParseInt(Value(values, "property"));
+        contract.PropertyRelated = Flagged(values, "objekt", fallback: contract.PropertyRelated);
         contract.NoticePeriodWeeks = ParseInt(Value(values, "notice")) ?? 0;
 
         await db.SaveChangesAsync(ct);
@@ -1481,6 +1483,10 @@ public sealed class CreateFormService(
                 Money("amount", "Abschlag", required: true, help: "Monatlicher Abschlag."),
                 Reference("account", "Bankkonto", required: false, await AccountOptionsAsync(ct)),
                 Reference("property", "Immobilie", required: false, properties),
+                Flag("objekt", "Kosten zählen", "objektbezogen", "Lebenshaltung",
+                    help: "Objektbezogen zählt in die Objektkosten und in €/m². "
+                          + "Der Internetanschluss hängt am Haus und zieht doch mit um.",
+                    defaultOn: true),
                 Number("notice", "Kündigungsfrist in Wochen", required: false),
             ],
         };
@@ -1510,6 +1516,7 @@ public sealed class CreateFormService(
             MonthlyAmount = amount,
             AccountId = ParseInt(Value(values, "account")),
             PropertyId = ParseInt(Value(values, "property")),
+            PropertyRelated = Flagged(values, "objekt", fallback: true),
             NoticePeriodWeeks = ParseInt(Value(values, "notice")) ?? 0,
         };
 
@@ -1907,6 +1914,53 @@ public sealed class CreateFormService(
             Required = required,
             Options = options,
             DefaultValue = defaultValue,
+        };
+
+    /// <summary>
+    /// Die beiden Werte eines Kennzeichens. Sie stehen in der Vorbelegung und im Absenden; was der
+    /// Nutzer liest, steht in den Optionen.
+    /// </summary>
+    private const string FlagOn = "ja";
+    private const string FlagOff = "nein";
+
+    /// <summary>
+    /// Ein Kennzeichen als Auswahl aus zwei benannten Möglichkeiten.
+    /// </summary>
+    /// <remarks>
+    /// Statt „ja/nein“ steht da, was die Wahl bedeutet: der Nutzer soll nicht überlegen müssen,
+    /// worauf sich das Ja bezieht. Zwei Chips brauchen kein neues Feldwerk.
+    /// </remarks>
+    private static CreateFieldDto Flag(
+        string key, string label, string onLabel, string offLabel, string? help, bool defaultOn)
+        => new()
+        {
+            Key = key,
+            Label = label,
+            Kind = CreateFieldKind.Choice,
+            Required = false,
+            Help = help,
+            Options =
+            [
+                new() { Value = FlagOn, Label = onLabel },
+                new() { Value = FlagOff, Label = offLabel },
+            ],
+            DefaultValue = defaultOn ? FlagOn : FlagOff,
+        };
+
+    /// <summary>
+    /// Wie das Kennzeichen gesetzt ist. Ohne Angabe bleibt es, wie es war.
+    /// </summary>
+    /// <remarks>
+    /// Ein fehlender Wert darf nicht als „nein“ gelten: sonst löschte ein Formular, das das Feld
+    /// nicht mitschickt, eine gepflegte Angabe.
+    /// </remarks>
+    private static bool Flagged(
+        IReadOnlyDictionary<string, string?> values, string key, bool fallback)
+        => Value(values, key) switch
+        {
+            FlagOn => true,
+            FlagOff => false,
+            _ => fallback,
         };
 
     private static CreateFieldDto Reference(

@@ -330,6 +330,16 @@ public class Contract : IHouseholdOwned
 
     public DocumentArea Area { get; set; } = DocumentArea.Housing;
 
+    /// <summary>
+    /// Ob der Abschlag zu den Objektkosten zählt — Handoff „Gemeinsame Immobilie“, 3.4.
+    /// </summary>
+    /// <remarks>
+    /// Nicht dasselbe wie <see cref="PropertyId"/>: die Zuordnung sagt, zu welchem Objekt ein
+    /// Vertrag gehört, das Kennzeichen sagt, ob seine Kosten dem Objekt zuzurechnen sind. Der
+    /// Internetanschluss hängt am Haus und zieht doch mit den Leuten um — er ist Lebenshaltung.
+    /// </remarks>
+    public bool PropertyRelated { get; set; }
+
     public List<Invoice> Invoices { get; set; } = [];
 
     /// <summary>Letzter Tag für eine Kündigung zum Stichtag.</summary>

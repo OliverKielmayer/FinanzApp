@@ -94,6 +94,20 @@
                                             disabled="@busy" @onclick="() => SetTaxAsync(id, wahl)">@name</button>
                                 }
                             </span>
+
+                            @*
+                                Objektbezogen — Handoff „Gemeinsame Immobilie“, 3.4. Trennt
+                                Hauskosten von Lebenshaltung; ohne die Trennung wäre jede
+                                €/m²-Zahl falsch, weil Lebensmittel vom selben Konto abgehen.
+                            *@
+                            <span class="tax-pick">
+                                <button type="button"
+                                        class="seg-chip @(category.PropertyRelated ? "active" : null)"
+                                        disabled="@busy"
+                                        @onclick="() => SetObjektAsync(id, !category.PropertyRelated)">
+                                    objektbezogen
+                                </button>
+                            </span>
                         </AuthorizeView>
                     }
                 </span>
@@ -256,6 +270,28 @@
             Toasts.Show(art == TaxCategory.None
                 ? "Steuerliche Einordnung entfernt"
                 : $"Steuerlich eingeordnet: {TaxKinds.First(k => k.Kind == art).Label}");
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    /// <remarks>
+    /// Die Meldung sagt, was die Wahl bewirkt, und nicht nur dass etwas gespeichert wurde: das
+    /// Kennzeichen wirkt an einer Stelle, die nicht im Blick ist, wenn man hier klickt.
+    /// </remarks>
+    private Task SetObjektAsync(int id, bool objektbezogen) => RunAsync(async () =>
+    {
+        busy = true;
+        try
+        {
+            await Api.SetCategoryPropertyRelatedAsync(id, objektbezogen);
+            await LoadAsync();
+
+            Toasts.Show(objektbezogen
+                ? "Zählt zu den Objektkosten"
+                : "Zählt zur Lebenshaltung");
         }
         finally
         {

@@ -191,6 +191,15 @@ public static class FinanzAppApiExtensions
             new CategoryTaxRequest { TaxCategory = art },
             ct);
 
+    /// <summary>Ordnet eine Kategorie dem Objekt zu oder nimmt sie heraus.</summary>
+    public static Task SetCategoryPropertyRelatedAsync(
+        this FinanzAppApi api, int id, bool objektbezogen, CancellationToken ct = default)
+        => api.SendWithoutResultAsync(
+            HttpMethod.Patch,
+            $"api/categories/{id}/objekt",
+            new CategoryPropertyRequest { PropertyRelated = objektbezogen },
+            ct);
+
     /// <summary>Entfernt einen gemeldeten Vertragsstand.</summary>
     public static Task DeletePolicyReportAsync(
         this FinanzAppApi api, int reportId, CancellationToken ct = default)

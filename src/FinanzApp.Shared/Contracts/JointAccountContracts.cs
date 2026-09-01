@@ -39,6 +39,37 @@ public sealed record JointAccountDto
 
     /// <summary>Ob überhaupt ein Soll vereinbart ist.</summary>
     public bool HasTargets => Contributors.Any(c => c.MonthlyTarget is not null);
+
+    /// <summary>
+    /// Was im gezeigten Monat vom Konto abgegangen ist.
+    /// </summary>
+    /// <remarks>
+    /// <b>Kontoabfluss, nicht Objektkosten.</b> Zwei verschiedene Größen, die nie dieselbe Zahl
+    /// tragen dürfen: eine Rücklage zählt zu den Objektkosten und verlässt das Konto nicht, ein
+    /// Wocheneinkauf verlässt es und gehört nicht zum Objekt.
+    /// </remarks>
+    public required decimal Outflow { get; init; }
+
+    /// <summary>
+    /// Der objektbezogene Teil des Abflusses.
+    /// </summary>
+    /// <remarks>
+    /// Aus dem Kennzeichen an der Kategorie — Handoff 3.4. Verträge zählen hier nicht mit: ihr
+    /// Abschlag wird von den Buchungen bezahlt, die ihn zahlen, und stünde sonst zweimal da.
+    /// </remarks>
+    public required decimal OutflowPropertyRelated { get; init; }
+
+    /// <summary>Der Rest: gemeinsame Ausgaben, die nicht zum Objekt gehören.</summary>
+    public decimal OutflowOther => Outflow - OutflowPropertyRelated;
+
+    /// <summary>
+    /// Ob überhaupt eine Kategorie als objektbezogen gekennzeichnet ist.
+    /// </summary>
+    /// <remarks>
+    /// Ohne diese Unterscheidung stünde „davon objektbezogen 0 €“ da, wo niemand das Kennzeichen
+    /// gesetzt hat — eine Aussage über das Haus, wo es eine über die Pflege der Kategorien ist.
+    /// </remarks>
+    public required bool HasPropertyRelatedCategories { get; init; }
 }
 
 /// <summary>Ein Beteiligter am Gemeinschaftskonto.</summary>

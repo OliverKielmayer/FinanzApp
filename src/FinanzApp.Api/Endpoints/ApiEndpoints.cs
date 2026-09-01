@@ -216,6 +216,23 @@ public static class ApiEndpoints
             }
         }).RequireAuthorization(AuthPolicies.Write);
 
+        // Objektbezogen oder Lebenshaltung. Ohne die Trennung wäre jede €/m²-Zahl falsch,
+        // weil Lebensmittel vom selben Konto abgehen wie der Strom für das Haus.
+        api.MapPatch("/categories/{id:int}/objekt", async (
+            int id, CategoryPropertyRequest request, CatalogService service, CancellationToken ct) =>
+        {
+            try
+            {
+                return await service.SetPropertyRelatedAsync(id, request.PropertyRelated, ct)
+                    ? Results.NoContent()
+                    : Results.NotFound();
+            }
+            catch (RuleViolationException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.Write);
+
         api.MapDelete("/categories/{id:int}", async (
             int id, CatalogService service, CancellationToken ct) =>
         {

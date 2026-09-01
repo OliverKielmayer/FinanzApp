@@ -297,6 +297,119 @@ public sealed class JointAccountTests : IDisposable
         Assert.Equal(0m, gemeinschaft.PaidTotal);
     }
 
+    // ── Abfluss und objektbezogene Teilmenge — Handoff 3.4 ────────────────────────────────
+
+    /// <summary>
+    /// Der Abfluss zerfällt in objektbezogen und übrige.
+    /// </summary>
+    /// <remarks>
+    /// Zwei Größen, nicht eine: der Kontoabfluss ist nicht die Objektkost. Ohne die Trennung wäre
+    /// jede €/m²-Zahl falsch, weil Lebensmittel vom selben Konto abgehen wie der Strom.
+    /// </remarks>
+    [Fact]
+    public async Task Der_Abfluss_zerfaellt_in_objektbezogen_und_uebrige()
+    {
+        var (haus, essen) = Kategorien();
+
+        Abfluss(240m, haus);
+        Abfluss(160m, essen);
+        Abfluss(60m, kategorie: null);
+
+        var gemeinschaft = Assert.Single(await Dienst(oliver).JointAccountsAsync(clock.Today));
+
+        Assert.True(gemeinschaft.HasPropertyRelatedCategories);
+        Assert.Equal(460m, gemeinschaft.Outflow);
+        Assert.Equal(240m, gemeinschaft.OutflowPropertyRelated);
+        Assert.Equal(220m, gemeinschaft.OutflowOther);
+    }
+
+    /// <summary>
+    /// Eine Einlage auf das Konto ist kein Abfluss.
+    /// </summary>
+    /// <remarks>
+    /// Sie kommt an. Als Abfluss gezählt stünde der Vergleich doppelt verkehrt: der Eingang
+    /// erschiene zugleich als Ausgabe.
+    /// </remarks>
+    [Fact]
+    public async Task Eine_Einlage_ist_kein_Abfluss()
+    {
+        Einlage(1500m, oliver, new DateOnly(2026, 9, 1));
+
+        var gemeinschaft = Assert.Single(await Dienst(oliver).JointAccountsAsync(clock.Today));
+
+        Assert.Equal(0m, gemeinschaft.Outflow);
+    }
+
+    /// <summary>
+    /// Ohne gepflegtes Kennzeichen gibt es keine objektbezogene Teilmenge.
+    /// </summary>
+    /// <remarks>
+    /// „Davon objektbezogen 0 €“ wäre dann eine Aussage über das Haus, wo es eine über die Pflege
+    /// der Kategorien ist. Der Schirm sagt deshalb, dass niemand das Kennzeichen gesetzt hat.
+    /// </remarks>
+    [Fact]
+    public async Task Ohne_Kennzeichen_gibt_es_keine_Teilmenge()
+    {
+        var (_, essen) = Kategorien(objektbezogen: false);
+
+        Abfluss(160m, essen);
+
+        var gemeinschaft = Assert.Single(await Dienst(oliver).JointAccountsAsync(clock.Today));
+
+        Assert.False(gemeinschaft.HasPropertyRelatedCategories);
+        Assert.Equal(160m, gemeinschaft.Outflow);
+        Assert.Equal(0m, gemeinschaft.OutflowPropertyRelated);
+    }
+
+    /// <summary>Ein Abfluss im nächsten Monat zählt hier nicht.</summary>
+    [Fact]
+    public async Task Ein_spaeterer_Abfluss_zaehlt_nicht_mit()
+    {
+        var (haus, _) = Kategorien();
+
+        Abfluss(240m, haus, new DateOnly(2026, 10, 2));
+
+        var gemeinschaft = Assert.Single(await Dienst(oliver).JointAccountsAsync(clock.Today));
+
+        Assert.Equal(0m, gemeinschaft.Outflow);
+    }
+
+    /// <summary>Zwei Ausgabenkategorien, eine davon am Objekt.</summary>
+    private (int Haus, int Essen) Kategorien(bool objektbezogen = true)
+    {
+        using var context = database.Context(haushalt, oliver);
+
+        var haus = new Category
+        {
+            Name = "Wohnen", Direction = CategoryDirection.Expense, PropertyRelated = objektbezogen,
+        };
+
+        var essen = new Category { Name = "Lebensmittel", Direction = CategoryDirection.Expense };
+
+        context.Categories.AddRange(haus, essen);
+        context.SaveChanges();
+
+        return (haus.Id, essen.Id);
+    }
+
+    private void Abfluss(decimal betrag, int? kategorie, DateOnly? am = null)
+    {
+        using var context = database.Context(haushalt, oliver);
+
+        context.Transactions.Add(new Transaction
+        {
+            BookingDate = am ?? new DateOnly(2026, 9, 10),
+            Payee = "Abbuchung",
+            Kind = TransactionKind.Expense,
+            Amount = -betrag,
+            AccountId = konto,
+            CategoryId = kategorie,
+            CreatedAt = clock.Now,
+        });
+
+        context.SaveChanges();
+    }
+
     /// <summary>Ein Konto ohne die vierte Stufe erscheint nicht.</summary>
     [Fact]
     public async Task Nur_Gemeinschaftskonten_erscheinen()

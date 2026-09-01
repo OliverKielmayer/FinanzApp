@@ -300,6 +300,16 @@ public sealed record ContractDetailDto
     public required bool NoticeIsDue { get; init; }
     public int? PropertyId { get; init; }
     public string? PropertyName { get; init; }
+
+    /// <summary>
+    /// Ob der Abschlag zu den Objektkosten zählt — Handoff „Gemeinsame Immobilie“, 3.4.
+    /// </summary>
+    /// <remarks>
+    /// Nicht dasselbe wie die Zuordnung zum Objekt: der Internetanschluss hängt am Haus und zieht
+    /// doch mit den Leuten um. Die Zuordnung sagt wohin, das Kennzeichen sagt, wessen Kosten.
+    /// </remarks>
+    public required bool PropertyRelated { get; init; }
+
     public required IReadOnlyList<InvoiceListItemDto> Invoices { get; init; }
     public required IReadOnlyList<DocumentListItemDto> Documents { get; init; }
 }

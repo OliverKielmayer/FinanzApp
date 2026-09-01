@@ -162,6 +162,23 @@ public sealed class ParticipationService(FinanzAppDbContext db, CurrentUser user
         var monatsEnde = monatsAnfang.AddMonths(1);
         var jahresEnde = jahresAnfang.AddYears(1);
 
+        // Der Kontoabfluss des Monats und sein objektbezogener Teil. Zwei Größen, nicht eine:
+        // eine Rücklage zählt zu den Objektkosten und verlässt das Konto nicht.
+        var abfluesse = await db.Transactions.AsNoTracking()
+            .Where(t => kontoIds.Contains(t.AccountId)
+                        && t.Amount < 0
+                        && t.BookingDate >= monatsAnfang
+                        && t.BookingDate < monatsEnde)
+            .Select(t => new
+            {
+                t.AccountId,
+                t.Amount,
+                Objektbezogen = t.Category != null && t.Category.PropertyRelated,
+            })
+            .ToListAsync(ct);
+
+        var gepflegt = await db.Categories.AsNoTracking().AnyAsync(c => c.PropertyRelated, ct);
+
         // Nur Zuflüsse: eine Einlage, die von diesem Konto abgeht, ist kein Eingang auf ihm.
         // Das Vorzeichen trägt die Richtung — siehe TransactionService.Vorzeichen.
         var einlagen = await db.Transactions.AsNoTracking()
@@ -193,11 +210,16 @@ public sealed class ParticipationService(FinanzAppDbContext db, CurrentUser user
                         .Select(e => (DateOnly?)e.BookingDate)
                         .Max();
 
+                var abgang = abfluesse.Where(a => a.AccountId == konto.Id).ToList();
+
                 return new JointAccountDto
                 {
                     AccountId = konto.Id,
                     Name = konto.Name,
                     Month = monatsAnfang,
+                    Outflow = -abgang.Sum(a => a.Amount),
+                    OutflowPropertyRelated = -abgang.Where(a => a.Objektbezogen).Sum(a => a.Amount),
+                    HasPropertyRelatedCategories = gepflegt,
                     PaidThisYear = einlagen.Where(e => e.AccountId == konto.Id).Sum(e => e.Amount),
                     Contributors =
                     [

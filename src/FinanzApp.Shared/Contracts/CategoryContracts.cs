@@ -30,6 +30,15 @@ public sealed record CategoryUsageDto
     /// </remarks>
     public TaxCategory TaxCategory { get; init; }
 
+    /// <summary>
+    /// Ob Ausgaben dieser Kategorie zum Objekt gehören — Handoff „Gemeinsame Immobilie“, 3.4.
+    /// </summary>
+    /// <remarks>
+    /// Trennt Hauskosten von Lebenshaltung. Ohne die Trennung wäre jede €/m²-Zahl falsch, weil
+    /// Lebensmittel vom selben Konto abgehen wie der Strom für das Haus.
+    /// </remarks>
+    public bool PropertyRelated { get; init; }
+
     public required int TransactionCount { get; init; }
     public required int RuleCount { get; init; }
     public required bool HasBudget { get; init; }
@@ -61,6 +70,12 @@ public sealed record CategoryNameRequest
 public sealed record CategoryTaxRequest
 {
     public required TaxCategory TaxCategory { get; init; }
+}
+
+/// <summary>Ob eine Kategorie zum Objekt gehört.</summary>
+public sealed record CategoryPropertyRequest
+{
+    public required bool PropertyRelated { get; init; }
 }
 
 /// <summary>Was das Umbenennen oder Löschen tatsächlich angefasst hat.</summary>

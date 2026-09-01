@@ -474,15 +474,18 @@ public static class ExtensionSeedData
             }
         }
 
+        // Das Kennzeichen „objektbezogen“ (Handoff 3.4) ist nicht die Zuordnung zum Objekt: der
+        // Internetanschluss hängt am Haus und zieht doch mit den Leuten um. Er ist der eine Fall,
+        // an dem der Unterschied im Bestand zu sehen ist.
         (string Name, string Provider, string? Number, decimal Monthly, int NoticeWeeks,
-            DateOnly? NoticeTo)[] contracts =
+            DateOnly? NoticeTo, bool PropertyRelated)[] contracts =
         [
-            ("Strom", "Stadtwerke Heidelberg", "SW-993 210", 142.50m, 6, new DateOnly(2027, 3, 31)),
-            ("Internet", "Telekom", "DTAG-40 118", 39.99m, 12, new DateOnly(2027, 6, 30)),
-            ("Wasser", "Stadtwerke Heidelberg", "SW-771 004", 38.00m, 6, new DateOnly(2027, 3, 31)),
-            ("Abfallentsorgung", "Stadt Heidelberg", "AE-2019-118", 24.50m, 8, new DateOnly(2026, 12, 31)),
-            ("Heizungswartung", "Sanitär Brenner", "HW-556", 18.00m, 4, new DateOnly(2026, 10, 31)),
-            ("Schornsteinfeger", "Bezirk Heidelberg Nord", null, 9.50m, 0, null),
+            ("Strom", "Stadtwerke Heidelberg", "SW-993 210", 142.50m, 6, new DateOnly(2027, 3, 31), true),
+            ("Internet", "Telekom", "DTAG-40 118", 39.99m, 12, new DateOnly(2027, 6, 30), false),
+            ("Wasser", "Stadtwerke Heidelberg", "SW-771 004", 38.00m, 6, new DateOnly(2027, 3, 31), true),
+            ("Abfallentsorgung", "Stadt Heidelberg", "AE-2019-118", 24.50m, 8, new DateOnly(2026, 12, 31), true),
+            ("Heizungswartung", "Sanitär Brenner", "HW-556", 18.00m, 4, new DateOnly(2026, 10, 31), true),
+            ("Schornsteinfeger", "Bezirk Heidelberg Nord", null, 9.50m, 0, null, true),
         ];
 
         foreach (var row in contracts)
@@ -497,6 +500,7 @@ public static class ExtensionSeedData
                 StartsOn = new DateOnly(2019, 4, 1),
                 NoticePeriodWeeks = row.NoticeWeeks,
                 NoticeToDate = row.NoticeTo,
+                PropertyRelated = row.PropertyRelated,
                 Area = DocumentArea.Housing,
             });
         }

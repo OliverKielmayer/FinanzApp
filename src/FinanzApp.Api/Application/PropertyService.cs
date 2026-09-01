@@ -117,6 +117,7 @@ public sealed class PropertyService(
             NoticeIsDue = NoticeIsDue(contract),
             PropertyId = contract.PropertyId,
             PropertyName = contract.Property?.Name,
+            PropertyRelated = contract.PropertyRelated,
             Invoices =
             [
                 .. contract.Invoices

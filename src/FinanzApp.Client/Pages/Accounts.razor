@@ -74,7 +74,17 @@
         </div>
 
         <div class="joint-head">
-            <span class="meta">@Kopfzeile(gemeinschaft)</span>
+            <span class="stack">
+                <span class="meta">@Kopfzeile(gemeinschaft)</span>
+
+                @* Zweite Zeile, zweite Größe: der Abfluss ist nicht der Eingang und nicht die
+                   Objektkosten — jede Zahl sagt, was sie ist. Wo nichts abgeht, fehlt sie:
+                   drei Nullen sind keine Auskunft. *@
+                @if (Abflusszeile(gemeinschaft) is { Length: > 0 } abfluss)
+                {
+                    <span class="meta">@abfluss</span>
+                }
+            </span>
 
             @* Der Saldo kommt aus der Kontoliste, nicht aus einer zweiten Rechnung. *@
             @if (Saldo(gemeinschaft.AccountId) is { } saldo)
@@ -394,6 +404,32 @@ else if (sheetTransaction is { } sheet)
         return konto.HasTargets
             ? $"Soll {State.Euro0(konto.TargetTotal)}/Monat · {eingang}"
             : $"{eingang} · kein Soll vereinbart";
+    }
+
+    /// <summary>
+    /// Der Abfluss des Monats und sein objektbezogener Teil.
+    /// </summary>
+    /// <remarks>
+    /// Getrennt vom Eingang, weil es eine andere Größe ist: das Konto zahlt mehr aus, als die
+    /// Beteiligten einzahlen, wenn es einen Bestand hat. Und getrennt von den Objektkosten — eine
+    /// Rücklage zählt dort mit und verlässt das Konto nicht.
+    /// </remarks>
+    private string Abflusszeile(JointAccountDto konto)
+    {
+        if (konto.Outflow == 0m)
+        {
+            return string.Empty;
+        }
+
+        var abfluss = "Abfluss " + State.Euro0(konto.Outflow);
+
+        if (!konto.HasPropertyRelatedCategories)
+        {
+            return abfluss + " · keine Kategorie ist als objektbezogen gekennzeichnet";
+        }
+
+        return $"{abfluss} · davon objektbezogen {State.Euro0(konto.OutflowPropertyRelated)}"
+               + $", übrige gemeinsame {State.Euro0(konto.OutflowOther)}";
     }
 
     /// <summary>

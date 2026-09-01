@@ -186,9 +186,19 @@ public static class SeedData
             ["Wohnen", "Lebensmittel", "Auto", "Freizeit", "Reisen", "Gesundheit", "Versicherung", "Sonstiges"];
         string[] income = ["Gehalt", "Dividenden", "Zinsen", "Miete", "Sonstiges"];
 
+        // Objektbezogen — Handoff „Gemeinsame Immobilie“, 3.4. Wohnen gehört zum Haus (Handwerker
+        // weiter unten, bei seiner steuerlichen Einordnung); Lebensmittel, Freizeit und Mobilität
+        // nicht. Welche es sind, steht nicht im Namen — im Bestand wird es gesetzt, nicht geraten.
+        string[] objektbezogen = ["Wohnen"];
+
         foreach (var name in expenses)
         {
-            yield return new Category { Name = name, Direction = CategoryDirection.Expense };
+            yield return new Category
+            {
+                Name = name,
+                Direction = CategoryDirection.Expense,
+                PropertyRelated = objektbezogen.Contains(name),
+            };
         }
 
         // Zwei Kategorien mit steuerlicher Einordnung. Sie stehen getrennt, weil die Einordnung
@@ -198,6 +208,7 @@ public static class SeedData
         {
             Name = "Handwerker", Direction = CategoryDirection.Expense,
             TaxCategory = TaxCategory.Handwerkerleistung,
+            PropertyRelated = true,
         };
 
         yield return new Category
