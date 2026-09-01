@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link href="https://fonts.googleapis.com/css2?family=Kalam:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#f0eee9;font-family:Kalam,system-ui,sans-serif}
+a{color:#2b6087}a:hover{color:#1d4360}
+.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}
+.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 20px}
+.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px;text-decoration:none}
+.dv-tname{font:700 15px/1.2 Kalam,sans-serif;color:#1a1a1a}
+.dv-opts{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}
+.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none}
+.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 13px/1.3 Kalam,sans-serif;color:rgba(0,0,0,.6)}
+.dv-card{max-width:100%;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden;padding:18px}
+.dv-opt:target .dv-oid{background:#2b6087;color:#fff}
+.dv-next{margin:22px 0 0;font:13px/1.5 Kalam,sans-serif;color:rgba(0,0,0,.55)}
+.row{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.ph{width:252px;flex:none;border:2px solid #2b2b2b;background:#fff;display:flex;flex-direction:column;overflow:hidden}
+.ph-w{width:530px}
+.ph-t{font:700 13px Kalam;padding:7px 10px;border-bottom:2px solid #2b2b2b;background:#f4f2ee;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.ph-b{padding:9px 10px;display:flex;flex-direction:column;gap:8px;flex:1}
+.sec{font:700 11px Kalam;letter-spacing:.04em;color:#5b5b5b;text-transform:uppercase}
+.bx{border:1.5px solid #9a9a9a;padding:7px 8px;display:flex;flex-direction:column;gap:4px;font:400 12px/1.3 Kalam;color:#2b2b2b}
+.bx-a{border-color:#2b6087;background:#eef3f8}
+.bx-g{background:#f2f1ee}
+.bx-r{border-color:#a8442f;background:#fbf1ee}
+.ln{height:7px;background:#dedbd5}
+.big{font:700 25px Kalam;color:#1a1a1a;line-height:1}
+.mid{font:700 17px Kalam;color:#1a1a1a;line-height:1}
+.sm{font:400 11px/1.35 Kalam;color:#6a6a6a}
+.acc{color:#2b6087}
+.warn{color:#a8442f}
+.btn{border:1.5px solid #2b2b2b;padding:7px 9px;font:700 12px Kalam;text-align:left}
+.btn-p{background:#2b2b2b;color:#fff}
+.chips{display:flex;flex-wrap:wrap;gap:5px;font:400 11px Kalam}
+.chip{border:1.5px solid #9a9a9a;padding:3px 8px}
+.chip-a{border-color:#2b6087;background:#2b6087;color:#fff}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.note{font:400 12px/1.45 Kalam;color:#5b5b5b}
+.tbl{width:100%;border-collapse:collapse;font:400 11.5px Kalam}
+.tbl th{text-align:left;font-weight:700;color:#5b5b5b;border-bottom:1.5px solid #2b2b2b;padding:5px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.04em}
+.tbl td{border-bottom:1px solid #e0ddd7;padding:5px 6px;color:#2b2b2b}
+.tbl .n{text-align:right;font-variant-numeric:tabular-nums}
+.bar2{display:flex;height:10px}
+.side{display:flex;align-items:stretch}
+.nav{width:126px;flex:none;border-right:2px solid #2b2b2b;padding:8px;display:flex;flex-direction:column;gap:3px;font:400 11px Kalam;background:#f8f7f4}
+.nav > span{padding:5px 6px;color:#4a4a4a}
+.nav .on{background:#eef3f8;color:#2b6087;font-weight:700}
+.cnt{flex:1;padding:9px 10px;display:flex;flex-direction:column;gap:8px;min-width:0}
+</style>
+</helmet>
+
+<section class="dv-turn" id="t4">
+<div class="dv-thd"><a class="dv-tid" href="#t4">4</a><span class="dv-tname">Gemeinsame Immobilie zu zwei — Eigentum, Einlagen, Unterhalt</span></div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="4a">
+  <div class="dv-olabel"><a class="dv-oid" href="#4a">4a</a>Der Befund — drei Größen, die auseinanderfallen</div>
+  <div class="dv-card">
+    <div class="row">
+      <div class="ph" style="width:290px">
+        <div class="ph-t"><span>Was verwechselt wird</span><span class="sm">Modell</span></div>
+        <div class="ph-b">
+          <div class="bx bx-a"><b>1. Eigentumsanteil — 50 / 50</b><span class="sm">Steht im Grundbuch. Ändert sich nicht, egal wer wie viel zahlt. Bestimmt, wem welcher Anteil am Objektwert gehört.</span></div>
+          <div class="bx bx-r"><b>2. Eingebrachtes Eigenkapital — ungleich</b><span class="sm">Einmalig beim Kauf. 90.000 gegen 50.000. Bei gleichem Eigentum entsteht daraus ein <b>Ausgleichsanspruch</b>.</span></div>
+          <div class="bx bx-r"><b>3. Laufende Leistung — schwankt</b><span class="sm">Einzahlungen aufs Haushaltskonto, Monat für Monat. Verschiebt den Ausgleich weiter.</span></div>
+          <div class="bx bx-g"><span class="sm">Nur die erste Zahl ist fix. Die App muss alle drei getrennt führen — sonst beantwortet sie „wer hat mehr getragen" mit dem Grundbuch, und das ist falsch.</span></div>
+        </div>
+      </div>
+      <div class="ph" style="width:300px">
+        <div class="ph-t"><span>Die Rechnung am Beispiel</span><span class="sm">Kauf</span></div>
+        <div class="ph-b">
+          <table class="tbl">
+            <thead><tr><th>Beim Kauf</th><th class="n">A</th><th class="n">B</th></tr></thead>
+            <tbody>
+              <tr><td>Eigentumsanteil</td><td class="n">50 %</td><td class="n">50 %</td></tr>
+              <tr><td>Anteil am Kaufpreis</td><td class="n">210.000</td><td class="n">210.000</td></tr>
+              <tr><td>Eigenkapital eingebracht</td><td class="n">90.000</td><td class="n">50.000</td></tr>
+              <tr><td>Bleibt zu finanzieren</td><td class="n">120.000</td><td class="n">160.000</td></tr>
+              <tr><td><b>Darlehen läuft aber</b></td><td class="n"><b>140.000</b></td><td class="n"><b>140.000</b></td></tr>
+            </tbody>
+          </table>
+          <div class="bx bx-r"><b>A trägt 20.000 € zu viel</b><span class="sm">Kaufpreis 420.000 · Darlehen 280.000 · A hat 40.000 mehr Eigenkapital eingebracht, gehaftet wird aber halbe-halbe. Die Hälfte der Differenz ist der Ausgleich.</span></div>
+          <div class="bx bx-a"><b>Festgelegt: Weg 1 — Ausgleich stehen lassen</b><span class="sm">Darlehen läuft 50/50 gesamtschuldnerisch. Beim Kauf schuldet Sabine Oliver 20.000 €, und der Stand wächst oder schrumpft Monat für Monat mit den Einlagen.</span></div>
+          <div class="bx bx-r"><b>Die Folge: der Ausgleich ist eine Forderung</b><span class="sm">Wenn er stehen bleibt, ist er kein Merkposten, sondern ein Vermögenswert bei Oliver und eine Verbindlichkeit bei Sabine. Stand 31.08.2026 sind es 20.150 € — ohne ihn zählt Olivers Vermögen 20.150 € zu wenig und Sabines 20.150 € zu viel.</span></div>
+          <div class="bx bx-g"><span class="sm">Verworfen: Weg 2 (Darlehensquote verschieben, 57/43). Bei gesamtschuldnerischer Haftung stimmt die Quote ohnehin nicht mit dem Vertrag überein — dann führt die App eine Zahl, die die Bank nicht kennt.</span></div>
+        </div>
+      </div>
+      <div class="ph" style="width:262px">
+        <div class="ph-t"><span>Was heute schon passt</span><span class="sm">Bestand</span></div>
+        <div class="ph-b">
+          <div class="bx bx-g">Immobilie mit Marktwert, Kauf, Darlehen-Verknüpfung <span class="sm">✓ da</span></div>
+          <div class="bx bx-g">Darlehen mit Restschuld, Rate, Tilgungsplan <span class="sm">✓ da</span></div>
+          <div class="bx bx-g">Verträge am Objekt: Strom, Internet, Wartung <span class="sm">✓ da</span></div>
+          <div class="bx bx-g">Wohngebäude-Versicherung am Objekt <span class="sm">✓ da</span></div>
+          <div class="bx bx-g">Konten mit Eigentümer und Freigabe <span class="sm">✓ da (§6c)</span></div>
+          <div class="bx bx-g">Buchungen mit Kategorie und Verwendungszweck <span class="sm">✓ da</span></div>
+          <div class="bx bx-g">Bericht „Objektkosten" <span class="sm">entworfen, nicht gebaut</span></div>
+          <div class="bx bx-a"><b>Fünf Lücken</b><span class="sm">Eigentumsanteile · Gemeinschaftskonto mit Soll · Einlage als Buchungsart · objektbezogen als Kennzeichen · <b>Forderungen zwischen Beteiligten</b></span></div>
+          <div class="bx bx-r"><span class="sm">Die fünfte hat die größte Reichweite: sie ändert das Vermögensmodell (§3b) um eine Größe.</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="dv-opt" id="4b">
+  <div class="dv-olabel"><a class="dv-oid" href="#4b">4b</a>Beteiligung am Objekt — und was sie im Vermögen ändert</div>
+  <div class="dv-card">
+    <div class="row">
+      <div class="ph">
+        <div class="ph-t"><span>‹ Haus Bühlerzell</span><span class="sm">Bearbeiten</span></div>
+        <div class="ph-b">
+          <div class="bx"><span class="sm">Marktwert · Kauf 04/2026</span><span class="big">420.000 €</span><span class="sm">Restschuld −275.100 € · netto 144.900 €</span><span class="sm">280.000 € Darlehen − 5 × 980 € Tilgung</span></div>
+          <div class="sec">Beteiligung</div>
+          <div class="bx bx-a"><b>Oliver 50 % · Sabine 50 %</b><span class="sm">Grundbuch · seit 04.04.2026</span></div>
+          <div class="grid2">
+            <div class="bx"><span class="sm">Dein Anteil Wert</span><b>210.000 €</b></div>
+            <div class="bx"><span class="sm">Dein Anteil Schuld</span><b>−137.550 €</b></div>
+          </div>
+          <div class="bx bx-g"><span class="sm">Im Vermögen zählt</span><b>72.450 €</b><span class="sm">nicht 144.900 € — die andere Hälfte gehört Sabine</span></div>
+          <div class="sec">Gehört dazu</div>
+          <div class="bx bx-g">Darlehen · Wohngebäude · 6 Verträge · 23 Dokumente</div>
+        </div>
+      </div>
+      <div class="ph">
+        <div class="ph-t"><span>Beteiligung bearbeiten</span><span class="sm">✕</span></div>
+        <div class="ph-b">
+          <div class="sec">Eigentumsanteile</div>
+          <div class="bx">Oliver W. <span class="sm">50 %</span></div>
+          <div class="bx">Sabine K. <span class="sm">50 %</span></div>
+          <div class="bx bx-g"><span class="sm">Summe 100 % ✓ — sonst speichert die App nicht</span></div>
+          <div class="sec">Eigenkapital beim Kauf</div>
+          <div class="bx">Oliver <span class="sm">90.000 € · Beleg: Überweisung 02.04.2026</span></div>
+          <div class="bx">Sabine <span class="sm">50.000 € · Beleg fehlt</span></div>
+          <div class="sec">Haftung Darlehen</div>
+          <div class="bx bx-a">wie Eigentum · 50 / 50 <span class="sm">gesamtschuldnerisch, wie im Darlehensvertrag</span></div>
+          <div class="sec">Ausgleich</div>
+          <div class="bx bx-r">Sabine → Oliver <b>20.150 €</b><span class="sm">Forderung nach Weg 1 · zinsfrei · Verrechnung beim Verkauf</span></div>
+          <div class="btn btn-p">Speichern</div>
+        </div>
+      </div>
+      <div class="ph">
+        <div class="ph-t"><span>Vermögen</span><span class="sm">•••</span></div>
+        <div class="ph-b">
+          <div class="bx"><span class="sm">Gesamtvermögen netto</span><span class="big">218.440 €</span></div>
+          <div class="sec">Bilanz</div>
+          <div class="bx bx-g">Finanzvermögen <span class="sm">125.840 €</span></div>
+          <div class="bx bx-a">Sachwerte <b>210.000 €</b><span class="sm">1 Immobilie · <b>dein Anteil 50 %</b></span></div>
+          <div class="bx bx-a">Verbindlichkeiten <b>−137.550 €</b><span class="sm">Darlehen · dein Haftungsanteil 50 %</span></div>
+          <div class="bx bx-r">Forderung an Sabine <b>+20.150 €</b><span class="sm">Ausgleich aus ungleichem Eigenkapital</span></div>
+          <div class="bx bx-g"><span class="sm">= Gesamtvermögen netto</span><b>218.440 €</b></div>
+          <div class="bx bx-r"><span class="sm">Ohne Anteile stünden hier 420.000 € Sachwerte und −275.100 € Schuld — beides doppelt so hoch wie das, was dir gehört.</span></div>
+        </div>
+      </div>
+    </div>
+    <p class="note" style="margin:14px 0 0">Das ist der Eingriff mit der größten Reichweite: <b>Sachwerte und Verbindlichkeiten zählen nur mit dem eigenen Anteil</b>. Dashboard, Bestand-Kopf und Vermögensbericht lesen dieselbe Größe (§3b) — die Anteilsquote wirkt an einer Stelle und schlägt überall durch.</p>
+  </div>
+</div>
+
+<div class="dv-opt" id="4c">
+  <div class="dv-olabel"><a class="dv-oid" href="#4c">4c</a>Haushaltskonto — Einzahlungssoll und Einlagen</div>
+  <div class="dv-card">
+    <div class="row">
+      <div class="ph">
+        <div class="ph-t"><span>‹ Haushaltskonto</span><span class="sm">Bearbeiten</span></div>
+        <div class="ph-b">
+          <div class="bx"><span class="sm">Sparkasse · DE44 … 8891 02</span><span class="big">3.480,20 €</span><span class="sm">Stand heute</span></div>
+          <div class="chips"><span class="chip chip-a">Gemeinschaftskonto</span></div>
+          <div class="sec">Einzahlungssoll</div>
+          <div class="bx">Oliver <span class="sm">1.500 €/Monat · zum 1.</span></div>
+          <div class="bx">Sabine <span class="sm">1.500 €/Monat · zum 1.</span></div>
+          <div class="bx bx-g"><span class="sm">Soll 3.000 € · Abfluss Ø 2.960 €</span><div class="ln"></div><span class="sm">davon <b>objektbezogen 2.340 €</b> · übrige gemeinsame 620 € (Lebensmittel, Freizeit)</span></div>
+          <div class="bx bx-g"><span class="sm">2026 eingezahlt: Oliver 7.500 € · Sabine 7.200 € · 300 € Rückstand</span></div>
+          <div class="sec">August</div>
+          <div class="bx bx-a">Oliver 1.500 € ✓ <span class="sm">01.08. eingegangen</span></div>
+          <div class="bx bx-r">Sabine 1.200 € <span class="sm">300 € unter Soll · 03.08.</span></div>
+          <div class="sm">Die App vergleicht Soll und Eingang. Sie mahnt nicht — sie sagt nur, was steht.</div>
+        </div>
+      </div>
+      <div class="ph">
+        <div class="ph-t"><span>Buchung erfassen</span><span class="sm">✕</span></div>
+        <div class="ph-b">
+          <div class="sec">Art</div>
+          <div class="chips"><span class="chip">Ausgabe</span><span class="chip">Einnahme</span><span class="chip">Umbuchung</span><span class="chip chip-a">Einlage</span></div>
+          <div class="bx bx-a"><b>Einlage — neu</b><span class="sm">Geld, das ein Beteiligter ins Gemeinschaftskonto gibt. Keine Einnahme (es ist kein Zufluss von außen), keine Umbuchung (es wechselt den Eigentümer).</span></div>
+          <div class="bx"><span class="sm">Betrag</span><span class="mid">1.500,00 €</span></div>
+          <div class="bx"><span class="sm">Von</span>Sabine K.</div>
+          <div class="bx"><span class="sm">Auf</span>Haushaltskonto</div>
+          <div class="bx bx-g"><span class="sm">Zählt in: Beteiligungsrechnung · zählt nicht in: Einnahmen, Sparquote, Liquidität</span></div>
+          <div class="btn btn-p">Speichern</div>
+        </div>
+      </div>
+      <div class="ph">
+        <div class="ph-t"><span>Import · Zuordnung</span><span class="sm">Gruppen</span></div>
+        <div class="ph-b">
+          <div class="sec">Automatisch zugeordnet</div>
+          <div class="bx bx-g">Einlage <span class="sm">2 Buchungen · Oliver, Sabine · +2.700 €</span></div>
+          <div class="bx bx-g">Wohnen <span class="sm">4 Buchungen · −1.847 €</span></div>
+          <div class="sec">1 Empfänger zuordnen</div>
+          <div class="bx bx-a">+ Kaufland Sindelfingen <span class="sm">3 Buchungen · −142,80 €</span></div>
+          <div class="bx bx-g"><span class="sm">Regel gelernt: „SABINE K" auf dem Haushaltskonto → <b>Einlage</b></span></div>
+          <div class="sm">Die Regelmechanik ist schon da (§8c). Sie lernt „Einlage" wie jede andere Kategorie — eine Zeile mehr, kein neues System.</div>
+        </div>
+      </div>
+    </div>
+    <p class="note" style="margin:14px 0 0">Reuse: das Konto hat bereits Eigentümer und Freigabe (§6c). <b>„Gemeinschaftskonto" ist die vierte Freigabestufe</b> — mehrere Beteiligte mit Soll, statt einer Eigentümer plus Leseberechtigte. Alles darüber (Buchungsliste, Filter, Import, Summen) bleibt wie es ist.</p>
+  </div>
+</div>
+
+<div class="dv-opt" id="4d">
+  <div class="dv-olabel"><a class="dv-oid" href="#4d">4d</a>Der Bericht — was das Haus kostet und wer es trägt</div>
+  <div class="dv-card">
+    <div class="row">
+      <div class="ph ph-w">
+        <div class="ph-t"><span>Auswertungen · Objekt &amp; Beteiligung</span><span class="sm">2026 ▾ · Drucken</span></div>
+        <div class="ph-b">
+          <div class="row" style="gap:8px">
+            <div class="bx" style="flex:1"><span class="sm">Angefallen seit Kauf</span><b class="mid">14.200 €</b><span class="sm">5 Monate · 04–08/2026</span></div>
+            <div class="bx" style="flex:1"><span class="sm">Hochgerechnet aufs Jahr</span><b class="mid">34.080 €</b><span class="sm">2.840 €/Monat · 18,20 €/m² · inkl. 500 € Rücklage</span></div>
+            <div class="bx bx-r" style="flex:1"><span class="sm">Ausgleichsstand</span><b class="mid">+20.150 €</b><span class="sm">Oliver · aus der Tabelle unten abgeleitet</span></div>
+          </div>
+
+          <div class="sec">Wohin es geht · Jahreswerte</div>
+          <div class="bx bx-g"><span class="sm">Die Tabelle rechnet auf zwölf Monate — <b>5 von 12 sind erfasst</b>, der Rest ist aus Verträgen und Tilgungsplan fortgeschrieben. Für „was hat es bisher gekostet" gilt die linke Kachel.</span></div>
+          <table class="tbl">
+            <thead><tr><th>Posten</th><th>Art</th><th class="n">Jahr</th><th class="n">Anteil *</th></tr></thead>
+            <tbody>
+              <tr><td>Darlehen — Zins</td><td>Aufwand</td><td class="n">6.240</td><td class="n">18 %</td></tr>
+              <tr><td>Darlehen — Tilgung</td><td><b>Vermögen</b></td><td class="n">11.760</td><td class="n">35 %</td></tr>
+              <tr><td>Strom, Gas, Wasser</td><td>Aufwand</td><td class="n">4.680</td><td class="n">14 %</td></tr>
+              <tr><td>Heizung &amp; Wartung</td><td>Aufwand</td><td class="n">2.268</td><td class="n">7 %</td></tr>
+              <tr><td>Wohngebäude, Hausrat</td><td>Aufwand</td><td class="n">1.284</td><td class="n">4 %</td></tr>
+              <tr><td>Internet, Müll, Grundsteuer</td><td>Aufwand</td><td class="n">1.848</td><td class="n">5 %</td></tr>
+              <tr><td>Instandhaltung (Rücklage)</td><td>Aufwand</td><td class="n">6.000</td><td class="n">18 %</td></tr>
+            </tbody>
+          </table>
+          <div class="bx bx-g"><span class="sm"><b>Rate 18.000 €/Jahr</b> = 1.500 €/Monat: Zins 6.240 € sind Kosten, Tilgung 11.760 € (980 €/Monat) baut Vermögen auf. Die Anteil-Spalte bezieht sich dagegen auf die 34.080 € Objektkosten — deshalb steht dort 35 % für die Tilgung.</span></div>
+          <div class="bx bx-g"><span class="sm">Nicht enthalten: Lebensmittel, Freizeit, Mobilität — gemeinsame Kosten, aber nicht objektbezogen. Sie stehen im Kostentrend.</span></div>
+          <div class="bx bx-g"><span class="sm"><b>Instandhaltung zählt als Kosten</b>, nicht als Sparen — auch wenn das Geld noch auf dem Konto liegt. Ein Dach, das in zwölf Jahren neu muss, kostet jedes Jahr ein Zwölftel. Sie geht deshalb in €/m² ein und nicht in die Sparquote.</span></div>
+          <div class="bx bx-a"><span class="sm"><b>Objektkosten ≠ Kontoabfluss.</b> Vom Haushaltskonto gehen 2.960 €/Monat ab: 2.340 € objektbezogen plus 620 € übrige gemeinsame Ausgaben. Die 500 € Instandhaltungsrücklage zählen zu den Objektkosten, verlassen das Konto aber nicht — sie liegen darauf. Zwei Größen, zwei Zahlen.</span></div>
+
+          <span class="sm">* je Posten gerundet — die Spalte summiert deshalb auf 101 %.</span>
+          <div class="sec">Wer trägt was</div>
+          <div class="bar2"><div style="width:63%;background:#2b6087"></div><div style="width:37%;background:#93aec7"></div></div>
+          <div style="display:flex;justify-content:space-between"><span class="sm">Oliver 63 %</span><span class="sm">Sabine 37 %</span></div>
+          <div class="bx bx-g"><span class="sm">Der Balken zeigt das <b>Eingebrachte</b> (97.500 / 57.200), nicht den Eigentumsanteil — sonst stünde er auf 50/50 und die Tabelle darunter widerspräche ihm. Jeder Balken nennt, welche Größe er darstellt.</span></div>
+          <table class="tbl">
+            <thead><tr><th></th><th class="n">Oliver</th><th class="n">Sabine</th></tr></thead>
+            <tbody>
+              <tr><td>Eigenkapital beim Kauf</td><td class="n">90.000</td><td class="n">50.000</td></tr>
+              <tr><td>Einlagen 2026 (5 Monate)</td><td class="n">7.500</td><td class="n">7.200</td></tr>
+              <tr><td><b>Zusammen eingebracht</b></td><td class="n"><b>97.500</b></td><td class="n"><b>57.200</b></td></tr>
+              <tr><td>Anteil laut Grundbuch</td><td class="n">50 %</td><td class="n">50 %</td></tr>
+              <tr><td><b>Ausgleich</b></td><td class="n"><b>+20.150</b></td><td class="n"><b>−20.150</b></td></tr>
+            </tbody>
+          </table>
+          <div class="bx bx-r"><b>Stand 31.08.2026: Sabine schuldet Oliver 20.150 €</b><span class="sm">Die Hälfte der Differenz von 40.300 € — weil das Eigentum halbe-halbe ist. Die App führt den Stand als Forderung im Vermögen; eintreiben muss ihn niemand von euch.</span></div>
+          <div class="bx bx-g"><span class="sm">Kachel oben, Tabellenzeile und dieser Satz sind <b>eine</b> abgeleitete Größe — nie drei Literale.</span></div>
+          <div class="bx bx-a"><span class="sm"><b>Weg 1 ist gesetzt:</b> der Stand wird als zinsfreie Forderung geführt — bei Oliver +20.150 €, bei Sabine −20.150 €. Er verändert sich mit jeder Einlage und mit jeder objektbezogenen Ausgabe, die einer allein trägt.</span></div>
+          <div class="bx bx-g"><span class="sm"><b>Beim Verkauf:</b> erst wird der Erlös nach Eigentumsanteil geteilt (50/50), dann der Ausgleich daraus verrechnet. Umgekehrt käme ein anderes Ergebnis heraus — die Reihenfolge ist keine Formsache.</span></div>
+          <div class="btn">Ausgleich verrechnen · Zahlung erfassen</div>
+        </div>
+      </div>
+      <div class="note" style="max-width:236px">
+        <b>Drei Aussagen, die der Bericht trennt:</b><br><br>
+        <b>1. Was kostet das Haus</b> — inklusive der ehrlichen Trennung Aufwand gegen Tilgung. Von 18.000 € Jahresrate sind nur <b>35 % wirkliche Kosten</b> (Zins); die übrigen 65 % sind Tilgung und bauen Vermögen auf.<br><br>
+        <b>2. Was ist objektbezogen</b> — Lebensmittel gehen vom selben Konto ab, gehören aber nicht zum Haus. Ohne das Kennzeichen wäre jede €/m²-Zahl falsch.<br><br>
+        <b>3. Wer hat wie viel getragen</b> — Eigenkapital plus laufende Einlagen gegen den Grundbuchanteil. Das ist die Zahl, nach der ihr gefragt habt.<br><br>
+        <b>Gemessen oder fortgeschrieben</b> — jede Zahl sagt, was sie ist: 14.200 € sind angefallen, 34.080 € sind hochgerechnet. Dieselbe Regel wie beim Vermögensbericht (§17.1).<br><br>
+        Reuse: Zeitraum, Vergleich, gespeicherte Ansicht, CSV und Druckblatt sind der Berichtsrahmen, der schon steht.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="dv-opt" id="4e">
+  <div class="dv-olabel"><a class="dv-oid" href="#4e">4e</a>Wo es hingehört — kein neuer Bereich</div>
+  <div class="dv-card">
+    <div class="row">
+      <div class="ph ph-w">
+        <div class="ph-t"><span>Navigation</span><span class="sm">unverändert 6 Punkte</span></div>
+        <div class="side" style="min-height:250px">
+          <div class="nav">
+            <span class="sm" style="padding:2px 6px">ALLTAG</span>
+            <span>Heute</span><span>Vorgänge</span>
+            <span class="sm" style="padding:6px 6px 2px">BESTAND</span>
+            <span>Alle Objekte</span><span>Konten <span class="sm">+ Gemeinschaft</span></span><span>Depot</span><span>Vorsorge</span><span>Absicherung</span>
+            <span class="on">Wohnen <span class="sm">+ Beteiligung</span></span>
+            <span>Fahrzeuge</span><span>Arbeit</span><span>Darlehen</span>
+            <span class="sm" style="padding:6px 6px 2px">ANALYSE</span>
+            <span class="on">Auswertungen <span class="sm">+ Objekt</span></span><span>Budgets</span><span>Gesundheit</span>
+            <span class="sm" style="padding:6px 6px 2px">SYSTEM</span>
+            <span>Einstellungen <span class="sm">+ Beteiligte</span></span>
+          </div>
+          <div class="cnt">
+            <div class="sec">Fünf Eingriffe, kein neuer Navigationspunkt</div>
+            <div class="bx"><b>Wohnen → Immobilie</b><span class="sm">Abschnitt „Beteiligung": Anteile, Eigenkapital je Person, Haftungsquote. Wirkt auf Vermögen.</span></div>
+            <div class="bx"><b>Konten → Haushaltskonto</b><span class="sm">Freigabestufe „Gemeinschaftskonto" mit Einzahlungssoll je Beteiligter.</span></div>
+            <div class="bx"><b>Erfassen → Buchungsart</b><span class="sm">„Einlage" neben Ausgabe, Einnahme, Umbuchung. Kategorien tragen ein Kennzeichen <i>objektbezogen</i>.</span></div>
+            <div class="bx"><b>Auswertungen → Objekt &amp; Beteiligung</b><span class="sm">Achter Bericht. Löst den offenen „Objektkosten" aus §10b mit.</span></div>
+            <div class="bx bx-r"><b>Vermögen → Forderung</b><span class="sm">Weg 1 braucht eine fünfte Größe neben Finanzvermögen, Sachwerten und Verbindlichkeiten: <b>Forderungen und Schulden zwischen Beteiligten</b>. Sie ist abgeleitet, nicht erfasst — die Quelle sind Eigenkapital und Einlagen.</span></div>
+            <div class="bx bx-a"><b>Bewusst nicht gebaut</b><span class="sm">Keine WG-Abrechnung, keine Mahnungen, keine Aufteilung jeder Einzelbuchung nach Kopf. Die App <b>führt</b> den Ausgleichsstand als Forderung im Vermögen — sie mahnt ihn nicht an, verzinst ihn nicht und treibt ihn nicht ein.</span></div>
+            <div class="bx bx-g"><span class="sm">Reihenfolge: Anteile zuerst (sie korrigieren das Vermögen), dann Gemeinschaftskonto und Einlage, dann der Bericht — er braucht beide.</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="note" style="max-width:236px">
+        <b>Die Freigaben tragen es schon.</b> §6c gibt jedem Konto einen Eigentümer und eine Freigabe, und der Haushalt hat Mitglieder mit Rollen. Sabine als <i>Mitglied</i> sieht das Gemeinschaftskonto, ihre eigenen Konten bleiben privat — und der Bericht zeigt jedem seine Seite, weil Vermögen ohnehin je Benutzer gerechnet wird.<br><br>
+        <b>Entschieden:</b> Weg 1 aus <a href="#4a">4a</a> — der Ausgleich bleibt stehen und wird als zinsfreie Forderung geführt. Das Darlehen bleibt 50/50, wie im Vertrag.<br><br>
+        <b>Ebenfalls entschieden:</b><br>
+        · <b>Instandhaltung sind Kosten</b>, kein Sparen — sie zählt in die Objektkosten und in €/m², nicht in die Sparquote<br>
+        · <b>Keine Verzinsung</b> des Ausgleichs — der Stand ist der Stand<br>
+        · <b>Ausgleich nach Verkauf</b>: erst Erlös halbe-halbe, dann verrechnen
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+<p class="dv-next">Nächster Schritt: „<a class="dv-oid" href="#4b">4b</a> und <a class="dv-oid" href="#4c">4c</a> im Prototyp bauen" · „erst <a class="dv-oid" href="#4d">4d</a> als echten Bericht sehen" · „Weg 1 festlegen und alles darauf ausrichten"</p>
+</section>
+
+</x-dc>
+</body>
+</html>
