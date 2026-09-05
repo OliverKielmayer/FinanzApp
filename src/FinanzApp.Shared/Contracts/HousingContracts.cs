@@ -438,6 +438,19 @@ public sealed record ScanInboxItemDto
     /// </remarks>
     public string? ValuesHref { get; init; }
 
+    /// <summary>
+    /// Das Dokument, das denselben Beleg schon trägt — <c>null</c> im Normalfall.
+    /// </summary>
+    /// <remarks>
+    /// Die Ablage hätte beiden denselben Namen gegeben — in ihm stehen Art, Zuordnung und
+    /// Stichtag. Byteweise gleiche Dateien kommen gar nicht erst herein; was hier steht, ist der
+    /// unsichere Fall, und der gehört einem Menschen vorgelegt statt vom Dienst entschieden.
+    /// </remarks>
+    public int? DuplicateOfDocumentId { get; init; }
+
+    /// <summary>Wie das vorhandene Dokument heißt, damit der Verweis einen Namen trägt.</summary>
+    public string? DuplicateOfTitle { get; init; }
+
     public required DateOnly ArrivedOn { get; init; }
 }
 

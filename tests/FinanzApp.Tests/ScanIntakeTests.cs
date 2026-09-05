@@ -80,13 +80,28 @@ public sealed class ScanIntakeTests : IDisposable
             new AssetSheetParser(), clock);
     }
 
+    /// <summary>Zählt die Einlieferungen, damit jede eigene Bytes bekommt.</summary>
+    private int eingeliefert;
+
+    /// <summary>
+    /// Eine Einlieferung mit einer Datei, die es so noch nicht gab.
+    /// </summary>
+    /// <remarks>
+    /// Der Zähler ist nicht Zierde: seit die Einlieferung byteweise gleiche Dateien abweist,
+    /// wäre eine feste Zeichenkette in jedem Test dieselbe Datei — und der zweite Aufruf käme
+    /// als Dublette zurück, obwohl der Test von einem zweiten Beleg handelt. Wer wirklich
+    /// dieselbe Datei einliefern will, sagt das über <paramref name="bytes"/>.
+    /// </remarks>
     private async Task<ScanIntakeResultDto> TakeInAsync(
-        PdfContent inhalt, string dateiname = "scan_0001.pdf", string? herkunft = null)
+        PdfContent inhalt, string dateiname = "scan_0001.pdf", string? herkunft = null,
+        string? bytes = null)
     {
         using var context = database.Context();
 
+        var datei = bytes ?? $"%PDF-1.4 Beleg {++eingeliefert}";
+
         return await Service(inhalt, context).TakeInAsync(
-            new MemoryStream(Encoding.UTF8.GetBytes("%PDF-1.4")), dateiname, herkunft);
+            new MemoryStream(Encoding.UTF8.GetBytes(datei)), dateiname, herkunft);
     }
 
     private static PdfLine Line(int seite, params string[] zellen) => new(seite, zellen);
@@ -433,6 +448,159 @@ public sealed class ScanIntakeTests : IDisposable
         Assert.Contains(@"\\scanner\eingang\scan_0001.pdf", dokument.Description);
     }
 
+    // ── Was schon daliegt ──────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Byte für Byte dieselbe Datei kommt kein zweites Mal herein.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der überwachte Ordner bekommt dieselbe Datei mitunter zweimal, und wer im Zweifel
+    /// noch einmal einliest, tut das Richtige. Sie ein zweites Mal abzulegen wäre der Fehler:
+    /// derselbe Beleg stünde zweimal in der Ablage, und beim nächsten Suchen wüsste niemand,
+    /// welcher der gültige ist.</para>
+    /// <para>Geprüft wird, dass <em>nichts</em> passiert — kein Dokument, kein Eintrag im
+    /// Eingang. Und dass die Antwort auf das vorhandene zeigt: eine Abweisung, die nicht sagt,
+    /// wo der Beleg liegt, schickt den Nutzer suchen.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Dieselbe_Datei_kommt_kein_zweites_Mal_herein()
+    {
+        const string datei = "%PDF-1.4 derselbe Scan";
+
+        var erste = await TakeInAsync(Statusreport(), bytes: datei);
+        var zweite = await TakeInAsync(Statusreport(), "scan_0002.pdf", bytes: datei);
+
+        Assert.Equal(ScanIntakeOutcome.Duplicate, zweite.Outcome);
+        Assert.Equal(erste.DocumentId, zweite.DocumentId);
+        Assert.Equal(erste.DocumentId, zweite.DuplicateOfDocumentId);
+        Assert.Null(zweite.InboxId);
+        Assert.Contains("nicht ein zweites Mal abgelegt", zweite.Summary);
+
+        using var context = database.Context();
+
+        Assert.Equal(1, context.Documents.Count());
+        Assert.Equal(1, context.ScanInbox.Count());
+    }
+
+    /// <summary>
+    /// Auch was vor der Abdruckspalte abgelegt wurde, wird als Dublette erkannt.
+    /// </summary>
+    /// <remarks>
+    /// Der gewachsene Bestand trägt keinen Abdruck — die Spalte ist erst mit dieser Erkennung
+    /// dazugekommen. Würde er nicht nachgetragen, meldete die Einlieferung ausgerechnet für die
+    /// Belege keine Dublette, um die es geht: die, die schon da sind.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_Beleg_ohne_Abdruck_wird_trotzdem_wiedererkannt()
+    {
+        const string datei = "%PDF-1.4 aus alter Zeit";
+
+        var erste = await TakeInAsync(Statusreport(), bytes: datei);
+
+        using (var context = database.Context())
+        {
+            context.Documents.Single(d => d.Id == erste.DocumentId).ContentHash = null;
+            context.SaveChanges();
+        }
+
+        var zweite = await TakeInAsync(Statusreport(), "scan_0002.pdf", bytes: datei);
+
+        Assert.Equal(ScanIntakeOutcome.Duplicate, zweite.Outcome);
+        Assert.Equal(erste.DocumentId, zweite.DocumentId);
+
+        // Nachgetragen ist er jetzt auch — beim nächsten Mal genügt die Abfrage.
+        using var pruefung = database.Context();
+        Assert.NotNull(pruefung.Documents.Single(d => d.Id == erste.DocumentId).ContentHash);
+    }
+
+    /// <summary>
+    /// Dasselbe Schreiben ein zweites Mal eingescannt wird gemeldet, nicht aufgehalten.
+    /// </summary>
+    /// <remarks>
+    /// <para>Andere Bytes, derselbe Beleg: ein zweiter Scan desselben Blatts ergibt nie dieselbe
+    /// Datei. Der Abdruck trifft ihn also nicht — der Ablagename tut es, denn den bildet die
+    /// Analyse aus Art, Zuordnung und Stichtag.</para>
+    /// <para>Abgewiesen wird er trotzdem nicht: genau denselben Namen bekäme auch eine
+    /// berichtigte Fassung desselben Schreibens. Der Verdacht gehört einem Menschen vorgelegt,
+    /// und der Ort dafür ist der Eingang.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Derselbe_Beleg_aus_zweitem_Scan_wird_im_Eingang_gemeldet()
+    {
+        var erste = await TakeInAsync(Statusreport());
+        Assert.Null(erste.DuplicateOfDocumentId);
+
+        var zweite = await TakeInAsync(Statusreport(), "scan_0002.pdf");
+
+        // Abgelegt ist sie: die Datei ist eine andere, und was davon gilt, entscheidet niemand
+        // hier.
+        Assert.NotEqual(ScanIntakeOutcome.Duplicate, zweite.Outcome);
+        Assert.NotEqual(erste.DocumentId, zweite.DocumentId);
+        Assert.NotNull(zweite.InboxId);
+
+        Assert.Equal(erste.DocumentId, zweite.DuplicateOfDocumentId);
+        Assert.Contains("womöglich derselbe Beleg", zweite.Summary);
+
+        using var context = database.Context();
+
+        var eingang = await Inbox(context).GetAsync();
+        var zeile = eingang.Items.Single(i => i.DocumentId == zweite.DocumentId);
+
+        Assert.Equal(erste.DocumentId, zeile.DuplicateOfDocumentId);
+        Assert.Equal("Statusreport Lebensversicherung", zeile.DuplicateOfTitle);
+
+        // Und der erste Beleg trägt den Verdacht nicht: er war zuerst da.
+        Assert.Null(eingang.Items.Single(i => i.DocumentId == erste.DocumentId).DuplicateOfDocumentId);
+    }
+
+    /// <summary>
+    /// Zwei Schreiben desselben Vertrags aus verschiedenen Jahren sind keine Dublette.
+    /// </summary>
+    /// <remarks>
+    /// Ein Vertrag bekommt jedes Jahr Post. Wären Art und Zuordnung schon der Verdacht, trüge
+    /// ihn jeder Statusreport ab dem zweiten — und ein Hinweis, der immer dasteht, wird nicht
+    /// mehr gelesen. Der Stichtag im Ablagenamen macht den Unterschied.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_anderes_Jahr_ist_keine_Dublette()
+    {
+        await TakeInAsync(Statusreport());
+
+        var vorjahr = Content(
+            Line(1, "Nordstern Lebensversicherung AG"),
+            Line(1, "Hamburg, 12.08.2024"),
+            Line(1, "Versicherungsnummer:", "77001122-01"),
+            Line(1, "hiermit übersenden wir Ihnen den jährlichen Statusreport"),
+            Line(1, "Ihr Vertragsstand zum 31.07.2024"),
+            Line(2, "Wert der Versicherung"),
+            Line(2, "Rückkaufswert", "11.000,00 EUR"),
+            Line(2, "Gesamtleistung*", "12.100,00 EUR"));
+
+        var zweite = await TakeInAsync(vorjahr, "scan_0002.pdf");
+
+        Assert.Null(zweite.DuplicateOfDocumentId);
+        Assert.DoesNotContain("derselbe Beleg", zweite.Summary);
+    }
+
+    /// <summary>
+    /// Zwei unerkannte Zettel mit demselben Dateinamen sind keine Dublette.
+    /// </summary>
+    /// <remarks>
+    /// Wo keine Art erkannt ist, ist der Ablagename der eingereichte Dateiname — und der sagt
+    /// über den Inhalt nichts. Ein Scanner, der jedes Blatt „scan_0001.pdf“ nennt, ließe den
+    /// Verdacht sonst bei jedem zweiten Zettel aufleuchten.
+    /// </remarks>
+    [Fact]
+    public async Task Zwei_unerkannte_Zettel_gleichen_Namens_sind_keine_Dublette()
+    {
+        await TakeInAsync(Content(Line(1, "Ein Zettel ohne Merkmale")), "scan_0001.pdf");
+
+        var zweite = await TakeInAsync(
+            Content(Line(1, "Ein ganz anderer Zettel ohne Merkmale")), "scan_0001.pdf");
+
+        Assert.Null(zweite.DuplicateOfDocumentId);
+    }
+
     // ── Nachträglich zuordnen ──────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -455,7 +623,7 @@ public sealed class ScanIntakeTests : IDisposable
         var eingang = Inbox(context);
 
         var gelungen = await eingang.AssignAsync(
-            ergebnis.InboxId,
+            ergebnis.InboxId!.Value,
             new AssignScanInboxRequest
             {
                 DocumentTypeId = typ.Id,
@@ -497,7 +665,7 @@ public sealed class ScanIntakeTests : IDisposable
         var eingang = Inbox(context);
 
         await Assert.ThrowsAsync<ArgumentException>(() => eingang.AssignAsync(
-            ergebnis.InboxId,
+            ergebnis.InboxId!.Value,
             new AssignScanInboxRequest
             {
                 DocumentTypeId = typ.Id,
@@ -522,7 +690,7 @@ public sealed class ScanIntakeTests : IDisposable
         using var context = database.Context();
         var eingang = Inbox(context);
 
-        Assert.False(await eingang.FileAsync(ergebnis.InboxId));
+        Assert.False(await eingang.FileAsync(ergebnis.InboxId!.Value));
         Assert.Equal(1, (await eingang.GetAsync()).WaitingCount);
     }
 

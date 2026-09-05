@@ -269,6 +269,28 @@ fragt nach Typ und Objekt und räumt den Beleg in einem Aufruf weg. Beides zusam
 Eingang beides verlangt — ein Beleg mit Typ und ohne Objekt wäre nach dem halben Weg immer noch
 nicht eingeordnet und stünde nach einem gescheiterten zweiten Aufruf halb geändert da.
 
+### Was schon dalag — zwei Stufen
+
+Belege kommen doppelt: derselbe Ordnerinhalt zweimal übergeben, dasselbe Blatt zweimal
+eingescannt, im Zweifel noch einmal eingelesen. Die Einlieferung prüft das auf zwei Stufen, und
+sie sind verschieden sicher — deshalb tun sie Verschiedenes.
+
+1. **Dieselbe Datei kommt gar nicht erst herein.** Jedes Dokument trägt den SHA-256-Abdruck
+   seines Inhalts (`Document.ContentHash`); ist er schon da, wird nichts abgelegt und nichts in
+   den Eingang gestellt. Die Antwort trägt `ScanIntakeOutcome.Duplicate` und nennt das
+   *vorhandene* Dokument — eine Abweisung, die nicht sagt, wo der Beleg liegt, schickt den
+   Nutzer suchen. Gewachsene Bestände tragen den Abdruck noch nicht; er wird beim ersten Suchlauf
+   nachgetragen, denn eine Wanderung käme an den Dokumentordner nicht heran.
+2. **Derselbe Beleg wird gemeldet, nicht aufgehalten.** Ein zweiter Scan desselben Blatts ergibt
+   nie dieselbe Datei. Gemessen wird deshalb am **Ablagenamen**: den bildet die Analyse aus Art,
+   Zuordnung und Stichtag, und zwei Belege, die sie unter denselben Namen legen würde, sind
+   derselbe Beleg. Er wird trotzdem abgelegt — genau denselben Namen bekäme auch eine berichtigte
+   Fassung — und trägt im Scaneingang den Hinweis samt Verweis auf den vorhandenen.
+
+Nicht am `DocumentDate`: das trägt den Ablagetag, wo kein Schreibdatum gelesen wurde, und dann
+wären zwei Berichte aus verschiedenen Jahren, am selben Tag eingeliefert, plötzlich derselbe
+Beleg. Der Stichtag im Ablagenamen unterscheidet sie.
+
 ### Ordnerdienst — Belege aus einem überwachten Ordner
 
 Ein Windows-Dienst (`src/FinanzApp.Ordnerdienst`) überwacht einen Scanordner und reicht jede neue

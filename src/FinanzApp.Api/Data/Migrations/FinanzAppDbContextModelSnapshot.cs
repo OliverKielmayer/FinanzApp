@@ -489,6 +489,10 @@ namespace FinanzApp.Api.Data.Migrations
                     b.Property<int>("Area")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("ContentHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
@@ -546,6 +550,8 @@ namespace FinanzApp.Api.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("DocumentTypeId");
+
+                    b.HasIndex("HouseholdId", "ContentHash");
 
                     b.HasIndex("HouseholdId", "DocumentDate");
 
@@ -1473,6 +1479,9 @@ namespace FinanzApp.Api.Data.Migrations
                     b.Property<int>("DocumentId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("DuplicateOfDocumentId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTime?>("FiledAt")
                         .HasColumnType("TEXT");
 
@@ -1492,6 +1501,8 @@ namespace FinanzApp.Api.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("DocumentId");
+
+                    b.HasIndex("DuplicateOfDocumentId");
 
                     b.HasIndex("FiledAt");
 
@@ -2110,6 +2121,11 @@ namespace FinanzApp.Api.Data.Migrations
                         .HasForeignKey("DocumentId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("FinanzApp.Api.Data.Entities.Document", null)
+                        .WithMany()
+                        .HasForeignKey("DuplicateOfDocumentId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Document");
                 });

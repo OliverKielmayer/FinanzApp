@@ -367,8 +367,14 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
             e.Property(x => x.FileName).HasMaxLength(255).IsRequired();
             e.Property(x => x.Extension).HasMaxLength(16);
             e.Property(x => x.Tags).HasMaxLength(400);
+            e.Property(x => x.ContentHash).HasMaxLength(64);
 
             e.HasIndex(x => new { x.HouseholdId, x.DocumentDate });
+
+            // Nach dem Abdruck wird bei jeder Einlieferung gesucht. Nicht eindeutig: dieselbe
+            // Datei zweimal abzulegen bleibt möglich, wenn ein Mensch es will — abgewiesen wird
+            // sie an der Einlieferung und nicht von der Datenbank.
+            e.HasIndex(x => new { x.HouseholdId, x.ContentHash });
 
             // Dieselbe Datei zweimal einzuhängen wäre ein Fehler, kein Merkmal.
             e.HasIndex(x => new { x.HouseholdId, x.RelativePath }).IsUnique();
@@ -416,6 +422,13 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
             e.Property(x => x.Sender).HasMaxLength(160);
             e.HasOne(x => x.Document).WithMany()
                 .HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.Cascade);
+
+            // Wird das ältere Dokument gelöscht, verliert der Eintrag seinen Verweis und bleibt
+            // stehen. Ihn mitzureißen hieße, einen wartenden Beleg verschwinden zu lassen, weil
+            // jemand einen ganz anderen aufgeräumt hat.
+            e.HasOne<Document>().WithMany()
+                .HasForeignKey(x => x.DuplicateOfDocumentId).OnDelete(DeleteBehavior.SetNull);
+
             e.HasIndex(x => x.FiledAt);
         });
 

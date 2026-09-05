@@ -54,6 +54,22 @@
             </button>
 
             @*
+                Der Verdacht steht über den Schaltern und nicht in der Zeile: er ist eine
+                Bemerkung zum Beleg, keine Eigenschaft von ihm. Byteweise gleiche Dateien kommen
+                gar nicht erst herein — was hier steht, ist der unsichere Fall, und der braucht
+                einen Blick auf beide Belege. Der Verweis führt deshalb zum vorhandenen.
+            *@
+            @if (item.DuplicateOfDocumentId is { } vorhanden)
+            {
+                <div class="doc-duplicate">
+                    Derselbe Beleg liegt möglicherweise schon in der Ablage:
+                    <a href="/dokumente/@vorhanden">@(item.DuplicateOfTitle ?? "vorhandener Beleg")</a>.
+                    Beide hätten denselben Ablagenamen bekommen — gleiche Art, gleicher Stichtag,
+                    gleiche Zuordnung. Es kann auch eine berichtigte Fassung sein.
+                </div>
+            }
+
+            @*
                 Die Zeile führt zum Beleg, die Schalter darunter räumen ihn weg. Zwei Aktionen an
                 einer Zeile brauchen zwei Flächen — ein Tipp, der je nach Stelle etwas anderes
                 tut, trifft irgendwann das Falsche.

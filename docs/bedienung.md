@@ -240,6 +240,16 @@ Unter jeder Zeile stehen die beiden Schalter, mit denen der Beleg den Eingang ve
 Gibt es das Objekt in der App noch nicht, legen Sie es zuerst an — der Beleg bleibt bis dahin
 liegen und geht nicht verloren.
 
+**Was schon dalag.** Wird genau dieselbe Datei ein zweites Mal eingelesen, legt die App sie nicht
+noch einmal ab; sie sagt, unter welchem Beleg sie bereits liegt. Wer im Zweifel zweimal einliest,
+tut also nichts kaputt.
+
+Anders beim zweiten *Scan* desselben Blatts: das ist eine andere Datei, und sie kommt herein. Die
+Zeile im Eingang trägt dann den Hinweis **„Derselbe Beleg liegt möglicherweise schon in der
+Ablage“** mit einem Verweis auf den vorhandenen. Erkannt wird das daran, dass die App beiden
+denselben Ablagenamen geben würde — gleiche Art, gleicher Stichtag, gleiche Zuordnung. Ein Blick
+auf beide entscheidet: eine berichtigte Fassung sieht genauso aus, und die wollen Sie behalten.
+
 ### Belege aus einem überwachten Ordner
 
 Neben dem Einlesen von Hand kann ein **Ordnerdienst** auf dem Rechner einen Scanordner

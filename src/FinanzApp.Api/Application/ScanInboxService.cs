@@ -26,6 +26,16 @@ public sealed class ScanInboxService(FinanzAppDbContext db, DocumentService docu
             .OrderBy(x => x.CreatedAt)
             .ToListAsync(ct);
 
+        // Die Namen der vorhandenen Belege in einem Zug. Ein Verweis auf eine Nummer wäre für
+        // den Leser nichts wert — er will wissen, welches Schreiben er schon hat.
+        var verdächtig = rows.Select(x => x.DuplicateOfDocumentId).OfType<int>().Distinct().ToList();
+
+        var namen = verdächtig.Count == 0
+            ? new Dictionary<int, string>()
+            : await db.Documents.AsNoTracking()
+                .Where(d => verdächtig.Contains(d.Id))
+                .ToDictionaryAsync(d => d.Id, d => d.Title, ct);
+
         return new ScanInboxDto
         {
             WaitingCount = rows.Count,
@@ -41,6 +51,11 @@ public sealed class ScanInboxService(FinanzAppDbContext db, DocumentService docu
                     Recognised = x.Recognised,
                     CanTakeValues = x.Document != null && x.Document.ScanKind != null,
                     ValuesHref = ValuesHref(x.Document),
+                    DuplicateOfDocumentId = x.DuplicateOfDocumentId,
+                    DuplicateOfTitle = x.DuplicateOfDocumentId is { } vorhanden
+                                       && namen.TryGetValue(vorhanden, out var name)
+                        ? name
+                        : null,
                     ArrivedOn = DateOnly.FromDateTime(x.CreatedAt),
                 }),
             ],
@@ -67,8 +82,14 @@ public sealed class ScanInboxService(FinanzAppDbContext db, DocumentService docu
     };
 
     /// <summary>Nimmt einen bereits abgelegten Beleg in den Eingang auf.</summary>
+    /// <param name="duplicateOf">
+    /// Das Dokument, das denselben Beleg schon trägt — die Ablage hätte beiden denselben Namen
+    /// gegeben. Der Eintrag entsteht trotzdem: es kann eine berichtigte Fassung sein, und was
+    /// davon gilt, entscheidet kein Dienst.
+    /// </param>
     public async Task<int> AddAsync(
-        int documentId, string? sender, int? pageCount, bool recognised, CancellationToken ct = default)
+        int documentId, string? sender, int? pageCount, bool recognised,
+        int? duplicateOf = null, CancellationToken ct = default)
     {
         var item = new ScanInboxItem
         {
@@ -76,6 +97,7 @@ public sealed class ScanInboxService(FinanzAppDbContext db, DocumentService docu
             Sender = sender,
             PageCount = pageCount,
             Recognised = recognised,
+            DuplicateOfDocumentId = duplicateOf,
             CreatedAt = clock.Now,
         };
 

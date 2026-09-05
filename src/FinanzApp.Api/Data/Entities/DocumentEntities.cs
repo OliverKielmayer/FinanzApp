@@ -84,6 +84,20 @@ public class Document : IHouseholdOwned
     /// </remarks>
     public string? ScanKind { get; set; }
 
+    /// <summary>
+    /// Der Abdruck des Dateiinhalts — SHA-256, klein geschrieben, 64 Zeichen.
+    /// </summary>
+    /// <remarks>
+    /// <para>Er beantwortet genau eine Frage: <em>Ist das Byte für Byte dieselbe Datei?</em> Der
+    /// Dateiname beantwortet sie nicht — derselbe Scan heißt beim zweiten Mal anders, weil die
+    /// Ablage einem besetzten Namen ausweicht —, der Pfad erst recht nicht, und die gelesenen
+    /// Werte sagen nur, dass zwei Belege dasselbe <em>berichten</em>.</para>
+    /// <para><c>null</c> bei allem, was vor dieser Spalte abgelegt wurde. Nachgetragen wird der
+    /// Abdruck, sobald jemand danach sucht, und nicht in einer Wanderung: die Datenbank kommt an
+    /// den Dokumentordner nicht heran — den kennt erst die Anwendung.</para>
+    /// </remarks>
+    public string? ContentHash { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

@@ -211,7 +211,16 @@ public sealed class FolderWorker(
             return;
         }
 
-        if (intake.Outcome == ScanIntakeOutcome.Assigned)
+        // Die Dublette zuerst: sie ist die einzige der drei, bei der nichts abgelegt wurde.
+        // Stünde sie unter „wartet auf Zuordnung“, suchte jemand im Eingang nach einem Beleg,
+        // den es dort nicht gibt.
+        if (intake.Outcome == ScanIntakeOutcome.Duplicate)
+        {
+            log.LogInformation(
+                "{Datei} lag bereits vor — nicht erneut abgelegt, vorhandener Beleg {Beleg}: {Meldung}",
+                name, intake.DocumentId, intake.Summary);
+        }
+        else if (intake.Outcome == ScanIntakeOutcome.Assigned)
         {
             log.LogInformation(
                 "{Datei} übergeben und eingeordnet — Bereich {Bereich}, Beleg {Beleg}: {Meldung}",

@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using FinanzApp.Api.Data;
 using FinanzApp.Api.Data.Entities;
 using FinanzApp.Api.Infrastructure;
@@ -210,6 +211,11 @@ public sealed class DocumentService(
                 RelativePath = relativePath,
                 FileName = Path.GetFileName(relativePath),
                 Extension = extension,
+
+                // Aus der abgelegten Datei und nicht aus dem übergebenen Strom: der ist an
+                // dieser Stelle gelesen, und ob er sich zurückspulen lässt, weiß hier niemand.
+                // Was zählt, ist ohnehin, was auf der Platte liegt.
+                ContentHash = await FingerprintAsync(relativePath, ct),
                 DocumentDate = documentDate ?? clock.Today,
                 Status = DocumentStatus.Active,
                 CreatedAt = now,
@@ -230,6 +236,70 @@ public sealed class DocumentService(
 
             throw;
         }
+    }
+
+    /// <summary>
+    /// Das Dokument, dessen Datei Byte für Byte dieselbe ist — oder <c>null</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der zweite Durchgang trägt Abdrücke nach. Alles, was vor dieser Spalte abgelegt
+    /// wurde, hat keinen; ohne das Nachtragen sähe die Einlieferung den gewachsenen Bestand
+    /// nicht und meldete ausgerechnet für die Belege keine Dublette, um die es geht. Es kostet
+    /// einmal den ganzen Bestand und danach nichts mehr.</para>
+    /// <para>Eine fehlende Datei bleibt ohne Abdruck und wird beim nächsten Mal wieder versucht.
+    /// Sie kann zurückkommen — ein Merkmal „nachgesehen und nicht da“ wäre eine zweite Wahrheit
+    /// über denselben Zustand, und die stimmte nach dem ersten Umzug nicht mehr.</para>
+    /// </remarks>
+    public async Task<Document?> FindByContentAsync(string hash, CancellationToken ct = default)
+    {
+        if (await db.Documents.FirstOrDefaultAsync(d => d.ContentHash == hash, ct) is { } bekannt)
+        {
+            return bekannt;
+        }
+
+        var ohneAbdruck = await db.Documents.Where(d => d.ContentHash == null).ToListAsync(ct);
+        Document? gefunden = null;
+
+        foreach (var dokument in ohneAbdruck)
+        {
+            if (await FingerprintAsync(dokument.RelativePath, ct) is not { } abdruck)
+            {
+                continue;
+            }
+
+            dokument.ContentHash = abdruck;
+
+            if (gefunden is null && abdruck == hash)
+            {
+                gefunden = dokument;
+            }
+        }
+
+        if (ohneAbdruck.Count > 0)
+        {
+            await db.SaveChangesAsync(ct);
+        }
+
+        return gefunden;
+    }
+
+    /// <summary>Der Abdruck eines Stroms — SHA-256, klein geschrieben.</summary>
+    /// <remarks>
+    /// Der Strom wird dabei bis zum Ende gelesen. Wer ihn danach noch braucht, spult ihn zurück.
+    /// </remarks>
+    public static async Task<string> FingerprintAsync(Stream content, CancellationToken ct = default)
+        => Convert.ToHexStringLower(await SHA256.HashDataAsync(content, ct));
+
+    /// <summary>Der Abdruck einer abgelegten Datei — <c>null</c>, wenn sie nicht (mehr) da ist.</summary>
+    private async Task<string?> FingerprintAsync(string relativePath, CancellationToken ct)
+    {
+        if (paths.Resolve(relativePath) is not { } absolut || !File.Exists(absolut))
+        {
+            return null;
+        }
+
+        await using var datei = File.OpenRead(absolut);
+        return await FingerprintAsync(datei, ct);
     }
 
     public async Task<DocumentDetailDto?> UpdateAsync(

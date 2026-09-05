@@ -276,6 +276,19 @@ public enum ScanIntakeOutcome
     /// wozu sie gehört.
     /// </summary>
     Waiting = 1,
+
+    /// <summary>
+    /// Byte für Byte dieselbe Datei liegt schon in der Ablage. Nichts ist abgelegt worden,
+    /// nichts wartet im Eingang; <see cref="ScanIntakeResultDto.DocumentId"/> nennt das
+    /// vorhandene Dokument.
+    /// </summary>
+    /// <remarks>
+    /// Kein Fehler: der überwachte Ordner bekommt dieselbe Datei mitunter zweimal, und wer im
+    /// Zweifel noch einmal einliest, tut das Richtige. Der Fehler wäre, sie ein zweites Mal
+    /// abzulegen — dann stünde derselbe Beleg zweimal in der Ablage, und beim nächsten Suchen
+    /// wüsste niemand, welcher der gültige ist.
+    /// </remarks>
+    Duplicate = 2,
 }
 
 /// <summary>
@@ -293,8 +306,14 @@ public sealed record ScanIntakeResultDto
 {
     public required int DocumentId { get; init; }
 
-    /// <summary>Der Eintrag im Scaneingang, unter dem der Beleg wartet.</summary>
-    public required int InboxId { get; init; }
+    /// <summary>
+    /// Der Eintrag im Scaneingang, unter dem der Beleg wartet — <c>null</c> bei einer Dublette.
+    /// </summary>
+    /// <remarks>
+    /// Eine abgewiesene Datei wartet nirgends: sie ist nicht abgelegt worden, also gibt es
+    /// keinen Eintrag. Eine Null stünde hier für einen Eintrag, den es nicht gibt.
+    /// </remarks>
+    public int? InboxId { get; init; }
 
     public required string FileName { get; init; }
 
@@ -321,6 +340,18 @@ public sealed record ScanIntakeResultDto
 
     /// <summary>Was zur vollständigen Zuordnung noch fehlt — <c>null</c>, wenn nichts.</summary>
     public string? Missing { get; init; }
+
+    /// <summary>
+    /// Das Dokument, das denselben Beleg schon trägt.
+    /// </summary>
+    /// <remarks>
+    /// Bei <see cref="ScanIntakeOutcome.Duplicate"/> ist es dieselbe Datei, und dann steht hier
+    /// dasselbe wie in <see cref="DocumentId"/>. Sonst ist es ein <em>Verdacht</em>: ein Beleg,
+    /// den die Ablage unter denselben Namen gelegt hätte — gleiche Art, gleicher Stichtag,
+    /// gleiche Zuordnung. Der ist abgelegt worden und wartet im Eingang; es kann eine berichtigte
+    /// Fassung sein, und das entscheidet kein Dienst.
+    /// </remarks>
+    public int? DuplicateOfDocumentId { get; init; }
 
     /// <summary>Eine Zeile fürs Protokoll des einliefernden Dienstes.</summary>
     public required string Summary { get; init; }

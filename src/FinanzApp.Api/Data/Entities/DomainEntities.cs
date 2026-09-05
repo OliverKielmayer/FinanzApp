@@ -573,6 +573,17 @@ public class ScanInboxItem : IHouseholdOwned
     /// <summary>Hat die Analyse etwas erkannt? Sonst muss ein Mensch hinsehen.</summary>
     public bool Recognised { get; set; }
 
+    /// <summary>
+    /// Das Dokument, das denselben Beleg schon trägt — <c>null</c> im Normalfall.
+    /// </summary>
+    /// <remarks>
+    /// Gesetzt, wenn bei der Einlieferung schon ein Beleg unter demselben Ablagenamen lag — in
+    /// ihm stehen Art, Zuordnung und Stichtag. Ein <em>Verdacht</em> und kein Urteil: es kann
+    /// eine berichtigte Fassung desselben Schreibens sein. Deshalb hält er nichts auf — er steht
+    /// im Eingang, wo ein Mensch ihn sieht, und der entscheidet.
+    /// </remarks>
+    public int? DuplicateOfDocumentId { get; set; }
+
     /// <summary>Erledigt, sobald Typ und Objekt bestätigt sind.</summary>
     public DateTime? FiledAt { get; set; }
 

@@ -3229,6 +3229,20 @@ body {
   color: var(--color-accent-800);
 }
 
+/* Der Dublettenverdacht: eine Bemerkung unter der Zeile, keine zweite Zeile. Zurückgenommen
+   gesetzt, denn er hält nichts auf — er bittet um einen Blick. */
+.doc-duplicate {
+  padding: 8px 16px 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--color-accent-800);
+}
+
+.doc-duplicate a {
+  font-weight: 600;
+  color: inherit;
+}
+
 .doc-foot {
   display: flex;
   justify-content: space-between;

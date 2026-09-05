@@ -27,6 +27,9 @@ public sealed class ScanReviewTests : IDisposable
     private readonly string root =
         Path.Combine(Path.GetTempPath(), "finanzapp-tests", Guid.NewGuid().ToString("N"));
 
+    /// <summary>Zählt die Einlieferungen, damit jede eigene Bytes bekommt.</summary>
+    private int eingeliefert;
+
     private readonly int vertragId;
 
     public ScanReviewTests()
@@ -78,12 +81,19 @@ public sealed class ScanReviewTests : IDisposable
     }
 
     /// <summary>Liefert einen Beleg ein, so wie der Ordnerdienst es täte.</summary>
+    /// <remarks>
+    /// Jede Einlieferung bekommt eigene Bytes. Die Einlieferung weist byteweise gleiche Dateien
+    /// ab; eine feste Zeichenkette wäre in jedem Test dieselbe Datei, und der zweite Aufruf käme
+    /// als Dublette zurück, obwohl der Test von einem zweiten Beleg handelt.
+    /// </remarks>
     private async Task<ScanIntakeResultDto> EinliefernAsync(PdfContent inhalt)
     {
         using var context = database.Context();
 
+        var datei = $"%PDF-1.4 Beleg {++eingeliefert}";
+
         return await Intake(inhalt, context).TakeInAsync(
-            new MemoryStream(Encoding.UTF8.GetBytes("%PDF-1.4")), "scan_0001.pdf", "C:\\Scans\\ein.pdf");
+            new MemoryStream(Encoding.UTF8.GetBytes(datei)), "scan_0001.pdf", "C:\\Scans\\ein.pdf");
     }
 
     private static PdfLine Line(int seite, params string[] zellen) => new(seite, zellen);
