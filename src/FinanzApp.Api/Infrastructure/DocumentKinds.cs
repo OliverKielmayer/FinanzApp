@@ -212,6 +212,21 @@ public sealed record DocumentKind
     public required string Key { get; init; }
     public required string Label { get; init; }
 
+    /// <summary>
+    /// Der Dokumenttyp, unter dem ein Beleg dieser Art abgelegt gehört.
+    /// </summary>
+    /// <remarks>
+    /// <para>Getrennt von <see cref="Label"/>, weil beides verschiedene Fragen beantwortet: die
+    /// Bezeichnung sagt, <em>was die Anwendung liest</em> („Statusreport fondsgebundene
+    /// Lebensversicherung“), der Typ, <em>wie der Haushalt seine Ablage beschriftet</em>
+    /// („Statusreport“). Vorher suchte die Einlieferung einen Typ mit dem Namen der Bezeichnung —
+    /// und der klassische und der fondsgebundene Bericht brauchten zwei Typen, die sich nur im
+    /// Zusatz unterscheiden.</para>
+    /// <para>Mehrere Arten dürfen sich einen Typ teilen. Er ist die Schublade, nicht die
+    /// Leseregel.</para>
+    /// </remarks>
+    public required string TypeName { get; init; }
+
     /// <summary>Ablagebereich — er bestimmt den obersten Ordner.</summary>
     public required DocumentArea Area { get; init; }
 
@@ -290,6 +305,7 @@ public static class DocumentKindLibrary
     {
         Key = "statusreport-lv",
         Label = "Statusreport Lebensversicherung",
+        TypeName = "Statusreport",
         Area = DocumentArea.Insurance,
         Target = DocumentTargetKind.Policy,
         TargetNoun = "Vertrag",
@@ -476,6 +492,10 @@ public static class DocumentKindLibrary
     {
         Key = "statusreport-fonds-lv",
         Label = "Statusreport fondsgebundene Lebensversicherung",
+
+        // Derselbe Typ wie beim klassischen Bericht: für die Ablage ist beides ein Statusreport,
+        // gelesen wird es verschieden.
+        TypeName = "Statusreport",
         Area = DocumentArea.Insurance,
         Target = DocumentTargetKind.Policy,
         TargetNoun = "Vertrag",
@@ -648,6 +668,7 @@ public static class DocumentKindLibrary
     {
         Key = "quartalsaufstellung",
         Label = "Quartalsaufstellung MiFID II",
+        TypeName = "Quartalsaufstellung",
         Area = DocumentArea.Finance,
         Target = DocumentTargetKind.Depot,
         TargetNoun = "Depot",
