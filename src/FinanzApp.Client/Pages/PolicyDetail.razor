@@ -255,8 +255,14 @@
             <div class="row report @(traegt ? "picked" : null)">
                 <div class="stack">
                     <span class="balance-label plain num">@GermanFormat.Date(bericht.AsOf)</span>
+                    @* Quelle und Belegtitel sind meist dasselbe Wort — der Titel kommt aus der
+                       Dokumentart, die Quelle auch. Zweimal hintereinander gelesen sieht es aus
+                       wie zwei Angaben. *@
                     <span class="meta">
-                        @bericht.Source@(bericht.DocumentTitle is { Length: > 0 } titel ? " · " + titel : null)
+                        @bericht.Source@(bericht.DocumentTitle is { Length: > 0 } titel
+                            && !string.Equals(titel, bericht.Source, StringComparison.Ordinal)
+                                ? " · " + titel
+                                : null)
                         @(traegt ? " · zählt als erreichter Wert" : null)
                     </span>
                 </div>

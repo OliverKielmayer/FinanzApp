@@ -161,6 +161,16 @@ public sealed record DocumentRepeatRule
     /// </remarks>
     public string? TotalField { get; init; }
 
+    /// <summary>
+    /// Erlaubte Abweichung der Summe vom ausgewiesenen Gesamtwert.
+    /// </summary>
+    /// <remarks>
+    /// Ein Cent voreingestellt: das deckt die Rundung <em>einer</em> Zeile. Wo der Absender die
+    /// ungerundeten Zeilenwerte summiert und die gerundeten ausweist, braucht die Probe je Zeile
+    /// einen halben Cent mehr — sonst meldet sie eine Unstimmigkeit, die auf dem Papier steht.
+    /// </remarks>
+    public decimal TotalTolerance { get; init; } = 0.01m;
+
     /// <summary>Die Probe je Zeile.</summary>
     public DocumentCheck? RowCheck { get; init; }
 }
@@ -444,6 +454,183 @@ public static class DocumentKindLibrary
     };
 
     /// <summary>
+    /// Statusreport einer fondsgebundenen Lebensversicherung.
+    /// </summary>
+    /// <remarks>
+    /// <para>Derselbe Absender, ein anderes Papier: dieser Vertrag trägt keinen Rückkaufswert und
+    /// keine Überschussbeteiligung, sondern <b>Fondsanteile</b>. Sein erreichter Wert ist das
+    /// <b>Anteilsguthaben</b> — die Summe der Fondszeilen —, und garantierte Leistungen gibt es
+    /// nicht: das Dokument sagt das ausdrücklich in einem Satz. Deshalb eine eigene Art und keine
+    /// Felder, die hier leer bleiben müssten.</para>
+    /// <para>Entstanden an <b>zwölf Jahresberichten desselben Vertrags, 2012 bis 2025</b>. Sie
+    /// zerfallen in zwei Jahrgänge: bis 2017 „Ihr aktueller Vertragsstand“, „Todesfallschutz“ und
+    /// Beträge in „Euro“; ab 2018 „Ihr Vertragsstand“, „Mindesttodesfallschutz“ neben „Aktuelle
+    /// Leistung im Todesfall“ und „EUR“. Beide Schreibweisen stehen deshalb nebeneinander in den
+    /// Beschriftungen.</para>
+    /// <para>Der Jahrgang 2023 ist ein Scan: dort steht „Vortragsstand“, „31,12.2023“ und
+    /// „43 866.12“. Der Stichtag kommt in dem Fall aus der Betreffzeile — deshalb nennt das
+    /// Muster beide Überschriften. Die verunglückten Beträge werden <em>nicht</em> geraten; das
+    /// Anteilsguthaben selbst steht dort unbeschädigt.</para>
+    /// </remarks>
+    public static readonly DocumentKind FundStatusreport = new()
+    {
+        Key = "statusreport-fonds-lv",
+        Label = "Statusreport fondsgebundene Lebensversicherung",
+        Area = DocumentArea.Insurance,
+        Target = DocumentTargetKind.Policy,
+        TargetNoun = "Vertrag",
+        TargetLink = "Zum Vertrag",
+        FolderTemplate = "Lebensversicherung/{ziel}/{jahr}",
+        FileTemplate = "Statusreport_{stichtag}",
+
+        // „Anteilsguthaben“ trennt diese Art von der klassischen: dort steht „Wert der
+        // Versicherung“, hier eine Fondstabelle. Beide Kennzeichen stehen in allen zwölf
+        // Berichten.
+        Markers = [new("Statusreport"), new("Anteilsguthaben")],
+
+        AsOfField = "stichtag",
+        DocumentDateField = "dokumentdatum",
+        TargetNumberField = "vertragsnummer",
+
+        // Je Fonds eine Zeile: WKN, Bezeichnung, Anteile, Anteilspreis, Wert. Der ältere
+        // Jahrgang trägt dazwischen noch die Fondswährung — die Muster greifen die Zahlen
+        // deshalb der Reihe nach ab und nicht nach Spaltennummer.
+        Repeat = new DocumentRepeatRule
+        {
+            Title = "Fonds in diesem Statusreport",
+
+            // Sechsstellige WKN, dann ein Name, und am Ende ein Betrag. Ohne den Betrag am Ende
+            // eröffnete die Fußzeile „665463 · Fax: +49 40 21995 6999 · … · 5014“ einen Block,
+            // dem jeder Wert fehlt — und die Summenprobe fiel dann ganz aus, statt zu prüfen.
+            Anchor = @"^[0-9A-Z]{6}\s+\D.*[\d.]+,\d{2}$",
+            ValueField = "fondswert",
+            NameField = "fonds",
+            TotalField = "anteilsguthaben",
+
+            // Fünf Cent Luft: der Bericht summiert die ungerundeten Zeilenwerte, ausgewiesen sind
+            // die gerundeten. Bei sechs Fonds gehen so zwei Cent Unterschied auf das Papier
+            // (Jahrgang 2024) — eine fehlende Zeile dagegen fehlt in Hunderten.
+            TotalTolerance = 0.05m,
+
+            Fields =
+            [
+                new()
+                {
+                    Key = "wkn", Label = "WKN", Kind = DocumentValueKind.Text,
+                    Locator = DocumentLocator.Pattern, Pattern = @"^([0-9A-Z]{6})\s",
+                },
+                new()
+                {
+                    Key = "fonds", Label = "Fonds", Kind = DocumentValueKind.Text,
+                    Locator = DocumentLocator.Pattern,
+                    Pattern = @"^[0-9A-Z]{6}\s+(.+?)\s+[\d.]+,\d+\s",
+                },
+                new()
+                {
+                    Key = "anteile", Label = "Anteile", Kind = DocumentValueKind.Quantity,
+                    Locator = DocumentLocator.Pattern,
+                    Pattern = @"^[0-9A-Z]{6}\s+.+?\s([\d.]+,\d+)\s",
+                },
+                new()
+                {
+                    Key = "anteilspreis", Label = "Anteilspreis", Kind = DocumentValueKind.Price,
+                    Locator = DocumentLocator.Pattern,
+                    Pattern = @"^[0-9A-Z]{6}\s+.+?\s[\d.]+,\d+\s+([\d.]+,\d+)\b",
+                },
+                new()
+                {
+                    Key = "fondswert", Label = "Wert der Anteile", Kind = DocumentValueKind.Money,
+                    Locator = DocumentLocator.Pattern,
+                    Pattern = @"^[0-9A-Z]{6}\s.*?([\d.]+,\d{2})$", Lead = true,
+                },
+            ],
+
+            // Keine Probe je Zeile: der ältere Jahrgang weist den Anteilspreis auf zwei Stellen
+            // aus, und Anteile × Preis weicht dann um Cent ab. Das wäre eine Probe über die
+            // Rundung und nicht über die Zuordnung. Geprüft wird die Summe — sie steht im
+            // Dokument selbst.
+        },
+
+        Fields =
+        [
+            // Der erreichte Wert. Er ist der Lead: aus ihm entsteht der Stand im Vertrag.
+            new()
+            {
+                Key = "anteilsguthaben", Label = "Anteilsguthaben", Kind = DocumentValueKind.Money,
+                Labels = ["Anteilsguthaben"], Lead = true,
+            },
+
+            // Die Beschriftung bricht im älteren Jahrgang um: „Beitragssumme“ steht allein in
+            // einer Zeile, der Betrag hinter der Klammer in der nächsten. Beide Anfänge stehen
+            // deshalb hier.
+            new()
+            {
+                Key = "beitragssumme", Label = "Beitragssumme", Kind = DocumentValueKind.Money,
+                Labels = ["Beitragssumme", "(entspricht den über die Laufzeit"],
+            },
+
+            // Zwei Größen, zwei Felder: der Mindestschutz entspricht der Beitragssumme, die
+            // aktuelle Leistung im Todesfall wächst mit dem Vertragskapital. Sie in ein Feld zu
+            // legen hieße, im einen Jahrgang das eine und im anderen das andere zu zeigen.
+            new()
+            {
+                Key = "mindesttodesfall", Label = "Mindesttodesfallschutz",
+                Kind = DocumentValueKind.Money, Labels = ["Mindesttodesfallschutz"],
+            },
+            new()
+            {
+                Key = "todesfall", Label = "Leistung im Todesfall", Kind = DocumentValueKind.Money,
+                Labels = ["Aktuelle Leistung im Todesfall", "Todesfallschutz"],
+            },
+
+            // Kein Betrag, sondern eine Auskunft: der Vertrag befreit im Fall der
+            // Berufsunfähigkeit von den Beiträgen und zahlt keine Rente. Als Geldfeld bliebe es
+            // leer, und niemand wüsste, ob die Angabe fehlt oder keine ist.
+            new()
+            {
+                Key = "bu", Label = "Leistungen bei Berufsunfähigkeit",
+                Kind = DocumentValueKind.Text, Labels = ["Leistungen bei Berufsunfähigkeit"],
+            },
+
+            // Kopfdaten wie beim klassischen Statusreport — mit einem Unterschied: als zweite
+            // Quelle für den Stichtag zählt die Betreffzeile. Im Scan von 2023 ist die
+            // Vertragsstandzeile verlesen, die Betreffzeile aber nicht.
+            new()
+            {
+                Key = "stichtag", Label = "Stichtag", Kind = DocumentValueKind.Date,
+                Locator = DocumentLocator.Pattern,
+                Pattern = @"(?:Vertragsstand|Statusreport) zum\s+(\d{1,2}[.,]\s*(?:\d{1,2}[.,]|[A-Za-zÄÖÜäöüß]+\s+)\d{4})",
+            },
+            new()
+            {
+                Key = "dokumentdatum", Label = "Dokumentdatum", Kind = DocumentValueKind.Date,
+                Locator = DocumentLocator.Pattern,
+                Pattern = @"^[A-Za-zÄÖÜäöüß.\- ]+,\s+(\d{1,2}\.\d{1,2}\.\d{4})$",
+            },
+            new()
+            {
+                Key = "vertragsnummer", Label = "Versicherungsnummer", Kind = DocumentValueKind.Text,
+                Labels = ["Versicherungsnummer"],
+            },
+            new()
+            {
+                Key = "absender", Label = "Absender", Kind = DocumentValueKind.Text,
+                Locator = DocumentLocator.Pattern,
+                Pattern = @"^([A-ZÄÖÜ][\w.\-äöüß]*(?: [\w.\-äöüß]+)*? (?:Lebensversicherung|Leben) AG)\b",
+            },
+        ],
+
+        Steps =
+        [
+            "Text gelesen ({seiten} Seiten)",
+            "Absender: {absender}",
+            "Typ: Statusreport (fondsgebunden)",
+            "{ziel}",
+            "{werte} Werte gelesen",
+        ],
+    };
+
+    /// <summary>
     /// Quartalsaufstellung MiFID II — Abschnitt 14.4, acht Felder.
     /// </summary>
     /// <remarks>
@@ -602,7 +789,14 @@ public static class DocumentKindLibrary
         ],
     };
 
-    public static readonly IReadOnlyList<DocumentKind> All = [Statusreport, QuarterlyStatement];
+    /// <remarks>
+    /// Die klassische Art steht vor der fondsgebundenen: beide führen „Statusreport“, und der
+    /// klassische Bericht verlangt zusätzlich „Wert der Versicherung“, den der fondsgebundene
+    /// nicht kennt. Die Kennzeichen schließen sich also aus — die Reihenfolge ist trotzdem
+    /// festgelegt, damit die Zuordnung nicht davon abhängt, welche Art zufällig zuerst steht.
+    /// </remarks>
+    public static readonly IReadOnlyList<DocumentKind> All =
+        [Statusreport, FundStatusreport, QuarterlyStatement];
 
     /// <summary>
     /// Welcher Typ zu einem gelesenen Text passt.
@@ -854,14 +1048,15 @@ public sealed class DocumentFieldExtractor
         }
 
         var summe = decimal.Round(teile.Sum(t => t!.Value), 2);
-        var stimmt = Math.Abs(summe - ausgewiesen) <= 0.01m;
+        var stimmt = Math.Abs(summe - ausgewiesen) <= gruppe.TotalTolerance;
 
         if (!stimmt)
         {
             werte[schluessel] = gesamt with
             {
                 Confidence = Doubtful,
-                Warning = $"Die {zeilen.Count} Zeilen ergeben {Format(gesamt.Rule, summe)} — bitte prüfen",
+                Warning = $"Die {zeilen.Count} {(zeilen.Count == 1 ? "Zeile ergibt" : "Zeilen ergeben")} "
+                          + $"{Format(gesamt.Rule, summe)} — bitte prüfen",
             };
         }
 
@@ -1238,7 +1433,12 @@ public sealed class DocumentFieldExtractor
 
         if (regel.Kind == DocumentValueKind.Date)
         {
-            return DateOnly.TryParseExact(text, Datumsformate, German, DateTimeStyles.None, out var tag)
+            // „31,12.2023“ aus dem Scan: ein Komma steht in einem deutschen Datum nie, und die
+            // Stelle, an der es steht, lässt keine zweite Lesart zu. Der Rohtext bleibt, wie er
+            // auf dem Papier steht — geprüft wird das berichtigte Datum.
+            var datum = text.Replace(',', '.');
+
+            return DateOnly.TryParseExact(datum, Datumsformate, German, DateTimeStyles.None, out var tag)
                 ? new ReadValue { Rule = regel, Raw = text, Date = tag }
                 : null;
         }
@@ -1257,9 +1457,38 @@ public sealed class DocumentFieldExtractor
         zahl = zahl.Replace(" ", string.Empty, StringComparison.Ordinal)
             .Replace("\u00a0", string.Empty, StringComparison.Ordinal);
 
+        if (!IsGermanNumber(zahl))
+        {
+            return null;
+        }
+
         return decimal.TryParse(zahl, NumberStyles.Number, German, out var wert)
             ? new ReadValue { Rule = regel, Raw = text, Number = wert }
             : null;
+    }
+
+    /// <summary>
+    /// Ob die Zeichenfolge im Deutschen überhaupt eine Zahl ist.
+    /// </summary>
+    /// <remarks>
+    /// <para>Ein Punkt mit einer oder zwei Stellen dahinter ist keine: als Tausenderpunkt
+    /// bräuchte er drei Stellen, als Dezimaltrenner ein Komma. Die deutsche Kultur liest ihn
+    /// trotzden — sie prüft die Gruppengröße nicht — und macht aus dem eingescannten
+    /// „43 866.12“ den Betrag <b>4.386.612</b>, also das Hundertfache.</para>
+    /// <para>Gefunden am Scan von 2023: dort hat die Texterkennung Punkt und Komma vertauscht.
+    /// Lieber kein Wert als der hundertfache — die Übernahme verlangt ihn dann von Hand.</para>
+    /// </remarks>
+    private static bool IsGermanNumber(string zahl)
+    {
+        if (zahl.Contains(',', StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        var punkt = zahl.LastIndexOf('.');
+
+        // Ohne Punkt bleibt nichts zu prüfen; mit Punkt müssen genau drei Stellen folgen.
+        return punkt < 0 || zahl.Length - punkt - 1 == 3;
     }
 
     /// <summary>Wie ein Wert dieser Art im Dokument aussähe.</summary>

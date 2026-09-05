@@ -136,6 +136,95 @@ public sealed class DocumentKindTests
         return Content(zeilen);
     }
 
+    /// <summary>
+    /// Ein Statusreport einer fondsgebundenen Lebensversicherung im Aufbau des Originals.
+    /// </summary>
+    /// <remarks>
+    /// <para>Kein Rückkaufswert, keine Überschussbeteiligung: der Wert steht als
+    /// <em>Anteilsguthaben</em> unter einer Fondstabelle, und dahinter wiederholt ein Satz
+    /// denselben Betrag für den Fall der Kündigung. Namen, WKN und Beträge sind erfunden.</para>
+    /// <para><paramref name="alterJahrgang"/> schaltet auf die Schreibweise bis 2017:
+    /// „Ihr aktueller Vertragsstand“, „Todesfallschutz“ statt der zwei Todesfallzeilen, Beträge
+    /// in „Euro“ und eine Spalte Fondswährung in der Tabelle.</para>
+    /// </remarks>
+    private static PdfContent FundStatusreport(
+        IReadOnlyList<(string Wkn, string Name, string Anteile, string Preis, string Wert)>? fonds = null,
+        string anteilsguthaben = "10.000,00",
+        bool alterJahrgang = false,
+        string stichtag = "31.12.2024")
+    {
+        fonds ??=
+        [
+            ("TEST01", "Musterfonds Welt", "31,4706", "197,3600", "6.211,03"),
+            ("TEST02", "Musterfonds Anleihen", "21,1912", "136,7500", "3.788,97"),
+        ];
+
+        var währung = alterJahrgang ? "Euro" : "EUR";
+
+        List<PdfLine> zeilen =
+        [
+            Line(1, "Nordstern Lebensversicherung AG"),
+            Line(1, "Hamburg, 05.03.2025"),
+            Line(1, "Seite 1 von 3"),
+            Line(1, "Versicherungsnummer:", "77001122-02"),
+            Line(1, "Versicherungsnehmer:", "Erika Mustermann"),
+            Line(1, $"Ihr Statusreport zum {stichtag}"),
+            Line(1, "hiermit übersenden wir Ihnen den Statusreport zum Stand Ihrer fondsgebundenen"),
+
+            Line(1, alterJahrgang
+                ? $"Ihr aktueller Vertragsstand zum {stichtag}"
+                : $"Ihr Vertragsstand zum {stichtag}"),
+            Line(1, "Versicherungsform", "Muster topinvest fondsgebundene Lebensversicherung"),
+            Line(1, "Anlagestrategie", "Portfolio IV Wachstumsorientiert"),
+        ];
+
+        if (alterJahrgang)
+        {
+            // Die Beschriftung bricht um: der Betrag steht in der zweiten Zeile.
+            zeilen.Add(Line(1, "Beitragssumme"));
+            zeilen.Add(Line(1, "(entspricht den über die Laufzeit zu zahlenden Beiträgen)", $"36.000,00 {währung}"));
+            zeilen.Add(Line(1, "Todesfallschutz", $"36.000,00 {währung}"));
+        }
+        else
+        {
+            zeilen.Add(Line(1, "Beitragssumme (entspricht den über die Laufzeit", $"43.000,00 {währung}"));
+            zeilen.Add(Line(1, "zu zahlenden Beiträgen)"));
+            zeilen.Add(Line(1, "Mindesttodesfallschutz:", $"43.000,00 {währung}"));
+            zeilen.Add(Line(1, "Aktuelle Leistung im Todesfall:", $"45.000,00 {währung}"));
+        }
+
+        zeilen.Add(Line(1, "Ihre Leistungen bei Berufsunfähigkeit zum 01.01.2025"));
+        zeilen.Add(Line(1, "Leistungen bei Berufsunfähigkeit", "Beitragsbefreiung"));
+
+        zeilen.Add(Line(2, "Seite 2 von 3"));
+        zeilen.Add(Line(2, "Fondsübersicht"));
+        zeilen.Add(alterJahrgang
+            ? Line(2, "WKN", "Fonds", "Anteile", "Anteilspreise", "Fonds", "Zeitwert")
+            : Line(2, "WKN", "Fonds", "Anteile", "Anteilspreis in", "Wert der"));
+
+        foreach (var f in fonds)
+        {
+            zeilen.Add(alterJahrgang
+                ? Line(2, f.Wkn, f.Name, f.Anteile, f.Preis, "EUR", f.Wert)
+                : Line(2, f.Wkn, f.Name, f.Anteile, f.Preis, f.Wert));
+        }
+
+        zeilen.AddRange(
+        [
+            Line(2, "Anteilsguthaben:", anteilsguthaben),
+            Line(2, "Garantierte finanzielle Leistungen zum Ablauf:"),
+            Line(2, "Für Ihre fondsgebundene Lebensversicherung sind keine der Höhe nach garantierten"),
+            Line(2, "Leistung bei Kündigung:"),
+            Line(2, $"reichten Anteilsguthabens {anteilsguthaben} EUR ggf. reduziert um steuerliche Abzüge."),
+
+            // Die Fußzeile eröffnete früher einen Block ohne Wert und legte die Summenprobe lahm.
+            Line(2, "665463", "Fax: +49 40 21995 6999", "Registergericht: Offenbach", "5014"),
+            Line(3, "Seite 3 von 3"),
+        ]);
+
+        return Content(zeilen);
+    }
+
     private ExtractionResult ReadQuarterly(PdfContent inhalt)
         => extractor.Read(DocumentKindLibrary.QuarterlyStatement, inhalt);
 
@@ -167,6 +256,27 @@ public sealed class DocumentKindTests
     {
         Assert.Equal(DocumentKindLibrary.Statusreport, DocumentKindLibrary.Detect(Statusreport()));
         Assert.Equal(DocumentKindLibrary.QuarterlyStatement, DocumentKindLibrary.Detect(Quarterly()));
+    }
+
+    /// <summary>
+    /// Zwei Statusreporte, zwei Typen.
+    /// </summary>
+    /// <remarks>
+    /// Beide Papiere heißen „Statusreport“ und kommen vom selben Absender. Getrennt werden sie an
+    /// dem, was sie führen: der klassische Vertrag einen Abschnitt „Wert der Versicherung“, der
+    /// fondsgebundene eine Fondstabelle mit Anteilsguthaben. Eine Verwechslung ließe jedes
+    /// Wertfeld leer — genau so hat der fondsgebundene Bericht vorher keinen Typ bekommen.
+    /// </remarks>
+    [Fact]
+    public void Der_fondsgebundene_Statusreport_ist_ein_eigener_Typ()
+    {
+        Assert.Equal(
+            DocumentKindLibrary.FundStatusreport,
+            DocumentKindLibrary.Detect(FundStatusreport()));
+
+        Assert.Equal(
+            DocumentKindLibrary.Statusreport,
+            DocumentKindLibrary.Detect(Statusreport()));
     }
 
     [Fact]
@@ -342,6 +452,165 @@ public sealed class DocumentKindTests
         Assert.Equal("Nordstern Lebensversicherung AG", werte["absender"].Raw);
     }
 
+    // ── Statusreport fondsgebunden ─────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Das Anteilsguthaben ist der erreichte Wert.
+    /// </summary>
+    /// <remarks>
+    /// Es steht unter der Fondstabelle und wiederholt sich im Satz zur Kündigung. Gelesen wird
+    /// die Tabellenzeile: der Satz nennt denselben Betrag, aber in einem Fließtext, dessen
+    /// Zeilenumbruch nicht vorhersehbar ist.
+    /// </remarks>
+    [Fact]
+    public void Das_Anteilsguthaben_traegt_den_Wert()
+    {
+        var werte = Read(DocumentKindLibrary.FundStatusreport, FundStatusreport());
+
+        Assert.Equal(10000.00m, werte["anteilsguthaben"].Number);
+        Assert.True(werte["anteilsguthaben"].Rule.Lead);
+        Assert.Equal(2, werte["anteilsguthaben"].Page);
+    }
+
+    /// <summary>
+    /// Mindestschutz und aktuelle Leistung im Todesfall sind zwei Größen.
+    /// </summary>
+    /// <remarks>
+    /// Der Mindestschutz entspricht der Beitragssumme, die aktuelle Leistung wächst mit dem
+    /// Vertragskapital. In einem Feld zusammengelegt zeigte der Bericht die eine und ließe die
+    /// andere verschwinden — und „Mindesttodesfallschutz“ beginnt nicht mit „Todesfallschutz“,
+    /// weshalb die Beschriftung des älteren Jahrgangs hier nicht dazwischengreift.
+    /// </remarks>
+    [Fact]
+    public void Todesfallschutz_und_Leistung_im_Todesfall_bleiben_getrennt()
+    {
+        var neu = Read(DocumentKindLibrary.FundStatusreport, FundStatusreport());
+
+        Assert.Equal(43000.00m, neu["mindesttodesfall"].Number);
+        Assert.Equal(45000.00m, neu["todesfall"].Number);
+        Assert.Equal(43000.00m, neu["beitragssumme"].Number);
+    }
+
+    /// <summary>
+    /// Der Jahrgang bis 2017 schreibt anders — und wird gelesen.
+    /// </summary>
+    /// <remarks>
+    /// „Ihr aktueller Vertragsstand“, „Todesfallschutz“ ohne Mindestschutz, Beträge in „Euro“ und
+    /// eine Beitragssumme, deren Beschriftung eine Zeile über ihrem Betrag steht.
+    /// </remarks>
+    [Fact]
+    public void Der_aeltere_Jahrgang_wird_auch_gelesen()
+    {
+        var werte = Read(
+            DocumentKindLibrary.FundStatusreport,
+            FundStatusreport(alterJahrgang: true, stichtag: "31.12.2015"));
+
+        Assert.Equal(10000.00m, werte["anteilsguthaben"].Number);
+        Assert.Equal(36000.00m, werte["beitragssumme"].Number);
+        Assert.Equal(36000.00m, werte["todesfall"].Number);
+        Assert.False(werte.ContainsKey("mindesttodesfall"));
+        Assert.Equal(new DateOnly(2015, 12, 31), werte["stichtag"].Date);
+    }
+
+    /// <summary>
+    /// Die Leistung bei Berufsunfähigkeit ist ein Wort, kein Betrag.
+    /// </summary>
+    /// <remarks>
+    /// Der Vertrag befreit von den Beiträgen und zahlt keine Rente. Als Geldfeld bliebe die
+    /// Angabe leer, und niemand wüsste, ob sie fehlt oder keine ist.
+    /// </remarks>
+    [Fact]
+    public void Die_Berufsunfaehigkeit_steht_im_Klartext()
+    {
+        var werte = Read(DocumentKindLibrary.FundStatusreport, FundStatusreport());
+
+        Assert.Equal("Beitragsbefreiung", werte["bu"].Raw);
+        Assert.Null(werte["bu"].Number);
+    }
+
+    /// <summary>
+    /// Die Fondszeilen ergeben das Anteilsguthaben.
+    /// </summary>
+    /// <remarks>
+    /// Die Probe des Dokuments gegen sich selbst. Die Fußzeile mit einer sechsstelligen Nummer
+    /// darf dabei keinen Block eröffnen — sie trägt keinen Wert, und die Summenprobe fiel
+    /// deshalb vorher ganz aus.
+    /// </remarks>
+    [Fact]
+    public void Die_Fondszeilen_ergeben_das_Anteilsguthaben()
+    {
+        var gelesen = extractor.Read(DocumentKindLibrary.FundStatusreport, FundStatusreport());
+
+        Assert.Equal(2, gelesen.Rows.Count);
+        Assert.Equal("Musterfonds Welt", gelesen.Rows[0]["fonds"]?.Raw);
+        Assert.Equal(6211.03m, gelesen.Rows[0]["fondswert"]?.Number);
+
+        var probe = Assert.Single(gelesen.Proofs);
+        Assert.True(probe.Passed);
+        Assert.Contains("2 Zeilen", probe.Line);
+    }
+
+    /// <summary>
+    /// Ein paar Cent Unterschied sind keine Unstimmigkeit.
+    /// </summary>
+    /// <remarks>
+    /// Der Bericht summiert die ungerundeten Zeilenwerte und weist die gerundeten aus. Bei sechs
+    /// Fonds stehen so zwei Cent Unterschied auf dem Papier — eine Probe, die daran scheitert,
+    /// meldet die Rundung des Absenders als Lesefehler.
+    /// </remarks>
+    [Fact]
+    public void Die_Rundung_des_Absenders_gilt_nicht_als_Fehler()
+    {
+        var gelesen = extractor.Read(
+            DocumentKindLibrary.FundStatusreport,
+            FundStatusreport(anteilsguthaben: "9.999,98"));
+
+        Assert.True(Assert.Single(gelesen.Proofs).Passed);
+        Assert.Equal(9999.98m, gelesen.Values.Single(w => w.Rule.Key == "anteilsguthaben").Number);
+    }
+
+    /// <summary>
+    /// Eine fehlende Fondszeile fällt auf.
+    /// </summary>
+    /// <remarks>
+    /// Im Jahrgang 2016 ist eine WKN in der Textebene verstümmelt, und die Zeile fehlt darum in
+    /// der Tabelle. Die Summe zeigt es: sie ist um genau diese Zeile zu klein, und der Wert
+    /// bekommt seinen Warnhinweis.
+    /// </remarks>
+    [Fact]
+    public void Eine_fehlende_Fondszeile_faellt_auf()
+    {
+        var gelesen = extractor.Read(
+            DocumentKindLibrary.FundStatusreport,
+            FundStatusreport(
+                fonds: [("TEST01", "Musterfonds Welt", "31,4706", "197,3600", "6.211,03")],
+                anteilsguthaben: "10.000,00"));
+
+        var probe = Assert.Single(gelesen.Proofs);
+        Assert.False(probe.Passed);
+        Assert.Contains("ausgewiesen sind", probe.Line);
+
+        var wert = gelesen.Values.Single(w => w.Rule.Key == "anteilsguthaben");
+        Assert.Equal(10000.00m, wert.Number);
+        Assert.Contains("bitte prüfen", wert.Warning);
+    }
+
+    /// <summary>Eine einzelne Zeile heißt „1 Zeile“.</summary>
+    [Fact]
+    public void Der_Hinweis_zaehlt_die_Zeile_im_Singular()
+    {
+        var gelesen = extractor.Read(
+            DocumentKindLibrary.FundStatusreport,
+            FundStatusreport(
+                fonds: [("TEST01", "Musterfonds Welt", "31,4706", "197,3600", "6.211,03")],
+                anteilsguthaben: "10.000,00"));
+
+        var wert = gelesen.Values.Single(w => w.Rule.Key == "anteilsguthaben");
+
+        Assert.Contains("1 Zeile ergibt", wert.Warning);
+        Assert.DoesNotContain("1 Zeilen", wert.Warning);
+    }
+
     // ── Quartalsaufstellung ────────────────────────────────────────────────────────────────
 
     [Fact]
@@ -491,6 +760,94 @@ public sealed class DocumentKindTests
 
         Assert.Equal(["nominale", "kurswert"], art.Repeat!.Fields.Where(f => f.Lead).Select(f => f.Key));
         Assert.Equal(["depotwert"], art.Fields.Where(f => f.Lead).Select(f => f.Key));
+    }
+
+    // ── Werte lesen ────────────────────────────────────────────────────────────────────────
+
+    private static DocumentFieldRule Geldfeld
+        => DocumentKindLibrary.FundStatusreport.Fields.Single(f => f.Key == "anteilsguthaben");
+
+    private static DocumentFieldRule Datumsfeld
+        => DocumentKindLibrary.FundStatusreport.Fields.Single(f => f.Key == "stichtag");
+
+    [Theory]
+    [InlineData("10.000,00", 10000)]
+    [InlineData("6.099,65 Euro", 6099.65)]
+    [InlineData("40.883,40 EUR", 40883.40)]
+    [InlineData("24 782,58", 24782.58)]
+    [InlineData("1.234", 1234)]
+    [InlineData("763", 763)]
+    public void Ein_deutscher_Betrag_wird_gelesen(string roh, double erwartet)
+        => Assert.Equal((decimal)erwartet, DocumentFieldExtractor.Read(Geldfeld, roh)?.Number);
+
+    /// <summary>
+    /// Ein Punkt mit zwei Stellen dahinter ist im Deutschen kein Betrag.
+    /// </summary>
+    /// <remarks>
+    /// Als Tausenderpunkt bräuchte er drei Stellen, als Dezimaltrenner ein Komma. Die deutsche
+    /// Kultur liest ihn trotzdem — sie prüft die Gruppengröße nicht — und macht aus dem
+    /// eingescannten „43 866.12“ den Betrag 4.386.612: das Hundertfache, ohne einen Hinweis.
+    /// Gefunden am Scan eines Jahrgangs, in dem die Texterkennung Punkt und Komma vertauscht hat.
+    /// </remarks>
+    [Theory]
+    [InlineData("43 866.12")]
+    [InlineData("43866.12")]
+    [InlineData("1.261.37")]
+    [InlineData("136.7500")]
+    public void Ein_Punkt_mit_falscher_Gruppe_ergibt_keinen_Betrag(string roh)
+        => Assert.Null(DocumentFieldExtractor.Read(Geldfeld, roh));
+
+    [Theory]
+    [InlineData("31.12.2024")]
+    [InlineData("31. Dezember 2012")]
+    public void Ein_Datum_wird_in_beiden_Schreibweisen_gelesen(string roh)
+        => Assert.Equal(
+            new DateOnly(int.Parse(roh[^4..]), 12, 31),
+            DocumentFieldExtractor.Read(Datumsfeld, roh)?.Date);
+
+    /// <summary>
+    /// Ein Komma im Datum kommt aus der Texterkennung und wird berichtigt.
+    /// </summary>
+    /// <remarks>
+    /// „31,12.2023“ steht so im Scan. Ein Komma trennt in einem deutschen Datum nie, und an
+    /// dieser Stelle lässt es keine zweite Lesart zu — anders als beim Betrag, wo der Punkt
+    /// wirklich zwei Bedeutungen hat. Der Rohtext bleibt, wie er auf dem Papier steht.
+    /// </remarks>
+    [Fact]
+    public void Ein_Komma_im_Datum_wird_berichtigt()
+    {
+        var gelesen = DocumentFieldExtractor.Read(Datumsfeld, "31,12.2023");
+
+        Assert.Equal(new DateOnly(2023, 12, 31), gelesen?.Date);
+        Assert.Equal("31,12.2023", gelesen?.Raw);
+    }
+
+    /// <summary>
+    /// Der Stichtag darf auch aus der Betreffzeile kommen.
+    /// </summary>
+    /// <remarks>
+    /// Im Scan von 2023 steht in der Vertragsstandzeile „Vortragsstand“ — verlesen. Die
+    /// Betreffzeile „Ihr Statusreport zum …“ trägt denselben Stichtag und ist unbeschädigt.
+    /// Ohne Stichtag wird kein Wert übernommen; deshalb zählt hier die zweite Quelle.
+    /// </remarks>
+    [Fact]
+    public void Der_Stichtag_kommt_notfalls_aus_der_Betreffzeile()
+    {
+        var verlesen = Content(
+        [
+            Line(1, "Nordstern Lebensversicherung AG"),
+            Line(1, "Versicherungsnummer:", "77001122-02"),
+            Line(1, "Ihr Statusreport zum 31,12.2023"),
+            Line(1, "Ihr Vortragsstand zum 31.12.2023"),
+            Line(2, "Fondsübersicht"),
+            Line(2, "TEST01", "Musterfonds Welt", "31,4706", "197,3600", "6.211,03"),
+            Line(2, "Anteilsguthaben:", "6.211,03"),
+        ]);
+
+        var werte = Read(DocumentKindLibrary.FundStatusreport, verlesen);
+
+        Assert.Equal(new DateOnly(2023, 12, 31), werte["stichtag"].Date);
+        Assert.Equal(6211.03m, werte["anteilsguthaben"].Number);
     }
 
     // ── Beschaffenheit ─────────────────────────────────────────────────────────────────────
