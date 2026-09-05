@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using FinanzApp.Api.Application;
 using FinanzApp.Api.Data;
 using FinanzApp.Api.Data.Entities;
@@ -74,7 +74,7 @@ public sealed class ScanReviewTests : IDisposable
 
         return new ScanIntakeService(
             context, Scans(inhalt, context), documents,
-            new ScanInboxService(context, documents, clock));
+            new ScanInboxService(context, documents, clock), new AssetSheetParser(), clock);
     }
 
     /// <summary>Liefert einen Beleg ein, so wie der Ordnerdienst es täte.</summary>
@@ -252,34 +252,104 @@ public sealed class ScanReviewTests : IDisposable
     }
 
     /// <summary>Ohne erkannte Art gibt es nichts zu übernehmen — und die Meldung sagt das.</summary>
+    /// <summary>
+    /// Was auch heute keine Art hergibt, lässt sich nicht übernehmen.
+    /// </summary>
+    /// <remarks>
+    /// Entscheidend ist die <em>Datei</em> und nicht der gespeicherte Abdruck: die Nachschau
+    /// erkennt die Art neu. Bleibt sie auch dann unerkannt, sagt die Meldung genau das — und
+    /// nicht „kein Typ erkannt worden“, was nach einem alten Zustand klingt, den man nicht
+    /// ändern kann.
+    /// </remarks>
     [Fact]
     public async Task Ohne_erkannte_Art_gibt_es_keine_Nachschau()
     {
-        int id;
-
-        using (var context = database.Context())
-        {
-            var dokument = new Document
-            {
-                Title = "Irgendwas",
-                RelativePath = "Sonstiges/beleg.pdf",
-                FileName = "beleg.pdf",
-                Area = DocumentArea.Other,
-                CreatedAt = clock.Now,
-                UpdatedAt = clock.Now,
-            };
-
-            context.Documents.Add(dokument);
-            context.SaveChanges();
-            id = dokument.Id;
-        }
+        var eingeliefert = await EinliefernAsync(
+            Content(Line(1, "Stromrechnung"), Line(1, "Verbrauch", "2.400 kWh")));
 
         using var prüfung = database.Context();
 
         var fehler = await Assert.ThrowsAsync<RuleViolationException>(
-            () => Scans(Statusreport(), prüfung).ReviewAsync(id));
+            () => Scans(Content(Line(1, "Stromrechnung")), prüfung)
+                .ReviewAsync(eingeliefert.DocumentId));
 
-        Assert.Contains("kein Typ erkannt", fehler.Message);
+        Assert.Contains("keine Art zu erkennen", fehler.Message);
+    }
+
+    /// <summary>
+    /// Ein Beleg ohne Leseabdruck wird bei der Nachschau neu erkannt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Fall, der das nötig machte: zwölf Statusreporte einer fondsgebundenen
+    /// Versicherung lagen im Eingang, weil die Anwendung diese Art damals nicht kannte. Sie kam
+    /// später dazu — die Belege blieben trotzdem stumm, denn der gespeicherte Abdruck trug keine
+    /// Art, und ohne Art führte keine Fläche zum Prüfschritt.</para>
+    /// <para>Jetzt entscheidet die Datei. Der Abdruck ist eine Momentaufnahme der Regeln von
+    /// damals; er darf nicht bestimmen, was heute lesbar ist.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Ein_Beleg_ohne_Leseabdruck_wird_neu_erkannt()
+    {
+        var eingeliefert = await EinliefernAsync(Statusreport());
+
+        // Die Art aus dem Abdruck nehmen — so lag der Beleg da, als die Regel noch fehlte.
+        using (var context = database.Context())
+        {
+            context.Documents.Single(d => d.Id == eingeliefert.DocumentId).ScanKind = null;
+            context.SaveChanges();
+        }
+
+        using (var context = database.Context())
+        {
+            var prüfschritt = await Scans(Statusreport(), context)
+                .ReviewAsync(eingeliefert.DocumentId);
+
+            Assert.Equal("Statusreport Lebensversicherung", prüfschritt.KindLabel);
+            Assert.Null(prüfschritt.Blocker);
+        }
+
+        using (var context = database.Context())
+        {
+            var ergebnis = await Scans(Statusreport(), context).ConfirmAsync(
+                new ConfirmScanRequest { DocumentId = eingeliefert.DocumentId });
+
+            Assert.True(ergebnis.Saved);
+        }
+
+        Assert.Equal(13580.23m, Vertrag().CurrentValue);
+    }
+
+    /// <summary>
+    /// Der Eingang führt auch zu einem Beleg ohne Abdruck.
+    /// </summary>
+    /// <remarks>
+    /// Sonst gäbe es die Nachschau, aber keinen Weg dorthin. Der Schalter heißt dann „Neu lesen“
+    /// statt „Werte übernehmen“ — was dahinter passiert, ist dasselbe.
+    /// </remarks>
+    [Fact]
+    public async Task Der_Eingang_fuehrt_auch_ohne_Abdruck_zur_Nachschau()
+    {
+        var eingeliefert = await EinliefernAsync(Statusreport());
+
+        using (var context = database.Context())
+        {
+            context.Documents.Single(d => d.Id == eingeliefert.DocumentId).ScanKind = null;
+            context.SaveChanges();
+        }
+
+        using var prüfung = database.Context();
+
+        var eingang = await new ScanInboxService(
+            prüfung,
+            new DocumentService(
+                prüfung, TestDatabase.PathService(root), new ObjectLabelService(prüfung), clock,
+                NullLogger<DocumentService>.Instance),
+            clock).GetAsync();
+
+        var eintrag = Assert.Single(eingang.Items);
+
+        Assert.False(eintrag.CanTakeValues);
+        Assert.Equal($"/scannen/{eingeliefert.DocumentId}", eintrag.ValuesHref);
     }
 
     /// <summary>

@@ -427,6 +427,17 @@ public sealed record ScanInboxItemDto
     /// </remarks>
     public required bool CanTakeValues { get; init; }
 
+    /// <summary>
+    /// Wohin der Schalter „Werte übernehmen“ führt.
+    /// </summary>
+    /// <remarks>
+    /// Nicht jeder Prüfschritt sieht gleich aus: ein Statusreport trägt einen Wert für einen
+    /// Vertrag, eine Vermögensübersicht acht Werte für acht Verträge. Welcher Schirm der richtige
+    /// ist, weiß der Server aus der erkannten Art — die Oberfläche folgt dem Weg, statt ihn aus
+    /// einem Kennzeichen selbst zusammenzusetzen.
+    /// </remarks>
+    public string? ValuesHref { get; init; }
+
     public required DateOnly ArrivedOn { get; init; }
 }
 

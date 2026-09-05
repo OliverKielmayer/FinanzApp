@@ -40,11 +40,31 @@ public sealed class ScanInboxService(FinanzAppDbContext db, DocumentService docu
                     PageCount = x.PageCount,
                     Recognised = x.Recognised,
                     CanTakeValues = x.Document != null && x.Document.ScanKind != null,
+                    ValuesHref = ValuesHref(x.Document),
                     ArrivedOn = DateOnly.FromDateTime(x.CreatedAt),
                 }),
             ],
         };
     }
+
+    /// <summary>
+    /// Der Prüfschritt, der zu diesem Dokument passt.
+    /// </summary>
+    /// <remarks>
+    /// Die Vermögensübersicht hat einen eigenen: sie trägt eine Zeile je Vertrag, und der Schirm
+    /// des Einzelbelegs zeigt einen Wert für ein Objekt. Ohne diese Weiche landete eine Datei mit
+    /// acht Verträgen im Prüfschritt für einen — der sie nicht einmal lesen könnte.
+    /// </remarks>
+    private static string? ValuesHref(Document? document) => document?.ScanKind switch
+    {
+        // Auch ohne Abdruck: die Nachschau liest die Datei mit den Regeln von heute und erkennt
+        // die Art dabei neu. Sonst bliebe ein Beleg, der vor einer neuen Leseregel hereinkam, für
+        // immer stumm — die Fläche dorthin fehlte, und der einzige Weg wäre, dieselbe Datei ein
+        // zweites Mal einzulesen.
+        null => document is null ? null : $"/scannen/{document.Id}",
+        AssetSheetKind.Key => AssetSheetKind.Href(document.Id),
+        _ => $"/scannen/{document.Id}",
+    };
 
     /// <summary>Nimmt einen bereits abgelegten Beleg in den Eingang auf.</summary>
     public async Task<int> AddAsync(

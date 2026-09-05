@@ -184,6 +184,39 @@ Unter *Wohnen* hängen an der Immobilie ihre Verträge und Rechnungen; das Darle
 auf den Darlehensbereich, wo auch der Tilgungsplan steht. Zahlungen sind überall Verweise auf echte
 Buchungen — eine Geldbewegung bleibt eine Buchung.
 
+### Vermögensübersicht einlesen
+
+Wer von seinem Makler monatlich eine **Vermögensübersicht** bekommt — eine Tabelle mit einer
+Zeile je Vertrag —, muss die Werte nicht abtippen. Unter *Vorsorge & Kapital* steht dafür unten
+**Vermögensübersicht einlesen**; liegt der Ordnerdienst auf einem überwachten Ordner, genügt es,
+die Datei dort abzulegen. Dann kommt sie von selbst herein und wartet im Scaneingang.
+
+Der Prüfschritt zeigt **je Vertrag eine Zeile**: die Vertragsnummer, den Wert aus der Datei und
+daneben, was bisher am Vertrag steht. Ein Tipp auf die Zeile schaltet den Vertrag zu oder ab.
+Vorgeschlagen ist, was etwas ändert — dieselbe Datei ein zweites Mal eingelesen schlägt nichts
+mehr vor, und der Kopf sagt auch, warum.
+
+Drei Dinge lohnen einen Blick:
+
+- **Verträge, die es in der App noch nicht gibt**, tragen „neu anlegen“. Sie entstehen aus den
+  Angaben der Datei — Art, Gesellschaft, Nummer, Beitrag — und heißen erst einmal nach
+  Gesellschaft und Nummer. Umbenennen können Sie sie danach.
+- **Nicht übernommen** steht unter der Liste, mit Zeilennummer und Grund. Die Datei führt auch
+  Girokonto, Tagesgeld und Depot; die gehören nicht in die Vorsorge und verschwinden trotzdem
+  nicht stillschweigend. Steht die Nummer einer solchen Zeile später an einem kapitalbildenden
+  Vertrag — einem Bausparvertrag etwa —, kommt sie beim nächsten Mal mit.
+- **Der Beitrag** wird nur nachgetragen, wo keiner steht. Nennt die Datei einen anderen als der
+  Vertrag, sagt die Zeile das und lässt ihn stehen: eine Dynamik tragen Sie am Vertrag ein, nicht
+  eine Datei, die monatlich unbeaufsichtigt hereinkommt.
+
+Übernommen wird je Vertrag, nicht je Stichtag — bei einer Historie mit Hunderten Ständen wäre
+alles andere eine Zumutung. Ein einzelner Stand, der nicht stimmt, lässt sich am Vertrag unter
+*Verlauf* wieder entfernen; danach zählt der neueste verbliebene.
+
+Ein nachgetragener **älterer** Stand senkt den erreichten Wert nicht: maßgeblich ist der jüngste
+Stichtag, nicht der zuletzt eingelesene. Eine über Jahre geführte Historie lässt sich damit auch
+noch nach der aktuellen Monatsdatei einlesen.
+
 ## 8b. Fahrzeuge · Scaneingang
 
 **Fahrzeuge** funktionieren wie Immobilien: ein Objekt, an dem alles hängt. Oben stehen die

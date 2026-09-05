@@ -177,7 +177,9 @@ builder.Services.AddScoped<DepotTradeService>();
 builder.Services.AddScoped<DepotStatementService>();
 builder.Services.AddScoped<HealthBalanceService>();
 builder.Services.AddScoped<DocumentScanService>();
+builder.Services.AddSingleton<AssetSheetParser>();
 builder.Services.AddScoped<ScanIntakeService>();
+builder.Services.AddScoped<PolicyValueImportService>();
 builder.Services.AddScoped<TaxYearService>();
 
 // ── Kurse ─────────────────────────────────────────────────────────────────────────────────

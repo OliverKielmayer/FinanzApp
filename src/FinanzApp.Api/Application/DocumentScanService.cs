@@ -95,10 +95,6 @@ public sealed class DocumentScanService(
         var dokument = await db.Documents.FirstOrDefaultAsync(d => d.Id == documentId, ct)
                        ?? throw new RuleViolationException("Dieses Dokument gibt es nicht.");
 
-        var art = DocumentKindLibrary.All.FirstOrDefault(a => a.Key == dokument.ScanKind)
-                  ?? throw new RuleViolationException(
-                      "Für dieses Dokument ist kein Typ erkannt worden — es lässt sich nicht übernehmen.");
-
         if (paths.Resolve(dokument.RelativePath) is not { } absolut || !File.Exists(absolut))
         {
             throw new RuleViolationException(
@@ -114,6 +110,17 @@ public sealed class DocumentScanService(
 
         buffer.Position = 0;
         var inhalt = reader.Read(buffer);
+
+        // Die Art kommt aus der Datei und erst danach aus dem gespeicherten Abdruck. Der Abdruck
+        // ist eine Momentaufnahme der Regeln von damals: ein Beleg, der vor einer neuen Leseregel
+        // hereinkam, trägt gar keine Art — und blieb deshalb für immer unübernommen, obwohl die
+        // Anwendung ihn heute lesen kann. Genau so lagen zwölf Statusreporte einer
+        // fondsgebundenen Versicherung im Eingang.
+        var art = DocumentKindLibrary.Detect(inhalt)
+                  ?? DocumentKindLibrary.All.FirstOrDefault(a => a.Key == dokument.ScanKind)
+                  ?? throw new RuleViolationException(
+                      "Aus dieser Datei ist auch mit den heutigen Leseregeln keine Art zu "
+                      + "erkennen — übernehmen lässt sich daraus nichts.");
 
         return await DescribeAsync(art, inhalt, extractor.Read(art, inhalt), dokument, dokument.FileName, ct);
     }
@@ -141,6 +148,11 @@ public sealed class DocumentScanService(
         var stichtag = Date(werte, art.AsOfField);
         var schreiben = Date(werte, art.DocumentDateField);
         var ziel = await TargetAsync(art, Text(werte, art.TargetNumberField), ct);
+
+        // Die erkannte Art gehört zum Abdruck: die Bestätigung liest sie von dort. Ohne diese
+        // Zeile zeigte die Nachschau den Prüfschritt, und die Übernahme antwortete „kein Typ
+        // erkannt worden“ — zwei Stellen, zwei Wahrheiten über dieselbe Datei.
+        dokument.ScanKind = art.Key;
 
         db.DocumentExtractions.RemoveRange(
             await db.DocumentExtractions.Where(x => x.DocumentId == dokument.Id).ToListAsync(ct));

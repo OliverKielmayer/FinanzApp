@@ -1,0 +1,539 @@
+﻿@page "/vorsorge/werte"
+@page "/vorsorge/werte/{DocumentId:int}"
+@attribute [Authorize(Roles = "Owner,Member")]
+@inherits AppPage
+
+@*
+    Vermögensübersicht übernehmen — der Prüfschritt für eine Datei mit einer Zeile je Vertrag.
+
+    Warum ein eigener Schirm neben „Beleg einlesen“: dort trägt ein Dokument einen Wert für ein
+    Objekt, hier acht Werte für acht Verträge. Die Auswahl steht deshalb am Vertrag und nicht am
+    Wert — bei 264 Ständen wäre alles andere eine Zumutung, und ein einzelner Stand lässt sich am
+    Vertrag wieder entfernen.
+*@
+
+<PageTitle>Vermögensübersicht übernehmen — FinanzApp</PageTitle>
+
+@if (DocumentId is null)
+{
+    <div class="detail-block">
+        <span class="detail-label">Vermögensübersicht</span>
+        <span class="detail-value">
+            Die Datei mit einer Zeile je Vertrag — die monatliche Übersicht des Maklers oder die
+            umgewandelte Historie. Sie wird abgelegt und gelesen; übernommen wird erst, was Sie
+            bestätigen.
+        </span>
+    </div>
+
+    <div class="picker last">
+        <span class="label-strong">Datei</span>
+        <div class="note-field">
+            <InputFile class="input" accept=".csv,text/csv"
+                       OnChange="OnFileSelected" aria-label="Vermögensübersicht auswählen" />
+        </div>
+    </div>
+
+    @if (uploading)
+    {
+        <div class="state" aria-busy="true">
+            <span class="state-title">@fileName wird gelesen …</span>
+        </div>
+    }
+
+    <div class="detail-block">
+        <span class="detail-label">Wiederkehrend</span>
+        <span class="detail-value">
+            Liegt der Ordnerdienst auf einem überwachten Ordner, genügt es, die Datei dort
+            abzulegen. Sie kommt dann von selbst herein und wartet im
+            <a href="/scaneingang">Scaneingang</a> auf diesen Schirm.
+        </span>
+    </div>
+}
+else
+{
+    <AsyncView Loading="Loading" Error="@Error" Stale="HasLoadedOnce" Retry="ReloadAsync">
+        @if (result is { } fertig)
+        {
+            <div class="detail-block">
+                <span class="detail-value strong">
+                    @fertig.PolicyCount @(fertig.PolicyCount == 1 ? "Vertrag" : "Verträge") übernommen
+                </span>
+                <span class="meta">@Summary(fertig)</span>
+            </div>
+
+            @foreach (var wirkung in fertig.Effects)
+            {
+                <div class="import-row plain">
+                    <span class="stack">
+                        <span class="import-label">@wirkung.PolicyName</span>
+                        <span class="meta">@Effect(wirkung)</span>
+                    </span>
+                    <span class="import-count accent">@State.Euro(wirkung.Value)</span>
+                </div>
+            }
+
+            <div class="actions">
+                <button type="button" class="btn btn-primary"
+                        @onclick="@(() => Navigation.NavigateTo("/vorsorge"))">
+                    Zur Vorsorge
+                </button>
+                <button type="button" class="btn btn-secondary"
+                        @onclick="@(() => Navigation.NavigateTo("/vorsorge/werte"))">
+                    Nächste Datei
+                </button>
+            </div>
+        }
+        else if (data is { } vorschau)
+        {
+            <div class="detail-block">
+                <span class="detail-value strong">@vorschau.FileName</span>
+                <span class="meta">@Head(vorschau)</span>
+            </div>
+
+            @if (vorschau.Source is { Length: > 0 } herkunft)
+            {
+                <div class="detail-block">
+                    <span class="detail-label">Herkunft</span>
+                    <span class="detail-value">@herkunft</span>
+                </div>
+            }
+
+            @if (vorschau.Blocker is { Length: > 0 } hindernis)
+            {
+                <div class="state">
+                    <span class="state-title">@hindernis</span>
+                </div>
+            }
+
+            @*
+                Dieselbe Zeile wie in der Importvorschau des Kontoauszugs: Kästchen, Sache,
+                Betrag. Der Zähler im Kopf und der Knopf unten lesen dieselbe Auswahl — ein Kopf,
+                der etwas anderes zählt als der Knopf übernimmt, wäre schlimmer als gar keiner.
+            *@
+            @foreach (var vertrag in vorschau.Contracts)
+            {
+                var gewählt = chosen.Contains(vertrag.ContractNumber);
+                var wählbar = CanChoose(vertrag);
+
+                <div class="import-row @(gewählt ? "picked" : null)">
+                    <label class="tx-check import-check">
+                        <input type="checkbox" checked="@gewählt" disabled="@(busy || !wählbar)"
+                               @onchange="() => Toggle(vertrag)"
+                               aria-label="@($"{Title(vertrag)} übernehmen")" />
+                    </label>
+
+                    @* Jede Angabe eine eigene Zeile: die Spalte ist eine Flex-Spalte. *@
+                    <span class="stack">
+                        <span class="import-row-payee">@Title(vertrag)</span>
+                        <span class="meta">@Meta(vertrag)</span>
+
+                        @if (vertrag.Stands.Count > 1)
+                        {
+                            <span class="meta">@Stands(vertrag)</span>
+                        }
+
+                        @*
+                            Ein abweichender Beitrag — eine Dynamik etwa — wird nicht übernommen:
+                            eine monatlich unbeaufsichtigt hereinkommende Datei schreibt keine
+                            Angabe um, um die niemand gebeten hat. Verschwiegen wird er trotzdem
+                            nicht, sonst fiele die Erhöhung nie auf.
+                        *@
+                        @if (Premium(vertrag) is { } beitrag)
+                        {
+                            <span class="meta warn">@beitrag</span>
+                        }
+
+                        @foreach (var stand in vertrag.Stands.Where(s => s.Note is { Length: > 0 }))
+                        {
+                            <span class="meta warn">
+                                @GermanFormat.Date(stand.AsOf): @stand.Note
+                            </span>
+                        }
+                    </span>
+
+                    <span class="stack-end">
+                        <span class="import-row-amount num">@State.Euro(vertrag.LatestValue)</span>
+                        <span class="tag @Tag(vertrag)">@Action(vertrag)</span>
+                    </span>
+                </div>
+            }
+
+            @if (vorschau.Skipped.Count > 0)
+            {
+                @*
+                    Sie stehen hier und werden nicht stillschweigend übersprungen: wer eine Datei
+                    mit dreizehn Zeilen einliest und acht Verträge sieht, soll die fünf anderen
+                    wiederfinden — sonst sucht er nach seinem Girokonto.
+                *@
+                <div class="detail-block">
+                    <span class="detail-label">
+                        Nicht übernommen — @vorschau.Skipped.Count
+                        @(vorschau.Skipped.Count == 1 ? "Zeile" : "Zeilen")
+                    </span>
+                </div>
+
+                @foreach (var zeile in vorschau.Skipped)
+                {
+                    <div class="import-row plain">
+                        <span class="stack">
+                            <span class="import-label">@zeile.Label</span>
+                            <span class="meta">Zeile @zeile.Line · @zeile.Reason</span>
+                        </span>
+                    </div>
+                }
+            }
+
+            <div class="actions">
+                <button type="button" class="btn btn-primary"
+                        disabled="@(busy || chosen.Count == 0)"
+                        @onclick="ConfirmAsync">
+                    @Button()
+                </button>
+                <button type="button" class="btn btn-secondary" disabled="@busy"
+                        @onclick="@(() => Navigation.NavigateTo("/scaneingang"))">
+                    Zurück
+                </button>
+            </div>
+        }
+    </AsyncView>
+}
+
+<div class="spacer"></div>
+
+@code {
+    /// <summary>Höchstgröße, die der Server annimmt.</summary>
+    private const long MaxBytes = 25L * 1024 * 1024;
+
+    /// <summary>
+    /// Die abgelegte Übersicht, deren Werte noch niemand übernommen hat.
+    /// </summary>
+    /// <remarks>
+    /// Ohne sie beginnt der Schirm leer und nimmt eine Datei entgegen. Mit ihr steigt er beim
+    /// Prüfschritt ein — der Weg aus dem Scaneingang.
+    /// </remarks>
+    [Parameter] public int? DocumentId { get; set; }
+
+    private PolicyValueImportDto? data;
+    private PolicyValueResultDto? result;
+
+    /// <summary>Die zugeschalteten Verträge, über ihre Nummer.</summary>
+    private readonly HashSet<string> chosen = new(StringComparer.Ordinal);
+
+    private string fileName = string.Empty;
+    private bool uploading;
+    private bool busy;
+
+    protected override async Task LoadAsync()
+    {
+        if (DocumentId is not { } dokument)
+        {
+            data = null;
+            result = null;
+            chosen.Clear();
+            return;
+        }
+
+        result = null;
+        data = await Api.GetPolicyValuesAsync(dokument);
+
+        // Der Vorschlag der Anwendung als Ausgangslage: angehakt, wo etwas dabei herauskommt.
+        // Eine Datei, die zum zweiten Mal hereinkommt, schlägt damit nichts mehr vor.
+        chosen.Clear();
+
+        foreach (var vertrag in data.Contracts.Where(c => c.PreSelected && CanChoose(c)))
+        {
+            chosen.Add(vertrag.ContractNumber);
+        }
+    }
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+
+        if (file.Size > MaxBytes)
+        {
+            Toasts.Show("Die Datei ist größer als 25 MB.");
+            return;
+        }
+
+        fileName = file.Name;
+        uploading = true;
+
+        try
+        {
+            await using var content = file.OpenReadStream(MaxBytes);
+            var abgelegt = await Api.UploadAssetSheetAsync(content, file.Name);
+
+            // Ab hier ist es derselbe Fall wie der eingelieferte: die Datei liegt, der
+            // Prüfschritt hängt an ihrer Dokumentnummer. Ein zweiter Weg dorthin wäre ein
+            // zweiter Weg zu denselben Werten.
+            Navigation.NavigateTo(AssetSheetKind.Href(abgelegt.DocumentId));
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message);
+        }
+        finally
+        {
+            uploading = false;
+        }
+    }
+
+    private async Task ConfirmAsync()
+    {
+        if (data is not { } vorschau)
+        {
+            return;
+        }
+
+        busy = true;
+
+        try
+        {
+            result = await Api.ConfirmPolicyValuesAsync(new ConfirmPolicyValuesRequest
+            {
+                DocumentId = vorschau.DocumentId,
+                Contracts =
+                [
+                    .. vorschau.Contracts
+                        .Where(c => chosen.Contains(c.ContractNumber))
+                        .Select(c => new PolicyValueChoice(
+                            c.ContractNumber, c.PolicyId, c.Action == PolicyValueAction.Create)),
+                ],
+            });
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private void Toggle(PolicyValueContractDto contract)
+    {
+        if (!chosen.Remove(contract.ContractNumber))
+        {
+            chosen.Add(contract.ContractNumber);
+        }
+    }
+
+    /// <summary>
+    /// Ob sich der Vertrag überhaupt zuschalten lässt.
+    /// </summary>
+    /// <remarks>
+    /// Eine Zeile, aus der weder ein Treffer noch ein anlegbarer Vertrag wird, ist kein Angebot.
+    /// Sie anzuhaken ließe die Übernahme mit einer Meldung enden, die niemandem sagt, was zu tun
+    /// ist.
+    /// </remarks>
+    private static bool CanChoose(PolicyValueContractDto contract)
+        => contract.Action != PolicyValueAction.Skip
+           && (contract.PolicyId is not null || contract.SuggestedKind is not null);
+
+    /// <summary>
+    /// Die erste Zeile.
+    /// </summary>
+    /// <remarks>
+    /// Für einen Vertrag, den es noch nicht gibt, steht hier die <b>Nummer</b> und nicht der
+    /// vorgeschlagene Name. Der besteht aus Gesellschaft und Nummer, und genau die Nummer fiel
+    /// am Zeilenende der Kürzung zum Opfer — sieben Verträge hießen dann
+    /// „Heidelberger Lebensversicherung AG 01511104…“ und waren nicht mehr zu unterscheiden.
+    /// Unter welchem Namen er entsteht, sagt die Zeile darunter.
+    /// </remarks>
+    private static string Title(PolicyValueContractDto contract)
+        => contract.PolicyName ?? contract.ContractNumber;
+
+    /// <summary>Die zweite Zeile: was der Vertrag ist und was sich an ihm ändert.</summary>
+    private string Meta(PolicyValueContractDto contract)
+    {
+        var teile = new List<string>();
+
+        if (contract.ContractKind is { Length: > 0 } art)
+        {
+            teile.Add(art);
+        }
+
+        // Die Gesellschaft nur, wo sie nicht ohnehin im vorgeschlagenen Namen steht — sonst
+        // stünde derselbe lange Versicherername zweimal in einer Zeile.
+        if (contract.Company is { Length: > 0 } gesellschaft
+            && contract.SuggestedName?.Contains(gesellschaft, StringComparison.Ordinal) != true)
+        {
+            teile.Add(gesellschaft);
+        }
+
+        teile.Add("Stand " + GermanFormat.Date(contract.LatestAsOf));
+
+        if (contract.CurrentValue is { } bisher && contract.CurrentAsOf is { } seit)
+        {
+            teile.Add($"bisher {State.Euro(bisher)} vom {GermanFormat.Date(seit)}");
+        }
+        else if (contract.SuggestedName is { Length: > 0 } name)
+        {
+            teile.Add($"wird angelegt als „{name}“");
+        }
+
+        return string.Join(" · ", teile);
+    }
+
+    /// <summary>Woraus die Stände bestehen, wenn es mehr als einer ist.</summary>
+    private static string Stands(PolicyValueContractDto contract)
+    {
+        var teile = new List<string>();
+
+        if (contract.NewCount > 0)
+        {
+            teile.Add($"{contract.NewCount} neu");
+        }
+
+        if (contract.ChangedCount > 0)
+        {
+            teile.Add($"{contract.ChangedCount} berichtigt");
+        }
+
+        if (contract.UnchangedCount > 0)
+        {
+            teile.Add($"{contract.UnchangedCount} unverändert");
+        }
+
+        var erster = contract.Stands[^1].AsOf;
+
+        return $"{contract.Stands.Count} Stände seit {GermanFormat.Date(erster)} · "
+               + string.Join(", ", teile);
+    }
+
+    /// <summary>
+    /// Der Satz zum Beitrag — <c>null</c>, wenn es dazu nichts zu sagen gibt.
+    /// </summary>
+    /// <remarks>
+    /// Zwei Fälle, zwei Sätze: fehlt am Vertrag ein Beitrag, trägt die Übernahme den der Datei
+    /// nach — das ist der Grund, warum eine sonst unveränderte Zeile angehakt ist, und der
+    /// gehört dahin. Steht schon einer und weicht ab, bleibt er stehen; auch das gehört gesagt,
+    /// sonst fiele eine Dynamik nie auf.
+    /// </remarks>
+    private string? Premium(PolicyValueContractDto contract) => contract switch
+    {
+        { PolicyId: not null, CurrentPremium: 0m, MonthlyRate: > 0m and var kommt }
+            => $"Beitrag {State.Euro(kommt)} wird nachgetragen.",
+
+        { CurrentPremium: > 0m and var steht, MonthlyRate: > 0m and var kommt } when steht != kommt
+            => $"Beitrag laut Datei {State.Euro(kommt)} statt {State.Euro(steht)} — "
+               + "der Import lässt ihn stehen; ändern lässt er sich am Vertrag.",
+
+        _ => null,
+    };
+
+    private static string Action(PolicyValueContractDto contract) => contract switch
+    {
+        { Action: PolicyValueAction.Create } and { SuggestedKind: null } => "keine Art",
+        { Action: PolicyValueAction.Create } => "neu anlegen",
+        { NewCount: 0, ChangedCount: 0 } => "unverändert",
+        { ChangedCount: > 0 } => "berichtigt",
+        _ => "neuer Stand",
+    };
+
+    private static string Tag(PolicyValueContractDto contract) => contract switch
+    {
+        { Action: PolicyValueAction.Create } and { SuggestedKind: null } => "tag-neutral",
+        { NewCount: 0, ChangedCount: 0 } => "tag-neutral",
+        _ => "tag-accent",
+    };
+
+    /// <summary>Die Kopfzeile: was in der Datei steht und was davon ankäme.</summary>
+    private static string Head(PolicyValueImportDto sheet)
+    {
+        var teile = new List<string>
+        {
+            $"{sheet.LineCount} {(sheet.LineCount == 1 ? "Zeile" : "Zeilen")}",
+            $"{sheet.Contracts.Count} {(sheet.Contracts.Count == 1 ? "Vertrag" : "Verträge")}",
+        };
+
+        if (sheet.From is { } von && sheet.To is { } bis)
+        {
+            teile.Add(von == bis
+                ? "Stand " + GermanFormat.Date(bis)
+                : $"{GermanFormat.Date(von)} bis {GermanFormat.Date(bis)}");
+        }
+
+        teile.Add(sheet.NewCount + sheet.ChangedCount == 0
+            ? "nichts Neues — alle Stände stehen schon"
+            : $"{sheet.NewCount} neue, {sheet.ChangedCount} berichtigte, "
+              + $"{sheet.UnchangedCount} unveränderte Stände");
+
+        return string.Join(" · ", teile);
+    }
+
+    /// <summary>Der Knopf zählt, was die Auswahl zählt.</summary>
+    private string Button()
+    {
+        if (data is not { } vorschau)
+        {
+            return "Übernehmen";
+        }
+
+        var stände = vorschau.Contracts
+            .Where(c => chosen.Contains(c.ContractNumber))
+            .Sum(c => c.NewCount + c.ChangedCount);
+
+        return stände == 0
+            ? $"{chosen.Count} {(chosen.Count == 1 ? "Vertrag" : "Verträge")} übernehmen"
+            : $"{stände} {(stände == 1 ? "Stand" : "Stände")} übernehmen";
+    }
+
+    private static string Summary(PolicyValueResultDto result)
+    {
+        var teile = new List<string>();
+
+        if (result.CreatedCount > 0)
+        {
+            teile.Add($"{result.CreatedCount} neu angelegt");
+        }
+
+        teile.Add($"{result.NewCount} {(result.NewCount == 1 ? "Stand" : "Stände")} neu");
+
+        if (result.ChangedCount > 0)
+        {
+            teile.Add($"{result.ChangedCount} berichtigt");
+        }
+
+        return string.Join(" · ", teile);
+    }
+
+    /// <summary>
+    /// Die Wirkung an einem Vertrag — die Veränderung, nicht der Vorgang.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die Zahl der übernommenen Stände und der Stichtag des Werts sind <b>zweierlei</b>
+    /// und stehen deshalb getrennt. Ein nachgetragener älterer Stand ändert den Kopfwert nicht;
+    /// „1 Stand bis 31.12.2025“ behauptete dann einen Stichtag, den dieser Stand gar nicht
+    /// trägt.</para>
+    /// <para>Die Veränderung steht nur, wo es eine gibt. „+0,00 € gegenüber dem Stand vom
+    /// 31.12.2025“ ist keine Auskunft, sondern eine Zeile, die man erst lesen muss, um zu
+    /// merken, dass sie nichts sagt.</para>
+    /// </remarks>
+    private string Effect(PolicyValueEffectDto effect)
+    {
+        var teile = new List<string>
+        {
+            $"{effect.StandCount} {(effect.StandCount == 1 ? "Stand" : "Stände")} übernommen",
+        };
+
+        if (effect.Created)
+        {
+            teile.Add("Vertrag angelegt");
+        }
+
+        teile.Add("Stand " + GermanFormat.Date(effect.AsOf));
+
+        if (!effect.Created
+            && effect.Delta is { } unterschied and not 0m
+            && effect.PreviousAsOf is { } vorher)
+        {
+            teile.Add($"{(unterschied < 0 ? "−" : "+")}{State.Euro(Math.Abs(unterschied))} "
+                      + $"gegenüber dem Stand vom {GermanFormat.Date(vorher)}");
+        }
+
+        return string.Join(" · ", teile);
+    }
+}

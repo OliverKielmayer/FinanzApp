@@ -60,6 +60,22 @@
         <AddRow Route="@(CapitalForming ? "/neu/pension" : "/neu/protection")"
                 Label="@(CapitalForming ? "Vorsorgevertrag anlegen" : "Versicherung anlegen")" />
 
+        @*
+            Nur bei der Vorsorge: eine Absicherung führt keinen erreichten Wert, und eine
+            Vermögensübersicht hat ihr nichts zu sagen.
+        *@
+        @if (CapitalForming)
+        {
+            <AuthorizeView Roles="Owner,Member">
+                <div class="doc-actions">
+                    <button type="button" class="btn btn-secondary"
+                            @onclick="@(() => Navigation.NavigateTo("/vorsorge/werte"))">
+                        Vermögensübersicht einlesen
+                    </button>
+                </div>
+            </AuthorizeView>
+        }
+
         <div class="spacer"></div>
     }
 </AsyncView>

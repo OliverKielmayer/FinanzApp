@@ -217,6 +217,38 @@ public static class FinanzAppApiExtensions
         => api.SendWithoutResultAsync<object?>(
             HttpMethod.Delete, $"api/policies/reports/{reportId}", null, ct);
 
+    // ── Vermögensübersicht ────────────────────────────────────────────
+
+    /// <summary>
+    /// Lädt eine Vermögensübersicht hoch. Sie wird abgelegt, nicht übernommen.
+    /// </summary>
+    /// <remarks>
+    /// Derselbe Weg wie bei der eingelieferten Datei, nur von Hand angestoßen — für die einmalige
+    /// Historie aus der Tabellenkalkulation. Die Antwort nennt das Dokument, unter dem sie nun
+    /// liegt; der Prüfschritt hängt daran.
+    /// </remarks>
+    public static async Task<ScanIntakeResultDto> UploadAssetSheetAsync(
+        this FinanzAppApi api, Stream content, string fileName, CancellationToken ct = default)
+    {
+        using var form = new MultipartFormDataContent();
+        using var file = new StreamContent(content);
+        file.Headers.ContentType = new MediaTypeHeaderValue("text/csv");
+        form.Add(file, "file", fileName);
+
+        return await api.PostFormAsync<ScanIntakeResultDto>("api/policy-values/einlesen", form, ct);
+    }
+
+    /// <summary>Was in einer abgelegten Vermögensübersicht steht, neben dem, was im Bestand steht.</summary>
+    public static Task<PolicyValueImportDto> GetPolicyValuesAsync(
+        this FinanzAppApi api, int documentId, CancellationToken ct = default)
+        => api.GetAsync<PolicyValueImportDto>($"api/policy-values/{documentId}", ct);
+
+    /// <summary>Übernimmt die gewählten Verträge mit allen ihren Ständen.</summary>
+    public static Task<PolicyValueResultDto> ConfirmPolicyValuesAsync(
+        this FinanzAppApi api, ConfirmPolicyValuesRequest request, CancellationToken ct = default)
+        => api.PostAsync<ConfirmPolicyValuesRequest, PolicyValueResultDto>(
+            "api/policy-values/uebernehmen", request, ct);
+
     // ── Kurse ─────────────────────────────────────────────────────────
 
     /// <summary>Wie es um die Kurse steht.</summary>

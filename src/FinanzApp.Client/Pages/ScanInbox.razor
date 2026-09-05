@@ -69,11 +69,18 @@
                         Objekt, wenn jemand sie gesehen und bestätigt hat. Ohne diesen Schalter
                         gäbe es dafür keinen Weg außer: dieselbe Datei ein zweites Mal einlesen.
                     *@
-                    @if (item.CanTakeValues)
+                    @*
+                        Zwei Namen, ein Weg: liegt ein Leseabdruck vor, führt der Schalter zum
+                        Prüfschritt; fehlt er, liest die Nachschau die Datei mit den Regeln von
+                        heute und erkennt die Art dabei neu. „Werte lesen“ heißt deshalb nicht
+                        „noch einmal“ — der Beleg kann vorher gelegen haben, ohne je gelesen
+                        worden zu sein, und eine neue Leseregel macht ihn erst jetzt lesbar.
+                    *@
+                    @if (item.ValuesHref is { Length: > 0 } pruefen)
                     {
                         <button type="button" class="btn btn-secondary" disabled="@busy"
-                                @onclick="@(() => Navigation.NavigateTo($"/scannen/{item.DocumentId}"))">
-                            Werte übernehmen
+                                @onclick="@(() => Navigation.NavigateTo(pruefen))">
+                            @(item.CanTakeValues ? "Werte übernehmen" : "Werte lesen")
                         </button>
                     }
 

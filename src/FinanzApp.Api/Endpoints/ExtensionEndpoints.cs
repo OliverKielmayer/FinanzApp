@@ -529,6 +529,83 @@ public static class ExtensionEndpoints
             => await service.DeleteReportAsync(reportId, ct)
                 ? Results.NoContent()
                 : Results.NotFound()).RequireAuthorization(AuthPolicies.Write);
+
+        MapPolicyValues(app);
+    }
+
+    /// <summary>
+    /// Die Vermögensübersicht: lesen, prüfen, übernehmen.
+    /// </summary>
+    /// <remarks>
+    /// Zwei Wege hinein, einer hindurch. Die Monatsdatei kommt über den überwachten Ordner und
+    /// liegt dann schon als Dokument; die einmalige Historie lädt jemand von Hand hoch. Beide
+    /// enden bei derselben Vorschau, weil es dasselbe Format ist — und nur so gilt für beide
+    /// dieselbe Schwelle vor der Übernahme.
+    /// </remarks>
+    private static void MapPolicyValues(IEndpointRouteBuilder app)
+    {
+        var api = app.MapGroup("/api/policy-values")
+            .WithTags("Vorsorge & Absicherung")
+            .RequireAuthorization();
+
+        // Der Weg von Hand: die Datei wird abgelegt und in den Scaneingang gestellt, genau wie
+        // die eingelieferte. Nichts wird übernommen — die Antwort nennt nur, wo sie nun liegt.
+        api.MapPost("/einlesen", async (
+            IFormFile file, ScanIntakeService service, DocumentPathService paths,
+            CancellationToken ct) =>
+        {
+            if (file.Length == 0)
+            {
+                return Results.Problem("Die Datei ist leer.", statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            if (file.Length > paths.MaxFileSizeBytes)
+            {
+                return Results.Problem(
+                    $"Die Datei ist größer als {paths.MaxFileSizeBytes / 1024 / 1024} MB.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            try
+            {
+                await using var content = file.OpenReadStream();
+                return Results.Ok(await service.TakeInAsync(content, file.FileName, null, ct));
+            }
+            catch (Exception ex) when (ex is ArgumentException or StatementFormatException)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.Write).DisableAntiforgery();
+
+        // Der Prüfschritt. Er liest die abgelegte Datei bei jedem Aufruf neu und stellt daneben,
+        // was im Bestand steht — lesend, es verändert nichts.
+        api.MapGet("/{documentId:int}", async (
+            int documentId, PolicyValueImportService service, CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(await service.PreviewAsync(documentId, ct));
+            }
+            catch (RuleViolationException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        });
+
+        // Erst hier verändert sich eine Vermögenszahl, und nur, weil ein Mensch es gesagt hat.
+        api.MapPost("/uebernehmen", async (
+            ConfirmPolicyValuesRequest request, PolicyValueImportService service,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(await service.ConfirmAsync(request, ct));
+            }
+            catch (RuleViolationException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.Write);
     }
 
     private static void MapHousing(IEndpointRouteBuilder app)

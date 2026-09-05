@@ -297,6 +297,43 @@ auseinander; er sorgt nur dafür, dass keine Datei liegen bleibt und keine zweim
 Dafür ist **der Ordner die Warteschlange** — was noch daliegt, ist noch nicht übergeben; was
 übergeben ist, liegt im Unterordner `_erledigt`. Ein Neustart mitten im Betrieb kostet nichts.
 
+### Vermögensübersicht — Vertragsstände aus einer Tabelle
+
+Nicht jede eingelieferte Datei ist ein Beleg. Die **Vermögensübersicht** des Maklers ist eine
+CSV mit einer Zeile je Vertrag; sie kommt monatlich und trägt für jeden Vertrag einen Wert mit
+Stichtag. `POST /api/scan/intake` erkennt sie an ihrer **Kopfzeile** — nicht am Dateinamen, der
+über den Inhalt nichts sagt — und schickt sie an einer anderen Stelle vorbei, statt ein PDF in
+ihr zu suchen.
+
+Von da an gilt derselbe Ablauf und dieselbe Schwelle: abgelegt unter *Versicherungen*, im
+Scaneingang wartend, und übernommen erst auf `POST /api/policy-values/uebernehmen`. Gerade hier
+wäre der unbeaufsichtigte Durchlauf am teuersten — es stünden acht Vermögenswerte in der
+Anwendung, die nie jemand gesehen hat.
+
+Vier Entscheidungen:
+
+1. **Ein Format für beides.** Eine über zwanzig Jahre von Hand geführte Tabellenkalkulation ist
+   in dieses Format umgewandelt worden, statt eine zweite Strecke für das Einmalige zu bauen.
+   Eine Datei mit 264 Ständen unterscheidet sich von einer mit acht nur in der Anzahl.
+2. **Gewählt wird je Vertrag, nicht je Stand.** Bei Hunderten Ständen wäre alles andere eine
+   Zumutung; ein einzelner Stand lässt sich über `DELETE /api/policies/reports/{id}` wieder
+   entfernen. Geschrieben wird über dieselbe Stelle wie beim Statusreport
+   (`PolicyService.RecordReportAsync`) — ein Stichtag, ein Stand, und der Vertrag führt den
+   jüngsten. Ein nachgetragener älterer Stand ergänzt die Reihe, ohne den Kopfwert zu senken.
+3. **Was übernommen wird, entscheidet der Bestand.** Eine Zeile zählt, wenn die Datei sie als
+   Vorsorgevertrag ausweist *oder* ihre Nummer an einem kapitalbildenden Vertrag steht. Konten
+   und Depots fallen damit heraus, ein Bausparvertrag unter „Sonstiges“ kommt mit, sobald es ihn
+   gibt — und geraten wird nichts. Jede nicht übernommene Zeile steht mit Nummer und Grund in
+   der Vorschau.
+4. **Der Beitrag wird ergänzt, nie überschrieben.** Die umgewandelte Historie nennt keinen — der
+   Wert der Tabellenkalkulation war ein gerundeter Jahreswert —, die Monatsdatei nennt ihn auf
+   den Cent. So kommt er in beiden Reihenfolgen richtig an, und eine Dynamik ändert trotzdem
+   niemand außer dem Nutzer.
+
+Der Leser nimmt **Windows-1252 und UTF-8 mit Signatur**: das eine liefert der Makler, das andere
+die Umwandlung. Gesucht wird über die Spaltenüberschriften, damit eine zusätzliche Spalte in der
+nächsten Fassung nicht alles dahinter verschiebt.
+
 ### Anlegen
 
 Alle Objekttypen teilen sich **einen** Formularscreen, gesteuert über eine Feldliste, die der
@@ -608,7 +645,8 @@ Inhaber oder Mitglied.
 | Darlehen | `GET /api/loans/primary`, `/api/loans/{id}?months=` |
 | Import | `GET /api/import/preview` · `POST /api/import/{id}/commit` |
 | Dokumente | `GET /api/documents`, `/types`, `/search`, `/{id}`, `/{id}/file`, `/for/{typ}/{id}` · `POST /api/documents` (Upload), `/{id}/links` · `PUT /{id}`, `/{id}/path` · `DELETE /{id}`, `/links/{id}` |
-| Belege | `POST /api/scan/analyse`, `/api/scan/intake` (Ordnerdienst), `/api/scan/confirm` |
+| Belege | `POST /api/scan/analyse`, `/api/scan/intake` (Ordnerdienst), `/api/scan/confirm` · `GET /api/scan/{id}/review` |
+| Vermögensübersicht | `POST /api/policy-values/einlesen` · `GET /api/policy-values/{documentId}` · `POST /api/policy-values/uebernehmen` |
 | Scaneingang | `GET /api/scan-inbox` · `POST /api/scan-inbox/{id}/assign`, `/{id}/file` |
 | Vorgänge | `GET /api/tasks`, `/summary` · `POST /api/tasks` · `PATCH /api/tasks/{id}/state` |
 | Gesundheit | `GET /api/health/bills`, `/{id}`, `/{id}/payment-candidates` · `POST /api/health/bills`, `/{id}/payment`, `/api/health/extract` · `PATCH /{id}/status` |

@@ -22,6 +22,37 @@ Wiederholgruppe für Aufstellungen mit mehreren Positionen (§17.2); aus
 [Handoff 20](design-handoff-v5i/design_handoff_v5/README.md) die drei Befunde aus §18 und die
 fünf Vorsorge-Korrekturen aus §19.
 
+## Was bei der Vermögensübersicht offen blieb
+
+Gebaut ist die ganze Strecke: der Leser für das CSV des Maklers, die Vorschau mit einer Zeile je
+Vertrag, die Übernahme über dieselbe Stelle wie beim Statusreport, der eigene Weg durch die
+Einlieferung aus dem überwachten Ordner und der Prüfschritt unter `/vorsorge/werte/{id}`. Geprüft
+an den echten Dateien des Nutzers — der Monatsübersicht vom 23.08.2026 und einer aus
+`Wertentwicklung.xlsx` umgewandelten Historie mit **264 Ständen über acht Verträge, 2003 bis
+2026**. Was dabei liegen blieb:
+
+- **Die Umwandlung der Tabellenkalkulation ist ein einmaliges Skript, kein Teil der Anwendung.**
+  Sie hing an den Eigenheiten genau dieser Datei — acht Blätter mit drei verschiedenen
+  Spaltenanordnungen, Monatsüberschriften teils als Text und teils als Datum. Eine zweite
+  Tabelle dieser Art gibt es nicht, und eine allgemeine Umwandlung wäre eine Lösung für ein
+  Problem, das nur einmal auftrat.
+- **Zwei Zellen der Tabellenkalkulation sind nicht übernommen worden.** Der Juli 2024 von
+  `01511104-02` trug den Wert des Nachbarvertrags — er lag um ein Drittel unter den Ständen
+  davor und danach, eine Kopie über zwei Blätter hinweg. Und die Zeilen 2027 bis 2035 des Raiba-Blatts schreiben
+  den letzten Wert fort; ein `PolicyReport` ist ein *gemeldeter* Stand, keine Hochrechnung.
+  Beides steht im Umwandlungsprotokoll und nicht in der Datei.
+- **Zwei Verträge tragen dieselbe Reihe.** `01511104-06` und `01511104-07` sind über zweiundzwanzig
+  Jahre auf den Cent gleich — in der Tabellenkalkulation *und* in der Monatsübersicht des
+  Maklers. Ob es wirklich zwei gleich laufende Verträge sind oder ein Blatt einmal kopiert
+  wurde, ist aus den Daten nicht zu entscheiden.
+- **Ein geänderter Beitrag wird gemeldet, nicht übernommen.** Nennt die Datei einen anderen
+  Beitrag als der Vertrag, sagt die Vorschau das und lässt ihn stehen. Für eine Dynamik gibt es
+  keinen Weg, der ohne Zutun richtig läge — eine monatlich unbeaufsichtigt hereinkommende Datei
+  soll keine Angabe umschreiben, um die niemand gebeten hat.
+- **Konten, Tagesgeld und Depot bleiben liegen.** Dieselbe Datei führt sie mit; übernommen
+  werden nur Vorsorgeverträge. Die Kontostände darin sind älter als das, was die App aus den
+  Kontoauszügen ohnehin weiß, und ein Depotwert ohne Positionen wäre eine Zahl ohne Bestand.
+
 ## Was beim PDF-Scan (§14) offen blieb
 
 Gebaut ist der ganze Abschnitt: Dokumenttyp-Modell, beide Arten, Analyse-Schrittkette,

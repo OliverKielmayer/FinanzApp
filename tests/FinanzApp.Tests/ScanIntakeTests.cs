@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using FinanzApp.Api.Application;
 using FinanzApp.Api.Data;
 using FinanzApp.Api.Data.Entities;
@@ -76,7 +76,8 @@ public sealed class ScanIntakeTests : IDisposable
             new StubReader(inhalt), clock);
 
         return new ScanIntakeService(
-            context, scans, documents, new ScanInboxService(context, documents, clock));
+            context, scans, documents, new ScanInboxService(context, documents, clock),
+            new AssetSheetParser(), clock);
     }
 
     private async Task<ScanIntakeResultDto> TakeInAsync(
@@ -109,6 +110,17 @@ public sealed class ScanIntakeTests : IDisposable
         Line(2, "Rückkaufswert", "12.345,67 EUR"),
         Line(2, "erreichter Wert der Überschussbeteiligung (Ansammlungsguthaben)*", "1.234,56 EUR"),
         Line(2, "Gesamtleistung*", "13.580,23 EUR"));
+
+    /// <summary>Ein fondsgebundener Statusreport, im Aufbau des Originals.</summary>
+    private static PdfContent FundStatusreport() => Content(
+        Line(1, "Nordstern Lebensversicherung AG"),
+        Line(1, "Hamburg, 05.03.2025"),
+        Line(1, "Versicherungsnummer:", "77001122-02"),
+        Line(1, "hiermit übersenden wir Ihnen den Statusreport zum Stand Ihrer fondsgebundenen"),
+        Line(1, "Ihr Vertragsstand zum 31.12.2024"),
+        Line(2, "Fondsübersicht"),
+        Line(2, "TEST01", "Musterfonds Welt", "31,4706", "197,3600", "6.211,03"),
+        Line(2, "Anteilsguthaben:", "6.211,03"));
 
     /// <summary>Legt den Dokumenttyp an, der zur erkannten Art passt.</summary>
     private int TypeForStatusreport()
@@ -234,12 +246,82 @@ public sealed class ScanIntakeTests : IDisposable
         Assert.Equal(ScanIntakeOutcome.Waiting, ergebnis.Outcome);
         Assert.Null(ergebnis.TypeName);
         Assert.NotNull(ergebnis.Missing);
-        Assert.Contains("Statusreport Lebensversicherung", ergebnis.Missing);
         Assert.Equal("Nordstern Leben", ergebnis.TargetName);
+
+        // Genannt wird der Typ, den die Art nennt — der ist kurz und passt für mehrere Arten.
+        // Die lange Bezeichnung hier stünde als Aufforderung, das Falsche anzulegen.
+        Assert.Contains("Dokumenttyp namens „Statusreport“", ergebnis.Missing);
+        Assert.DoesNotContain("Statusreport Lebensversicherung", ergebnis.Missing);
 
         using var context = database.Context();
         Assert.Empty(context.DocumentTypes);
         Assert.Single(context.DocumentLinks.Where(l => l.DocumentId == ergebnis.DocumentId));
+    }
+
+    /// <summary>
+    /// Ein Typ mit dem kurzen Namen gilt für beide Statusreport-Arten.
+    /// </summary>
+    /// <remarks>
+    /// Der klassische und der fondsgebundene Bericht werden verschieden <em>gelesen</em> und
+    /// gehören in dieselbe <em>Schublade</em>. Vorher hing der Typ am Namen der Leseregel, und
+    /// der Haushalt hätte zwei Typen anlegen müssen, die sich nur im Zusatz unterscheiden.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_kurzer_Typ_gilt_fuer_beide_Statusreporte()
+    {
+        using (var context = database.Context())
+        {
+            context.DocumentTypes.Add(new DocumentType
+            {
+                Name = "Statusreport",
+                Area = DocumentArea.Insurance,
+                SortOrder = 1,
+            });
+
+            // Der zweite Vertrag — der fondsgebundene Bericht nennt seine eigene Nummer.
+            context.Policies.Add(new Policy
+            {
+                Name = "Muster topinvest",
+                Provider = "Nordstern Leben",
+                Kind = PolicyKind.CapitalLife,
+                IsCapitalForming = true,
+                PolicyNumber = "77001122-02",
+            });
+
+            context.SaveChanges();
+        }
+
+        var klassisch = await TakeInAsync(Statusreport());
+        var fondsgebunden = await TakeInAsync(FundStatusreport());
+
+        Assert.Equal("Statusreport", klassisch.TypeName);
+        Assert.Equal("Statusreport", fondsgebunden.TypeName);
+
+        Assert.Equal(ScanIntakeOutcome.Assigned, klassisch.Outcome);
+        Assert.Equal(ScanIntakeOutcome.Assigned, fondsgebunden.Outcome);
+
+        // Gelesen werden sie trotzdem verschieden.
+        Assert.Equal(DocumentKindLibrary.Statusreport.Key, klassisch.KindKey);
+        Assert.Equal(DocumentKindLibrary.FundStatusreport.Key, fondsgebunden.KindKey);
+    }
+
+    /// <summary>
+    /// Wer seine Ablage nach der alten Regel benannt hat, behält sie.
+    /// </summary>
+    /// <remarks>
+    /// Bis eben suchte die Einlieferung einen Typ mit dem Namen der <em>Bezeichnung</em>. Ein
+    /// gewachsener Bestand trägt diese Namen; sie weiter zu treffen ist der Unterschied zwischen
+    /// einer Neuerung und einer Umbenennungsaufgabe.
+    /// </remarks>
+    [Fact]
+    public async Task Die_bisherige_Benennung_gilt_weiter()
+    {
+        TypeForStatusreport();
+
+        var ergebnis = await TakeInAsync(Statusreport());
+
+        Assert.Equal(DocumentKindLibrary.Statusreport.Label, ergebnis.TypeName);
+        Assert.Equal(ScanIntakeOutcome.Assigned, ergebnis.Outcome);
     }
 
     /// <summary>

@@ -1,4 +1,4 @@
-using FinanzApp.Api.Data;
+﻿using FinanzApp.Api.Data;
 using FinanzApp.Api.Data.Entities;
 using FinanzApp.Api.Infrastructure;
 using FinanzApp.Shared.Contracts;
@@ -26,7 +26,9 @@ public sealed class ScanIntakeService(
     FinanzAppDbContext db,
     DocumentScanService scans,
     DocumentService documents,
-    ScanInboxService inbox)
+    ScanInboxService inbox,
+    AssetSheetParser sheets,
+    IClock clock)
 {
     /// <summary>Höchstlänge der mitgelieferten Herkunft. Sie steht am Dokument, nicht im Protokoll.</summary>
     private const int MaxSourceLength = 200;
@@ -42,7 +44,20 @@ public sealed class ScanIntakeService(
     public async Task<ScanIntakeResultDto> TakeInAsync(
         Stream content, string fileName, string? source, CancellationToken ct = default)
     {
-        var analyse = await scans.AnalyseAsync(content, fileName, ct);
+        // Nicht jede eingelieferte Datei ist ein Beleg. Die Vermögensübersicht des Maklers ist
+        // eine Tabelle mit einer Zeile je Vertrag; sie durch die Belegerkennung zu schicken
+        // hieße, ein PDF in ihr zu suchen. Entschieden wird an der Kopfzeile und nicht am
+        // Dateinamen — der sagt über den Inhalt nichts.
+        using var puffer = new MemoryStream();
+        await content.CopyToAsync(puffer, ct);
+        puffer.Position = 0;
+
+        if (AssetSheetParser.CanRead(fileName) && AssetSheetParser.LooksLikeSheet(puffer))
+        {
+            return await TakeInSheetAsync(puffer, fileName, source, ct);
+        }
+
+        var analyse = await scans.AnalyseAsync(puffer, fileName, ct);
         var art = DocumentKindLibrary.All.FirstOrDefault(a => a.Key == analyse.KindKey);
 
         var typ = art is null ? null : await MatchTypeAsync(art, ct);
@@ -82,18 +97,107 @@ public sealed class ScanIntakeService(
     }
 
     /// <summary>
+    /// Eine Vermögensübersicht: ablegen, in den Eingang stellen — und nichts übernehmen.
+    /// </summary>
+    /// <remarks>
+    /// <para>Dieselbe Schwelle wie beim Beleg, aus demselben Grund. Diese Datei kommt monatlich
+    /// und trägt für jeden Vertrag eine Zahl; ließe der Dienst sie durch, stünden acht
+    /// Vermögenswerte in der Anwendung, die nie jemand gesehen hat. Was daraus wird, entscheidet
+    /// der Prüfschritt unter <c>/vorsorge/werte/{id}</c>.</para>
+    /// <para>Zugeordnet wird hier nichts, und das ist keine Lücke: die Datei gehört zu <em>allen</em>
+    /// Verträgen darin, nicht zu einem. Welcher Vertrag welche Zeile bekommt, steht in der
+    /// Vorschau — dort wird die Nummer gegen den Bestand gehalten, und dort fällt auch auf,
+    /// wenn einer fehlt.</para>
+    /// </remarks>
+    private async Task<ScanIntakeResultDto> TakeInSheetAsync(
+        MemoryStream content, string fileName, string? source, CancellationToken ct)
+    {
+        var zeilen = await sheets.ParseAsync(content, fileName, ct);
+
+        // Der jüngste Stichtag der Datei benennt sie. Der Tag der Einlieferung täte es nicht:
+        // die Übersicht vom Juli kommt im August, und eine nachgereichte käme unter dem Namen
+        // der neueren an.
+        var stichtag = zeilen.Select(z => z.AsOf).Where(d => d is not null).Max()
+                       ?? DateOnly.FromDateTime(clock.Now);
+
+        content.Position = 0;
+
+        var ablage = await documents.UploadAsync(
+            content, fileName, DocumentArea.Insurance,
+            title: AssetSheetKind.Label,
+            documentTypeId: null,
+            documentDate: stichtag,
+            subFolder: $"Vermögensübersicht/{stichtag:yyyy}",
+            preferredName: $"Vermoegensuebersicht_{stichtag:yyyy-MM-dd}",
+            ct: ct);
+
+        // Das Kennzeichen, an dem der Eingang später den Prüfschritt findet. Ohne es wäre die
+        // Datei ein abgelegtes Dokument wie jedes andere, und die gelesenen Stände kämen nie an
+        // ihren Verträgen an.
+        var dokument = await db.Documents.FirstAsync(d => d.Id == ablage.DocumentId, ct);
+        dokument.ScanKind = AssetSheetKind.Key;
+
+        if (Clean(source) is { Length: > 0 } herkunft)
+        {
+            dokument.Description = "Aus dem überwachten Ordner übernommen: " + herkunft;
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        // Wie viele Zeilen überhaupt lesbar sind — nicht, wie viele davon Verträge werden. Das
+        // hängt am Bestand, und der Dienst schlägt hier nichts nach: die Datei führt auch Konten
+        // und Depots, und eine Zahl, die sie als Verträge ausgäbe, stünde falsch im Protokoll.
+        var lesbar = zeilen.Count(z => z.Problem is null);
+
+        // „prüfen“ und nicht „erkannt“: erkannt hieße im Eingang, dass nur noch das Ja fehlt.
+        // Hier fehlt mehr — welche Nummer zu welchem Vertrag gehört, sagt erst die Vorschau.
+        var eingang = await inbox.AddAsync(
+            ablage.DocumentId, sender: AssetSheetKind.Label, pageCount: null, recognised: false, ct);
+
+        return new ScanIntakeResultDto
+        {
+            DocumentId = ablage.DocumentId,
+            InboxId = eingang,
+            FileName = dokument.FileName,
+            RelativePath = ablage.RelativePath,
+            Area = DocumentArea.Insurance,
+            Outcome = ScanIntakeOutcome.Waiting,
+
+            // Eine Tabelle hat keine Seiten. Eine Null hier wäre eine Behauptung über eine
+            // Größe, die es an dieser Datei nicht gibt; die Zeilen stehen im Protokollsatz.
+            PageCount = 1,
+            KindKey = AssetSheetKind.Key,
+            KindLabel = AssetSheetKind.Label,
+            Missing = "Es fehlt: die Zuordnung der Zeilen zu Verträgen und die Bestätigung "
+                      + "ihrer Werte.",
+            Summary = $"{AssetSheetKind.Label} zum {stichtag:dd.MM.yyyy} · {zeilen.Count} Zeilen, davon "
+                      + $"{lesbar} mit Vertragsnummer, Wert und Stichtag · abgelegt unter "
+                      + $"{ablage.RelativePath} · wartet im Scaneingang auf die Prüfung der Werte",
+        };
+    }
+
+    /// <summary>
     /// Der Dokumenttyp des Haushalts, der zur erkannten Art passt — über den Namen.
     /// </summary>
     /// <remarks>
     /// <para>Welche Typen es gibt, entscheidet der Haushalt und nicht der Quelltext; die
-    /// Einlieferung legt deshalb keinen an. Sie nimmt den gleichnamigen, wenn es ihn gibt, und
-    /// lässt das Feld sonst leer — dann trägt ihn der Nutzer im Eingang nach.</para>
+    /// Einlieferung legt deshalb keinen an. Sie nimmt den passenden, wenn es ihn gibt, und lässt
+    /// das Feld sonst leer — dann trägt ihn der Nutzer im Eingang nach.</para>
+    /// <para><b>Zwei Namen, in dieser Reihenfolge:</b> zuerst der Typ, den die Art nennt
+    /// (<see cref="DocumentKind.TypeName"/>) — er ist die Schublade und darf für mehrere Arten
+    /// dieselbe sein. Dann die Bezeichnung der Art selbst: wer seine Ablage früher danach benannt
+    /// hat, behält sie. Ohne diesen zweiten Blick hieße die Neuerung für einen gewachsenen
+    /// Bestand, dass er seine Typen umbenennen muss.</para>
     /// <para>Stillgelegte Typen bleiben außen vor: sie stehen in keiner Auswahlliste mehr, und
     /// ein Dienst soll nicht vergeben, was ein Mensch nicht mehr vergeben kann.</para>
     /// </remarks>
     private async Task<DocumentType?> MatchTypeAsync(DocumentKind art, CancellationToken ct)
-        => await db.DocumentTypes.AsNoTracking()
-            .FirstOrDefaultAsync(t => !t.IsRetired && t.Name == art.Label, ct);
+    {
+        var offen = db.DocumentTypes.AsNoTracking().Where(t => !t.IsRetired);
+
+        return await offen.FirstOrDefaultAsync(t => t.Name == art.TypeName, ct)
+               ?? await offen.FirstOrDefaultAsync(t => t.Name == art.Label, ct);
+    }
 
     /// <summary>Hängt das Dokument an das Objekt, zu dem es gehört.</summary>
     /// <remarks>
@@ -170,7 +274,9 @@ public sealed class ScanIntakeService(
 
         if (!hatTyp)
         {
-            fehlt.Add($"ein Dokumenttyp namens „{art.Label}“");
+            // Der kurze Name: er ist der, den anzulegen hilft, und er passt gleich für mehrere
+            // Arten. Die lange Bezeichnung stünde hier als Aufforderung, das Falsche zu tun.
+            fehlt.Add($"ein Dokumenttyp namens „{art.TypeName}“");
         }
 
         return fehlt.Count == 0 ? null : "Es fehlt: " + string.Join(" und ", fehlt) + ".";
