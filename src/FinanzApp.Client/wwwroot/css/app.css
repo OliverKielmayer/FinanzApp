@@ -5150,6 +5150,31 @@ body {
   font-size: 13px;
 }
 
+/* Der Zeilenwert ist anklickbar, sieht aber aus wie die Zahl daneben: ein Knopf im Rahmen
+   einer Liste wuerde die Liste zu einem Formular machen. Erst beim Zeigen wird er einer. */
+button.repeat-value {
+  padding: 2px 0 2px 8px;
+  background: none;
+  border: 0;
+  color: var(--color-text);
+  text-align: right;
+  cursor: pointer;
+}
+
+button.repeat-value:hover:enabled {
+  color: var(--color-accent);
+}
+
+button.repeat-value:disabled {
+  cursor: default;
+}
+
+/* Von Hand eingetragen: dieselbe Farbe wie der Hinweis darunter, damit Zahl und Grund
+   zusammengehoeren. */
+.repeat-value.warn {
+  color: var(--color-accent-800);
+}
+
 .repeat-sum {
   display: flex;
   justify-content: space-between;

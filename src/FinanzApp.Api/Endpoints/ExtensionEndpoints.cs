@@ -416,7 +416,27 @@ public static class ExtensionEndpoints
         {
             try
             {
-                return Results.Ok(await service.ReviewAsync(documentId, ct));
+                return Results.Ok(await service.ReviewAsync(documentId, ct: ct));
+            }
+            catch (RuleViolationException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.Write);
+
+        // Dieselbe Nachschau, mit von Hand eingetragenen Zeilen. Gerechnet wird hier und nicht
+        // im Browser: es soll eine Rechenprobe geben und nicht zwei, von denen die sichtbare
+        // die unverbindliche wäre.
+        //
+        // Übernommen wird auch hier nichts — der Prüfschritt zeigt nur, was dabei herauskäme.
+        api.MapPost("/{documentId:int}/review", async (
+            int documentId, ScanReviewRequest request, DocumentScanService service,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(
+                    await service.ReviewAsync(documentId, request.RowValues, request.Values, ct));
             }
             catch (RuleViolationException ex)
             {

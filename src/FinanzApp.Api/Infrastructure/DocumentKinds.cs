@@ -536,18 +536,24 @@ public static class DocumentKindLibrary
         {
             Title = "Fonds in diesem Statusreport",
 
-            // Ein Kennzeichen am Zeilenanfang, dann ein Name, und am Ende ein Betrag.
+            // Ein Kennzeichen am Zeilenanfang, dann ein Name, dann Anteile und Anteilspreis.
             //
             // Das Kennzeichen ist die WKN — aber nicht auf sechs Großbuchstaben festgenagelt:
             // der Scan von 2016 liest „120547“ als „12054;r“, und die ganze Zeile fiel heraus.
             // Ihre 618,81 EUR fehlten danach in der Summe, ohne dass die Meldung sagen konnte,
-            // warum. Was die Zeile wirklich zur Zeile macht, ist der Betrag am Ende.
+            // warum.
             //
-            // Und der braucht ein Trennzeichen vor den letzten beiden Stellen. Ohne diese
-            // Bedingung eröffnete die Fußzeile „665463 · Fax: +49 40 21995 6999 · … · 5014“
-            // einen Block, dem jeder Wert fehlt — und die Summenprobe fiel dann ganz aus,
-            // statt zu prüfen.
-            Anchor = @"^[0-9A-Za-z;:.]{5,8}\s+\D.*\d{1,3}(?:[.,^]\d{3})*[.,^]\d{2}$",
+            // Erkannt wird die Zeile an <b>zwei durch Leerraum getrennten Dezimalzahlen</b> und
+            // nicht am Betrag am Ende. Der Betrag ist genau das, was ein beschädigter Scan
+            // verliert: im Jahrgang 2023 steht dort „1 239 69“, und hinge die Zeile daran, wäre
+            // sie unsichtbar — nicht einmal von Hand nachzutragen, weil nichts dastünde, das
+            // man antippen könnte. Anteile und Preis überstehen dieselbe Beschädigung meist.
+            //
+            // Zwei Zahlen mit Leerraum dazwischen, nicht bloß zwei Zahlen: „25.115,92“ trägt
+            // sonst beide in sich („25.1“ und „15,92“), und der Satz „reichten Anteilsguthabens
+            // 25.115,92 EUR ggf. reduziert …“ eröffnete einen Block ohne Wert. Die Fußzeile
+            // „665463 · Fax: +49 40 21995 6999 · … · 5014“ trägt gar keine Dezimalzahl.
+            Anchor = @"^[0-9A-Za-z;:.]{5,8}\s+\D.*?\d+[.,^]\d+\s+.*\d+[.,^]\d+",
             ValueField = "fondswert",
             NameField = "fonds",
             TotalField = "anteilsguthaben",
@@ -898,6 +904,17 @@ public sealed record ReadValue
     /// <summary>Nicht gelesen, sondern aus anderen Feldern gerechnet.</summary>
     public bool Derived { get; init; }
 
+    /// <summary>
+    /// Nicht gelesen, sondern von einem Menschen eingetragen.
+    /// </summary>
+    /// <remarks>
+    /// Der Unterschied zu <see cref="Derived"/> ist nicht kosmetisch: ein gerechneter Wert lässt
+    /// sich herleiten, ein eingetragener steht für sich. Er darf in einer Rechenprobe mitzählen —
+    /// aber die Probe muss dann sagen, dass sie ihn nicht vom Papier hat, sonst bestätigt sie
+    /// scheinbar eine Lesung, die es nie gab.
+    /// </remarks>
+    public bool ByHand { get; init; }
+
     /// <summary>Wenn etwas nicht stimmt: was.</summary>
     public string? Warning { get; init; }
 }
@@ -956,7 +973,22 @@ public sealed class DocumentFieldExtractor
     /// Die Proben gehen mit hinaus, weil sie vor der Übernahme sichtbar sein müssen. Eine
     /// Prüfung, die nur im Verborgenen stattfindet, überzeugt niemanden von einer Zahl.
     /// </remarks>
-    public ExtractionResult Read(DocumentKind kind, PdfContent content)
+    /// <param name="rowValues">
+    /// Von Hand berichtigte Zeilenwerte, nach Zeilennummer ab null. Für den Fall, dass die
+    /// Textebene eine Zeile nicht hergibt: aus einem beschädigten Scan wird sonst nie eine
+    /// aufgehende Probe, und der ausgewiesene Wert bliebe für immer zweifelhaft. Gerechnet wird
+    /// mit den berichtigten Zeilen — und die Probe sagt, wie viele davon von Hand kamen.
+    /// </param>
+    /// <param name="values">
+    /// Von Hand eingetragene Einzelwerte, nach Feldschlüssel. Sie ersetzen den gelesenen Wert —
+    /// und die Rechenproben rechnen mit ihnen. Sonst stünde unter berichtigten Zahlen eine Probe
+    /// über die alten, und niemand wüsste, welche der beiden gilt.
+    /// </param>
+    public ExtractionResult Read(
+        DocumentKind kind,
+        PdfContent content,
+        IReadOnlyDictionary<int, string>? rowValues = null,
+        IReadOnlyDictionary<string, string>? values = null)
     {
         var basis = content.TextIsInvisible ? Behind : Sure;
         var abschnitte = Sections(kind, content);
@@ -965,6 +997,31 @@ public sealed class DocumentFieldExtractor
 
         foreach (var regel in kind.Fields)
         {
+            // Was ein Mensch eingetragen hat, gilt vor dem, was auf dem Papier steht. Gelesen
+            // wird es mit derselben Regel: sonst hieße „1.239,63“ je nach Weg etwas anderes.
+            // Ohne ScanRepair — was jemand tippt, ist nicht beschädigt.
+            if (values?.TryGetValue(regel.Key, out var eingetragen) == true
+                && eingetragen is { Length: > 0 })
+            {
+                werte[regel.Key] = (Read(regel with { ScanRepair = false }, eingetragen)
+                                    ?? new ReadValue { Rule = regel, Raw = eingetragen.Trim() })
+                    with
+                    {
+                        Confidence = basis,
+                        ByHand = true,
+
+                        // Eine Eingabe, aus der keine Zahl wird, verschwindet nicht: sie steht
+                        // da und sagt, was ihr fehlt. Verschluckt wäre sie das Schlimmste — der
+                        // Nutzer hätte etwas eingetragen und sähe wieder den alten Wert.
+                        Warning = Read(regel with { ScanRepair = false }, eingetragen) is null
+                                  && regel.Kind != DocumentValueKind.Text
+                            ? "keine Zahl — bitte so eintragen, wie es auf dem Beleg steht"
+                            : null,
+                    };
+
+                continue;
+            }
+
             if (Find(regel, abschnitte, content, basis) is { } wert)
             {
                 werte[regel.Key] = wert;
@@ -982,7 +1039,7 @@ public sealed class DocumentFieldExtractor
         }
 
         var zeilen = kind.Repeat is { } gruppe
-            ? Repeat(gruppe, content, basis, proben)
+            ? Repeat(gruppe, content, basis, proben, rowValues)
             : [];
 
         if (kind.Repeat is { } summe)
@@ -1010,7 +1067,8 @@ public sealed class DocumentFieldExtractor
     /// Fonds wurden zu einer Position.
     /// </remarks>
     private List<ReadRow> Repeat(
-        DocumentRepeatRule gruppe, PdfContent content, double basis, List<ProofResult> proben)
+        DocumentRepeatRule gruppe, PdfContent content, double basis, List<ProofResult> proben,
+        IReadOnlyDictionary<int, string>? rowValues = null)
     {
         var anker = new Regex(gruppe.Anchor, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
 
@@ -1048,6 +1106,15 @@ public sealed class DocumentFieldExtractor
                 });
             }
 
+            // Von Hand eingetragen: der Wert ersetzt den gelesenen — oder tritt an seine Stelle,
+            // wo die Textebene gar keinen hergab. Die Zeilenprobe darüber bleibt unberührt: sie
+            // hat geprüft, was auf dem Papier stand, und das ändert eine Eingabe nicht.
+            if (rowValues?.TryGetValue(i, out var eingetragen) == true
+                && Read(ValueRule(gruppe), eingetragen) is { } vonHand)
+            {
+                werte[gruppe.ValueField] = vonHand with { Confidence = basis, ByHand = true };
+            }
+
             zeilen.Add(new ReadRow
             {
                 Values = [.. gruppe.Fields.Where(f => werte.ContainsKey(f.Key)).Select(f => werte[f.Key])],
@@ -1056,6 +1123,18 @@ public sealed class DocumentFieldExtractor
 
         return zeilen;
     }
+
+    /// <summary>
+    /// Die Feldregel, nach der der Wert einer Zeile gelesen wird.
+    /// </summary>
+    /// <remarks>
+    /// Eine von Hand eingetragene Zahl geht durch dieselbe Regel wie eine gelesene. Sonst hinge
+    /// an der Eingabe eine zweite Vorstellung davon, was ein Betrag ist — und „1.239,63“ hieße
+    /// je nach Weg etwas anderes. Ohne <see cref="DocumentFieldRule.ScanRepair"/>: was ein Mensch
+    /// tippt, ist nicht beschädigt.
+    /// </remarks>
+    private static DocumentFieldRule ValueRule(DocumentRepeatRule gruppe)
+        => gruppe.Fields.First(f => f.Key == gruppe.ValueField) with { ScanRepair = false };
 
     /// <summary>Ein Block, so verpackt, dass die vorhandene Suche darauf läuft.</summary>
     private static PdfContent BlockOf(List<PdfLine> block) => new()
@@ -1089,27 +1168,47 @@ public sealed class DocumentFieldExtractor
         }
 
         var teile = zeilen.Select(z => z[gruppe.ValueField]?.Number).ToList();
-        if (teile.Any(t => t is null))
-        {
-            return;
-        }
 
-        var summe = decimal.Round(teile.Sum(t => t!.Value), 2);
-        var stimmt = Math.Abs(summe - ausgewiesen) <= gruppe.TotalTolerance;
+        // Zeilen ohne lesbaren Betrag. Vorher fiel die Probe dann ganz aus — und über einem
+        // beschädigten Scan stand gar nichts, wo eine Auskunft am nötigsten ist. Jetzt zählt
+        // sie die Zeile mit, sagt, dass ihr Betrag fehlt, und macht damit den Weg auf: eintragen
+        // und noch einmal rechnen.
+        var stumm = teile.Count(t => t is null);
+
+        var summe = decimal.Round(teile.Where(t => t is not null).Sum(t => t!.Value), 2);
+        var stimmt = stumm == 0 && Math.Abs(summe - ausgewiesen) <= gruppe.TotalTolerance;
+
+        // Wie viele Zeilen ein Mensch beigesteuert hat. Ohne diesen Zusatz stünde unter einem
+        // beschädigten Scan eine Probe, die aussieht, als hätte das Papier sie getragen.
+        var vonHand = zeilen.Count(z => z[gruppe.ValueField]?.ByHand == true);
+
+        var zusatz = vonHand == 0
+            ? string.Empty
+            : $" ({(vonHand == 1 ? "eine Zeile" : $"{vonHand} Zeilen")} von Hand eingetragen)";
+
+        var fehlt = stumm == 0
+            ? string.Empty
+            : $" ({(stumm == 1 ? "eine Zeile trägt" : $"{stumm} Zeilen tragen")} keinen lesbaren "
+              + "Betrag — bitte eintragen)";
 
         if (!stimmt)
         {
             werte[schluessel] = gesamt with
             {
                 Confidence = Doubtful,
-                Warning = $"Die {zeilen.Count} {(zeilen.Count == 1 ? "Zeile ergibt" : "Zeilen ergeben")} "
-                          + $"{Format(gesamt.Rule, summe)} — bitte prüfen",
+                Warning = stumm > 0
+                    ? $"{(stumm == 1 ? "Eine Zeile trägt" : $"{stumm} Zeilen tragen")} keinen "
+                      + "lesbaren Betrag — bitte eintragen"
+                    : $"Die {zeilen.Count} {(zeilen.Count == 1 ? "Zeile ergibt" : "Zeilen ergeben")} "
+                      + $"{Format(gesamt.Rule, summe)} — bitte prüfen",
             };
         }
 
         proben.Add(new ProofResult
         {
             Line = $"{zeilen.Count} {(zeilen.Count == 1 ? "Zeile" : "Zeilen")} = {Format(gesamt.Rule, summe)}"
+                   + zusatz
+                   + fehlt
                    + (stimmt
                        ? " — entspricht dem ausgewiesenen Gesamtwert."
                        : $" — ausgewiesen sind {Format(gesamt.Rule, ausgewiesen)}."),

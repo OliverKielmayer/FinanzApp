@@ -486,6 +486,194 @@ public sealed class DocumentScanTests : IDisposable
     }
 
     /// <summary>
+    /// Die Meldung sagt auch, <em>wo</em> gesucht wurde.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Fall aus dem Betrieb: sieben Verträge liegen im einen Haushalt, eingelesen wird
+    /// im anderen. Die Nummer wird gelesen, der Vertrag existiert — und trotzdem findet die
+    /// Suche nichts, weil sie über die Haushaltsgrenze nicht hinaussieht. Das ist richtig so;
+    /// falsch war die Meldung, die klang wie „diese Nummer kennt niemand“.</para>
+    /// <para>Der Name des eigenen Haushalts verrät nichts über den anderen — er sagt nur, auf
+    /// welcher Seite die Suche stand.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Der_Grund_nennt_den_Haushalt_in_dem_gesucht_wurde()
+    {
+        using (var context = database.Context())
+        {
+            context.Households.Add(new Household
+            {
+                Id = database.HouseholdId,
+                Name = "Haushalt Muster",
+                CreatedAt = clock.Now,
+            });
+
+            context.Policies.Single(p => p.Id == vertragId).PolicyNumber = "99999999-99";
+            context.SaveChanges();
+        }
+
+        var vorschlag = await AnalyseAsync(Statusreport());
+
+        Assert.Contains("Haushalt Muster", vorschlag.Blocker);
+    }
+
+    /// <summary>
+    /// Ohne gelesene Nummer steht kein Haushalt in der Meldung.
+    /// </summary>
+    /// <remarks>
+    /// Dann hat keine Suche stattgefunden, und ein Ort ohne Suche ist eine Auskunft über nichts.
+    /// </remarks>
+    [Fact]
+    public async Task Ohne_Nummer_nennt_der_Grund_keinen_Haushalt()
+    {
+        using (var context = database.Context())
+        {
+            context.Households.Add(new Household
+            {
+                Id = database.HouseholdId,
+                Name = "Haushalt Muster",
+                CreatedAt = clock.Now,
+            });
+
+            context.SaveChanges();
+        }
+
+        var ohneNummer = Content(
+            Line(1, "Nordstern Lebensversicherung AG"),
+            Line(1, "Hamburg, 12.08.2025"),
+            Line(1, "hiermit übersenden wir Ihnen den jährlichen Statusreport"),
+            Line(1, "Ihr Vertragsstand zum 31.07.2025"),
+            Line(2, "Wert der Versicherung"),
+            Line(2, "Rückkaufswert", "12.345,67 EUR"),
+            Line(2, "Gesamtleistung*", "12.345,67 EUR"));
+
+        var vorschlag = await AnalyseAsync(ohneNummer);
+
+        Assert.Contains("nennt auch keine", vorschlag.Blocker);
+        Assert.DoesNotContain("Haushalt Muster", vorschlag.Blocker);
+    }
+
+    /// <summary>
+    /// Eine von Hand eingetragene Zeile wandert bis in den Bestand.
+    /// </summary>
+    /// <remarks>
+    /// Bei einer Aufstellung sind die Zeilen nicht bloß eine Probe — sie werden zu Positionen.
+    /// Eine Berichtigung, die nur den Schirm beruhigt und beim Speichern verschwiegen wird, wäre
+    /// die schlimmste Sorte Halbwahrheit: der Nutzer hat sie gesehen, die Datenbank nicht.
+    /// </remarks>
+    [Fact]
+    public async Task Eine_von_Hand_eingetragene_Zeile_wandert_in_den_Bestand()
+    {
+        var vorschlag = await AnalyseAsync(Quarterly(), "quartal.pdf");
+
+        await Service(Quarterly()).ConfirmAsync(new ConfirmScanRequest
+        {
+            DocumentId = vorschlag.DocumentId,
+            RowValues = new Dictionary<int, string> { [0] = "50.000,00" },
+        });
+
+        using var context = database.Context();
+        Assert.Equal(50000.00m, context.DepotStatementPositions.Single().Value);
+    }
+
+    /// <summary>
+    /// Ein eingetragener Wert steht im Prüfschritt — und nicht im Leseabdruck.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Schirm zeigte die Korrektur früher nicht: übernommen wurde die eingetragene
+    /// Zahl, zu sehen war die gelesene, und darüber stand „Was hier steht, wird übernommen“. Wer
+    /// das sah, hielt seine Eingabe für verloren.</para>
+    /// <para>Im Abdruck hat sie trotzdem nichts zu suchen. Der hält fest, was <em>gelesen</em>
+    /// wurde; stünde die Eingabe darin, wüsste beim nächsten Öffnen niemand mehr, welche Zahl
+    /// vom Papier kam.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Ein_eingetragener_Wert_steht_im_Pruefschritt()
+    {
+        var vorschlag = await AnalyseAsync(Statusreport());
+
+        var geprueft = await Service(Statusreport()).ReviewAsync(
+            vorschlag.DocumentId,
+            values: new Dictionary<string, string> { ["gesamt"] = "14.000,00" });
+
+        var feld = geprueft.Fields.Single(f => f.Key == "gesamt");
+
+        Assert.Equal(14000.00m, feld.Number);
+        Assert.True(feld.ByHand);
+        Assert.Contains("von Hand eingetragen", feld.Source);
+
+        using var context = database.Context();
+
+        var abdruck = context.DocumentExtractions
+            .Single(x => x.DocumentId == vorschlag.DocumentId && x.FieldKey == "gesamt");
+
+        Assert.Equal("13.580,23 EUR", abdruck.Value);
+    }
+
+    /// <summary>
+    /// Ein Leitwert, aus dem keine Zahl wird, hält die Übernahme auf.
+    /// </summary>
+    /// <remarks>
+    /// Vorher stand der Knopf bereit und die Übernahme sagte hinterher „ohne Gesamtleistung geht
+    /// nichts“ — vorher gesagt statt hinterher, wie überall sonst auf diesem Schirm.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_Leitwert_ohne_Zahl_haelt_die_Uebernahme_auf()
+    {
+        var vorschlag = await AnalyseAsync(Statusreport());
+
+        var geprueft = await Service(Statusreport()).ReviewAsync(
+            vorschlag.DocumentId,
+            values: new Dictionary<string, string> { ["gesamt"] = "vierzehntausend" });
+
+        Assert.NotNull(geprueft.Blocker);
+        Assert.Contains("Es fehlt", geprueft.Blocker);
+    }
+
+    /// <summary>
+    /// Die erste Zeile lässt sich berichtigen wie jede andere.
+    /// </summary>
+    /// <remarks>
+    /// Die Zeilennummer null ist gültig und sah trotzdem lange nach „nichts gefunden“ aus: die
+    /// Prüfung auf eine Zeile außerhalb der Tabelle suchte mit <c>FirstOrDefault</c>, und das
+    /// liefert bei Zahlen die Null. Jede Berichtigung der obersten Zeile flog damit heraus —
+    /// gefunden erst im Probelauf, weil kein Test die erste Zeile anfasste.
+    /// </remarks>
+    [Fact]
+    public async Task Die_erste_Zeile_laesst_sich_berichtigen()
+    {
+        var vorschlag = await AnalyseAsync(Quarterly(), "quartal.pdf");
+
+        var geprueft = await Service(Quarterly()).ReviewAsync(
+            vorschlag.DocumentId, new Dictionary<int, string> { [0] = "50.000,00" });
+
+        var zeile = Assert.Single(geprueft.Repeat!.Rows);
+
+        Assert.Equal(50000.00m, zeile.Value);
+        Assert.True(zeile.ByHand);
+    }
+
+    /// <summary>
+    /// Eine Berichtigung für eine Zeile, die es nicht gibt, wird abgewiesen.
+    /// </summary>
+    /// <remarks>
+    /// Sie käme aus einem Schirm, der eine andere Tabelle gesehen hat als die Datei — nach einer
+    /// verbesserten Leseregel etwa. Sie still zu übergehen wäre das Schlimmste: der Nutzer hätte
+    /// eine Zahl eingetragen und niemand hätte sie verwendet.
+    /// </remarks>
+    [Fact]
+    public async Task Eine_Zeile_die_es_nicht_gibt_wird_zurueckgewiesen()
+    {
+        var vorschlag = await AnalyseAsync(Quarterly(), "quartal.pdf");
+
+        var fehler = await Assert.ThrowsAsync<RuleViolationException>(
+            () => Service(Quarterly()).ReviewAsync(
+                vorschlag.DocumentId, new Dictionary<int, string> { [7] = "1,00" }));
+
+        Assert.Contains("Zeile 8", fehler.Message);
+    }
+
+    /// <summary>
     /// Ein unbekannter Typ wird trotzdem abgelegt.
     /// </summary>
     /// <remarks>

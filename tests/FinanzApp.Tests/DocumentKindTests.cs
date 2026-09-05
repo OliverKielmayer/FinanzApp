@@ -595,6 +595,173 @@ public sealed class DocumentKindTests
         Assert.Contains("bitte prüfen", wert.Warning);
     }
 
+    // ── Ein Einzelwert von Hand ────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Ein eingetragener Wert ersetzt den gelesenen — und die Probe rechnet mit ihm.
+    /// </summary>
+    /// <remarks>
+    /// <para>Sonst stünde unter berichtigten Zahlen eine Rechenprobe über die alten. Zwei
+    /// Aussagen über dasselbe Papier, und die sichtbare wäre die falsche.</para>
+    /// <para>Hier fällt sie deshalb: der eingetragene Rückkaufswert passt nicht mehr zur
+    /// ausgewiesenen Gesamtleistung, und genau das soll ein Mensch sehen, bevor er übernimmt.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Ein_eingetragener_Wert_rechnet_in_der_Probe_mit()
+    {
+        var gelesen = extractor.Read(
+            DocumentKindLibrary.Statusreport, Statusreport(), values:
+            new Dictionary<string, string> { ["rueckkauf"] = "9.000,00" });
+
+        var wert = gelesen.Values.Single(w => w.Rule.Key == "rueckkauf");
+
+        Assert.Equal(9000.00m, wert.Number);
+        Assert.True(wert.ByHand);
+
+        var probe = Assert.Single(gelesen.Proofs);
+        Assert.False(probe.Passed);
+    }
+
+    /// <summary>
+    /// Eine Eingabe, aus der keine Zahl wird, verschwindet nicht.
+    /// </summary>
+    /// <remarks>
+    /// Sie bleibt stehen und sagt, was ihr fehlt. Verschluckt wäre sie das Schlimmste: der
+    /// Nutzer hätte etwas eingetragen und sähe wieder den alten Wert — genau der Eindruck, den
+    /// die Anwendung schon einmal gemacht hat.
+    /// </remarks>
+    [Fact]
+    public void Eine_Eingabe_ohne_Zahl_bleibt_stehen_und_sagt_es()
+    {
+        var gelesen = extractor.Read(
+            DocumentKindLibrary.Statusreport, Statusreport(), values:
+            new Dictionary<string, string> { ["rueckkauf"] = "neunzig" });
+
+        var wert = gelesen.Values.Single(w => w.Rule.Key == "rueckkauf");
+
+        Assert.Equal("neunzig", wert.Raw);
+        Assert.Null(wert.Number);
+        Assert.True(wert.ByHand);
+        Assert.Contains("keine Zahl", wert.Warning);
+    }
+
+    // ── Eine Zeile von Hand ────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Eine Zeile ohne lesbaren Betrag verschwindet nicht — sie sagt, dass sie einen braucht.
+    /// </summary>
+    /// <remarks>
+    /// Der Fall aus dem Jahrgang 2023: die Texterkennung macht aus einem Betrag <c>1 239 69</c>,
+    /// und keine Regel darf daraus raten. Hinge die Zeile am Betrag, wäre sie unsichtbar — und
+    /// mit ihr die Auskunft, woran es liegt. Erkannt wird sie an Anteilen und Preis; der fehlende
+    /// Betrag steht dann als Aufgabe da.
+    /// </remarks>
+    [Fact]
+    public void Eine_Zeile_ohne_lesbaren_Betrag_bleibt_stehen()
+    {
+        var gelesen = extractor.Read(
+            DocumentKindLibrary.FundStatusreport,
+            FundStatusreport(
+                fonds:
+                [
+                    ("TEST01", "Musterfonds Welt", "31,4706", "197,3600", "6.211,03"),
+                    ("TEST02", "Musterfonds Renten", "9,1234", "135,5700", "1 239 69"),
+                ],
+                anteilsguthaben: "7.450,66"));
+
+        Assert.Equal(2, gelesen.Rows.Count);
+        Assert.Null(gelesen.Rows[1]["fondswert"]?.Number);
+
+        var probe = Assert.Single(gelesen.Proofs);
+        Assert.False(probe.Passed);
+        Assert.Contains("keinen lesbaren Betrag", probe.Line);
+    }
+
+    /// <summary>
+    /// Von Hand eingetragen geht die Probe auf — und sagt, dass sie es von Hand hat.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Weg aus dem beschädigten Scan: was die Textebene nicht hergibt, liest ein
+    /// Mensch vom Papier ab. Die Probe rechnet damit weiter — sie ist die Kontrolle, dass die
+    /// eingetragene Zahl zum ausgewiesenen Gesamtwert passt.</para>
+    /// <para>Und sie sagt es im Satz. Eine Probe, die aufgeht, weil jemand die fehlende Zahl
+    /// beigesteuert hat, ist etwas anderes als eine, die das Papier trägt; verschwiege sie den
+    /// Unterschied, bestätigte sie eine Lesung, die es nie gab.</para>
+    /// </remarks>
+    [Fact]
+    public void Eine_von_Hand_eingetragene_Zeile_traegt_die_Probe()
+    {
+        var beleg = FundStatusreport(
+            fonds:
+            [
+                ("TEST01", "Musterfonds Welt", "31,4706", "197,3600", "6.211,03"),
+                ("TEST02", "Musterfonds Renten", "9,1234", "135,5700", "1 239 69"),
+            ],
+            anteilsguthaben: "7.450,66");
+
+        var gelesen = extractor.Read(
+            DocumentKindLibrary.FundStatusreport, beleg,
+            new Dictionary<int, string> { [1] = "1.239,63" });
+
+        Assert.Equal(1239.63m, gelesen.Rows[1]["fondswert"]?.Number);
+        Assert.True(gelesen.Rows[1]["fondswert"]?.ByHand);
+
+        var probe = Assert.Single(gelesen.Proofs);
+        Assert.True(probe.Passed);
+        Assert.Contains("eine Zeile von Hand eingetragen", probe.Line);
+
+        // Und der ausgewiesene Wert trägt keinen Warnhinweis mehr.
+        Assert.Null(gelesen.Values.Single(w => w.Rule.Key == "anteilsguthaben").Warning);
+    }
+
+    /// <summary>
+    /// Eine eingetragene Zahl, die nicht passt, lässt die Probe scheitern.
+    /// </summary>
+    /// <remarks>
+    /// Die Eingabe ersetzt das Lesen, nicht das Prüfen. Wer sich vertippt, bekommt dieselbe
+    /// Antwort wie ein falsch gelesener Beleg — sonst wäre die Probe ein Knopf, mit dem sich
+    /// jeder Widerspruch wegdrücken lässt.
+    /// </remarks>
+    [Fact]
+    public void Eine_falsch_eingetragene_Zeile_faellt_auf()
+    {
+        var gelesen = extractor.Read(
+            DocumentKindLibrary.FundStatusreport,
+            FundStatusreport(
+                fonds:
+                [
+                    ("TEST01", "Musterfonds Welt", "31,4706", "197,3600", "6.211,03"),
+                    ("TEST02", "Musterfonds Renten", "9,1234", "135,5700", "1 239 69"),
+                ],
+                anteilsguthaben: "7.450,66"),
+            new Dictionary<int, string> { [1] = "1.000,00" });
+
+        var probe = Assert.Single(gelesen.Proofs);
+        Assert.False(probe.Passed);
+        Assert.Contains("ausgewiesen sind", probe.Line);
+    }
+
+    /// <summary>
+    /// Eine gelesene Zeile lässt sich ebenso berichtigen.
+    /// </summary>
+    /// <remarks>
+    /// Nicht nur die fehlende: auch ein Betrag, den die Textebene falsch hergibt, gehört
+    /// änderbar. Sonst hinge die Berichtigung daran, ob die Texterkennung gar nichts oder etwas
+    /// Falsches geliefert hat — ein Unterschied, der den Leser nichts angeht.
+    /// </remarks>
+    [Fact]
+    public void Auch_eine_gelesene_Zeile_laesst_sich_berichtigen()
+    {
+        var gelesen = extractor.Read(
+            DocumentKindLibrary.FundStatusreport, FundStatusreport(),
+            new Dictionary<int, string> { [0] = "6.000,00" });
+
+        Assert.Equal(6000.00m, gelesen.Rows[0]["fondswert"]?.Number);
+        Assert.True(gelesen.Rows[0]["fondswert"]?.ByHand);
+        Assert.False(gelesen.Rows[1]["fondswert"]?.ByHand);
+    }
+
     // ── Beschädigte Trennzeichen ───────────────────────────────────────────────────────────
 
     /// <summary>

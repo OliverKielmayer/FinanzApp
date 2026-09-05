@@ -28,16 +28,17 @@ Alle zwölf Berichte des Vertrags 02 (2012 bis 2025) werden erkannt, ihr Anteils
 Stichtag gelesen. Die Fondstabelle geht bei **elf** von zwölf gegen den ausgewiesenen Gesamtwert
 auf. Was bleibt:
 
-- **Der Jahrgang 2023 rechnet sich nicht zusammen.** Seine Textebene stammt aus einer
-  Texterkennung und ist stellenweise beschädigt — vertauschte Trennzeichen berichtigt die
-  Leseregel inzwischen, aber eine Zeile steht als `1 239 69` da, mit Leerzeichen. Das
-  Leerzeichen als Tausenderpunkt zu lesen ist keine Lösung: am Rand desselben Jahrgangs stehen
-  verirrte Zahlen aus dem Briefkopf, und im Jahrgang 2020 würde aus `146,0200 200 960,97` ein
-  Betrag von 200.960,97 statt 960,97. Fünf der sechs Zeilen werden gelesen, die Summe fehlt um
-  genau die sechste, und der Bericht sagt das.
-- **Der ausgewiesene Wert bleibt trotzdem übernehmbar.** Er steht als eigene Zeile auf dem
-  Papier und wird sauber gelesen; die Summenprobe hängt an der *Aufstellung*, nicht an ihm. Er
-  trägt dann den Hinweis „bitte prüfen“ — wer ihn übernimmt, hat gesehen, woran es liegt.
+- **Eine Zeile des Jahrgangs 2023 liest keine Regel.** Sie steht als `1 239 69` da, mit
+  Leerzeichen. Das Leerzeichen als Tausenderpunkt zu lesen ist keine Lösung: am Rand desselben
+  Jahrgangs stehen verirrte Zahlen aus dem Briefkopf, und im Jahrgang 2020 würde aus
+  `146,0200 200 960,97` ein Betrag von 200.960,97 statt 960,97. Die Zeile ist trotzdem da —
+  erkannt an Anteilen und Preis — und sagt, dass ihr Betrag fehlt. Eingetragen ergibt die Summe
+  auf den Cent den ausgewiesenen Gesamtwert (1.239,63 €), und die Probe sagt, dass eine Zeile
+  von Hand kam.
+- **Die Vertragsnummer desselben Jahrgangs ist ebenfalls beschädigt:** `015111C4 02`. Der Beleg
+  findet seinen Vertrag deshalb nicht von allein und wird im Scaneingang zugeordnet. Aus einer
+  verlesenen Nummer eine richtige zu raten hieße, einen Beleg an einen fremden Vertrag zu
+  hängen — von allen möglichen Fehlern der teuerste.
 - **Berichtigt wird nur unter einer Gegenprobe.** In der Fondstabelle prüft der ausgewiesene
   Gesamtwert jede Vermutung nach. An einem einzelnen Feld gibt es diese Prüfung nicht: die
   Beitragssumme des Jahrgangs 2023 steht als `43 866.12` da und bleibt ungelesen, weil aus ihr

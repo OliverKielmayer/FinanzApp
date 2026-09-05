@@ -141,7 +141,8 @@ else if (step == Step.Values && analysis is { } geprueft)
     <div class="detail-block">
         <span class="detail-label">Gelesene Werte</span>
         <span class="detail-value">
-            Wert, Herkunftsseite, antippen zum Korrigieren. Was hier steht, wird übernommen.
+            Wert, Herkunft, antippen zum Korrigieren. Was hier steht, wird übernommen — auch
+            eine Zahl, die Sie selbst eintragen; sie steht dann mit „von Hand eingetragen“ da.
         </span>
     </div>
 
@@ -165,20 +166,46 @@ else if (step == Step.Values && analysis is { } geprueft)
             <div class="repeat-head">
                 <span class="label-accent">@gruppe.Title</span>
                 <span class="meta">
-                    @gruppe.Rows.Count @(gruppe.Rows.Count == 1 ? "Zeile" : "Zeilen") · je Zeile geprüft
+                    @gruppe.Rows.Count @(gruppe.Rows.Count == 1 ? "Zeile" : "Zeilen") ·
+                    antippen zum Eintragen
                 </span>
             </div>
 
-            @foreach (var zeile in gruppe.Rows)
+            @*
+                Auch die Zeilen lassen sich berichtigen — der Fall dafür ist ein Scan, dessen
+                Textebene eine Zeile nicht hergibt. Ohne das bliebe die Summenprobe für immer
+                offen, und der ausgewiesene Wert für immer zweifelhaft; korrigieren ließ sich
+                alles außer der Zahl, an der es lag.
+
+                Gerechnet wird dabei auf dem Server: die Zeile geht zurück in dieselbe
+                Leseregel, und die Probe darunter ist dieselbe, die auch bei der Übernahme gilt.
+            *@
+            @for (var i = 0; i < gruppe.Rows.Count; i++)
             {
+                var nummer = i;
+                var zeile = gruppe.Rows[i];
+
                 <div class="repeat-row">
                     <span class="stack">
                         <span class="repeat-name">@zeile.Name</span>
-                        <span class="meta">@zeile.Meta</span>
+                        <span class="meta @(zeile.ByHand ? "warn" : null)">
+                            @(zeile.ByHand ? "von Hand eingetragen" : zeile.Meta)
+                        </span>
                     </span>
-                    <span class="repeat-value num">
-                        @(zeile.Value is { } wert ? State.Euro(wert) : "—")
-                    </span>
+
+                    @if (editingRow == nummer)
+                    {
+                        <input class="input value-input" value="@RowRaw(zeile)"
+                               @onchange="e => CorrectRowAsync(nummer, e.Value?.ToString())"
+                               @onblur="() => editingRow = null" autofocus />
+                    }
+                    else
+                    {
+                        <button type="button" class="repeat-value num @(zeile.ByHand ? "warn" : null)"
+                                disabled="@busy" @onclick="() => editingRow = nummer">
+                            @(zeile.Value is { } wert ? State.Euro(wert) : "—")
+                        </button>
+                    }
                 </div>
             }
 
@@ -217,8 +244,8 @@ else if (step == Step.Values && analysis is { } geprueft)
 
             @if (editing == feld.Key)
             {
-                <input class="input value-input" value="@corrections.GetValueOrDefault(feld.Key, Raw(feld))"
-                       @onchange="e => Correct(feld.Key, e.Value?.ToString())"
+                <input class="input value-input" value="@Raw(feld)"
+                       @onchange="e => CorrectAsync(feld.Key, e.Value?.ToString())"
                        @onblur="() => editing = null" autofocus />
             }
             else
@@ -317,6 +344,11 @@ else if (step == Step.Done && result is { } fertig)
     private string? editing;
     private readonly Dictionary<string, string> corrections = [];
 
+    /// <summary>Von Hand eingetragene Zeilenwerte, nach Zeilennummer ab null.</summary>
+    private readonly Dictionary<int, string> rowCorrections = [];
+
+    private int? editingRow;
+
     /// <summary>
     /// Ohne Belegnummer lädt die Seite nichts — sie beginnt leer und füllt sich aus dem, was
     /// hochgeladen wird. Mit einer steigt sie beim Prüfschritt ein.
@@ -329,6 +361,7 @@ else if (step == Step.Done && result is { } fertig)
         }
 
         corrections.Clear();
+        rowCorrections.Clear();
         result = null;
 
         try
@@ -358,6 +391,7 @@ else if (step == Step.Done && result is { } fertig)
         analysis = null;
         result = null;
         corrections.Clear();
+        rowCorrections.Clear();
         step = Step.Analysis;
 
         try
@@ -386,6 +420,7 @@ else if (step == Step.Done && result is { } fertig)
             {
                 DocumentId = gelesen.DocumentId,
                 Values = corrections.Count == 0 ? null : corrections,
+                RowValues = rowCorrections.Count == 0 ? null : rowCorrections,
             });
 
             step = Step.Done;
@@ -407,6 +442,7 @@ else if (step == Step.Done && result is { } fertig)
         result = null;
         fileName = string.Empty;
         corrections.Clear();
+        rowCorrections.Clear();
 
         // Kam die Seite aus dem Scaneingang, steht die Belegnummer noch in der Adresse. Sie zeigte
         // dann auf einen Beleg, der nicht mehr auf dem Schirm ist — und ein Neuladen führte zurück
@@ -417,17 +453,80 @@ else if (step == Step.Done && result is { } fertig)
         }
     }
 
-    private void Correct(string key, string? value)
+    /// <summary>
+    /// Eine Zeile der Aufstellung von Hand eintragen — und neu rechnen lassen.
+    /// </summary>
+    /// <remarks>
+    /// Der Aufruf geht zum Server zurück, obwohl die Summe im Browser schnell gerechnet wäre.
+    /// Sonst stünde unter der Liste eine Probe, die niemand nachrechnet: die Übernahme prüft am
+    /// Ende gegen die Leseregel, und was dort gilt, soll hier schon dastehen.
+    /// </remarks>
+    private async Task CorrectRowAsync(int zeile, string? value)
+    {
+        editingRow = null;
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            rowCorrections.Remove(zeile);
+        }
+        else
+        {
+            rowCorrections[zeile] = value.Trim();
+        }
+
+        await RecalculateAsync(() => rowCorrections.Remove(zeile));
+    }
+
+    private async Task CorrectAsync(string key, string? value)
     {
         editing = null;
 
         if (string.IsNullOrWhiteSpace(value))
         {
             corrections.Remove(key);
+        }
+        else
+        {
+            corrections[key] = value.Trim();
+        }
+
+        await RecalculateAsync(() => corrections.Remove(key));
+    }
+
+    /// <summary>
+    /// Die Nachschau mit allen Eintragungen noch einmal rechnen lassen.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Schirm führte die Korrekturen früher nur auf einem eigenen Merkzettel mit und
+    /// zeigte weiter den gelesenen Wert. Übernommen wurde der berichtigte — zu sehen war der
+    /// alte, und darüber stand „Was hier steht, wird übernommen“. Wer das sah, hielt seine
+    /// Korrektur für verloren.</para>
+    /// <para>Gerechnet wird deshalb dort, wo auch die Übernahme rechnet. Und mit den
+    /// Rechenproben: eine berichtigte Zahl ändert, ob eine Probe aufgeht.</para>
+    /// </remarks>
+    private async Task RecalculateAsync(Action zurücknehmen)
+    {
+        if (analysis is not { } gelesen)
+        {
             return;
         }
 
-        corrections[key] = value.Trim();
+        busy = true;
+        try
+        {
+            analysis = await Api.ReviewScanAsync(gelesen.DocumentId, rowCorrections, corrections);
+        }
+        catch (ApiException ex)
+        {
+            // Die Eingabe zurücknehmen: sonst stünde sie im Schirm, ohne dass irgendetwas sie
+            // gerechnet hätte, und die Zahlen darunter widersprächen ihr.
+            zurücknehmen();
+            Toasts.Show(ex.Message);
+        }
+        finally
+        {
+            busy = false;
+        }
     }
 
     // ── Darstellung ────────────────────────────────────────────────────────────────────────
@@ -456,6 +555,10 @@ else if (step == Step.Done && result is { } fertig)
     /// In ein Eingabefeld gehört die Zahl und nicht ihre Maskierung: wer korrigiert, hat den
     /// Beleg vor sich und will sehen, was dort steht.
     /// </remarks>
+    /// <summary>Der Zeilenwert zum Eintragen — unmaskiert, im Format des Belegs.</summary>
+    private static string RowRaw(ScanRowDto zeile)
+        => zeile.Value is { } wert ? GermanFormat.Decimal2(wert) : string.Empty;
+
     private static string Raw(ScanFieldDto feld)
         => feld is { IsMoney: true, Number: { } betrag }
             ? GermanFormat.Decimal2(betrag)

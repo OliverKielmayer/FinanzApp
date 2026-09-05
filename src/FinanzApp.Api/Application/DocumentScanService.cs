@@ -90,7 +90,21 @@ public sealed class DocumentScanService(
     /// nur mit den Leseregeln von heute. Ein Beleg, der vor einer verbesserten Regel hereinkam,
     /// wird beim Nachsehen dadurch richtig gelesen.</para>
     /// </remarks>
-    public async Task<ScanAnalysisDto> ReviewAsync(int documentId, CancellationToken ct = default)
+    /// <param name="rowValues">
+    /// Von Hand eingetragene Zeilenwerte, nach Zeilennummer ab null. Der Weg für einen Scan,
+    /// dessen Textebene eine Zeile nicht hergibt: ohne ihn bliebe die Summenprobe für immer
+    /// offen, und der ausgewiesene Wert für immer zweifelhaft.
+    /// </param>
+    /// <param name="values">
+    /// Von Hand eingetragene Einzelwerte, nach Feldschlüssel. Sie ersetzen den gelesenen Wert,
+    /// und die Rechenproben rechnen mit ihnen — der Schirm zeigt danach, was die Übernahme
+    /// wirklich nimmt.
+    /// </param>
+    public async Task<ScanAnalysisDto> ReviewAsync(
+        int documentId,
+        IReadOnlyDictionary<int, string>? rowValues = null,
+        IReadOnlyDictionary<string, string>? values = null,
+        CancellationToken ct = default)
     {
         var dokument = await db.Documents.FirstOrDefaultAsync(d => d.Id == documentId, ct)
                        ?? throw new RuleViolationException("Dieses Dokument gibt es nicht.");
@@ -122,7 +136,26 @@ public sealed class DocumentScanService(
                       "Aus dieser Datei ist auch mit den heutigen Leseregeln keine Art zu "
                       + "erkennen — übernehmen lässt sich daraus nichts.");
 
-        return await DescribeAsync(art, inhalt, extractor.Read(art, inhalt), dokument, dokument.FileName, ct);
+        var gelesen = extractor.Read(art, inhalt, rowValues, values);
+
+        // Eine Berichtigung für eine Zeile, die es nicht gibt, ist kein Grund weiterzumachen.
+        // Sie käme aus einem Schirm, der eine andere Tabelle gesehen hat als diese — und still
+        // zu übergehen, was jemand eingetragen hat, wäre das Schlimmste von allem.
+        //
+        // Gezählt statt gesucht: FirstOrDefault liefert bei einer Zahlenfolge die Null, wenn es
+        // nichts findet — und die Null ist hier die erste Zeile. So galt jede Berichtigung der
+        // obersten Zeile als Eingabe für eine Zeile, die es nicht gibt.
+        var daneben = rowValues?.Keys.Where(i => i < 0 || i >= gelesen.Rows.Count).ToList() ?? [];
+
+        if (daneben.Count > 0)
+        {
+            throw new RuleViolationException(
+                $"Zeile {daneben[0] + 1} gibt es in dieser Aufstellung nicht — sie hat "
+                + $"{gelesen.Rows.Count} {(gelesen.Rows.Count == 1 ? "Zeile" : "Zeilen")}. "
+                + "Bitte den Prüfschritt neu laden.");
+        }
+
+        return await DescribeAsync(art, inhalt, gelesen, dokument, dokument.FileName, ct);
     }
 
     /// <summary>
@@ -154,10 +187,20 @@ public sealed class DocumentScanService(
         // erkannt worden“ — zwei Stellen, zwei Wahrheiten über dieselbe Datei.
         dokument.ScanKind = art.Key;
 
-        db.DocumentExtractions.RemoveRange(
-            await db.DocumentExtractions.Where(x => x.DocumentId == dokument.Id).ToListAsync(ct));
+        // Felder, für die eine Eintragung vorliegt, bleiben im Abdruck unangetastet. Würden sie
+        // hier entfernt und danach übersprungen, verlöre der Abdruck genau die Lesung, gegen die
+        // sich die Eintragung vergleichen ließe — und beim nächsten Öffnen stünde dort nichts.
+        var vonHand = werte.Where(w => w.ByHand).Select(w => w.Rule.Key).ToHashSet(StringComparer.Ordinal);
 
-        foreach (var wert in werte)
+        db.DocumentExtractions.RemoveRange(
+            await db.DocumentExtractions
+                .Where(x => x.DocumentId == dokument.Id && !vonHand.Contains(x.FieldKey))
+                .ToListAsync(ct));
+
+        // Nur das Gelesene. Eine eingetragene Zahl im Leseabdruck stünde dort als Lesung, und
+        // beim nächsten Öffnen wüsste niemand mehr, welche Zahl vom Papier kam. Mitgeschickt
+        // wird sie bei der Übernahme — dort, wo ein Mensch sie verantwortet.
+        foreach (var wert in werte.Where(w => !w.ByHand))
         {
             db.DocumentExtractions.Add(new DocumentExtraction
             {
@@ -208,7 +251,7 @@ public sealed class DocumentScanService(
                     Line = p.Line, Why = p.Why, Passed = p.Passed,
                 }),
             ],
-            Blocker = Blocker(art, ziel, stichtag, werte),
+            Blocker = Blocker(art, ziel, stichtag, werte, await HouseholdNameAsync(ct)),
         };
     }
 
@@ -275,7 +318,7 @@ public sealed class DocumentScanService(
         // Die Zeilen einer Wiederholgruppe stehen nicht in der Werteliste — sie sind viele
         // gleichnamige Felder. Für sie wird die abgelegte Datei noch einmal gelesen; sie liegt
         // seit der Analyse und ändert sich nicht.
-        var gruppen = art.Repeat is null ? [] : await RowsAsync(art, dokument, ct);
+        var gruppen = art.Repeat is null ? [] : await RowsAsync(art, dokument, request.RowValues, ct);
 
         var ergebnis = art.Target switch
         {
@@ -398,6 +441,7 @@ public sealed class DocumentScanService(
                 Name = z[gruppe.NameField]?.Raw ?? z["isin"]?.Raw ?? "Position",
                 Meta = RowMeta(z),
                 Value = z[gruppe.ValueField]?.Number,
+                ByHand = z[gruppe.ValueField]?.ByHand == true,
             })
             .ToList();
 
@@ -407,7 +451,12 @@ public sealed class DocumentScanService(
             ? werte.FirstOrDefault(w => w.Rule.Key == schluessel)?.Number
             : null;
 
-        var passt = ausgewiesen is not { } gesamt || Math.Abs(gesamt - summe) <= 0.01m;
+        // Dieselbe Toleranz wie die Rechenprobe. Vorher stand hier ein fester Cent: bei sechs
+        // Fonds gehen zwei Cent Rundung des Absenders auf das Papier, und dann sagte die Liste
+        // „weicht ab“, während die Probe darunter „entspricht“ meldete — zwei Sätze über
+        // dieselbe Summe, und einer davon falsch.
+        var passt = ausgewiesen is not { } gesamt
+                    || Math.Abs(gesamt - summe) <= gruppe.TotalTolerance;
 
         return new ScanRepeatDto
         {
@@ -460,7 +509,8 @@ public sealed class DocumentScanService(
     /// sofortigen Ablage — die Datei ist seit der Analyse dieselbe.
     /// </remarks>
     private async Task<IReadOnlyList<ReadRow>> RowsAsync(
-        DocumentKind art, Document dokument, CancellationToken ct)
+        DocumentKind art, Document dokument, IReadOnlyDictionary<int, string>? rowValues,
+        CancellationToken ct)
     {
         var absolut = paths.Resolve(dokument.RelativePath);
 
@@ -470,7 +520,7 @@ public sealed class DocumentScanService(
         }
 
         await using var datei = File.OpenRead(absolut);
-        return extractor.Read(art, reader.Read(datei)).Rows;
+        return extractor.Read(art, reader.Read(datei), rowValues).Rows;
     }
 
     /// <summary>
@@ -669,6 +719,18 @@ public sealed class DocumentScanService(
                 "/depot");
     }
 
+    /// <summary>Wie der Haushalt heißt, in dem diese Anfrage sucht.</summary>
+    /// <remarks>
+    /// Über die Haushaltsgrenze sieht kein Dienst hinweg, und das ist richtig so. Sagen, auf
+    /// welcher Seite er gestanden hat, kann er trotzdem — das ist keine Auskunft über den
+    /// anderen Haushalt, sondern über die eigene Suche.
+    /// </remarks>
+    private async Task<string?> HouseholdNameAsync(CancellationToken ct)
+        => await db.Households.AsNoTracking()
+            .Where(h => h.Id == db.CurrentHouseholdId)
+            .Select(h => h.Name)
+            .FirstOrDefaultAsync(ct);
+
     private async Task<Policy?> FindPolicyAsync(string? nummer, CancellationToken ct)
         => nummer is not { Length: > 0 }
             ? null
@@ -780,6 +842,7 @@ public sealed class DocumentScanService(
                 Confidence = wert.Confidence,
                 Lead = wert.Rule.Lead,
                 Soft = wert.Rule.Soft,
+                ByHand = wert.ByHand,
                 Warning = wert.Warning,
             });
         }
@@ -798,16 +861,30 @@ public sealed class DocumentScanService(
     /// Vorher gesagt statt hinterher: ein Vorschlag mit „Übernehmen“-Knopf, der beim Drücken
     /// scheitert, hat den Nutzer zweimal Zeit gekostet.
     /// </remarks>
+    /// <param name="haushalt">
+    /// Der Haushalt, in dem gesucht wurde. Er gehört in die Meldung, weil die Suche nie darüber
+    /// hinausgeht — und weil das der wahrscheinlichste Grund ist, aus dem eine gelesene Nummer
+    /// nichts findet. Wer zwei Haushalte führt, liest den Beleg sonst im falschen ein und sucht
+    /// den Fehler in der Leseregel.
+    /// </param>
     private static string? Blocker(
-        DocumentKind art, Target? ziel, DateOnly? stichtag, IReadOnlyList<ReadValue> werte)
+        DocumentKind art, Target? ziel, DateOnly? stichtag, IReadOnlyList<ReadValue> werte,
+        string? haushalt)
     {
         if (ziel is null)
         {
             // Die gesuchte Nummer gehört in die Meldung: mit ihr weiß der Nutzer, was er am
             // Objekt nachtragen muss. Ohne sie bleibt nur „geht nicht“.
             var nummer = Text(werte, art.TargetNumberField);
+
+            // Wo gesucht wurde, steht nur dabei, wenn es etwas zu suchen gab. Ohne Nummer wäre
+            // der Haushalt eine Auskunft über eine Suche, die nie stattgefunden hat.
+            var wo = haushalt is { Length: > 0 } && nummer is { Length: > 0 }
+                ? $" im Haushalt „{haushalt}“"
+                : string.Empty;
+
             var gesucht = nummer is { Length: > 0 }
-                ? $" Gesucht wurde nach {Label(art, art.TargetNumberField)} {nummer}."
+                ? $" Gesucht wurde nach {Label(art, art.TargetNumberField)} {nummer}{wo}."
                 : $" Das Dokument nennt auch keine {Label(art, art.TargetNumberField)}.";
 
             return $"Kein {art.TargetNoun} gefunden, zu dem das Dokument passt.{gesucht} Die Datei "
@@ -826,13 +903,18 @@ public sealed class DocumentScanService(
             return "Ohne Stichtag wird nichts übernommen — ein Stand ohne Datum ist keiner.";
         }
 
-        var leit = art.Fields.Where(f => f.Lead).Select(f => f.Key).ToList();
-        var fehlt = leit.Where(k => werte.All(w => w.Rule.Key != k)).ToList();
+        // „Da“ genügt nicht — der Leitwert muss eine Zahl sein. Vorher ging eine Eingabe, aus
+        // der keine wurde, an dieser Stelle vorbei und scheiterte erst beim Drücken: der Knopf
+        // stand bereit und die Übernahme sagte hinterher „ohne Anteilsguthaben geht nichts“.
+        var leit = art.Fields.Where(f => f.Lead).ToList();
 
-        return fehlt.Count == 0
-            ? null
-            : "Es fehlt: " + string.Join(", ",
-                fehlt.Select(k => art.Fields.First(f => f.Key == k).Label));
+        var fehlt = leit
+            .Where(f => werte.FirstOrDefault(w => w.Rule.Key == f.Key) is not { } wert
+                        || (f.Kind != DocumentValueKind.Text && wert.Number is null))
+            .Select(f => f.Label)
+            .ToList();
+
+        return fehlt.Count == 0 ? null : "Es fehlt: " + string.Join(", ", fehlt);
     }
 
     /// <summary>

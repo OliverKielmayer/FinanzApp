@@ -211,6 +211,24 @@ public static class FinanzAppApiExtensions
         this FinanzAppApi api, int documentId, CancellationToken ct = default)
         => api.GetAsync<ScanAnalysisDto>($"api/scan/{documentId}/review", ct);
 
+    /// <summary>
+    /// Denselben Prüfschritt noch einmal, mit von Hand eingetragenen Zeilen.
+    /// </summary>
+    /// <remarks>
+    /// Die Summe und ihre Probe rechnet der Server, auch wenn die Zahl aus dem Schirm kommt.
+    /// Zwei Rechenproben — eine im Browser, eine bei der Übernahme — wären eine zu viel.
+    /// </remarks>
+    public static Task<ScanAnalysisDto> ReviewScanAsync(
+        this FinanzAppApi api,
+        int documentId,
+        IReadOnlyDictionary<int, string> rowValues,
+        IReadOnlyDictionary<string, string> values,
+        CancellationToken ct = default)
+        => api.PostAsync<ScanReviewRequest, ScanAnalysisDto>(
+            $"api/scan/{documentId}/review",
+            new ScanReviewRequest { RowValues = rowValues, Values = values },
+            ct);
+
     /// <summary>Entfernt einen gemeldeten Vertragsstand.</summary>
     public static Task DeletePolicyReportAsync(
         this FinanzAppApi api, int reportId, CancellationToken ct = default)

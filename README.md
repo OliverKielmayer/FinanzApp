@@ -259,6 +259,12 @@ Fristen und Dokumente hängen. Seine Kosten der letzten zwölf Monate werden aus
 gerechnet, nicht gepflegt. Die Kfz-Versicherung wird **verwiesen**, nicht kopiert — sie bleibt
 unter Absicherung.
 
+Findet die Analyse kein Zielobjekt, nennt die Meldung die gesuchte Nummer **und den Haushalt**,
+in dem gesucht wurde. Über die Haushaltsgrenze sieht kein Dienst hinweg — das ist richtig so, und
+genau deshalb ist es der wahrscheinlichste Grund, aus dem eine gelesene Nummer nichts findet. Der
+eigene Haushaltsname verrät nichts über den anderen; er sagt nur, auf welcher Seite die Suche
+stand.
+
 Der **Scaneingang** ist ein Posteingang: gescannt wird stapelweise, eingeordnet wird später. Ein
 Beleg bleibt darin, bis Typ **und** Objekt bestimmt sind. Ohne diese Schwelle verschwände er in
 der Ablage, ohne dass jemand entschieden hätte, wozu er gehört — und genau solche Dokumente
@@ -268,6 +274,24 @@ Was die Erkennung nicht selbst hinbekommen hat, trägt der Benutzer im Eingang n
 fragt nach Typ und Objekt und räumt den Beleg in einem Aufruf weg. Beides zusammen, weil der
 Eingang beides verlangt — ein Beleg mit Typ und ohne Objekt wäre nach dem halben Weg immer noch
 nicht eingeordnet und stünde nach einem gescheiterten zweiten Aufruf halb geändert da.
+
+### Eine Zeile von Hand
+
+Ein beschädigter Scan verliert einzelne Zahlen. Eine Fondszeile wird deshalb an **Anteilen und
+Anteilspreis** erkannt und nicht am Betrag am Ende — der ist genau das, was verlorengeht. Ohne
+lesbaren Betrag steht die Zeile trotzdem da und sagt es; hinge sie am Betrag, wäre sie unsichtbar
+und nicht einmal von Hand nachzutragen.
+
+`POST /api/scan/{id}/review` nimmt eingetragene Zeilenwerte entgegen und rechnet **auf dem
+Server** neu. Nicht im Browser: es soll eine Rechenprobe geben und nicht zwei, von denen die
+sichtbare die unverbindliche wäre. Dieselben Werte gehen mit `POST /api/scan/confirm` mit, denn
+bei einer Aufstellung werden die Zeilen zu Positionen — eine Berichtigung, die nur die Anzeige
+beruhigt, wäre beim Speichern verschwiegen.
+
+Die Probe sagt, was von Hand kam: „6 Zeilen = 32.937,10 EUR (eine Zeile von Hand eingetragen) —
+entspricht dem ausgewiesenen Gesamtwert.“ Eine Probe, die aufgeht, weil ein Mensch die fehlende
+Zahl beigesteuert hat, ist etwas anderes als eine, die das Papier trägt. Und sie bleibt eine
+Prüfung: wer sich vertippt, bekommt dieselbe Antwort wie ein falsch gelesener Beleg.
 
 ### Was schon dalag — zwei Stufen
 

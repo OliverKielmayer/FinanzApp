@@ -240,6 +240,21 @@ Unter jeder Zeile stehen die beiden Schalter, mit denen der Beleg den Eingang ve
 Gibt es das Objekt in der App noch nicht, legen Sie es zuerst an — der Beleg bleibt bis dahin
 liegen und geht nicht verloren.
 
+**Wenn eine Zeile nicht lesbar ist.** Manche Scans verlieren beim Einlesen einzelne Zahlen. Im
+Prüfschritt steht die Zeile dann mit einem Strich statt einem Betrag; ein Tipp darauf öffnet ein
+Feld, in das Sie den Wert vom Papier abschreiben. Die Summe darunter wird sofort neu gerechnet,
+und die **Rechenprobe** sagt Ihnen, ob es stimmt — sie vergleicht mit dem Gesamtwert, den der
+Absender selbst ausweist. Passt es nicht, haben Sie sich vertippt oder eine andere Zeile ist
+ebenfalls falsch gelesen.
+
+Dass eine Zahl von Ihnen kam und nicht vom Papier, bleibt sichtbar: die Zeile trägt „von Hand
+eingetragen“, und die Rechenprobe zählt es mit. Genauso lassen sich die Einzelwerte darunter
+korrigieren — antippen, ändern, fertig.
+
+**Kein Vertrag gefunden?** Dann nennt die Meldung die gesuchte Nummer *und* den Haushalt, in dem
+gesucht wurde. Die App sieht nie über den Haushalt hinaus, in dem Sie gerade angemeldet sind —
+wer zwei Haushalte führt, prüft als Erstes, ob er im richtigen steht.
+
 **Was schon dalag.** Wird genau dieselbe Datei ein zweites Mal eingelesen, legt die App sie nicht
 noch einmal ab; sie sagt, unter welchem Beleg sie bereits liegt. Wer im Zweifel zweimal einliest,
 tut also nichts kaputt.

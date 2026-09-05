@@ -87,6 +87,16 @@ public sealed record ScanRowDto
 
     /// <summary>Der Wert, den diese Zeile beiträgt.</summary>
     public required decimal? Value { get; init; }
+
+    /// <summary>
+    /// Der Wert steht nicht auf dem Papier, sondern hat ihn jemand eingetragen.
+    /// </summary>
+    /// <remarks>
+    /// Der Schirm zeigt es an der Zeile, und die Rechenprobe sagt es im Satz. Eine Probe, die
+    /// aufgeht, weil ein Mensch die fehlende Zahl beigesteuert hat, ist etwas anderes als eine,
+    /// die das Papier trägt — und der Unterschied gehört dorthin, wo jemand entscheidet.
+    /// </remarks>
+    public bool ByHand { get; init; }
 }
 
 /// <summary>Die Wiederholgruppe eines Dokuments.</summary>
@@ -151,6 +161,15 @@ public sealed record ScanFieldDto
     /// <summary>Angabe ohne Garantie — nie Teil einer Vermögenssumme.</summary>
     public bool Soft { get; init; }
 
+    /// <summary>
+    /// Der Wert steht nicht auf dem Papier, sondern hat ihn jemand eingetragen.
+    /// </summary>
+    /// <remarks>
+    /// Er steht dann anstelle der Herkunftsseite in der Zeile darunter. „Seite 1“ über einer
+    /// Zahl, die ein Mensch getippt hat, wäre eine Herkunftsangabe, die nicht stimmt.
+    /// </remarks>
+    public bool ByHand { get; init; }
+
     /// <summary>Was an diesem Wert auffällt.</summary>
     public string? Warning { get; init; }
 
@@ -164,7 +183,11 @@ public sealed record ScanFieldDto
         {
             var teile = new List<string>();
 
-            if (SourcePage is { } seite)
+            if (ByHand)
+            {
+                teile.Add("von Hand eingetragen");
+            }
+            else if (SourcePage is { } seite)
             {
                 teile.Add($"Seite {seite}");
             }
@@ -257,6 +280,37 @@ public sealed record ScanEffectPart
 public sealed record ConfirmScanRequest
 {
     public required int DocumentId { get; init; }
+    public IReadOnlyDictionary<string, string>? Values { get; init; }
+
+    /// <summary>
+    /// Von Hand eingetragene Zeilenwerte einer Wiederholgruppe, nach Zeilennummer ab null.
+    /// </summary>
+    /// <remarks>
+    /// Sie gehören mitgeschickt und nicht nur in den Schirm: bei einer Aufstellung wandern die
+    /// Zeilen in Bestände, und eine Berichtigung, die nur die Anzeige beruhigt, verschwiegen
+    /// beim Speichern.
+    /// </remarks>
+    public IReadOnlyDictionary<int, string>? RowValues { get; init; }
+}
+
+/// <summary>Die Nachschau mit berichtigten Zeilen.</summary>
+/// <remarks>
+/// Gerechnet wird auf dem Server, auch wenn die Zahl aus dem Schirm kommt. Sonst gäbe es zwei
+/// Rechenproben — eine im Browser und eine bei der Übernahme —, und die erste würde geglaubt.
+/// </remarks>
+public sealed record ScanReviewRequest
+{
+    public IReadOnlyDictionary<int, string>? RowValues { get; init; }
+
+    /// <summary>
+    /// Von Hand eingetragene Einzelwerte, nach Feldschlüssel.
+    /// </summary>
+    /// <remarks>
+    /// Sie gehen denselben Weg wie die Zeilen: der Server liest sie mit derselben Regel und
+    /// rechnet die Proben neu. Vorher berichtigte der Schirm nur seinen eigenen Merkzettel — die
+    /// Anzeige blieb auf dem gelesenen Wert stehen, und über der Zeile stand trotzdem „Was hier
+    /// steht, wird übernommen“. Übernommen wurde der berichtigte; zu sehen war der alte.
+    /// </remarks>
     public IReadOnlyDictionary<string, string>? Values { get; init; }
 }
 
