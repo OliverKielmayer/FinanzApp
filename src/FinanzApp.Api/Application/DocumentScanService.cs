@@ -311,6 +311,14 @@ public sealed class DocumentScanService(
                               : $"Das Dokument nennt keine {Label(art, art.TargetNumberField)}.");
 
         var leitfeld = art.Fields.First(f => f.Lead);
+
+        // Vor dem Schreiben, nicht danach: ein Bericht auf einem Absicherungsvertrag bliebe als
+        // Zeile stehen, während der erreichte Wert leer bleibt.
+        if (leitfeld.Kind == DocumentValueKind.Money && !vertrag.IsCapitalForming)
+        {
+            throw new RuleViolationException(CarriesNoValue(vertrag));
+        }
+
         var wert = werte.GetValueOrDefault(leitfeld.Key)?.Number
                    ?? throw new RuleViolationException(
                        $"Ohne {leitfeld.Label} lässt sich nichts übernehmen.");
@@ -591,7 +599,29 @@ public sealed class DocumentScanService(
 
     // ── Zielobjekt ─────────────────────────────────────────────────────────────────────────
 
-    private sealed record Target(int Id, string Name, string? Sub, string Href);
+    /// <param name="Problem">
+    /// Warum dieses Ziel den Wert nicht tragen kann — oder <c>null</c>, wenn es ihn trägt.
+    /// </param>
+    private sealed record Target(int Id, string Name, string? Sub, string Href, string? Problem = null);
+
+    /// <summary>
+    /// Warum ein Absicherungsvertrag keinen gemeldeten Wert übernehmen kann.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Ein Satz, zwei Stellen.</b> Der Prüfschritt zeigt ihn vor dem Knopf, die
+    /// Übernahme weist damit ab — sonst hinge die Auskunft daran, welchen Weg der Nutzer
+    /// nimmt.</para>
+    /// <para>Der Fall ist nicht erfunden: bis heute ließ sich ein zweiter Vorsorgevertrag beim
+    /// selben Anbieter nicht anlegen, und der Vertrag landete unter Absicherung. Die Übernahme
+    /// meldete dann „übernommen“, schrieb den Bericht — und der erreichte Wert blieb leer, weil
+    /// eine Absicherung <em>nie</em> einen Vermögenswert trägt. Der Betrag verschwand
+    /// zwischen zwei richtigen Regeln.</para>
+    /// </remarks>
+    private static string CarriesNoValue(Policy vertrag)
+        => $"„{vertrag.Name}“ steht unter Absicherung und trägt keinen Vermögenswert. Dieses "
+           + "Dokument meldet einen erreichten Wert, und der zählt nur bei einem Vorsorgevertrag. "
+           + "Die Datei bleibt abgelegt; für die Übernahme muss der Vertrag unter „Vorsorge & "
+           + "Kapital“ stehen.";
 
     /// <summary>
     /// Sucht das Objekt, zu dem das Dokument gehört — über seine Nummer.
@@ -605,11 +635,18 @@ public sealed class DocumentScanService(
         if (art.Target == DocumentTargetKind.Policy)
         {
             var vertrag = await FindPolicyAsync(nummer, ct);
+
+            // Nur Dokumente mit einem Geldbetrag als Leitwert brauchen einen Vertrag, der
+            // Vermögen tragen kann. Eine Beitragsrechnung meldet keinen erreichten Wert und
+            // gehört sehr wohl zu einer Absicherung.
+            var meldetWert = art.Fields.Any(f => f.Lead && f.Kind == DocumentValueKind.Money);
+
             return vertrag is null
                 ? null
                 : new Target(vertrag.Id, vertrag.Provider,
                     Join(vertrag.Name, vertrag.PolicyNumber is { Length: > 0 } n ? "Nr. " + n : null),
-                    $"/police/{vertrag.Id}");
+                    $"/police/{vertrag.Id}",
+                    meldetWert && !vertrag.IsCapitalForming ? CarriesNoValue(vertrag) : null);
         }
 
         var depot = await FindDepotAsync(nummer, ct);
@@ -763,6 +800,13 @@ public sealed class DocumentScanService(
 
             return $"Kein {art.TargetNoun} gefunden, zu dem das Dokument passt.{gesucht} Die Datei "
                    + "ist abgelegt; übernehmen lässt sich erst, wenn das Ziel dasteht.";
+        }
+
+        // Das Ziel steht, kann den Wert aber nicht tragen. Vorher gesagt: ein Knopf, der
+        // „übernommen“ meldet und nichts bewegt, ist schlimmer als kein Knopf.
+        if (ziel.Problem is { Length: > 0 } grund)
+        {
+            return grund;
         }
 
         if (stichtag is null)

@@ -652,6 +652,94 @@ public sealed class DocumentScanTests : IDisposable
         Assert.Null(depot.ValuationDate);
     }
 
+    // ── Ein Vertrag, der keinen Wert tragen kann ──────────────────────────────────────────
+
+    /// <summary>
+    /// Ein Statusreport auf einem Absicherungsvertrag wird nicht übernommen.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Fall entstand aus zwei richtigen Regeln: eine Absicherung trägt <b>nie</b> einen
+    /// Vermögenswert, und der Kopfwert eines Vertrags kommt aus seinem neuesten Bericht. Zusammen
+    /// hieß das: der Bericht wurde geschrieben, der Wert nicht abgeleitet — und die Übernahme
+    /// meldete trotzdem „übernommen“. Der Betrag verschwand.</para>
+    /// <para>Jetzt sagt der Prüfschritt es vorher und die Übernahme weist ab. Geschrieben wird
+    /// nichts: kein Bericht, kein Wert.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Ein_Absicherungsvertrag_uebernimmt_keinen_erreichten_Wert()
+    {
+        int abgesichert;
+
+        using (var context = database.Context())
+        {
+            var vertrag = new Policy
+            {
+                Name = "Risikoleben",
+                Provider = "Nordstern Leben",
+                Kind = PolicyKind.TermLife,
+                IsCapitalForming = false,
+                PolicyNumber = "77009999-01",
+            };
+
+            context.Policies.Add(vertrag);
+            context.SaveChanges();
+            abgesichert = vertrag.Id;
+        }
+
+        var beleg = Content(
+            Line(1, "Nordstern Lebensversicherung AG"),
+            Line(1, "Hamburg, 12.08.2025"),
+            Line(1, "Versicherungsnummer:", "77009999-01"),
+            Line(1, "hiermit übersenden wir Ihnen den jährlichen Statusreport"),
+            Line(1, "Ihr Vertragsstand zum 31.07.2025"),
+            Line(2, "Wert der Versicherung"),
+            Line(2, "Rückkaufswert", "12.345,67 EUR"),
+            Line(2, "erreichter Wert der Überschussbeteiligung (Ansammlungsguthaben)*", "1.234,56 EUR"),
+            Line(2, "Gesamtleistung*", "13.580,23 EUR"));
+
+        var analyse = await AnalyseAsync(beleg);
+
+        // Das Ziel steht — es kann den Wert nur nicht tragen, und das sagt der Prüfschritt.
+        Assert.Equal(abgesichert, analyse.TargetId);
+        Assert.Contains("trägt keinen Vermögenswert", analyse.Blocker);
+        Assert.Contains("Vorsorge", analyse.Blocker);
+
+        var fehler = await Assert.ThrowsAsync<RuleViolationException>(
+            () => Service(beleg).ConfirmAsync(new ConfirmScanRequest { DocumentId = analyse.DocumentId }));
+
+        Assert.Contains("trägt keinen Vermögenswert", fehler.Message);
+
+        using var pruefung = database.Context();
+        var danach = pruefung.Policies.Single(p => p.Id == abgesichert);
+
+        Assert.Null(danach.CurrentValue);
+        Assert.Empty(pruefung.PolicyReports.Where(r => r.PolicyId == abgesichert));
+    }
+
+    /// <summary>
+    /// Beim Vorsorgevertrag bleibt es beim Übernehmen.
+    /// </summary>
+    /// <remarks>
+    /// Die Gegenprobe zur Sperre: sie darf nur den Fall treffen, den sie meint. Sonst hätte der
+    /// Schutz den Weg zugemauert, der funktioniert.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_Vorsorgevertrag_uebernimmt_weiter()
+    {
+        var analyse = await AnalyseAsync(Statusreport());
+
+        Assert.Equal(vertragId, analyse.TargetId);
+        Assert.Null(analyse.Blocker);
+
+        var ergebnis = await Service(Statusreport()).ConfirmAsync(
+            new ConfirmScanRequest { DocumentId = analyse.DocumentId });
+
+        Assert.True(ergebnis.Saved);
+
+        using var pruefung = database.Context();
+        Assert.Equal(13580.23m, pruefung.Policies.Single(p => p.Id == vertragId).CurrentValue);
+    }
+
     public void Dispose()
     {
         database.Dispose();
