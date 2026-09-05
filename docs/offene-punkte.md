@@ -22,6 +22,27 @@ Wiederholgruppe für Aufstellungen mit mehreren Positionen (§17.2); aus
 [Handoff 20](design-handoff-v5i/design_handoff_v5/README.md) die drei Befunde aus §18 und die
 fünf Vorsorge-Korrekturen aus §19.
 
+## Was an den Statusreporten der fondsgebundenen Versicherung offen bleibt
+
+Alle zwölf Berichte des Vertrags 02 (2012 bis 2025) werden erkannt, ihr Anteilsguthaben und ihr
+Stichtag gelesen. Die Fondstabelle geht bei **elf** von zwölf gegen den ausgewiesenen Gesamtwert
+auf. Was bleibt:
+
+- **Der Jahrgang 2023 rechnet sich nicht zusammen.** Seine Textebene stammt aus einer
+  Texterkennung und ist stellenweise beschädigt — vertauschte Trennzeichen berichtigt die
+  Leseregel inzwischen, aber eine Zeile steht als `1 239 69` da, mit Leerzeichen. Das
+  Leerzeichen als Tausenderpunkt zu lesen ist keine Lösung: am Rand desselben Jahrgangs stehen
+  verirrte Zahlen aus dem Briefkopf, und im Jahrgang 2020 würde aus `146,0200 200 960,97` ein
+  Betrag von 200.960,97 statt 960,97. Fünf der sechs Zeilen werden gelesen, die Summe fehlt um
+  genau die sechste, und der Bericht sagt das.
+- **Der ausgewiesene Wert bleibt trotzdem übernehmbar.** Er steht als eigene Zeile auf dem
+  Papier und wird sauber gelesen; die Summenprobe hängt an der *Aufstellung*, nicht an ihm. Er
+  trägt dann den Hinweis „bitte prüfen“ — wer ihn übernimmt, hat gesehen, woran es liegt.
+- **Berichtigt wird nur unter einer Gegenprobe.** In der Fondstabelle prüft der ausgewiesene
+  Gesamtwert jede Vermutung nach. An einem einzelnen Feld gibt es diese Prüfung nicht: die
+  Beitragssumme des Jahrgangs 2023 steht als `43 866.12` da und bleibt ungelesen, weil aus ihr
+  sonst unbemerkt das Hundertfache würde.
+
 ## Was bei der Vermögensübersicht offen blieb
 
 Gebaut ist die ganze Strecke: der Leser für das CSV des Maklers, die Vorschau mit einer Zeile je

@@ -573,9 +573,9 @@ public sealed class DocumentKindTests
     /// Eine fehlende Fondszeile fällt auf.
     /// </summary>
     /// <remarks>
-    /// Im Jahrgang 2016 ist eine WKN in der Textebene verstümmelt, und die Zeile fehlt darum in
-    /// der Tabelle. Die Summe zeigt es: sie ist um genau diese Zeile zu klein, und der Wert
-    /// bekommt seinen Warnhinweis.
+    /// Fehlt eine Zeile, ist die Summe um genau sie zu klein — und der ausgewiesene Wert bekommt
+    /// seinen Warnhinweis, statt als geprüft durchzugehen. Genau das trägt den Jahrgang 2023,
+    /// dessen Textebene eine Zeile hergibt, die keine Zahl mehr ist.
     /// </remarks>
     [Fact]
     public void Eine_fehlende_Fondszeile_faellt_auf()
@@ -593,6 +593,125 @@ public sealed class DocumentKindTests
         var wert = gelesen.Values.Single(w => w.Rule.Key == "anteilsguthaben");
         Assert.Equal(10000.00m, wert.Number);
         Assert.Contains("bitte prüfen", wert.Warning);
+    }
+
+    // ── Beschädigte Trennzeichen ───────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Eine verstümmelte WKN nimmt der Zeile nicht ihren Wert.
+    /// </summary>
+    /// <remarks>
+    /// Aus dem Jahrgang 2016: die Texterkennung liest „120547“ als „12054;r“. Hinge die Zeile am
+    /// Kennzeichen, fiele sie heraus — mit ihr die 618,81 EUR, und die Summe wäre um genau diesen
+    /// Betrag zu klein, ohne dass die Meldung sagen könnte, warum. Was die Zeile zur Zeile macht,
+    /// ist der Betrag am Ende.
+    /// </remarks>
+    [Fact]
+    public void Eine_verstuemmelte_WKN_nimmt_der_Zeile_nicht_ihren_Wert()
+    {
+        var gelesen = extractor.Read(
+            DocumentKindLibrary.FundStatusreport,
+            FundStatusreport(
+                fonds:
+                [
+                    ("12054;r", "Musterfonds Renten", "4,3840", "141,1500", "618,81"),
+                    ("TEST02", "Musterfonds Welt", "8,2866", "149,1200", "1.235,70"),
+                ],
+                anteilsguthaben: "1.854,51"));
+
+        Assert.Equal(2, gelesen.Rows.Count);
+        Assert.Equal(618.81m, gelesen.Rows[0]["fondswert"]?.Number);
+        Assert.True(Assert.Single(gelesen.Proofs).Passed);
+    }
+
+    /// <summary>
+    /// Vertauschte Trennzeichen werden berichtigt — und die Summe bestätigt es.
+    /// </summary>
+    /// <remarks>
+    /// <para>Drei Schreibweisen aus zwei echten Scans: der Tausenderpunkt kommt als zweites Komma
+    /// zurück (<c>2,776,40</c>, Jahrgang 2017), Punkt und Komma sind getauscht
+    /// (<c>14,791.94</c>) oder das Komma steht als Dach da (<c>5.135^57</c>, beides Jahrgang
+    /// 2023).</para>
+    /// <para>Die Berichtigung ist eine Vermutung, und deshalb steht dieser Test auf der Summe:
+    /// sie geht nur auf, wenn alle drei Zeilen richtig gelesen sind. Läge eine daneben, wären es
+    /// Tausende Unterschied und nicht Cent.</para>
+    /// </remarks>
+    [Fact]
+    public void Vertauschte_Trennzeichen_werden_berichtigt()
+    {
+        var gelesen = extractor.Read(
+            DocumentKindLibrary.FundStatusreport,
+            FundStatusreport(
+                fonds:
+                [
+                    ("TEST01", "Musterfonds Ausgewogen", "18,1262", "153,1700", "2,776,40"),
+                    ("TEST02", "Musterfonds Welt", "47,0404", "314,4600", "14,791.94"),
+                    ("TEST03", "Musterfonds Balance", "29,1198", "176,3600", "5.135^57"),
+                ],
+                anteilsguthaben: "22.703,91"));
+
+        Assert.Equal(3, gelesen.Rows.Count);
+        Assert.Equal(2776.40m, gelesen.Rows[0]["fondswert"]?.Number);
+        Assert.Equal(14791.94m, gelesen.Rows[1]["fondswert"]?.Number);
+        Assert.Equal(5135.57m, gelesen.Rows[2]["fondswert"]?.Number);
+
+        Assert.True(Assert.Single(gelesen.Proofs).Passed);
+    }
+
+    /// <summary>
+    /// Eine verirrte Zahl vor dem Betrag gehört nicht dazu.
+    /// </summary>
+    /// <remarks>
+    /// Am Rand des Jahrgangs 2020 steht eine Zahl aus dem Briefkopf, und die Textebene setzt sie
+    /// vor den Betrag: <c>146,0200 200 960,97</c>. Zählte das Leerzeichen als Tausenderpunkt,
+    /// stünden dort 200.960,97 EUR statt 960,97 — der Bericht läse sich um zweihunderttausend
+    /// Euro zu hoch, und die Probe ginge trotzdem nicht auf. Eine Regel, die einen kaputten Beleg
+    /// rettet und einen heilen zerstört, ist keine.
+    /// </remarks>
+    [Fact]
+    public void Eine_verirrte_Randzahl_gehoert_nicht_zum_Betrag()
+    {
+        var gelesen = extractor.Read(
+            DocumentKindLibrary.FundStatusreport,
+            FundStatusreport(
+                fonds:
+                [
+                    ("TEST01", "Musterfonds Renten", "6,5811", "146,0200", "200 960,97"),
+                    ("TEST02", "Musterfonds Welt", "12,0284", "160,7200", "1.933,20"),
+                ],
+                anteilsguthaben: "2.894,17"));
+
+        Assert.Equal(960.97m, gelesen.Rows[0]["fondswert"]?.Number);
+        Assert.True(Assert.Single(gelesen.Proofs).Passed);
+    }
+
+    /// <summary>
+    /// Ohne Gegenprobe wird nichts berichtigt.
+    /// </summary>
+    /// <remarks>
+    /// Die Beitragssumme steht allein da; keine Rechnung im Dokument prüft sie. Der eingescannte
+    /// Text <c>43 866.12</c> bliebe als 4.386.612 EUR stehen — das Hundertfache —, und niemand
+    /// könnte es merken. Lieber kein Wert als der falsche: hier gilt die Berichtigung nicht.
+    /// </remarks>
+    [Fact]
+    public void Ein_Feld_ohne_Gegenprobe_wird_nicht_berichtigt()
+    {
+        var inhalt = Content(
+        [
+            Line(1, "Nordstern Lebensversicherung AG"),
+            Line(1, "Versicherungsnummer:", "77001122-02"),
+            Line(1, "hiermit übersenden wir Ihnen den Statusreport zum Stand Ihrer fondsgebundenen"),
+            Line(1, "Ihr Vertragsstand zum 31.12.2023"),
+            Line(1, "Beitragssumme (entspricht den über die Laufzeit", "43 866.12 EUR"),
+            Line(2, "Fondsübersicht"),
+            Line(2, "TEST01", "Musterfonds Welt", "31,4706", "197,3600", "6.211,03"),
+            Line(2, "Anteilsguthaben:", "6.211,03"),
+        ]);
+
+        var werte = Read(DocumentKindLibrary.FundStatusreport, inhalt);
+
+        Assert.Equal(6211.03m, werte["anteilsguthaben"].Number);
+        Assert.False(werte.ContainsKey("beitragssumme"));
     }
 
     /// <summary>Eine einzelne Zeile heißt „1 Zeile“.</summary>

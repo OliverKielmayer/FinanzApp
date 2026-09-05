@@ -80,6 +80,23 @@ public sealed record DocumentFieldRule
     /// <summary>Wird ins Zielobjekt übernommen.</summary>
     public bool Lead { get; init; }
 
+    /// <summary>
+    /// Beschädigte Trennzeichen dürfen berichtigt werden.
+    /// </summary>
+    /// <remarks>
+    /// <para>Eingescannte Tabellen verlieren Punkt und Komma: aus <c>5.135,57</c> wird
+    /// <c>5.135^57</c>, aus <c>2.776,40</c> kommt der Tausenderpunkt als zweites Komma zurück,
+    /// und <c>14.791,94</c> erscheint als <c>14,791.94</c>. Ist das gesetzt, gilt <b>das letzte
+    /// Trennzeichen als Dezimaltrenner</b>, und alle übrigen fallen weg.</para>
+    /// <para><b>Nur dort setzen, wo das Papier die Probe mitliefert.</b> Die Berichtigung ist
+    /// eine Vermutung; sie darf nur stehen bleiben, wenn eine Rechnung sie bestätigt. In der
+    /// Fondstabelle tut das der ausgewiesene Gesamtwert — geht die Summe nicht auf, wird der
+    /// Wert als zweifelhaft ausgewiesen und niemand übernimmt ihn blind. An einem einzelnen
+    /// Feld ohne Gegenprobe wäre dieselbe Vermutung eine Behauptung: die Beitragssumme
+    /// <c>43 866.12</c> aus dem Scan von 2023 bleibt deshalb ungelesen.</para>
+    /// </remarks>
+    public bool ScanRepair { get; init; }
+
     /// <summary>Ohne Garantie — nie Teil einer Vermögenssumme.</summary>
     public bool Soft { get; init; }
 
@@ -519,10 +536,18 @@ public static class DocumentKindLibrary
         {
             Title = "Fonds in diesem Statusreport",
 
-            // Sechsstellige WKN, dann ein Name, und am Ende ein Betrag. Ohne den Betrag am Ende
-            // eröffnete die Fußzeile „665463 · Fax: +49 40 21995 6999 · … · 5014“ einen Block,
-            // dem jeder Wert fehlt — und die Summenprobe fiel dann ganz aus, statt zu prüfen.
-            Anchor = @"^[0-9A-Z]{6}\s+\D.*[\d.]+,\d{2}$",
+            // Ein Kennzeichen am Zeilenanfang, dann ein Name, und am Ende ein Betrag.
+            //
+            // Das Kennzeichen ist die WKN — aber nicht auf sechs Großbuchstaben festgenagelt:
+            // der Scan von 2016 liest „120547“ als „12054;r“, und die ganze Zeile fiel heraus.
+            // Ihre 618,81 EUR fehlten danach in der Summe, ohne dass die Meldung sagen konnte,
+            // warum. Was die Zeile wirklich zur Zeile macht, ist der Betrag am Ende.
+            //
+            // Und der braucht ein Trennzeichen vor den letzten beiden Stellen. Ohne diese
+            // Bedingung eröffnete die Fußzeile „665463 · Fax: +49 40 21995 6999 · … · 5014“
+            // einen Block, dem jeder Wert fehlt — und die Summenprobe fiel dann ganz aus,
+            // statt zu prüfen.
+            Anchor = @"^[0-9A-Za-z;:.]{5,8}\s+\D.*\d{1,3}(?:[.,^]\d{3})*[.,^]\d{2}$",
             ValueField = "fondswert",
             NameField = "fonds",
             TotalField = "anteilsguthaben",
@@ -537,31 +562,32 @@ public static class DocumentKindLibrary
                 new()
                 {
                     Key = "wkn", Label = "WKN", Kind = DocumentValueKind.Text,
-                    Locator = DocumentLocator.Pattern, Pattern = @"^([0-9A-Z]{6})\s",
+                    Locator = DocumentLocator.Pattern, Pattern = @"^([0-9A-Za-z;:.]{5,8})\s",
                 },
                 new()
                 {
                     Key = "fonds", Label = "Fonds", Kind = DocumentValueKind.Text,
                     Locator = DocumentLocator.Pattern,
-                    Pattern = @"^[0-9A-Z]{6}\s+(.+?)\s+[\d.]+,\d+\s",
+                    Pattern = @"^[0-9A-Za-z;:.]{5,8}\s+(.+?)\s+\d+[.,^]\d+\s",
                 },
                 new()
                 {
                     Key = "anteile", Label = "Anteile", Kind = DocumentValueKind.Quantity,
-                    Locator = DocumentLocator.Pattern,
-                    Pattern = @"^[0-9A-Z]{6}\s+.+?\s([\d.]+,\d+)\s",
+                    Locator = DocumentLocator.Pattern, ScanRepair = true,
+                    Pattern = @"^[0-9A-Za-z;:.]{5,8}\s+.+?\s(\d+[.,^]\d+)\s",
                 },
                 new()
                 {
                     Key = "anteilspreis", Label = "Anteilspreis", Kind = DocumentValueKind.Price,
-                    Locator = DocumentLocator.Pattern,
-                    Pattern = @"^[0-9A-Z]{6}\s+.+?\s[\d.]+,\d+\s+([\d.]+,\d+)\b",
+                    Locator = DocumentLocator.Pattern, ScanRepair = true,
+                    Pattern = @"^[0-9A-Za-z;:.]{5,8}\s+.+?\s\d+[.,^]\d+\s+(\d+[.,^]\d+)\b",
                 },
                 new()
                 {
                     Key = "fondswert", Label = "Wert der Anteile", Kind = DocumentValueKind.Money,
                     Locator = DocumentLocator.Pattern,
-                    Pattern = @"^[0-9A-Z]{6}\s.*?([\d.]+,\d{2})$", Lead = true,
+                    Pattern = @"^[0-9A-Za-z;:.]{5,8}\s.*?(\d{1,3}(?:[.,^]\d{3})*[.,^]\d{2})$",
+                    Lead = true, ScanRepair = true,
                 },
             ],
 
@@ -1473,6 +1499,13 @@ public sealed class DocumentFieldExtractor
             .Replace("Stück", string.Empty, StringComparison.OrdinalIgnoreCase)
             .Trim();
 
+        // Ein beschädigter Scan, aber nur wo die Regel es zulässt — und dort steht eine
+        // Rechenprobe dahinter, die die Vermutung bestätigt oder verwirft.
+        if (regel.ScanRepair)
+        {
+            zahl = RepairScan(zahl);
+        }
+
         // Leerzeichen innerhalb der Zahl fallen weg: die Textebene setzt stellenweise ein
         // Leerzeichen als Tausenderpunkt („24 782,58“). Ein Betrag trägt nie eines.
         zahl = zahl.Replace(" ", string.Empty, StringComparison.Ordinal)
@@ -1486,6 +1519,46 @@ public sealed class DocumentFieldExtractor
         return decimal.TryParse(zahl, NumberStyles.Number, German, out var wert)
             ? new ReadValue { Rule = regel, Raw = text, Number = wert }
             : null;
+    }
+
+    /// <summary>Was in einer Zahl als Trennzeichen durchgehen kann.</summary>
+    /// <remarks>
+    /// <para>Das Dach kommt aus der Texterkennung: sie liest ein Komma mitunter als <c>^</c>. Es
+    /// steht hier, weil es an dieser Stelle nichts anderes sein <em>kann</em> — mitten in einer
+    /// Zahl gibt es kein Dach.</para>
+    /// <para>Das Leerzeichen steht <b>nicht</b> hier, obwohl der Scan von 2023 auch <c>1 239 69</c>
+    /// schreibt. Am Rand desselben Papiers stehen verirrte Zahlen aus dem Briefkopf: aus
+    /// „<c>146,0200 200 960,97</c>“ würde mit Leerzeichen der Betrag 200.960,97 statt 960,97, und
+    /// der Jahrgang 2020 läse sich um zweihunderttausend Euro zu hoch. Eine Regel, die einen
+    /// kaputten Beleg rettet und einen heilen zerstört, ist keine.</para>
+    /// </remarks>
+    private static readonly char[] Trennzeichen = ['.', ',', '^'];
+
+    /// <summary>
+    /// Eine Zahl aus einem beschädigten Scan: das letzte Trennzeichen trennt die Nachkommastellen.
+    /// </summary>
+    /// <remarks>
+    /// <para>Aus <c>5.135^57</c> wird <c>5135,57</c>, aus <c>2,776,40</c> ein <c>2776,40</c>,
+    /// aus <c>14,791.94</c> ein <c>14791,94</c> und aus <c>29.1198</c> die Stückzahl
+    /// <c>29,1198</c>. Die Regel ist derselbe Satz für alle vier Fälle: <em>hinten steht der
+    /// Rest, davor die ganze Zahl</em> — welches Zeichen die Texterkennung dazwischengesetzt
+    /// hat, ist gleichgültig.</para>
+    /// <para>Was das Muster durchgelassen hat, hat die Gestalt eines Betrags. Ob die gelesene
+    /// Zahl auch die richtige ist, entscheidet nicht diese Stelle, sondern die Summenprobe gegen
+    /// den ausgewiesenen Gesamtwert.</para>
+    /// </remarks>
+    private static string RepairScan(string roh)
+    {
+        var trenner = roh.LastIndexOfAny(Trennzeichen);
+        if (trenner < 0)
+        {
+            return roh;
+        }
+
+        var ganz = new string([.. roh[..trenner].Where(char.IsAsciiDigit)]);
+        var rest = new string([.. roh[(trenner + 1)..].Where(char.IsAsciiDigit)]);
+
+        return ganz.Length == 0 || rest.Length == 0 ? roh : ganz + "," + rest;
     }
 
     /// <summary>
