@@ -643,10 +643,18 @@ public sealed class CreateFormService(
             return Fail("kind", capitalForming ? "Vertragsart fehlt" : "Art fehlt");
         }
 
+        var anbieter = Value(values, "provider")!.Trim();
+        var nummer = Value(values, "number")?.Trim();
+
+        if (await DuplicatePolicyAsync(anbieter, nummer, id, ct) is { } doppelt)
+        {
+            return doppelt;
+        }
+
         policy.Name = Value(values, "displayName")!.Trim();
         policy.Kind = kind;
-        policy.Provider = Value(values, "provider")!.Trim();
-        policy.PolicyNumber = Value(values, "number")?.Trim();
+        policy.Provider = anbieter;
+        policy.PolicyNumber = nummer;
         policy.Premium = ParseMoney(Value(values, "premium")) ?? 0m;
 
         if (capitalForming)
@@ -1148,6 +1156,35 @@ public sealed class CreateFormService(
         ],
     };
 
+    /// <summary>
+    /// Weist einen Vertrag ab, der schon mit derselben Nummer bei demselben Anbieter steht.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Mehrere Verträge bei einem Anbieter sind der Normalfall</b> — zwei Autos, zwei
+    /// Wohnungen, zwei Lebensversicherungen bei derselben Gesellschaft. Geprüft wurde vorher die
+    /// <em>Bezeichnung</em>, und die ist beim Anlegen abgeleitet: bei einer Absicherung die
+    /// Vertragsart, bei der Vorsorge der Anbieter. Damit wies die Anwendung die zweite Hausrat-
+    /// oder die zweite Kfz-Police ab, obwohl es zwei verschiedene Verträge sind.</para>
+    /// <para>Was einen Vertrag wirklich identifiziert, ist die <b>Versicherungsnummer beim
+    /// Anbieter</b>. Ohne Nummer wird nichts abgewiesen: dann trägt der Bestand keine Angabe, an
+    /// der sich eine Doppelung erkennen ließe, und ein Verdacht ist kein Grund.</para>
+    /// </remarks>
+    private async Task<CreateResultDto?> DuplicatePolicyAsync(
+        string provider, string? number, int? exceptId, CancellationToken ct)
+    {
+        if (number is not { Length: > 0 })
+        {
+            return null;
+        }
+
+        var besteht = await db.Policies.AnyAsync(
+            p => p.Id != exceptId && p.Provider == provider && p.PolicyNumber == number, ct);
+
+        return besteht
+            ? Fail("number", $"Ein Vertrag mit der Nummer „{number}“ bei „{provider}“ besteht bereits.")
+            : null;
+    }
+
     private async Task<CreateResultDto> CreatePolicyAsync(
         IReadOnlyDictionary<string, string?> values, bool capitalForming, CancellationToken ct)
     {
@@ -1158,12 +1195,17 @@ public sealed class CreateFormService(
 
         var provider = Value(values, "provider")!.Trim();
         var label = PolicyService.KindLabel(kind);
+        var number = Value(values, "number")?.Trim();
 
-        var name = capitalForming ? $"{provider}" : label;
-        if (await db.Policies.AnyAsync(p => p.Name == name && p.Kind == kind, ct))
+        if (await DuplicatePolicyAsync(provider, number, null, ct) is { } doppelt)
         {
-            return Fail("provider", $"Ein Vertrag „{name}“ besteht bereits.");
+            return doppelt;
         }
+
+        // Abgeleitet, nicht eingegeben: die Bezeichnung entsteht hier und lässt sich nachher im
+        // Bearbeiten-Formular ändern. Zwei Verträge dürfen darum gleich heißen — die Metazeile
+        // nennt Art, Anbieter und Nummer und hält sie auseinander.
+        var name = capitalForming ? $"{provider}" : label;
 
         var policy = new Policy
         {

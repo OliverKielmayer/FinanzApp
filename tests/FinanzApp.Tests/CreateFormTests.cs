@@ -348,6 +348,147 @@ public sealed class CreateFormTests : IDisposable
         Assert.Equal(0, await Service().ConfirmExtractionsAsync(documentId));
     }
 
+    // ── Mehrere Verträge bei einem Anbieter ───────────────────────────────────────────────
+
+    /// <summary>
+    /// Zwei Versicherungen derselben Art bei demselben Anbieter lassen sich anlegen.
+    /// </summary>
+    /// <remarks>
+    /// Der Normalfall: zwei Autos, zwei Wohnungen, zwei Lebensversicherungen bei derselben
+    /// Gesellschaft. Vorher prüfte die Anwendung die <em>Bezeichnung</em> — und die ist beim
+    /// Anlegen abgeleitet, bei einer Absicherung die Vertragsart. Die zweite Hausratpolice wurde
+    /// deshalb abgewiesen, obwohl es ein anderer Vertrag ist.
+    /// </remarks>
+    [Fact]
+    public async Task Zwei_Versicherungen_bei_einem_Anbieter_sind_erlaubt()
+    {
+        Dictionary<string, string?> Police(string nummer) => new()
+        {
+            ["kind"] = nameof(PolicyKind.HouseholdContents),
+            ["provider"] = "HUK-Coburg",
+            ["number"] = nummer,
+            ["premium"] = "156",
+        };
+
+        Assert.True((await Service().CreateAsync(CreateObjectType.Protection, Police("HR-1"))).Ok);
+
+        var zweite = await Service().CreateAsync(CreateObjectType.Protection, Police("HR-2"));
+
+        Assert.True(zweite.Ok);
+
+        using var context = database.Context();
+        Assert.Equal(2, context.Policies.Count(p => p.Provider == "HUK-Coburg"));
+    }
+
+    /// <summary>Auch zwei Vorsorgeverträge bei einer Gesellschaft gehen.</summary>
+    /// <remarks>
+    /// Dort ist die abgeleitete Bezeichnung der Anbieter selbst — sie kollidierte damit schon beim
+    /// zweiten Vertrag desselben Hauses.
+    /// </remarks>
+    [Fact]
+    public async Task Zwei_Vorsorgevertraege_bei_einer_Gesellschaft_sind_erlaubt()
+    {
+        Dictionary<string, string?> Vertrag(string nummer) => new()
+        {
+            ["kind"] = nameof(PolicyKind.CapitalLife),
+            ["provider"] = "Heidelberger Leben",
+            ["number"] = nummer,
+            ["premium"] = "212",
+            ["value"] = "10.000",
+            ["asOf"] = "2026-06-30",
+        };
+
+        Assert.True((await Service().CreateAsync(CreateObjectType.Pension, Vertrag("LV-1"))).Ok);
+        Assert.True((await Service().CreateAsync(CreateObjectType.Pension, Vertrag("LV-2"))).Ok);
+
+        using var context = database.Context();
+        Assert.Equal(2, context.Policies.Count(p => p.Provider == "Heidelberger Leben"));
+    }
+
+    /// <summary>
+    /// Dieselbe Nummer beim selben Anbieter ist eine Doppelung und wird abgewiesen.
+    /// </summary>
+    /// <remarks>
+    /// Sie identifiziert den Vertrag. Die Meldung nennt das Nummernfeld, nicht den Anbieter —
+    /// dort liegt die Ursache.
+    /// </remarks>
+    [Fact]
+    public async Task Dieselbe_Versicherungsnummer_wird_abgewiesen()
+    {
+        Dictionary<string, string?> Police() => new()
+        {
+            ["kind"] = nameof(PolicyKind.Vehicle),
+            ["provider"] = "Allianz",
+            ["number"] = "KFZ-4711",
+            ["premium"] = "78,40",
+        };
+
+        Assert.True((await Service().CreateAsync(CreateObjectType.Protection, Police())).Ok);
+
+        var zweite = await Service().CreateAsync(CreateObjectType.Protection, Police());
+
+        Assert.False(zweite.Ok);
+        Assert.Equal("number", zweite.FieldKey);
+        Assert.Contains("KFZ-4711", zweite.Message);
+    }
+
+    /// <summary>
+    /// Ohne Nummer wird nichts abgewiesen.
+    /// </summary>
+    /// <remarks>
+    /// Dann trägt der Bestand keine Angabe, an der sich eine Doppelung erkennen ließe — und ein
+    /// Verdacht ist kein Grund, den zweiten Vertrag zu verweigern.
+    /// </remarks>
+    [Fact]
+    public async Task Ohne_Nummer_wird_nichts_abgewiesen()
+    {
+        Dictionary<string, string?> Police() => new()
+        {
+            ["kind"] = nameof(PolicyKind.Liability),
+            ["provider"] = "Adam Riese",
+            ["premium"] = "89",
+        };
+
+        Assert.True((await Service().CreateAsync(CreateObjectType.Protection, Police())).Ok);
+        Assert.True((await Service().CreateAsync(CreateObjectType.Protection, Police())).Ok);
+
+        using var context = database.Context();
+        Assert.Equal(2, context.Policies.Count());
+    }
+
+    /// <summary>Auch beim Bearbeiten führt dieselbe Nummer nicht zu zwei gleichen Verträgen.</summary>
+    [Fact]
+    public async Task Beim_Bearbeiten_wird_dieselbe_Nummer_abgewiesen()
+    {
+        Dictionary<string, string?> Police(string nummer) => new()
+        {
+            ["kind"] = nameof(PolicyKind.HouseholdContents),
+            ["provider"] = "HUK-Coburg",
+            ["number"] = nummer,
+            ["premium"] = "156",
+        };
+
+        var erste = await Service().CreateAsync(CreateObjectType.Protection, Police("HR-1"));
+        var zweite = await Service().CreateAsync(CreateObjectType.Protection, Police("HR-2"));
+
+        Assert.True(erste.Ok);
+        Assert.True(zweite.Ok);
+
+        var id = zweite.Id!.Value;
+
+        var maske = await Service().GetFormAsync(CreateObjectType.Protection, id);
+        var werte = new Dictionary<string, string?>(maske!.Values!) { ["number"] = "HR-1" };
+
+        var ergebnis = await Service().UpdateAsync(CreateObjectType.Protection, id, werte);
+
+        Assert.False(ergebnis.Ok);
+        Assert.Equal("number", ergebnis.FieldKey);
+
+        // Und der eigene Vertrag darf seine eigene Nummer behalten.
+        Assert.True((await Service().UpdateAsync(
+            CreateObjectType.Protection, id, maske.Values)).Ok);
+    }
+
     // ── Vorbelegung von Zahlenfeldern ─────────────────────────────────────────────────────
 
     /// <summary>
