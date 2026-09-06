@@ -257,6 +257,20 @@ else if (step == Step.Values && analysis is { } geprueft)
         </div>
     }
 
+    @*
+        Der Grund gehört dorthin, wo der Knopf tot ist. Er stand nur im Vorschlagsschritt — und
+        aus dem Scaneingang steigt man direkt hier ein: gelesene Werte, ein abgeschalteter
+        Schalter und keine Auskunft, warum. „Vorher gesagt statt hinterher“ gilt auf jedem
+        Schirm, der den Knopf abschaltet.
+    *@
+    @if (geprueft.Blocker is { Length: > 0 } grund)
+    {
+        <div class="notice">
+            <span class="notice-title">Übernehmen geht noch nicht</span>
+            <span class="notice-text">@grund</span>
+        </div>
+    }
+
     <div class="actions">
         <button type="button" class="btn btn-primary" disabled="@(busy || geprueft.Blocker is not null)"
                 @onclick="ConfirmAsync">Werte übernehmen</button>

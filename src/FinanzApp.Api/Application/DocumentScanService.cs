@@ -251,7 +251,9 @@ public sealed class DocumentScanService(
                     Line = p.Line, Why = p.Why, Passed = p.Passed,
                 }),
             ],
-            Blocker = Blocker(art, ziel, stichtag, werte, await HouseholdNameAsync(ct)),
+            Blocker = Blocker(
+                art, ziel, stichtag, werte, await HouseholdNameAsync(ct),
+                ziel is null ? await NearMissAsync(art, Text(werte, art.TargetNumberField), ct) : null),
         };
     }
 
@@ -719,6 +721,51 @@ public sealed class DocumentScanService(
                 "/depot");
     }
 
+    /// <summary>
+    /// Ein Objekt, dessen Nummer dieselben Ziffern trägt — nur anders geschrieben.
+    /// </summary>
+    /// <remarks>
+    /// <para>Verglichen wird auf die Ziffern herunter: Bindestriche, Leerzeichen und Buchstaben
+    /// fallen weg. „R-01511104-04“ und „01511104-04“ treffen sich dabei, und genau daran hing
+    /// ein Riester-Statusreport, dessen Werte alle gelesen waren.</para>
+    /// <para>Es wird <b>genannt und nicht zugeordnet</b>. Das R steht bei diesem Absender für
+    /// die geförderte Tranche desselben Stammvertrags; es kann beide geben, und ein Beleg am
+    /// falschen Vertrag ist von allen möglichen Fehlern der teuerste. Vier Ziffern sind die
+    /// Untergrenze — darunter träfe jede Nummer jede.</para>
+    /// </remarks>
+    private async Task<string?> NearMissAsync(DocumentKind art, string? nummer, CancellationToken ct)
+    {
+        if (Digits(nummer) is not { Length: >= 4 } ziffern)
+        {
+            return null;
+        }
+
+        if (art.Target == DocumentTargetKind.Policy)
+        {
+            var vertraege = await db.Policies.AsNoTracking()
+                .Where(p => p.PolicyNumber != null && p.PolicyNumber != string.Empty)
+                .Select(p => new { p.Name, p.PolicyNumber })
+                .ToListAsync(ct);
+
+            return vertraege.FirstOrDefault(p => Digits(p.PolicyNumber) == ziffern) is { } treffer
+                ? $"„{treffer.Name}“ mit der Nummer {treffer.PolicyNumber}"
+                : null;
+        }
+
+        var depots = await db.Depots.AsNoTracking()
+            .Where(d => d.Number != null && d.Number != string.Empty)
+            .Select(d => new { d.Name, d.Number })
+            .ToListAsync(ct);
+
+        return depots.FirstOrDefault(d => Digits(d.Number) == ziffern) is { } depot
+            ? $"„{depot.Name}“ mit der Nummer {depot.Number}"
+            : null;
+    }
+
+    /// <summary>Nur die Ziffern einer Nummer.</summary>
+    private static string? Digits(string? text)
+        => text is not { Length: > 0 } ? null : new string([.. text.Where(char.IsAsciiDigit)]);
+
     /// <summary>Wie der Haushalt heißt, in dem diese Anfrage sucht.</summary>
     /// <remarks>
     /// Über die Haushaltsgrenze sieht kein Dienst hinweg, und das ist richtig so. Sagen, auf
@@ -867,9 +914,15 @@ public sealed class DocumentScanService(
     /// nichts findet. Wer zwei Haushalte führt, liest den Beleg sonst im falschen ein und sucht
     /// den Fehler in der Leseregel.
     /// </param>
+    /// <param name="beinahe">
+    /// Ein Objekt, dessen Nummer <em>dieselben Ziffern</em> trägt. Es gehört in die Meldung und
+    /// wird nicht zugeordnet: „R-01511104-04“ auf dem Papier und „01511104-04“ im Vertrag sind
+    /// meist derselbe Vertrag — aber das R steht bei diesem Absender für die geförderte Tranche,
+    /// und es kann beide geben. Nennen hilft, raten hängte einen Beleg an einen fremden Vertrag.
+    /// </param>
     private static string? Blocker(
         DocumentKind art, Target? ziel, DateOnly? stichtag, IReadOnlyList<ReadValue> werte,
-        string? haushalt)
+        string? haushalt, string? beinahe)
     {
         if (ziel is null)
         {
@@ -887,8 +940,17 @@ public sealed class DocumentScanService(
                 ? $" Gesucht wurde nach {Label(art, art.TargetNumberField)} {nummer}{wo}."
                 : $" Das Dokument nennt auch keine {Label(art, art.TargetNumberField)}.";
 
-            return $"Kein {art.TargetNoun} gefunden, zu dem das Dokument passt.{gesucht} Die Datei "
-                   + "ist abgelegt; übernehmen lässt sich erst, wenn das Ziel dasteht.";
+            // Der Beinahe-Treffer: dieselben Ziffern, andere Schreibweise. Ohne ihn liest sich
+            // die Meldung wie „diesen Vertrag gibt es nicht“, während er einen Strich entfernt
+            // dasteht.
+            var fast = beinahe is { Length: > 0 }
+                ? $" Ein {art.TargetNoun} mit denselben Ziffern besteht: {beinahe}. Ist es "
+                  + $"derselbe, trage seine {Label(art, art.TargetNumberField)} so ein, wie der "
+                  + "Beleg sie nennt — zugeordnet wird über die Nummer, Zeichen für Zeichen."
+                : string.Empty;
+
+            return $"Kein {art.TargetNoun} gefunden, zu dem das Dokument passt.{gesucht}{fast} "
+                   + "Die Datei ist abgelegt; übernehmen lässt sich erst, wenn das Ziel dasteht.";
         }
 
         // Das Ziel steht, kann den Wert aber nicht tragen. Vorher gesagt: ein Knopf, der

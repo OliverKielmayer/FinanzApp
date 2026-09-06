@@ -595,6 +595,393 @@ public sealed class DocumentKindTests
         Assert.Contains("bitte prüfen", wert.Warning);
     }
 
+    // ── Ein zerlegter Scan, dieselbe Lesung ────────────────────────────────────────────────
+
+    /// <summary>
+    /// Der Stichtag auch ohne Leerzeichen und über einen Zeilenumbruch hinweg.
+    /// </summary>
+    /// <remarks>
+    /// <para>Zwei echte Schäden, zwei Jahrgänge desselben Vertrags. Der Scan von 2023 schreibt
+    /// „Vertragsstandzum 31.10.2023“ ohne Leerzeichen. Der von 2012 zerlegt den Satz und stellt
+    /// das Datum allein auf eine Zeile, die mit „zum“ beginnt.</para>
+    /// <para>Ohne Stichtag wird nichts übernommen — er ist die Pflichtangabe, und beide Berichte
+    /// standen deshalb mit gelesenen Werten und totem Knopf da.</para>
+    /// </remarks>
+    [Theory]
+    [InlineData("Ihr Vertragsstandzum 31.10.2023", 2023, 10, 31)]
+    [InlineData("zum 31. Oktober 2012", 2012, 10, 31)]
+    public void Der_Stichtag_uebersteht_einen_zerlegten_Satz(
+        string zeile, int jahr, int monat, int tag)
+    {
+        // Die übliche Stichtagszeile weg, die zerlegte hinein.
+        var zeilen = Statusreport().Lines
+            .Where(z => !z.Text.StartsWith("Ihr Vertragsstand zum", StringComparison.Ordinal))
+            .ToList();
+
+        zeilen.Insert(6, Line(1, zeile));
+
+        var werte = Read(DocumentKindLibrary.Statusreport, Content(zeilen));
+
+        Assert.Equal(new DateOnly(jahr, monat, tag), werte["stichtag"].Date);
+    }
+
+    /// <summary>
+    /// „zum“ mitten im Satz ist kein Stichtag.
+    /// </summary>
+    /// <remarks>
+    /// Der Bericht nennt eine zweite Datumsangabe: „Leistung im Erlebensfall zum Ablauf
+    /// 01.08.2031“. Sie ist eine Prognose auf den Vertragsablauf und nie der Stand. Deshalb muss
+    /// das „zum“ die Zeile <em>eröffnen</em> — ein freies „zum“ träfe irgendwann genau das.
+    /// </remarks>
+    [Fact]
+    public void Ein_zum_mitten_im_Satz_ist_kein_Stichtag()
+    {
+        var zeilen = Statusreport().Lines
+            .Where(z => !z.Text.Contains("Vertragsstand zum", StringComparison.Ordinal))
+            .ToList();
+
+        var werte = Read(DocumentKindLibrary.Statusreport, Content(zeilen));
+
+        Assert.False(werte.ContainsKey("stichtag"));
+    }
+
+    /// <summary>
+    /// Ein verlesenes t nimmt dem Bericht nicht seinen Leitwert.
+    /// </summary>
+    /// <remarks>
+    /// Der Scan von 2023 schreibt „Gesamileistung“. Die kurze Beschriftung „Gesam“ trifft beide
+    /// Schreibweisen und ist im Abschnitt „Wert der Versicherung“ eindeutig — dort beginnt keine
+    /// andere Zeile so.
+    /// </remarks>
+    [Fact]
+    public void Ein_verlesenes_t_nimmt_nicht_den_Leitwert()
+    {
+        var zeilen = Statusreport(mitGesamt: false).Lines.ToList();
+        zeilen.Add(Line(2, "Gesamileistung*", "13.580,23 EUR"));
+
+        var gelesen = extractor.Read(DocumentKindLibrary.Statusreport, Content(zeilen));
+
+        Assert.Equal(13580.23m, gelesen.Values.Single(w => w.Rule.Key == "gesamt").Number);
+        Assert.True(Assert.Single(gelesen.Proofs).Passed);
+    }
+
+    /// <summary>
+    /// Ein Punkt statt eines Kommas — unter der Rechenprobe berichtigt.
+    /// </summary>
+    /// <remarks>
+    /// „24.310.55“ steht so im Scan von 2023. Berichtigt werden darf es hier, weil das Papier
+    /// die Gegenprobe mitliefert: Rückkaufswert + Ansammlungsguthaben = Gesamtleistung. Geht sie
+    /// auf, war die Vermutung richtig; ginge sie nicht auf, stünde es als Warnung da.
+    /// </remarks>
+    [Fact]
+    public void Ein_Punkt_statt_Komma_wird_unter_der_Probe_berichtigt()
+    {
+        var gelesen = extractor.Read(
+            DocumentKindLibrary.Statusreport,
+            Statusreport(rueckkauf: "24.310.55 EUR", ansammlung: "1.830,25 EUR",
+                gesamt: "26.140,80 EUR"));
+
+        var werte = gelesen.Values.ToDictionary(w => w.Rule.Key);
+
+        Assert.Equal(24310.55m, werte["rueckkauf"].Number);
+        Assert.True(Assert.Single(gelesen.Proofs).Passed);
+    }
+
+    /// <summary>
+    /// Steht die Beschriftung allein, ist der Wert die Zeile daneben.
+    /// </summary>
+    /// <remarks>
+    /// Im Scan von 2017 kippt die Wertspalte gegen die Beschriftungen: „erreichter Wert der“ /
+    /// „18.120,65 Euro“ / „Gesamtleistung“ — der Betrag also eine Zeile <em>über</em> seinem
+    /// Namen. Gesucht wird erst die Zeile danach, dann die davor, und nicht weiter: eine
+    /// Beschriftung, deren Wert zwei Zeilen entfernt steht, ist keine Zuordnung mehr.
+    /// </remarks>
+    [Fact]
+    public void Eine_alleinstehende_Beschriftung_findet_ihren_Wert_daneben()
+    {
+        var werte = Read(
+            DocumentKindLibrary.Statusreport,
+            ImAbschnitt(Line(2, "18.120,65 Euro"), Line(2, "Gesamtleistung")));
+
+        Assert.Equal(18120.65m, werte["gesamt"].Number);
+        Assert.False(werte["gesamt"].Derived);
+    }
+
+    /// <summary>
+    /// Ein Text mit einer Zahl darin ist keine Zahl.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der wichtigste Riegel an der Scan-Berichtigung, und er hat gefehlt: sie strich alle
+    /// Nichtziffern, und damit wurde aus „Überschussbeteiligung 1.180,40“ der Betrag 1.180,40.
+    /// Im Scan von 2017 stand er danach als <em>Rückkaufswert</em> da — die Beschriftung eine
+    /// Zeile weiter, der Wert im falschen Feld.</para>
+    /// <para>In der Fondstabelle fiel das nie auf, weil dort ein Muster den Betrag schon
+    /// herausgeschnitten hatte. Über eine Beschriftung kommt die ganze Zelle herein.</para>
+    /// </remarks>
+    [Fact]
+    public void Ein_Text_mit_einer_Zahl_darin_ist_keine_Zahl()
+    {
+        // Wie im Scan von 2017: die Beschriftung allein, daneben eine Zeile, die eine Zahl
+        // enthält, aber keine ist.
+        var werte = Read(
+            DocumentKindLibrary.Statusreport,
+            ImAbschnitt(Line(2, "Gesamtleistung"), Line(2, "Überschussbeteiligung 1.180,40 Euro")));
+
+        // Der Leitwert steht trotzdem da — aber gerechnet aus Rückkaufswert und
+        // Ansammlungsguthaben und nicht aus dem Text daneben. Genau das ist der Beweis: 1.180,40
+        // wäre daraus geworden, wenn die Berichtigung jeden Text mit einer Zahl darin annähme.
+        Assert.True(werte["gesamt"].Derived);
+        Assert.Equal(13580.23m, werte["gesamt"].Number);
+    }
+
+    /// <summary>
+    /// Ein Statusreport, dem Zeilen in den Abschnitt „Wert der Versicherung“ gelegt sind.
+    /// </summary>
+    /// <remarks>
+    /// Hinten angehängt lägen sie außerhalb — der Abschnitt endet bei der nächsten bekannten
+    /// Überschrift, und die Felder des Werts suchen nur in ihm.
+    /// </remarks>
+    private static PdfContent ImAbschnitt(params PdfLine[] zusatz)
+    {
+        var zeilen = Statusreport(mitGesamt: false).Lines.ToList();
+
+        var stelle = zeilen.FindIndex(
+            z => z.Text.StartsWith("Für die Zukunft nicht garantierte Bewertungsreserven",
+                StringComparison.Ordinal));
+
+        zeilen.InsertRange(stelle, zusatz);
+        return Content(zeilen);
+    }
+
+    // ── Statusreport einer staatlich geförderten Altersvorsorge ────────────────────────────
+
+    /// <summary>
+    /// Ein Riester-Bericht im Aufbau des Originals — Namen und Beträge erfunden.
+    /// </summary>
+    /// <remarks>
+    /// <para>Er rechnet ein <em>Jahr</em> vor statt einen Stand aufzuschlüsseln. Die Zahlen sind
+    /// so gewählt, dass alle drei Proben des Papiers aufgehen: 10.000 + 900 + 175 + 500 − 4 − 40
+    /// − 250 = 11.281; 5.281 + 6.000 = 11.281; 11.281 + 19 + 0 = 11.300.</para>
+    /// <para><paramref name="alterJahrgang"/> schaltet auf die Schreibweise bis 2016: eine
+    /// Seite, „Bisher gebildetes Kapital zum Jahresbeginn“, „Ergebnis im abgelaufenen Jahr“
+    /// statt „Wertentwicklung des Anteilsguthabens“, keine Fondskosten und nur die eine Zeile
+    /// „Gebildetes Kapital zum Jahresende“.</para>
+    /// </remarks>
+    private static PdfContent RiesterStatusreport(
+        string ergebnis = "500,00",
+        string kapitalEnde = "11.281,00",
+        bool alterJahrgang = false,
+        (string Entnahme, string Kosten)? versorgungsausgleich = null)
+    {
+        List<PdfLine> zeilen =
+        [
+            Line(1, "Nordstern Lebensversicherung AG"),
+            Line(1, "Hamburg, 11.04.2026"),
+            Line(1, "Versicherungsnummer:", "R-77001122-04"),
+            Line(1, "Versicherungsnehmer:", "Erika Mustermann"),
+            Line(1, "Ihr Statusreport zum 31.12.2025"),
+            Line(1, "hiermit übersenden wir Ihnen den jährlichen Statusreport zum Vertragsstand Ihrer"),
+            Line(1, "staatlich geförderten Altersvorsorge Muster balanced invest Rentenversicherung."),
+            Line(1, "Wertentwicklung Ihres Vertrages in 2025"),
+
+            // Die Druckmarke links davor gehört zum Papier: die älteren Berichte setzen dort eine
+            // Nummer, und die Beschriftung beginnt dann nicht die Zeile, sondern eine Zelle.
+            Line(1, "06", alterJahrgang
+                ? "Bisher gebildetes Kapital zum Jahresbeginn"
+                : "Kapital zum Jahresbeginn", "10.000,00 EUR"),
+            Line(1, alterJahrgang ? "Gezahlte Eigenbeiträge im abgelaufenen Jahr" : "Geleistete Eigenbeiträge im abgelaufenen Jahr", "+", "900,00 EUR"),
+            Line(1, "Einbehaltene Abschluss- und Vertriebskosten", "4,00 EUR"),
+            Line(1, "-"),
+            Line(1, "Einbehaltene Verwaltungskosten", "40,00 EUR"),
+            Line(1, "-"),
+        ];
+
+        if (!alterJahrgang)
+        {
+            zeilen.Add(Line(1, "Fondskosten*", "250,00 EUR"));
+            zeilen.Add(Line(1, "-"));
+        }
+
+        zeilen.Add(Line(1, "Insgesamt zugeflossene staatliche Zulagen im abgelaufenen Jahr", "+", "175,00 EUR"));
+
+        // Das Vorzeichen steht auf einer eigenen Zeile — genau darum geht es.
+        zeilen.Add(Line(1, alterJahrgang
+            ? "Ergebnis im abgelaufenen Jahr inkl. Fondsentwicklung"
+            : "Wertentwicklung des Anteilsguthabens und Erträge im klassischen De", ergebnis + " EUR"));
+
+        if (versorgungsausgleich is { } geteilt)
+        {
+            zeilen.Add(Line(1, "Entnahme Versorgungsausgleich bzw. Wohnriester", geteilt.Entnahme + " EUR"));
+            zeilen.Add(Line(1, "Kosten Versorgungsausgleich bzw. Wohnriester", geteilt.Kosten + " EUR"));
+        }
+
+        if (alterJahrgang)
+        {
+            zeilen.Add(Line(1, "Gebildetes Kapital zum Jahresende", "=", kapitalEnde + " EUR"));
+        }
+        else
+        {
+            zeilen.Add(Line(1, "Kapital zum Jahresende", "=", kapitalEnde + " EUR"));
+            zeilen.Add(Line(1, "Nicht garantierte Beteiligung an den Bewertungsreserven", "+", "19,00 EUR"));
+            zeilen.Add(Line(1, "Nicht garantierte Schlussüberschüsse", "+", "0,00 EUR"));
+            zeilen.Add(Line(1, "Gebildetes Kapital zum Jahresende", "=", "11.300,00 EUR"));
+
+            zeilen.Add(Line(2, "Das Kapital setzt sich zusammen aus dem garantierten Deckungskapital von 5.281,00 EUR und einem An"));
+            zeilen.Add(Line(2, "teilsguthaben von 6.000,00 EUR."));
+        }
+
+        return Content(zeilen);
+    }
+
+    /// <summary>
+    /// Der Riester-Bericht wird als eigene Art erkannt — und nicht als fondsgebundene LV.
+    /// </summary>
+    /// <remarks>
+    /// Er nennt in einem Nebensatz auch ein „Anteilsguthaben“ und trüge damit deren Kennzeichen.
+    /// Erkannt wird er an „Kapital zum Jahresende“ — der Zeile, die es dort nicht gibt. Ohne
+    /// diese Trennung landete er in der falschen Regel, und die fand in ihm keinen einzigen Wert:
+    /// genau so lagen zehn Berichte da, erkannt und stumm.
+    /// </remarks>
+    [Fact]
+    public void Der_Riester_Bericht_ist_eine_eigene_Art()
+    {
+        Assert.Equal(
+            DocumentKindLibrary.RiesterStatusreport,
+            DocumentKindLibrary.Detect(RiesterStatusreport()));
+
+        // Und andersherum: die fondsgebundene LV bleibt bei ihrer Art.
+        Assert.Equal(
+            DocumentKindLibrary.FundStatusreport,
+            DocumentKindLibrary.Detect(FundStatusreport()));
+    }
+
+    /// <summary>
+    /// Der erreichte Wert ist das Kapital zum Jahresende — und alle drei Proben gehen auf.
+    /// </summary>
+    /// <remarks>
+    /// Nicht das „Gebildete Kapital zum Jahresende“ darunter: das enthält Bewertungsreserven und
+    /// Schlussüberschüsse, und die weist das Papier selbst als nicht garantiert aus. Dieselbe
+    /// Entscheidung wie beim klassischen Statusreport — in einer Vermögenssumme steht nur, was
+    /// jemand versprochen hat.
+    /// </remarks>
+    [Fact]
+    public void Der_erreichte_Wert_ist_das_Kapital_zum_Jahresende()
+    {
+        var gelesen = extractor.Read(
+            DocumentKindLibrary.RiesterStatusreport, RiesterStatusreport());
+
+        var werte = gelesen.Values.ToDictionary(w => w.Rule.Key);
+
+        Assert.Equal(11281.00m, werte["kapitalEnde"].Number);
+        Assert.True(werte["kapitalEnde"].Rule.Lead);
+        Assert.Equal(11300.00m, werte["gebildetesKapital"].Number);
+        Assert.True(werte["gebildetesKapital"].Rule.Soft);
+
+        Assert.Equal("R-77001122-04", werte["vertragsnummer"].Raw);
+        Assert.Equal(new DateOnly(2025, 12, 31), werte["stichtag"].Date);
+
+        Assert.Equal(3, gelesen.Proofs.Count);
+        Assert.All(gelesen.Proofs, p => Assert.True(p.Passed));
+    }
+
+    /// <summary>
+    /// Ein Verlustjahr: das Vorzeichen steht nicht am Betrag, die Probe findet es.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Bericht setzt ein Zeichen vor den Betrag, und die Texterkennung legt es auf eine
+    /// eigene Zeile. Am Betrag selbst ist nicht zu sehen, ob das Jahr gewonnen oder verloren hat
+    /// — im Jahrgang 2018 sind es <em>minus</em> 41,20 EUR.</para>
+    /// <para>Die Rechnung des Papiers lässt nur eine Richtung zu. Geht sie mit dem Minus auf, ist
+    /// das Vorzeichen damit bewiesen und nicht geraten — und der Prüfschritt zeigt einen Verlust
+    /// als Verlust.</para>
+    /// </remarks>
+    [Fact]
+    public void Ein_Verlustjahr_bekommt_sein_Vorzeichen_aus_der_Probe()
+    {
+        var gelesen = extractor.Read(
+            DocumentKindLibrary.RiesterStatusreport,
+            RiesterStatusreport(ergebnis: "500,00", kapitalEnde: "10.281,00"));
+
+        var ergebnis = gelesen.Values.Single(w => w.Rule.Key == "wertentwicklung");
+
+        Assert.Equal(-500.00m, ergebnis.Number);
+        Assert.Equal("500,00", ergebnis.Raw);
+
+        var probe = gelesen.Proofs.First();
+        Assert.True(probe.Passed);
+        Assert.Contains("-500,00", probe.Line);
+    }
+
+    /// <summary>
+    /// Was der Versorgungsausgleich entnimmt, zieht die Probe ab.
+    /// </summary>
+    /// <remarks>
+    /// Zwei Zeilen, die es nur in einem Jahr gibt. Gefunden hat sie die Probe selbst: sie fiel im
+    /// Jahrgang 2024 um 9.420,50 EUR auseinander, und das war auf den Cent die Summe aus
+    /// Entnahme und ihren Kosten. Ohne sie stünde ein richtiger Bericht als fehlerhaft da.
+    /// </remarks>
+    [Fact]
+    public void Eine_Entnahme_zieht_die_Probe_ab()
+    {
+        var gelesen = extractor.Read(
+            DocumentKindLibrary.RiesterStatusreport,
+            RiesterStatusreport(
+                kapitalEnde: "9.131,00",
+                versorgungsausgleich: ("2.000,00", "150,00")));
+
+        var probe = gelesen.Proofs.First();
+
+        Assert.True(probe.Passed);
+        Assert.Contains("2.000,00", probe.Line);
+        Assert.Equal(9131.00m, gelesen.Values.Single(w => w.Rule.Key == "kapitalEnde").Number);
+    }
+
+    /// <summary>
+    /// Der ältere Jahrgang trägt nur eine Kapitalzeile — und sie ist der erreichte Wert.
+    /// </summary>
+    /// <remarks>
+    /// Bis 2016 weist der Bericht keine Bewertungsreserven aus; „Gebildetes Kapital zum
+    /// Jahresende“ ist dort dasselbe wie das Kapital zum Jahresende. Und es gibt keine
+    /// Fondskosten — ein Abzug, den das Papier nicht nennt, ist keiner.
+    /// </remarks>
+    [Fact]
+    public void Der_aeltere_Jahrgang_traegt_nur_eine_Kapitalzeile()
+    {
+        var gelesen = extractor.Read(
+            DocumentKindLibrary.RiesterStatusreport,
+            RiesterStatusreport(kapitalEnde: "11.531,00", alterJahrgang: true));
+
+        var werte = gelesen.Values.ToDictionary(w => w.Rule.Key);
+
+        Assert.Equal(11531.00m, werte["kapitalEnde"].Number);
+        Assert.False(werte.ContainsKey("fondskosten"));
+
+        var probe = Assert.Single(gelesen.Proofs);
+        Assert.True(probe.Passed);
+    }
+
+    /// <summary>
+    /// Die Fußnote über Kosten ist keine Kostenzeile.
+    /// </summary>
+    /// <remarks>
+    /// Jeder Bericht erklärt seine Kosten unten in Fließtext: „Die Fondskosten haben wir mit den
+    /// von den Kapitalverwaltungsgesellschaften ermittelten laufenden Kosten berechnet.“ Läse die
+    /// Regel dort weiter, stünde irgendeine Zahl aus dem Absatz als Kosten da. Die Muster
+    /// verlangen deshalb einen Betrag <em>unmittelbar</em> hinter dem Wort.
+    /// </remarks>
+    [Fact]
+    public void Eine_Fussnote_ist_keine_Kostenzeile()
+    {
+        var zeilen = RiesterStatusreport().Lines.ToList();
+        zeilen.Add(Line(1, "* Die Fondskosten haben wir mit den von den Kapitalverwaltungs"));
+        zeilen.Add(Line(1, "gesellschaften ermittelten laufenden Kosten berechnet. Siehe Seite 4."));
+
+        var gelesen = extractor.Read(DocumentKindLibrary.RiesterStatusreport, Content(zeilen));
+
+        Assert.Equal(250.00m, gelesen.Values.Single(w => w.Rule.Key == "fondskosten").Number);
+        Assert.All(gelesen.Proofs, p => Assert.True(p.Passed));
+    }
+
     // ── Ein Einzelwert von Hand ────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -652,7 +1039,7 @@ public sealed class DocumentKindTests
     /// Eine Zeile ohne lesbaren Betrag verschwindet nicht — sie sagt, dass sie einen braucht.
     /// </summary>
     /// <remarks>
-    /// Der Fall aus dem Jahrgang 2023: die Texterkennung macht aus einem Betrag <c>1 239 69</c>,
+    /// Der Fall aus dem Jahrgang 2023: die Texterkennung macht aus einem Betrag <c>1 845 60</c>,
     /// und keine Regel darf daraus raten. Hinge die Zeile am Betrag, wäre sie unsichtbar — und
     /// mit ihr die Auskunft, woran es liegt. Erkannt wird sie an Anteilen und Preis; der fehlende
     /// Betrag steht dann als Aufgabe da.
@@ -666,9 +1053,9 @@ public sealed class DocumentKindTests
                 fonds:
                 [
                     ("TEST01", "Musterfonds Welt", "31,4706", "197,3600", "6.211,03"),
-                    ("TEST02", "Musterfonds Renten", "9,1234", "135,5700", "1 239 69"),
+                    ("TEST02", "Musterfonds Renten", "8,7410", "128,4300", "1 845 60"),
                 ],
-                anteilsguthaben: "7.450,66"));
+                anteilsguthaben: "8.056,63"));
 
         Assert.Equal(2, gelesen.Rows.Count);
         Assert.Null(gelesen.Rows[1]["fondswert"]?.Number);
@@ -696,15 +1083,15 @@ public sealed class DocumentKindTests
             fonds:
             [
                 ("TEST01", "Musterfonds Welt", "31,4706", "197,3600", "6.211,03"),
-                ("TEST02", "Musterfonds Renten", "9,1234", "135,5700", "1 239 69"),
+                ("TEST02", "Musterfonds Renten", "8,7410", "128,4300", "1 845 60"),
             ],
-            anteilsguthaben: "7.450,66");
+            anteilsguthaben: "8.056,63");
 
         var gelesen = extractor.Read(
             DocumentKindLibrary.FundStatusreport, beleg,
-            new Dictionary<int, string> { [1] = "1.239,63" });
+            new Dictionary<int, string> { [1] = "1.845,60" });
 
-        Assert.Equal(1239.63m, gelesen.Rows[1]["fondswert"]?.Number);
+        Assert.Equal(1845.60m, gelesen.Rows[1]["fondswert"]?.Number);
         Assert.True(gelesen.Rows[1]["fondswert"]?.ByHand);
 
         var probe = Assert.Single(gelesen.Proofs);
@@ -732,9 +1119,9 @@ public sealed class DocumentKindTests
                 fonds:
                 [
                     ("TEST01", "Musterfonds Welt", "31,4706", "197,3600", "6.211,03"),
-                    ("TEST02", "Musterfonds Renten", "9,1234", "135,5700", "1 239 69"),
+                    ("TEST02", "Musterfonds Renten", "8,7410", "128,4300", "1 845 60"),
                 ],
-                anteilsguthaben: "7.450,66"),
+                anteilsguthaben: "8.056,63"),
             new Dictionary<int, string> { [1] = "1.000,00" });
 
         var probe = Assert.Single(gelesen.Proofs);
@@ -769,7 +1156,7 @@ public sealed class DocumentKindTests
     /// </summary>
     /// <remarks>
     /// Aus dem Jahrgang 2016: die Texterkennung liest „120547“ als „12054;r“. Hinge die Zeile am
-    /// Kennzeichen, fiele sie heraus — mit ihr die 618,81 EUR, und die Summe wäre um genau diesen
+    /// Kennzeichen, fiele sie heraus — mit ihr die 705,40 EUR, und die Summe wäre um genau diesen
     /// Betrag zu klein, ohne dass die Meldung sagen könnte, warum. Was die Zeile zur Zeile macht,
     /// ist der Betrag am Ende.
     /// </remarks>
@@ -781,13 +1168,13 @@ public sealed class DocumentKindTests
             FundStatusreport(
                 fonds:
                 [
-                    ("12054;r", "Musterfonds Renten", "4,3840", "141,1500", "618,81"),
-                    ("TEST02", "Musterfonds Welt", "8,2866", "149,1200", "1.235,70"),
+                    ("12054;r", "Musterfonds Renten", "4,3840", "141,1500", "705,40"),
+                    ("TEST02", "Musterfonds Welt", "8,2866", "149,1200", "1.310,25"),
                 ],
-                anteilsguthaben: "1.854,51"));
+                anteilsguthaben: "2.015,65"));
 
         Assert.Equal(2, gelesen.Rows.Count);
-        Assert.Equal(618.81m, gelesen.Rows[0]["fondswert"]?.Number);
+        Assert.Equal(705.40m, gelesen.Rows[0]["fondswert"]?.Number);
         Assert.True(Assert.Single(gelesen.Proofs).Passed);
     }
 
@@ -796,8 +1183,8 @@ public sealed class DocumentKindTests
     /// </summary>
     /// <remarks>
     /// <para>Drei Schreibweisen aus zwei echten Scans: der Tausenderpunkt kommt als zweites Komma
-    /// zurück (<c>2,776,40</c>, Jahrgang 2017), Punkt und Komma sind getauscht
-    /// (<c>14,791.94</c>) oder das Komma steht als Dach da (<c>5.135^57</c>, beides Jahrgang
+    /// zurück (<c>3,145,60</c>, Jahrgang 2017), Punkt und Komma sind getauscht
+    /// (<c>12,480.75</c>) oder das Komma steht als Dach da (<c>4.220^35</c>, beides Jahrgang
     /// 2023).</para>
     /// <para>Die Berichtigung ist eine Vermutung, und deshalb steht dieser Test auf der Summe:
     /// sie geht nur auf, wenn alle drei Zeilen richtig gelesen sind. Läge eine daneben, wären es
@@ -811,16 +1198,16 @@ public sealed class DocumentKindTests
             FundStatusreport(
                 fonds:
                 [
-                    ("TEST01", "Musterfonds Ausgewogen", "18,1262", "153,1700", "2,776,40"),
-                    ("TEST02", "Musterfonds Welt", "47,0404", "314,4600", "14,791.94"),
-                    ("TEST03", "Musterfonds Balance", "29,1198", "176,3600", "5.135^57"),
+                    ("TEST01", "Musterfonds Ausgewogen", "20,4410", "148,9200", "3,145,60"),
+                    ("TEST02", "Musterfonds Welt", "41,7830", "298,7100", "12,480.75"),
+                    ("TEST03", "Musterfonds Balance", "32,6050", "129,4400", "4.220^35"),
                 ],
-                anteilsguthaben: "22.703,91"));
+                anteilsguthaben: "19.846,70"));
 
         Assert.Equal(3, gelesen.Rows.Count);
-        Assert.Equal(2776.40m, gelesen.Rows[0]["fondswert"]?.Number);
-        Assert.Equal(14791.94m, gelesen.Rows[1]["fondswert"]?.Number);
-        Assert.Equal(5135.57m, gelesen.Rows[2]["fondswert"]?.Number);
+        Assert.Equal(3145.60m, gelesen.Rows[0]["fondswert"]?.Number);
+        Assert.Equal(12480.75m, gelesen.Rows[1]["fondswert"]?.Number);
+        Assert.Equal(4220.35m, gelesen.Rows[2]["fondswert"]?.Number);
 
         Assert.True(Assert.Single(gelesen.Proofs).Passed);
     }
@@ -830,8 +1217,8 @@ public sealed class DocumentKindTests
     /// </summary>
     /// <remarks>
     /// Am Rand des Jahrgangs 2020 steht eine Zahl aus dem Briefkopf, und die Textebene setzt sie
-    /// vor den Betrag: <c>146,0200 200 960,97</c>. Zählte das Leerzeichen als Tausenderpunkt,
-    /// stünden dort 200.960,97 EUR statt 960,97 — der Bericht läse sich um zweihunderttausend
+    /// vor den Betrag: <c>152,4300 300 870,45</c>. Zählte das Leerzeichen als Tausenderpunkt,
+    /// stünden dort 300.870,45 EUR statt 870,45 — der Bericht läse sich um zweihunderttausend
     /// Euro zu hoch, und die Probe ginge trotzdem nicht auf. Eine Regel, die einen kaputten Beleg
     /// rettet und einen heilen zerstört, ist keine.
     /// </remarks>
@@ -843,12 +1230,12 @@ public sealed class DocumentKindTests
             FundStatusreport(
                 fonds:
                 [
-                    ("TEST01", "Musterfonds Renten", "6,5811", "146,0200", "200 960,97"),
-                    ("TEST02", "Musterfonds Welt", "12,0284", "160,7200", "1.933,20"),
+                    ("TEST01", "Musterfonds Renten", "5,9240", "152,4300", "300 870,45"),
+                    ("TEST02", "Musterfonds Welt", "11,4700", "154,3800", "1.845,60"),
                 ],
-                anteilsguthaben: "2.894,17"));
+                anteilsguthaben: "2.716,05"));
 
-        Assert.Equal(960.97m, gelesen.Rows[0]["fondswert"]?.Number);
+        Assert.Equal(870.45m, gelesen.Rows[0]["fondswert"]?.Number);
         Assert.True(Assert.Single(gelesen.Proofs).Passed);
     }
 
@@ -857,7 +1244,7 @@ public sealed class DocumentKindTests
     /// </summary>
     /// <remarks>
     /// Die Beitragssumme steht allein da; keine Rechnung im Dokument prüft sie. Der eingescannte
-    /// Text <c>43 866.12</c> bliebe als 4.386.612 EUR stehen — das Hundertfache —, und niemand
+    /// Text <c>39 415.80</c> bliebe als 3.941.580 EUR stehen — das Hundertfache —, und niemand
     /// könnte es merken. Lieber kein Wert als der falsche: hier gilt die Berichtigung nicht.
     /// </remarks>
     [Fact]
@@ -869,7 +1256,7 @@ public sealed class DocumentKindTests
             Line(1, "Versicherungsnummer:", "77001122-02"),
             Line(1, "hiermit übersenden wir Ihnen den Statusreport zum Stand Ihrer fondsgebundenen"),
             Line(1, "Ihr Vertragsstand zum 31.12.2023"),
-            Line(1, "Beitragssumme (entspricht den über die Laufzeit", "43 866.12 EUR"),
+            Line(1, "Beitragssumme (entspricht den über die Laufzeit", "39 415.80 EUR"),
             Line(2, "Fondsübersicht"),
             Line(2, "TEST01", "Musterfonds Welt", "31,4706", "197,3600", "6.211,03"),
             Line(2, "Anteilsguthaben:", "6.211,03"),
@@ -1072,11 +1459,11 @@ public sealed class DocumentKindTests
     /// <remarks>
     /// Als Tausenderpunkt bräuchte er drei Stellen, als Dezimaltrenner ein Komma. Die deutsche
     /// Kultur liest ihn trotzdem — sie prüft die Gruppengröße nicht — und macht aus dem
-    /// eingescannten „43 866.12“ den Betrag 4.386.612: das Hundertfache, ohne einen Hinweis.
+    /// eingescannten „39 415.80“ den Betrag 3.941.580: das Hundertfache, ohne einen Hinweis.
     /// Gefunden am Scan eines Jahrgangs, in dem die Texterkennung Punkt und Komma vertauscht hat.
     /// </remarks>
     [Theory]
-    [InlineData("43 866.12")]
+    [InlineData("39 415.80")]
     [InlineData("43866.12")]
     [InlineData("1.261.37")]
     [InlineData("136.7500")]

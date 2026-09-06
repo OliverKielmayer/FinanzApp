@@ -28,12 +28,12 @@ Alle zwölf Berichte des Vertrags 02 (2012 bis 2025) werden erkannt, ihr Anteils
 Stichtag gelesen. Die Fondstabelle geht bei **elf** von zwölf gegen den ausgewiesenen Gesamtwert
 auf. Was bleibt:
 
-- **Eine Zeile des Jahrgangs 2023 liest keine Regel.** Sie steht als `1 239 69` da, mit
+- **Eine Zeile des Jahrgangs 2023 liest keine Regel.** Sie steht als `1 845 60` da, mit
   Leerzeichen. Das Leerzeichen als Tausenderpunkt zu lesen ist keine Lösung: am Rand desselben
   Jahrgangs stehen verirrte Zahlen aus dem Briefkopf, und im Jahrgang 2020 würde aus
-  `146,0200 200 960,97` ein Betrag von 200.960,97 statt 960,97. Die Zeile ist trotzdem da —
+  `152,4300 300 870,45` ein Betrag von 300.870,45 statt 870,45. Die Zeile ist trotzdem da —
   erkannt an Anteilen und Preis — und sagt, dass ihr Betrag fehlt. Eingetragen ergibt die Summe
-  auf den Cent den ausgewiesenen Gesamtwert (1.239,63 €), und die Probe sagt, dass eine Zeile
+  auf den Cent den ausgewiesenen Gesamtwert (1.845,60 €), und die Probe sagt, dass eine Zeile
   von Hand kam.
 - **Die Vertragsnummer desselben Jahrgangs ist ebenfalls beschädigt:** `015111C4 02`. Der Beleg
   findet seinen Vertrag deshalb nicht von allein und wird im Scaneingang zugeordnet. Aus einer
@@ -41,8 +41,41 @@ auf. Was bleibt:
   hängen — von allen möglichen Fehlern der teuerste.
 - **Berichtigt wird nur unter einer Gegenprobe.** In der Fondstabelle prüft der ausgewiesene
   Gesamtwert jede Vermutung nach. An einem einzelnen Feld gibt es diese Prüfung nicht: die
-  Beitragssumme des Jahrgangs 2023 steht als `43 866.12` da und bleibt ungelesen, weil aus ihr
+  Beitragssumme des Jahrgangs 2023 steht als `39 415.80` da und bleibt ungelesen, weil aus ihr
   sonst unbemerkt das Hundertfache würde.
+
+## Stand der Statusreporte aller fünf Verträge
+
+Geprüft an **58 echten Berichten** (Verträge 01 bis 05, 2012 bis 2025): jeder wird erkannt, jeder
+gibt Vertragsnummer, Stichtag und erreichten Wert her. Offen sind zwei Rechenproben, beide in
+demselben beschädigten Scan-Jahrgang 2023 — und eine Lücke:
+
+- **Vertrag 05, Jahrgang 2017: keine Rechenprobe.** Der Leitwert wird gelesen (18.120,65 EUR) und
+  ist arithmetisch bestätigt, seine Bestandteile aber nicht: die Textebene zerlegt „Rückkaufswert
+  (exkl. Bewertungsreserve)“ so, dass weder Beschriftung noch Wert eine Zeile für sich haben.
+  Ohne Bestandteile keine Probe.
+- **Vertrag 01: die Dateinamen gehen um ein Jahr vor.** „statusreport 2024.pdf“ trägt den Stand
+  zum 31.07.2025. Kein Fehler der Anwendung — sie liest den Stichtag aus dem Text und nie aus dem
+  Dateinamen; aber wer nach Dateinamen sucht, greift daneben.
+
+## Was bei Vertrag 04 (Riester) offen bleibt
+
+Die zehn Statusreporte der staatlich geförderten Altersvorsorge werden gelesen — Vertragsnummer,
+Stichtag und erreichter Wert in allen zehn, die Rechenproben gehen bei neun von zehn vollständig
+auf. Im selben Ordner liegen weitere Belege, die keine Regel kennt:
+
+- **Der Jahrgang 2023 fällt in der Jahresprobe um 0,80 EUR auseinander.** Derselbe beschädigte
+  Scan-Jahrgang wie beim fondsgebundenen Vertrag: eine Ziffer im Jahresergebnis ist verlesen.
+  Der erreichte Wert selbst ist doppelt bestätigt — durch die Aufteilung in Deckungskapital und
+  Anteilsguthaben und durch die Trennung von den nicht garantierten Posten.
+- **Die Bescheinigungen nach § 92 EStG sind nicht integriert.** Sechs Stück, klar aufgebaut, mit
+  Beiträgen, Grundzulage, den Summen seit Vertragsbeginn und dem *Stand des
+  Altersvorsorgevermögens*. Sie gehören ins Steuerjahr (Anlage AV) und nicht ins Vermögen: ihr
+  Vermögensstand ist das **gebildete** Kapital einschließlich der nicht garantierten Posten und
+  damit eine andere Größe als die des Statusreports zum selben Stichtag. Beide in denselben
+  Vertragsstand zu schreiben hieße, dass der zuletzt eingelesene Beleg gewinnt.
+- **Zulagenantrag, Versorgungsausgleich, Bezugsrechtsänderung und Mandatsreferenz** tragen keine
+  wiederkehrenden Werte. Sie werden abgelegt und nicht gelesen — richtig so.
 
 ## Was bei der Vermögensübersicht offen blieb
 

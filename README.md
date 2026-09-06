@@ -259,8 +259,16 @@ Fristen und Dokumente hängen. Seine Kosten der letzten zwölf Monate werden aus
 gerechnet, nicht gepflegt. Die Kfz-Versicherung wird **verwiesen**, nicht kopiert — sie bleibt
 unter Absicherung.
 
-Findet die Analyse kein Zielobjekt, nennt die Meldung die gesuchte Nummer **und den Haushalt**,
-in dem gesucht wurde. Über die Haushaltsgrenze sieht kein Dienst hinweg — das ist richtig so, und
+Findet die Analyse kein Zielobjekt, nennt die Meldung die gesuchte Nummer, **den Haushalt** und
+— wenn es einen gibt — das Objekt mit **denselben Ziffern**. Verglichen wird dafür auf die Ziffern
+herunter: „R-01511104-04“ auf dem Papier und „01511104-04“ im Vertrag treffen sich dabei. Genannt
+wird er und nicht zugeordnet: das R steht bei diesem Absender für die geförderte Tranche desselben
+Stammvertrags, es kann beide geben, und ein Beleg am falschen Vertrag ist von allen möglichen
+Fehlern der teuerste.
+
+Der Grund steht auf **jedem** Schirm, der den Knopf abschaltet — auch im Werteschritt. Dort stand
+er lange nicht, und aus dem Scaneingang steigt man genau dort ein: gelesene Werte, ein toter
+Schalter, keine Auskunft. Über die Haushaltsgrenze sieht kein Dienst hinweg — das ist richtig so, und
 genau deshalb ist es der wahrscheinlichste Grund, aus dem eine gelesene Nummer nichts findet. Der
 eigene Haushaltsname verrät nichts über den anderen; er sagt nur, auf welcher Seite die Suche
 stand.
@@ -305,7 +313,7 @@ sichtbare die unverbindliche wäre. Dieselben Werte gehen mit `POST /api/scan/co
 bei einer Aufstellung werden die Zeilen zu Positionen — eine Berichtigung, die nur die Anzeige
 beruhigt, wäre beim Speichern verschwiegen.
 
-Die Probe sagt, was von Hand kam: „6 Zeilen = 32.937,10 EUR (eine Zeile von Hand eingetragen) —
+Die Probe sagt, was von Hand kam: „6 Zeilen = 24.100,00 EUR (eine Zeile von Hand eingetragen) —
 entspricht dem ausgewiesenen Gesamtwert.“ Eine Probe, die aufgeht, weil ein Mensch die fehlende
 Zahl beigesteuert hat, ist etwas anderes als eine, die das Papier trägt. Und sie bleibt eine
 Prüfung: wer sich vertippt, bekommt dieselbe Antwort wie ein falsch gelesener Beleg.
@@ -359,6 +367,67 @@ Der Dienst selbst analysiert nichts. Zwei Fassungen derselben Leseregeln liefen 
 auseinander; er sorgt nur dafür, dass keine Datei liegen bleibt und keine zweimal hinausgeht.
 Dafür ist **der Ordner die Warteschlange** — was noch daliegt, ist noch nicht übergeben; was
 übergeben ist, liegt im Unterordner `_erledigt`. Ein Neustart mitten im Betrieb kostet nichts.
+
+### Was ein zerlegter Scan noch hergibt
+
+Dieselbe Leseregel muss mit derselben Berichtsart über zwölf Jahrgänge und mehrere Scanner
+hinweg auskommen. Vier Zugeständnisse, alle an echten Berichten gelernt und alle so eng gefasst,
+dass sie nichts anderes treffen:
+
+- **Der Stichtag über einen Umbruch hinweg.** „Vertragsstandzum 31.10.2023“ ohne Leerzeichen, und
+  ein zerlegter Satz, der das Datum allein auf eine Zeile stellt — dann beginnt sie mit „zum“.
+  Das „zum“ muss die Zeile *eröffnen*: „Leistung im Erlebensfall zum Ablauf 01.11.2036“ ist eine
+  Prognose und nie der Stand, und ein freies „zum“ träfe irgendwann genau das.
+- **Eine kurze Beschriftung, wo ein Buchstabe fehlt.** „Gesamileistung“ statt
+  „Gesamtleistung“ — „Gesam“ trifft beides und ist im Abschnitt „Wert der Versicherung“
+  eindeutig.
+- **Beschriftung allein in ihrer Zeile.** Kippt die Wertspalte gegen die Beschriftungen
+  („erreichter Wert der“ / „18.120,65 Euro“ / „Gesamtleistung“), steht der Betrag eine Zeile
+  *über* seinem Namen. Gesucht wird erst die Zeile danach, dann die davor — und nicht weiter.
+- **Punkt statt Komma, unter der Rechenprobe.** „24.310.55“ wird berichtigt, weil das Papier die
+  Gegenprobe mitliefert: Rückkaufswert + Ansammlungsguthaben = Gesamtleistung.
+
+Die Berichtigung hat dabei einen Riegel, der lange fehlte: **nur Ziffern und Trennzeichen.** Sie
+strich vorher alle Nichtziffern, und damit wurde aus „Überschussbeteiligung 1.180,40“ der Betrag
+1.180,40 — im Scan von 2017 stand er danach als *Rückkaufswert* da. In der Fondstabelle fiel das
+nie auf, weil dort ein Muster den Betrag schon herausgeschnitten hatte; über eine Beschriftung
+kommt die ganze Zelle herein.
+
+### Statusreport einer staatlich geförderten Altersvorsorge
+
+Der dritte Berichtstyp desselben Absenders, und der andersartigste: er rechnet ein **Jahr** vor,
+statt einen Stand aufzuschlüsseln — Kapital zum Jahresbeginn, Beiträge, Zulagen, Kosten, Ergebnis,
+Kapital zum Jahresende. Damit bringt er seine Rechenproben selbst mit, und gleich drei: die
+Jahresbewegung, die Aufteilung des Endkapitals in garantiertes Deckungskapital und
+Anteilsguthaben, und die Trennung von den nicht garantierten Posten.
+
+**Der erreichte Wert ist „Kapital zum Jahresende“** und nicht „Gebildetes Kapital zum
+Jahresende“, das im neueren Jahrgang darunter steht: letzteres enthält Bewertungsreserven und
+Schlussüberschüsse, die das Papier selbst als nicht garantiert ausweist. Dieselbe Entscheidung
+wie beim klassischen Statusreport.
+
+Drei Dinge waren dafür zu lernen, alle drei an zehn echten Berichten von 2012 bis 2025:
+
+1. **Er trägt das Kennzeichen der fondsgebundenen Lebensversicherung.** In einem Nebensatz nennt
+   er ein „Anteilsguthaben“, und damit gehörte er bisher deren Regel — die in ihm keinen einzigen
+   Wert fand. Erkannt wird er jetzt an „Kapital zum Jahresende“: der Zeile, die es dort nicht
+   gibt. Ein Produktname wäre die naheliegende Wahl und die schlechtere — er bände die Regel an
+   einen Vertrag statt an einen Aufbau.
+2. **Eine Probe muss abziehen können.** „Jahresbeginn + Beiträge + Zulagen + Ergebnis − Kosten =
+   Jahresende“ ließe sich sonst nicht aufschreiben. `DocumentCheck.Minus` trägt die Abzüge, und
+   ein Abzug darf **fehlen** und zählt dann als null: bis 2017 wies der Bericht keine Fondskosten
+   aus. Beide Richtungen des Irrtums sind sicher — was nicht dasteht, wurde nicht einbehalten,
+   und ein übersehener Abzug lässt die Probe *scheitern*.
+3. **Das Vorzeichen des Jahresergebnisses steht nicht am Betrag.** Die Texterkennung legt es auf
+   eine eigene Zeile; am Betrag ist nicht zu sehen, ob das Jahr gewonnen oder verloren hat.
+   `DocumentCheck.Unsigned` probiert deshalb beide Richtungen — die Rechnung des Papiers lässt
+   nur eine zu. Damit ist das Vorzeichen **bewiesen** und nicht geraten, und ein Verlustjahr
+   steht als Verlust da.
+
+Wie ernst die Proben zu nehmen sind, hat der Jahrgang 2024 gezeigt: er fiel um 9.420,50 EUR
+auseinander. Die Ursache stand auf demselben Blatt — zwei Zeilen, die es nur in diesem Jahr gibt:
+Entnahme und Kosten des Versorgungsausgleichs. Nicht der Bericht war falsch, sondern die Regel
+unvollständig.
 
 ### Vermögensübersicht — Vertragsstände aus einer Tabelle
 

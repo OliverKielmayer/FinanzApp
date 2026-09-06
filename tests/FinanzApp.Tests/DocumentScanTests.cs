@@ -348,7 +348,7 @@ public sealed class DocumentScanTests : IDisposable
     /// Die Bestätigung nennt die Wirkung, nicht den Vorgang.
     /// </summary>
     /// <remarks>
-    /// „20.481,52 € übernommen · +521,38 € gegenüber dem Stand vom 31.07.2024“ statt „Werte
+    /// „21.360,45 € übernommen · +521,38 € gegenüber dem Stand vom 31.07.2024“ statt „Werte
     /// gespeichert“. Der Betrag allein sagt niemandem, ob der Vertrag gewachsen ist.
     /// </remarks>
     [Fact]
@@ -484,6 +484,57 @@ public sealed class DocumentScanTests : IDisposable
         // Die gesuchte Nummer steht in der Meldung: mit ihr weiß der Nutzer, was zu tun ist.
         Assert.Contains("77001122-01", vorschlag.Blocker);
         Assert.Contains("Unbekannt", vorschlag.RelativePath);
+    }
+
+    /// <summary>
+    /// Die Meldung nennt den Vertrag, der dieselben Ziffern trägt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Fall aus dem Betrieb: der Riester-Statusreport nennt „R-01511104-04“, im
+    /// Vertrag stand „01511104-04“. Alle Werte waren gelesen, der Knopf war tot, und die Meldung
+    /// las sich wie „diesen Vertrag gibt es nicht“ — während er einen Bindestrich entfernt
+    /// dastand.</para>
+    /// <para>Genannt und <b>nicht zugeordnet</b>: das R steht bei diesem Absender für die
+    /// geförderte Tranche desselben Stammvertrags, und es kann beide geben. Ein Beleg am falschen
+    /// Vertrag ist von allen möglichen Fehlern der teuerste.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Der_Grund_nennt_den_Vertrag_mit_denselben_Ziffern()
+    {
+        using (var context = database.Context())
+        {
+            // Der Beleg nennt 77001122-01, der Vertrag trägt dieselbe Nummer mit einem
+            // Buchstaben davor: dieselben Ziffern, andere Schreibweise.
+            context.Policies.Single(p => p.Id == vertragId).PolicyNumber = "R-77001122-01";
+            context.SaveChanges();
+        }
+
+        var vorschlag = await AnalyseAsync(Statusreport());
+
+        Assert.Null(vorschlag.TargetId);
+        Assert.Contains("denselben Ziffern", vorschlag.Blocker);
+        Assert.Contains("R-77001122-01", vorschlag.Blocker);
+    }
+
+    /// <summary>
+    /// Eine Nummer, die nichts trifft, erfindet auch keinen Beinahe-Treffer.
+    /// </summary>
+    /// <remarks>
+    /// Sonst stünde unter jedem unbekannten Beleg ein Vertrag, der nichts mit ihm zu tun hat —
+    /// ein Hinweis, der in die Irre führt, ist schlechter als keiner.
+    /// </remarks>
+    [Fact]
+    public async Task Ohne_Beinahe_Treffer_steht_kein_Vertrag_in_der_Meldung()
+    {
+        using (var context = database.Context())
+        {
+            context.Policies.Single(p => p.Id == vertragId).PolicyNumber = "88889999-77";
+            context.SaveChanges();
+        }
+
+        var vorschlag = await AnalyseAsync(Statusreport());
+
+        Assert.DoesNotContain("denselben Ziffern", vorschlag.Blocker);
     }
 
     /// <summary>
