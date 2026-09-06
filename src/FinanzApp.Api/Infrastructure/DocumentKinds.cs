@@ -229,7 +229,27 @@ public sealed record DocumentRepeatRule
 
 /// <summary>Woran ein Dokument seinem Typ zugeordnet wird.</summary>
 /// <param name="Text">Zeichenfolge, die im Dokument vorkommen muss.</param>
-public sealed record DocumentMarker(string Text);
+/// <summary>
+/// Ein Kennzeichen, an dem eine Dokumentart erkannt wird.
+/// </summary>
+/// <param name="Text">Die Schreibweise, wie sie auf dem heilen Papier steht.</param>
+/// <param name="Also">
+/// Weitere Schreibweisen desselben Wortes, die ein Scan hergibt.
+/// </param>
+/// <remarks>
+/// Der Grund ist ein einzelner Buchstabe: die Texterkennung eines Jahrgangs schreibt
+/// „Anteiisguthaben“ mit i statt l, und daran hing die ganze Art — der Bericht wurde nicht
+/// erkannt, obwohl er vollständig lesbar war. Ein Kennzeichen zu kürzen, bis es beide Formen
+/// trifft, wäre der schlechtere Weg: „Antei“ steht auch in „Anteile“, der Spaltenüberschrift
+/// derselben Tabelle. Die zweite Schreibweise ausdrücklich zu nennen sagt, was sie ist — ein
+/// Lesefehler eines bestimmten Scans und keine Regel über die Sprache.
+/// </remarks>
+public sealed record DocumentMarker(string Text, params string[] Also)
+{
+    public bool Matches(string text)
+        => text.Contains(Text, StringComparison.OrdinalIgnoreCase)
+           || Also.Any(a => text.Contains(a, StringComparison.OrdinalIgnoreCase));
+}
 
 /// <summary>Worauf ein Dokumenttyp zielt.</summary>
 public enum DocumentTargetKind
@@ -579,7 +599,7 @@ public static class DocumentKindLibrary
         // „Anteilsguthaben“ trennt diese Art von der klassischen: dort steht „Wert der
         // Versicherung“, hier eine Fondstabelle. Beide Kennzeichen stehen in allen zwölf
         // Berichten.
-        Markers = [new("Statusreport"), new("Anteilsguthaben")],
+        Markers = [new("Statusreport"), new("Anteilsguthaben", "Anteiisguthaben")],
 
         AsOfField = "stichtag",
         DocumentDateField = "dokumentdatum",
@@ -665,7 +685,12 @@ public static class DocumentKindLibrary
             new()
             {
                 Key = "anteilsguthaben", Label = "Anteilsguthaben", Kind = DocumentValueKind.Money,
-                Labels = ["Anteilsguthaben"], Lead = true,
+
+                // Beide Schreibweisen, aus demselben Grund wie beim Kennzeichen: ein Jahrgang
+                // schreibt „Anteiisguthaben“. Ohne die zweite bliebe der Bericht erkannt und
+                // ohne Wert — schlimmer als gar nicht erkannt.
+                Labels = ["Anteilsguthaben", "Anteiisguthaben"],
+                Lead = true,
             },
 
             // Die Beschriftung bricht im älteren Jahrgang um: „Beitragssumme“ steht allein in
@@ -1248,8 +1273,7 @@ public static class DocumentKindLibrary
     {
         var text = string.Join("\n", content.Lines.Select(z => z.Text));
 
-        return All.FirstOrDefault(art => art.Markers.All(
-            m => text.Contains(m.Text, StringComparison.OrdinalIgnoreCase)));
+        return All.FirstOrDefault(art => art.Markers.All(m => m.Matches(text)));
     }
 }
 

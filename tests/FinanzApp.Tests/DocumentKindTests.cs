@@ -595,6 +595,40 @@ public sealed class DocumentKindTests
         Assert.Contains("bitte prüfen", wert.Warning);
     }
 
+    /// <summary>
+    /// Ein verlesener Buchstabe nimmt dem Bericht nicht seine Art.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die Texterkennung eines Jahrgangs schreibt „Anteiisguthaben“ mit i statt l. Daran
+    /// hing beides: das Kennzeichen, an dem die Art erkannt wird, und die Beschriftung, unter
+    /// der ihr Leitwert steht. Der Bericht war vollständig lesbar und galt trotzdem als
+    /// unbekannt.</para>
+    /// <para>Das Kennzeichen zu kürzen, bis es beide Formen trifft, wäre der schlechtere Weg:
+    /// „Antei“ steht auch in „Anteile“, der Spaltenüberschrift derselben Tabelle. Die zweite
+    /// Schreibweise ausdrücklich zu nennen sagt, was sie ist — ein Lesefehler eines bestimmten
+    /// Scans und keine Regel über die Sprache.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Ein_verlesener_Buchstabe_nimmt_nicht_die_Art()
+    {
+        var zeilen = FundStatusreport().Lines
+            .Select(z => new PdfLine(
+                z.Page,
+                [.. z.Cells.Select(c => c.Replace("Anteilsguthaben", "Anteiisguthaben",
+                    StringComparison.Ordinal))]))
+            .ToList();
+
+        var beschaedigt = Content(zeilen);
+
+        Assert.Equal(DocumentKindLibrary.FundStatusreport, DocumentKindLibrary.Detect(beschaedigt));
+
+        var gelesen = extractor.Read(DocumentKindLibrary.FundStatusreport, beschaedigt);
+
+        Assert.Equal(10000.00m, gelesen.Values.Single(w => w.Rule.Key == "anteilsguthaben").Number);
+        Assert.True(Assert.Single(gelesen.Proofs).Passed);
+    }
+
     // ── Ein zerlegter Scan, dieselbe Lesung ────────────────────────────────────────────────
 
     /// <summary>
