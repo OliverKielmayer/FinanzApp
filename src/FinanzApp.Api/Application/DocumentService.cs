@@ -124,6 +124,11 @@ public sealed class DocumentService(
             return null;
         }
 
+        // Gelesene Werte, die noch niemand bestätigt hat. Sie sind der Unterschied zwischen
+        // „abgelegt“ und „übernommen“ — und der war bisher nirgends zu sehen.
+        var offen = await db.DocumentExtractions
+            .CountAsync(x => x.DocumentId == document.Id && !x.Confirmed, ct);
+
         var links = new List<DocumentLinkDto>();
         foreach (var link in document.Links)
         {
@@ -155,6 +160,11 @@ public sealed class DocumentService(
             Tags = SplitTags(document.Tags),
             FileExists = paths.Exists(document.RelativePath),
             Links = links,
+            UnconfirmedValues = offen,
+
+            // Nur wo etwas offen ist. Ein Weg zum Prüfschritt an einem Beleg ohne gelesene Werte
+            // führte in eine Meldung statt in eine Fläche — angeboten wird, was auch hält.
+            ValuesHref = offen == 0 ? null : ScanReview.Href(document.ScanKind, document.Id),
         };
     }
 

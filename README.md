@@ -275,6 +275,23 @@ fragt nach Typ und Objekt und räumt den Beleg in einem Aufruf weg. Beides zusam
 Eingang beides verlangt — ein Beleg mit Typ und ohne Objekt wäre nach dem halben Weg immer noch
 nicht eingeordnet und stünde nach einem gescheiterten zweiten Aufruf halb geändert da.
 
+### Gelesen ist nicht übernommen
+
+`DocumentExtractions.Confirmed` ist der Unterschied zwischen **abgelegt** und **übernommen**, und
+er war nirgends zu sehen. Ein Beleg konnte eingelesen, einsortiert und mit seinem Vertrag
+verknüpft sein, während im Vertrag nichts stand — wer im Scaneingang „Wegräumen“ drückt, erzeugt
+genau das, denn Wegräumen nimmt keine Werte. Dreizehn Statusreporte eines Vertrags standen so da,
+und am Vertrag stand eine Null.
+
+Zwei Flächen tragen es jetzt. Die **Dokumentseite** zählt die offenen Angaben und führt zum
+Prüfschritt — angeboten wird der Weg nur, wo etwas offen ist, denn ein Schalter ohne Aufgabe ist
+eine Einladung zum Verdoppeln. Und **„Wegräumen“ fragt nach**, wo Werte offen sind, mit „Werte
+übernehmen“ daneben statt dahinter. Wo nichts offen ist, fragt es nicht: eine Rückfrage, die
+immer kommt, liest irgendwann niemand mehr.
+
+Welcher Prüfschritt zu einem Beleg gehört, entscheidet `ScanReview.Href` — eine Stelle für beide
+Flächen. Zwei Fassungen davon liefen auseinander, sobald eine dritte Belegart dazukommt.
+
 ### Eine Zeile von Hand
 
 Ein beschädigter Scan verliert einzelne Zahlen. Eine Fondszeile wird deshalb an **Anteilen und

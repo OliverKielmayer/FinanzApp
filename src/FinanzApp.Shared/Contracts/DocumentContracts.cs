@@ -52,6 +52,22 @@ public sealed record DocumentDetailDto
     public required IReadOnlyList<string> Tags { get; init; }
     public required bool FileExists { get; init; }
     public required IReadOnlyList<DocumentLinkDto> Links { get; init; }
+
+    /// <summary>
+    /// Gelesene Werte, die noch niemand übernommen hat.
+    /// </summary>
+    /// <remarks>
+    /// <para>Ein Beleg kann eingelesen, abgelegt und verknüpft sein, ohne dass je ein Wert in
+    /// seinem Objekt gelandet ist — wer ihn im Scaneingang <em>wegräumt</em>, tut genau das. Von
+    /// außen sah so ein Beleg danach aus wie ein übernommener; dreizehn Statusreporte eines
+    /// Vertrags standen so da, und am Vertrag stand eine Null.</para>
+    /// <para>Null heißt: nichts offen. Das ist auch der Normalfall für alles, was gar keine
+    /// gelesenen Werte trägt — ein Foto, ein Schreiben ohne Leseregel.</para>
+    /// </remarks>
+    public int UnconfirmedValues { get; init; }
+
+    /// <summary>Wohin der Prüfschritt führt, an dem sie sich übernehmen lassen.</summary>
+    public string? ValuesHref { get; init; }
 }
 
 public sealed record DocumentLinkDto

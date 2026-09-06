@@ -293,6 +293,27 @@ public sealed record ConfirmScanRequest
     public IReadOnlyDictionary<int, string>? RowValues { get; init; }
 }
 
+/// <summary>
+/// Wohin der Prüfschritt eines bereits abgelegten Belegs führt.
+/// </summary>
+/// <remarks>
+/// Nicht jeder Prüfschritt sieht gleich aus: ein Statusreport trägt einen Wert für einen Vertrag,
+/// eine Vermögensübersicht acht Werte für acht Verträge. Die Weiche steht hier und nicht an jeder
+/// Fläche, die sie braucht — zwei Fassungen davon liefen auseinander, sobald eine dritte Art
+/// dazukommt.
+/// </remarks>
+public static class ScanReview
+{
+    public static string Href(string? scanKind, int documentId) => scanKind switch
+    {
+        AssetSheetKind.Key => AssetSheetKind.Href(documentId),
+
+        // Auch ohne Leseabdruck: die Nachschau liest die Datei mit den Regeln von heute und
+        // erkennt die Art dabei neu.
+        _ => $"/scannen/{documentId}",
+    };
+}
+
 /// <summary>Die Nachschau mit berichtigten Zeilen.</summary>
 /// <remarks>
 /// Gerechnet wird auf dem Server, auch wenn die Zahl aus dem Schirm kommt. Sonst gäbe es zwei

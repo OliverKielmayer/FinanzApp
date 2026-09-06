@@ -87,6 +87,37 @@
             </AuthorizeView>
         }
 
+        @*
+            Gelesene Werte, die nie jemand übernommen hat. Von außen sah so ein Beleg aus wie
+            ein übernommener: eingelesen, abgelegt, mit dem Vertrag verknüpft — und im Vertrag
+            stand trotzdem nichts. Wer im Scaneingang „Wegräumen“ drückt, erzeugt genau das.
+
+            Der Weg zurück fehlte ebenfalls: der Prüfschritt ist erreichbar, aber keine Fläche
+            führte dorthin. Beides steht jetzt hier.
+        *@
+        @if (document.UnconfirmedValues > 0)
+        {
+            <div class="notice">
+                <span class="notice-title">
+                    @document.UnconfirmedValues gelesene
+                    @(document.UnconfirmedValues == 1 ? "Angabe" : "Angaben") noch nicht übernommen
+                </span>
+                <span class="notice-text">
+                    Der Beleg ist abgelegt, seine Werte stehen aber in keinem Objekt. Der
+                    Prüfschritt zeigt sie und trägt sie ein.
+                </span>
+
+                @if (document.ValuesHref is { Length: > 0 } pruefen)
+                {
+                    <AuthorizeView Roles="Owner,Member">
+                        <div class="doc-actions">
+                            <a class="btn btn-primary" href="@pruefen">Werte übernehmen</a>
+                        </div>
+                    </AuthorizeView>
+                }
+            </div>
+        }
+
         <div class="detail-block">
             <span class="detail-label">Pfad</span>
             <span class="detail-value num">@document.RelativePath</span>

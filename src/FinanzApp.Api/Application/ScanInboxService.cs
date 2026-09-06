@@ -26,6 +26,16 @@ public sealed class ScanInboxService(FinanzAppDbContext db, DocumentService docu
             .OrderBy(x => x.CreatedAt)
             .ToListAsync(ct);
 
+        // Wie viele gelesene Werte je Beleg noch niemand bestätigt hat — in einem Zug für
+        // alle. „Wegräumen“ fragt danach, statt sie stillschweigend liegen zu lassen.
+        var belege = rows.Select(x => x.DocumentId).Distinct().ToList();
+
+        var offen = await db.DocumentExtractions
+            .Where(x => belege.Contains(x.DocumentId) && !x.Confirmed)
+            .GroupBy(x => x.DocumentId)
+            .Select(g => new { g.Key, Anzahl = g.Count() })
+            .ToDictionaryAsync(g => g.Key, g => g.Anzahl, ct);
+
         // Die Namen der vorhandenen Belege in einem Zug. Ein Verweis auf eine Nummer wäre für
         // den Leser nichts wert — er will wissen, welches Schreiben er schon hat.
         var verdächtig = rows.Select(x => x.DuplicateOfDocumentId).OfType<int>().Distinct().ToList();
@@ -51,6 +61,7 @@ public sealed class ScanInboxService(FinanzAppDbContext db, DocumentService docu
                     Recognised = x.Recognised,
                     CanTakeValues = x.Document != null && x.Document.ScanKind != null,
                     ValuesHref = ValuesHref(x.Document),
+                    UnconfirmedValues = offen.GetValueOrDefault(x.DocumentId),
                     DuplicateOfDocumentId = x.DuplicateOfDocumentId,
                     DuplicateOfTitle = x.DuplicateOfDocumentId is { } vorhanden
                                        && namen.TryGetValue(vorhanden, out var name)
@@ -62,24 +73,15 @@ public sealed class ScanInboxService(FinanzAppDbContext db, DocumentService docu
         };
     }
 
-    /// <summary>
-    /// Der Prüfschritt, der zu diesem Dokument passt.
-    /// </summary>
+    /// <summary>Der Prüfschritt, der zu diesem Dokument passt.</summary>
     /// <remarks>
-    /// Die Vermögensübersicht hat einen eigenen: sie trägt eine Zeile je Vertrag, und der Schirm
-    /// des Einzelbelegs zeigt einen Wert für ein Objekt. Ohne diese Weiche landete eine Datei mit
-    /// acht Verträgen im Prüfschritt für einen — der sie nicht einmal lesen könnte.
+    /// Welcher es ist, entscheidet <see cref="ScanReview"/> — dieselbe Weiche wie am Beleg
+    /// selbst. Auch ohne Leseabdruck führt ein Weg dorthin: die Nachschau liest die Datei mit den
+    /// Regeln von heute und erkennt die Art dabei neu. Sonst bliebe ein Beleg, der vor einer
+    /// neuen Leseregel hereinkam, für immer stumm.
     /// </remarks>
-    private static string? ValuesHref(Document? document) => document?.ScanKind switch
-    {
-        // Auch ohne Abdruck: die Nachschau liest die Datei mit den Regeln von heute und erkennt
-        // die Art dabei neu. Sonst bliebe ein Beleg, der vor einer neuen Leseregel hereinkam, für
-        // immer stumm — die Fläche dorthin fehlte, und der einzige Weg wäre, dieselbe Datei ein
-        // zweites Mal einzulesen.
-        null => document is null ? null : $"/scannen/{document.Id}",
-        AssetSheetKind.Key => AssetSheetKind.Href(document.Id),
-        _ => $"/scannen/{document.Id}",
-    };
+    private static string? ValuesHref(Document? document)
+        => document is null ? null : ScanReview.Href(document.ScanKind, document.Id);
 
     /// <summary>Nimmt einen bereits abgelegten Beleg in den Eingang auf.</summary>
     /// <param name="duplicateOf">

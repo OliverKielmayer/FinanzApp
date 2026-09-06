@@ -1,5 +1,6 @@
 using System.Text;
 using FinanzApp.Api.Application;
+using FinanzApp.Api.Data;
 using FinanzApp.Api.Data.Entities;
 using FinanzApp.Api.Infrastructure;
 using FinanzApp.Shared.Contracts;
@@ -575,6 +576,66 @@ public sealed class DocumentScanTests : IDisposable
         using var context = database.Context();
         Assert.Equal(50000.00m, context.DepotStatementPositions.Single().Value);
     }
+
+    // ── Gelesen, aber nicht übernommen ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Am Beleg steht, dass seine Werte noch niemand übernommen hat — und der Weg dorthin.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Fall aus dem Betrieb: dreizehn Statusreporte eines Vertrags waren eingelesen,
+    /// abgelegt und mit dem Vertrag verknüpft — und am Vertrag stand eine Null. Wer sie im
+    /// Scaneingang wegräumt, erzeugt genau das. Von außen sah so ein Beleg aus wie ein
+    /// übernommener; die Angabe steckte in der Datenbank und in keiner Fläche.</para>
+    /// <para>Nach der Übernahme ist nichts mehr offen, und der Weg zum Prüfschritt verschwindet
+    /// mit: ein Angebot, das nichts mehr zu tun hat, ist eine Einladung zum Verdoppeln.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Am_Beleg_steht_was_noch_niemand_uebernommen_hat()
+    {
+        var vorschlag = await AnalyseAsync(Statusreport());
+
+        using var context = database.Context();
+        var documents = Documents(context);
+
+        var vorher = await documents.GetAsync(vorschlag.DocumentId);
+
+        Assert.NotNull(vorher);
+        Assert.True(vorher.UnconfirmedValues > 0);
+        Assert.Equal($"/scannen/{vorschlag.DocumentId}", vorher.ValuesHref);
+
+        await Service(Statusreport()).ConfirmAsync(new() { DocumentId = vorschlag.DocumentId });
+
+        var nachher = await documents.GetAsync(vorschlag.DocumentId);
+
+        Assert.NotNull(nachher);
+        Assert.Equal(0, nachher.UnconfirmedValues);
+        Assert.Null(nachher.ValuesHref);
+    }
+
+    /// <summary>
+    /// Ein Beleg ohne gelesene Werte bietet keinen Prüfschritt an.
+    /// </summary>
+    /// <remarks>
+    /// Ein Foto, ein Schreiben ohne Leseregel: dort gibt es nichts zu übernehmen, und ein
+    /// Schalter dorthin führte in eine Meldung statt in eine Fläche.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_Beleg_ohne_gelesene_Werte_bietet_keinen_Weg_an()
+    {
+        var vorschlag = await AnalyseAsync(Content(Line(1, "Ein Zettel ohne Merkmale")), "zettel.pdf");
+
+        using var context = database.Context();
+        var beleg = await Documents(context).GetAsync(vorschlag.DocumentId);
+
+        Assert.NotNull(beleg);
+        Assert.Equal(0, beleg.UnconfirmedValues);
+        Assert.Null(beleg.ValuesHref);
+    }
+
+    private DocumentService Documents(FinanzAppDbContext context)
+        => new(context, TestDatabase.PathService(root), new ObjectLabelService(context), clock,
+            NullLogger<DocumentService>.Instance);
 
     /// <summary>
     /// Ein eingetragener Wert steht im Prüfschritt — und nicht im Leseabdruck.

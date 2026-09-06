@@ -235,7 +235,9 @@ Unter jeder Zeile stehen die beiden Schalter, mit denen der Beleg den Eingang ve
   Treffer mit ihrer Art daneben („Vertrag“, „Immobilie“, „Fahrzeug“). Ein Tipp auf *Zuordnen und
   wegräumen* trägt beides ein und nimmt den Beleg aus dem Eingang.
 - **Wegräumen** steht nur bei erkannten Belegen: dort sind Typ und Objekt schon eingetragen, es
-  fehlt nur Ihr Ja.
+  fehlt nur Ihr Ja. **Achtung:** Wegräumen nimmt *keine Werte* — es räumt nur die Zeile weg.
+  Trägt der Beleg gelesene Werte, die noch niemand übernommen hat, fragt der Eingang deshalb
+  nach und bietet „Werte übernehmen“ daneben an.
 
 Gibt es das Objekt in der App noch nicht, legen Sie es zuerst an — der Beleg bleibt bis dahin
 liegen und geht nicht verloren.
@@ -250,6 +252,13 @@ ebenfalls falsch gelesen.
 Dass eine Zahl von Ihnen kam und nicht vom Papier, bleibt sichtbar: die Zeile trägt „von Hand
 eingetragen“, und die Rechenprobe zählt es mit. Genauso lassen sich die Einzelwerte darunter
 korrigieren — antippen, ändern, fertig.
+
+**Gelesen ist nicht übernommen.** Ein Beleg kann eingelesen, richtig abgelegt und mit seinem
+Vertrag verknüpft sein, ohne dass je ein Wert im Vertrag gelandet ist — genau das passiert beim
+Wegräumen. Von außen sah so ein Beleg früher aus wie ein übernommener. Jetzt steht es auf der
+Dokumentseite: *„6 gelesene Angaben noch nicht übernommen“*, mit einem Schalter, der zum
+Prüfschritt führt. Am Vertrag erkennen Sie denselben Fall am erreichten Wert von 0 € und einem
+Verlauf mit einem einzigen Punkt.
 
 **Kein Vertrag gefunden?** Dann nennt die Meldung die gesuchte Nummer *und* den Haushalt, in dem
 gesucht wurde. Die App sieht nie über den Haushalt hinaus, in dem Sie gerade angemeldet sind —

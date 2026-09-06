@@ -104,10 +104,50 @@
                     {
                         @* Erkannt heißt: Typ und Objekt stehen schon. Dann fehlt nur das Ja. *@
                         <button type="button" class="btn btn-ghost" disabled="@busy"
-                                @onclick="@(() => FileAsync(item))">Wegräumen</button>
+                                @onclick="@(() => AskFileAsync(item))">Wegräumen</button>
                     }
                 </div>
             </AuthorizeView>
+
+            @*
+                „Wegräumen“ nimmt keine Werte — es räumt die Zeile weg. Stehen gelesene Werte
+                offen, sagt der Eingang das, bevor der Beleg verschwindet: genau so sind dreizehn
+                Statusreporte eines Vertrags durchgerutscht, und am Vertrag stand hinterher eine
+                Null. Der bessere Weg steht daneben, nicht dahinter.
+            *@
+            @if (wegraeumen == item.Id)
+            {
+                <AuthorizeView Roles="Owner,Member">
+                    <div class="notice">
+                        <span class="notice-title">
+                            @item.UnconfirmedValues gelesene
+                            @(item.UnconfirmedValues == 1 ? "Angabe" : "Angaben") sind noch nicht
+                            übernommen
+                        </span>
+                        <span class="notice-text">
+                            Weggeräumt verschwindet der Beleg aus dem Eingang, und seine Werte
+                            bleiben, wo sie sind: in keinem Objekt.
+                        </span>
+
+                        <div class="doc-actions">
+                            @if (item.ValuesHref is { Length: > 0 } jetzt)
+                            {
+                                <button type="button" class="btn btn-primary" disabled="@busy"
+                                        @onclick="@(() => Navigation.NavigateTo(jetzt))">
+                                    Werte übernehmen
+                                </button>
+                            }
+
+                            <button type="button" class="btn btn-secondary" disabled="@busy"
+                                    @onclick="@(() => FileAsync(item))">
+                                Trotzdem wegräumen
+                            </button>
+                            <button type="button" class="btn btn-ghost" disabled="@busy"
+                                    @onclick="@(() => wegraeumen = null)">Zurück</button>
+                        </div>
+                    </div>
+                </AuthorizeView>
+            }
         }
 
         <div class="spacer"></div>
@@ -126,6 +166,9 @@
 
     /// <summary>Die Typenliste des Haushalts — für das Zuordnen-Sheet.</summary>
     private IReadOnlyList<DocumentTypeDto> types = [];
+
+    /// <summary>Der Eintrag, für den gerade nachgefragt wird — <c>null</c> im Normalfall.</summary>
+    private int? wegraeumen;
 
     private ScanInboxItemDto? assigning;
     private bool busy;
@@ -153,8 +196,28 @@
     /// Der Server prüft trotzdem, ob Typ und Objekt wirklich stehen. „Erkannt“ ist die Zusage der
     /// Einlieferung, nicht der Beweis — dazwischen kann jemand den Vertrag gelöscht haben.
     /// </remarks>
+    /// <summary>
+    /// Wegräumen — mit Rückfrage, wo Werte offen sind.
+    /// </summary>
+    /// <remarks>
+    /// Ohne offene Werte ist Wegräumen harmlos: der Beleg ist eingeordnet, mehr war nie zu
+    /// holen. Eine Rückfrage bei jedem Mal wäre dann nur ein Klick mehr — und eine Rückfrage,
+    /// die immer kommt, liest irgendwann niemand mehr.
+    /// </remarks>
+    private Task AskFileAsync(ScanInboxItemDto item)
+    {
+        if (item.UnconfirmedValues == 0)
+        {
+            return FileAsync(item);
+        }
+
+        wegraeumen = item.Id;
+        return Task.CompletedTask;
+    }
+
     private Task FileAsync(ScanInboxItemDto item) => RunAsync(async () =>
     {
+        wegraeumen = null;
         busy = true;
 
         try

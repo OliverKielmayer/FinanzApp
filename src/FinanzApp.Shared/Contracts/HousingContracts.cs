@@ -451,6 +451,16 @@ public sealed record ScanInboxItemDto
     /// <summary>Wie das vorhandene Dokument heißt, damit der Verweis einen Namen trägt.</summary>
     public string? DuplicateOfTitle { get; init; }
 
+    /// <summary>
+    /// Gelesene Werte, die noch niemand übernommen hat.
+    /// </summary>
+    /// <remarks>
+    /// „Wegräumen“ nimmt keine Werte — es räumt die Zeile weg. Wo welche offen sind, fragt der
+    /// Eingang deshalb nach, statt sie stillschweigend liegen zu lassen: genau so sind dreizehn
+    /// Statusreporte eines Vertrags verschwunden, und am Vertrag stand hinterher eine Null.
+    /// </remarks>
+    public int UnconfirmedValues { get; init; }
+
     public required DateOnly ArrivedOn { get; init; }
 }
 

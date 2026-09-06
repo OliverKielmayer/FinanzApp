@@ -448,6 +448,28 @@ public sealed class ScanIntakeTests : IDisposable
         Assert.Contains(@"\\scanner\eingang\scan_0001.pdf", dokument.Description);
     }
 
+    /// <summary>
+    /// Der Eingang zählt, wie viele gelesene Werte noch offen sind.
+    /// </summary>
+    /// <remarks>
+    /// „Wegräumen“ nimmt keine Werte. Damit der Eingang danach fragen kann, muss er wissen, ob
+    /// welche offen sind — sonst räumt ein Klick dreizehn Statusreporte weg, und am Vertrag
+    /// steht hinterher eine Null.
+    /// </remarks>
+    [Fact]
+    public async Task Der_Eingang_zaehlt_die_offenen_Werte()
+    {
+        var ergebnis = await TakeInAsync(Statusreport());
+
+        using var context = database.Context();
+
+        var eingang = await Inbox(context).GetAsync();
+        var zeile = Assert.Single(eingang.Items);
+
+        Assert.True(zeile.UnconfirmedValues > 0);
+        Assert.Equal($"/scannen/{ergebnis.DocumentId}", zeile.ValuesHref);
+    }
+
     // ── Was schon daliegt ──────────────────────────────────────────────────────────────────
 
     /// <summary>
