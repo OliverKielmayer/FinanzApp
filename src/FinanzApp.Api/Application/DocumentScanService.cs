@@ -46,6 +46,19 @@ public sealed class DocumentScanService(
         using var buffer = new MemoryStream();
         await content.CopyToAsync(buffer, ct);
 
+        // Dieselbe Datei kommt nicht zweimal in die Ablage — dieselbe Schwelle wie beim
+        // Ordnerdienst und aus demselben Grund. Vorher saß die Prüfung nur an der Einlieferung
+        // aus dem überwachten Ordner; wer von Hand einlas, legte beim zweiten Versuch ein
+        // zweites Mal ab. Im gewachsenen Bestand standen davon drei Abzüge desselben
+        // Riester-Statusreports, einer davon an keinem Vertrag.
+        buffer.Position = 0;
+        var abdruck = await DocumentService.FingerprintAsync(buffer, ct);
+
+        if (await documents.FindByContentAsync(abdruck, ct) is { } schonDa)
+        {
+            return AlreadyFiled(schonDa, fileName);
+        }
+
         buffer.Position = 0;
         var inhalt = reader.Read(buffer);
         var art = DocumentKindLibrary.Detect(inhalt);
@@ -229,6 +242,10 @@ public sealed class DocumentScanService(
 
         await db.SaveChangesAsync(ct);
 
+        // Die zweite Stufe: ein Beleg, den die Ablage unter denselben Namen gelegt hätte. Sie
+        // hält nichts auf und steht neben dem Vorschlag, wo ein Mensch sie sieht.
+        var gleichnamig = await documents.FindSameFilingAsync(dokument.Id, ct);
+
         var zeilen = Rows(art, werte);
 
         return new ScanAnalysisDto
@@ -266,8 +283,44 @@ public sealed class DocumentScanService(
             Blocker = Blocker(
                 art, ziel, stichtag, werte, await HouseholdNameAsync(ct),
                 ziel is null ? await NearMissAsync(art, Text(werte, art.TargetNumberField), ct) : null),
+
+            SameFilingDocumentId = gleichnamig?.Id,
+            SameFilingNote = gleichnamig is null
+                ? null
+                : $"„{gleichnamig.Title}“ liegt schon unter demselben Ablagenamen "
+                  + $"({gleichnamig.RelativePath}) — womöglich derselbe Beleg.",
         };
     }
+
+    /// <summary>
+    /// Die Antwort auf eine Datei, die Byte für Byte schon in der Ablage liegt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Sie wird nicht ein zweites Mal abgelegt, also gibt es kein neues Dokument.
+    /// <see cref="ScanAnalysisDto.DocumentId"/> nennt darum das <em>vorhandene</em> — die Antwort
+    /// soll den Weg zum Beleg weisen und nicht ins Leere zeigen.</para>
+    /// <para>Nichts gelesen, nichts gezählt: die Datei ist gar nicht erst geöffnet worden. Eine
+    /// Seitenzahl hier wäre die des vorhandenen Belegs und stünde in einer Antwort über die
+    /// eingereichte Datei.</para>
+    /// </remarks>
+    private static ScanAnalysisDto AlreadyFiled(Document vorhanden, string fileName)
+        => new()
+        {
+            DocumentId = vorhanden.Id,
+            DuplicateOfDocumentId = vorhanden.Id,
+            FileName = vorhanden.FileName,
+            RelativePath = vorhanden.RelativePath,
+            KindKey = vorhanden.ScanKind,
+
+            PageCount = 0,
+            TextNote = "nicht gelesen",
+            HasTextLayer = false,
+
+            Steps = ["Abdruck gebildet", "Datei liegt bereits in der Ablage"],
+            Fields = [],
+            Proofs = [],
+            Note = DocumentService.DuplicateNote(vorhanden, fileName),
+        };
 
     /// <summary>
     /// Ein Dokument, dessen Typ nicht erkannt wurde.

@@ -83,10 +83,9 @@ public sealed class ScanIntakeService(
         // niemand wegräumen kann.
         var erkannt = art is not null && verknuepft;
 
-        var doppelt = await SameFilingAsync(analyse.DocumentId, ct);
-
         var eingang = await inbox.AddAsync(
-            analyse.DocumentId, analyse.TargetName, analyse.PageCount, erkannt, doppelt?.Id, ct);
+            analyse.DocumentId, analyse.TargetName, analyse.PageCount, erkannt,
+            analyse.SameFilingDocumentId, ct);
 
         var fehlt = Missing(art, verknuepft, typ is not null, analyse);
 
@@ -105,12 +104,11 @@ public sealed class ScanIntakeService(
             TargetName = verknuepft ? analyse.TargetName : null,
             TargetNoun = verknuepft ? analyse.TargetNoun : null,
             Missing = fehlt,
-            DuplicateOfDocumentId = doppelt?.Id,
+            DuplicateOfDocumentId = analyse.SameFilingDocumentId,
             Summary = Summarise(analyse, art, typ?.Name, verknuepft, fehlt)
-                      + (doppelt is null
-                          ? string.Empty
-                          : $" · Achtung: „{doppelt.Title}“ liegt schon unter demselben "
-                            + $"Ablagenamen ({doppelt.RelativePath}) — womöglich derselbe Beleg."),
+                      + (analyse.SameFilingNote is { Length: > 0 } verdacht
+                          ? " · Achtung: " + verdacht
+                          : string.Empty),
         };
     }
 
@@ -142,83 +140,8 @@ public sealed class ScanIntakeService(
             // Ohne Datum: „DocumentDate“ trägt bei einem Beleg, dessen Schreibdatum nicht
             // gelesen wurde, den Ablagetag — es stünde hier als Datum des Schreibens und wäre
             // das Datum von gestern. Der Pfad sagt ohnehin mehr; in ihm steht der Stichtag.
-            Summary = $"„{fileName}“ ist Byte für Byte dieselbe Datei wie „{vorhanden.Title}“, "
-                      + $"abgelegt unter {vorhanden.RelativePath} — nicht ein zweites Mal abgelegt.",
+            Summary = DocumentService.DuplicateNote(vorhanden, fileName),
         };
-
-    /// <summary>
-    /// Ein anderer Beleg, den die Ablage unter denselben Namen gelegt hätte.
-    /// </summary>
-    /// <remarks>
-    /// <para>Die zweite Stufe, für den Fall, den der Abdruck nicht trifft: dasselbe Schreiben ein
-    /// zweites Mal eingescannt ergibt eine andere Datei — anderes Bild, andere Bytes —, und
-    /// derselbe Beleg ist es trotzdem.</para>
-    /// <para><b>Gemessen wird am Ablagenamen</b>, denn den bildet die Analyse aus genau den
-    /// Merkmalen, die einen Beleg ausmachen: Art, Objekt und Stichtag stehen in Ordner und
-    /// Dateiname. Am <see cref="Document.DocumentDate"/> hinge der Vergleich schief — es trägt
-    /// den Ablagetag, wo kein Schreibdatum gelesen wurde, und dann wären zwei Berichte aus
-    /// verschiedenen Jahren, am selben Tag eingeliefert, plötzlich derselbe Beleg.</para>
-    /// <para>Aufgehalten wird nichts: eine berichtigte Fassung desselben Schreibens bekäme
-    /// denselben Namen. Der Verdacht steht im Eingang, wo ein Mensch ihn sieht.</para>
-    /// </remarks>
-    private async Task<Document?> SameFilingAsync(int documentId, CancellationToken ct)
-    {
-        var abgelegt = await db.Documents.AsNoTracking().FirstAsync(d => d.Id == documentId, ct);
-
-        // Nur bei erkannter Art. Sonst ist der Ablagename der eingereichte Dateiname, und der
-        // sagt über den Inhalt nichts: ein Scanner, der jedes Blatt „scan_0001.pdf“ nennt, ließe
-        // den Verdacht bei jedem zweiten Zettel aufleuchten — und ein Hinweis, der immer
-        // dasteht, wird nicht mehr gelesen.
-        if (abgelegt.ScanKind is not { Length: > 0 } art)
-        {
-            return null;
-        }
-
-        var stamm = FilingStem(abgelegt.RelativePath);
-        var ordner = FilingFolder(abgelegt.RelativePath);
-
-        // Vorgesiebt über Art und Ordner: beides kann die Datenbank. Den Namen selbst vergleicht
-        // der Dienst — die Ausweichziffer abzuschneiden ist keine Abfrage, die SQLite kennt.
-        var kandidaten = await db.Documents.AsNoTracking()
-            .Where(d => d.Id != documentId && d.ScanKind == art && d.RelativePath.StartsWith(ordner))
-            .OrderBy(d => d.Id)
-            .ToListAsync(ct);
-
-        return kandidaten.FirstOrDefault(d => FilingStem(d.RelativePath) == stamm);
-    }
-
-    /// <summary>Der Ordner eines Ablagepfads, mit Schrägstrich am Ende.</summary>
-    private static string FilingFolder(string relativePath)
-    {
-        var strich = relativePath.LastIndexOf('/');
-        return strich < 0 ? string.Empty : relativePath[..(strich + 1)];
-    }
-
-    /// <summary>
-    /// Der Ablagepfad ohne die Ziffer, mit der die Ablage einem besetzten Namen ausweicht.
-    /// </summary>
-    /// <remarks>
-    /// <c>Statusreport_2016-07-31_1.pdf</c> und <c>Statusreport_2016-07-31.pdf</c> sind derselbe
-    /// Name. Abgeschnitten wird nur eine <em>kurze</em> Zahl: Ausweichziffern zählen bei eins los
-    /// und bleiben klein, während <c>_2016</c> zum Namen gehört. Vier Stellen sind eine
-    /// Jahreszahl und bleiben stehen.
-    /// </remarks>
-    private static string FilingStem(string relativePath)
-    {
-        var ohneEndung = relativePath[..^Path.GetExtension(relativePath).Length];
-        var strich = ohneEndung.LastIndexOf('_');
-
-        if (strich <= 0)
-        {
-            return ohneEndung;
-        }
-
-        var hinten = ohneEndung[(strich + 1)..];
-
-        return hinten is { Length: > 0 and < 4 } && hinten.All(char.IsAsciiDigit)
-            ? ohneEndung[..strich]
-            : ohneEndung;
-    }
 
     /// <summary>
     /// Eine Vermögensübersicht: ablegen, in den Eingang stellen — und nichts übernehmen.
@@ -276,7 +199,7 @@ public sealed class ScanIntakeService(
         // „prüfen“ und nicht „erkannt“: erkannt hieße im Eingang, dass nur noch das Ja fehlt.
         // Hier fehlt mehr — welche Nummer zu welchem Vertrag gehört, sagt erst die Vorschau.
         // Auch hier: zwei Übersichten zum selben Stichtag bekämen denselben Ablagenamen.
-        var doppelt = await SameFilingAsync(ablage.DocumentId, ct);
+        var doppelt = await documents.FindSameFilingAsync(ablage.DocumentId, ct);
 
         var eingang = await inbox.AddAsync(
             ablage.DocumentId, sender: AssetSheetKind.Label, pageCount: null, recognised: false,

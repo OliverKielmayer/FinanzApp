@@ -293,6 +293,91 @@ public sealed class DocumentService(
         return gefunden;
     }
 
+    /// <summary>Die Auskunft über eine Datei, die schon abgelegt ist.</summary>
+    /// <remarks>
+    /// An einer Stelle, weil zwei Wege sie geben: die Einlieferung aus dem überwachten Ordner
+    /// und das Einlesen von Hand. Zwei Fassungen desselben Satzes wären zwei Auskünfte über
+    /// denselben Sachverhalt.
+    /// </remarks>
+    public static string DuplicateNote(Document vorhanden, string eingereicht)
+        => $"„{eingereicht}“ ist Byte für Byte dieselbe Datei wie „{vorhanden.Title}“, "
+           + $"abgelegt unter {vorhanden.RelativePath} — nicht ein zweites Mal abgelegt.";
+
+    /// <summary>
+    /// Ein anderer Beleg, den die Ablage unter denselben Namen gelegt hätte.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die zweite Stufe, für den Fall, den der Abdruck nicht trifft: dasselbe Schreiben ein
+    /// zweites Mal eingescannt ergibt eine andere Datei — anderes Bild, andere Bytes —, und
+    /// derselbe Beleg ist es trotzdem.</para>
+    /// <para><b>Gemessen wird am Ablagenamen</b>, denn den bildet die Analyse aus genau den
+    /// Merkmalen, die einen Beleg ausmachen: Art, Objekt und Stichtag stehen in Ordner und
+    /// Dateiname. Am <see cref="Document.DocumentDate"/> hinge der Vergleich schief — es trägt
+    /// den Ablagetag, wo kein Schreibdatum gelesen wurde, und dann wären zwei Berichte aus
+    /// verschiedenen Jahren, am selben Tag abgelegt, plötzlich derselbe Beleg.</para>
+    /// <para>Aufgehalten wird nichts: eine berichtigte Fassung desselben Schreibens bekäme
+    /// denselben Namen. Der Verdacht steht dort, wo ein Mensch ihn sieht — im Eingang und im
+    /// Prüfschritt.</para>
+    /// </remarks>
+    public async Task<Document?> FindSameFilingAsync(int documentId, CancellationToken ct = default)
+    {
+        var abgelegt = await db.Documents.AsNoTracking().FirstAsync(d => d.Id == documentId, ct);
+
+        // Nur bei erkannter Art. Sonst ist der Ablagename der eingereichte Dateiname, und der
+        // sagt über den Inhalt nichts: ein Scanner, der jedes Blatt „scan_0001.pdf“ nennt, ließe
+        // den Verdacht bei jedem zweiten Zettel aufleuchten — und ein Hinweis, der immer
+        // dasteht, wird nicht mehr gelesen.
+        if (abgelegt.ScanKind is not { Length: > 0 } art)
+        {
+            return null;
+        }
+
+        var stamm = FilingStem(abgelegt.RelativePath);
+        var ordner = FilingFolder(abgelegt.RelativePath);
+
+        // Vorgesiebt über Art und Ordner: beides kann die Datenbank. Den Namen selbst vergleicht
+        // der Dienst — die Ausweichziffer abzuschneiden ist keine Abfrage, die SQLite kennt.
+        var kandidaten = await db.Documents.AsNoTracking()
+            .Where(d => d.Id != documentId && d.ScanKind == art && d.RelativePath.StartsWith(ordner))
+            .OrderBy(d => d.Id)
+            .ToListAsync(ct);
+
+        return kandidaten.FirstOrDefault(d => FilingStem(d.RelativePath) == stamm);
+    }
+
+    /// <summary>Der Ordner eines Ablagepfads, mit Schrägstrich am Ende.</summary>
+    private static string FilingFolder(string relativePath)
+    {
+        var strich = relativePath.LastIndexOf('/');
+        return strich < 0 ? string.Empty : relativePath[..(strich + 1)];
+    }
+
+    /// <summary>
+    /// Der Ablagepfad ohne die Ziffer, mit der die Ablage einem besetzten Namen ausweicht.
+    /// </summary>
+    /// <remarks>
+    /// <c>Statusreport_2016-07-31_1.pdf</c> und <c>Statusreport_2016-07-31.pdf</c> sind derselbe
+    /// Name. Abgeschnitten wird nur eine <em>kurze</em> Zahl: Ausweichziffern zählen bei eins los
+    /// und bleiben klein, während <c>_2016</c> zum Namen gehört. Vier Stellen sind eine
+    /// Jahreszahl und bleiben stehen.
+    /// </remarks>
+    private static string FilingStem(string relativePath)
+    {
+        var ohneEndung = relativePath[..^Path.GetExtension(relativePath).Length];
+        var strich = ohneEndung.LastIndexOf('_');
+
+        if (strich <= 0)
+        {
+            return ohneEndung;
+        }
+
+        var hinten = ohneEndung[(strich + 1)..];
+
+        return hinten is { Length: > 0 and < 4 } && hinten.All(char.IsAsciiDigit)
+            ? ohneEndung[..strich]
+            : ohneEndung;
+    }
+
     /// <summary>Der Abdruck eines Stroms — SHA-256, klein geschrieben.</summary>
     /// <remarks>
     /// Der Strom wird dabei bis zum Ende gelesen. Wer ihn danach noch braucht, spult ihn zurück.

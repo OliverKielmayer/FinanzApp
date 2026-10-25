@@ -75,6 +75,29 @@ public sealed record ScanAnalysisDto
 
     /// <summary>Wenn nichts erkannt wurde: warum.</summary>
     public string? Note { get; init; }
+
+    /// <summary>
+    /// Der Beleg, der diese Datei schon <em>ist</em> — <c>null</c>, wenn sie neu ist.
+    /// </summary>
+    /// <remarks>
+    /// Steht er hier, ist nichts abgelegt worden und nichts gelesen: <see cref="DocumentId"/>
+    /// nennt dann das vorhandene Dokument, damit der Weg zum Beleg nicht ins Leere zeigt.
+    /// </remarks>
+    public int? DuplicateOfDocumentId { get; init; }
+
+    /// <summary>
+    /// Ein <em>anderer</em> Beleg unter demselben Ablagenamen — <c>null</c>, wenn keiner da ist.
+    /// </summary>
+    /// <remarks>
+    /// Der Verdacht, den der Abdruck nicht trifft: dasselbe Schreiben ein zweites Mal
+    /// eingescannt ergibt andere Bytes und ist derselbe Beleg. Er hält nichts auf — eine
+    /// berichtigte Fassung bekäme denselben Namen — und steht darum neben dem Vorschlag und
+    /// nicht im <see cref="Blocker"/>.
+    /// </remarks>
+    public int? SameFilingDocumentId { get; init; }
+
+    /// <summary>Derselbe Verdacht im Klartext — für den Schirm und den Eingang.</summary>
+    public string? SameFilingNote { get; init; }
 }
 
 /// <summary>Eine wiederholte Zeile — eine Position einer Aufstellung.</summary>

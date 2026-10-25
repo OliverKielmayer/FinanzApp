@@ -321,20 +321,28 @@ Prüfung: wer sich vertippt, bekommt dieselbe Antwort wie ein falsch gelesener B
 ### Was schon dalag — zwei Stufen
 
 Belege kommen doppelt: derselbe Ordnerinhalt zweimal übergeben, dasselbe Blatt zweimal
-eingescannt, im Zweifel noch einmal eingelesen. Die Einlieferung prüft das auf zwei Stufen, und
-sie sind verschieden sicher — deshalb tun sie Verschiedenes.
+eingescannt, im Zweifel noch einmal eingelesen. Geprüft wird das auf zwei Stufen, und sie sind
+verschieden sicher — deshalb tun sie Verschiedenes.
+
+**Auf beiden Wegen herein.** Der Ordnerdienst und das Einlesen von Hand gehen durch dieselbe
+Prüfung. Dass sie zuerst nur am Ordnerdienst saß, war im gewachsenen Bestand zu sehen: drei
+Abzüge desselben Riester-Statusreports, von Hand eingelesen, einer davon an keinem Vertrag.
 
 1. **Dieselbe Datei kommt gar nicht erst herein.** Jedes Dokument trägt den SHA-256-Abdruck
    seines Inhalts (`Document.ContentHash`); ist er schon da, wird nichts abgelegt und nichts in
-   den Eingang gestellt. Die Antwort trägt `ScanIntakeOutcome.Duplicate` und nennt das
-   *vorhandene* Dokument — eine Abweisung, die nicht sagt, wo der Beleg liegt, schickt den
-   Nutzer suchen. Gewachsene Bestände tragen den Abdruck noch nicht; er wird beim ersten Suchlauf
-   nachgetragen, denn eine Wanderung käme an den Dokumentordner nicht heran.
+   den Eingang gestellt. Die Antwort nennt das *vorhandene* Dokument — eine Abweisung, die
+   nicht sagt, wo der Beleg liegt, schickt den Nutzer suchen. Aus dem Ordner heißt das
+   `ScanIntakeOutcome.Duplicate`, von Hand ein Vorschlag mit `DuplicateOfDocumentId` und dem
+   Weg zum Beleg statt einer gelesenen Zeile. Gewachsene Bestände tragen den Abdruck noch
+   nicht; er wird beim ersten Suchlauf nachgetragen, denn eine Wanderung käme an den
+   Dokumentordner nicht heran.
 2. **Derselbe Beleg wird gemeldet, nicht aufgehalten.** Ein zweiter Scan desselben Blatts ergibt
    nie dieselbe Datei. Gemessen wird deshalb am **Ablagenamen**: den bildet die Analyse aus Art,
    Zuordnung und Stichtag, und zwei Belege, die sie unter denselben Namen legen würde, sind
    derselbe Beleg. Er wird trotzdem abgelegt — genau denselben Namen bekäme auch eine berichtigte
-   Fassung — und trägt im Scaneingang den Hinweis samt Verweis auf den vorhandenen.
+   Fassung — und trägt den Hinweis samt Verweis auf den vorhandenen dorthin, wo ein Mensch ihn
+   sieht: in den Scaneingang und neben den Vorschlag im Prüfschritt. Im Weg steht er nicht; der
+   Knopf bleibt an.
 
 Nicht am `DocumentDate`: das trägt den Ablagetag, wo kein Schreibdatum gelesen wurde, und dann
 wären zwei Berichte aus verschiedenen Jahren, am selben Tag eingeliefert, plötzlich derselbe

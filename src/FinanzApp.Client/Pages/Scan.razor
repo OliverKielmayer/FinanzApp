@@ -66,7 +66,11 @@ else if (step == Step.Analysis)
         @if (analysis.Note is { Length: > 0 } hinweis)
         {
             <div class="notice">
-                <span class="notice-title">Kein bekannter Typ</span>
+                <span class="notice-title">
+                    @(analysis.DuplicateOfDocumentId is null
+                        ? "Kein bekannter Typ"
+                        : "Liegt schon in der Ablage")
+                </span>
                 <span class="notice-text">@hinweis</span>
             </div>
 
@@ -119,6 +123,19 @@ else if (step == Step.Proposal && analysis is { } vorschlag)
             <span class="kpi-value accent">@Day(vorschlag.AsOf)</span>
         </div>
     </div>
+
+    @*
+        Der Verdacht steht neben dem Vorschlag und nicht im Blocker: er hält nichts auf. Eine
+        berichtigte Fassung desselben Schreibens bekäme denselben Ablagenamen, und sie zu
+        übernehmen ist richtig. Entscheiden soll ein Mensch, der ihn gesehen hat.
+    *@
+    @if (vorschlag.SameFilingNote is { Length: > 0 } verdacht)
+    {
+        <div class="notice">
+            <span class="notice-title">Womöglich derselbe Beleg</span>
+            <span class="notice-text">@verdacht</span>
+        </div>
+    }
 
     @if (vorschlag.Blocker is { Length: > 0 } grund)
     {
@@ -254,6 +271,16 @@ else if (step == Step.Values && analysis is { } geprueft)
                     @Shown(feld)
                 </button>
             }
+        </div>
+    }
+
+    @* Auch hier, und aus demselben Grund wie der Blocker darunter: aus dem Scaneingang
+       steigt man direkt in diesen Schritt ein. *@
+    @if (geprueft.SameFilingNote is { Length: > 0 } verdacht)
+    {
+        <div class="notice">
+            <span class="notice-title">Womöglich derselbe Beleg</span>
+            <span class="notice-text">@verdacht</span>
         </div>
     }
 

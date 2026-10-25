@@ -78,9 +78,13 @@ public sealed class DocumentScanTests : IDisposable
             clock);
     }
 
-    private Task<ScanAnalysisDto> AnalyseAsync(PdfContent inhalt, string dateiname = "beleg.pdf")
+    /// <param name="bytes">
+    /// Die Rohdatei. Gleiche Bytes sind dieselbe Datei — daran hängt die Dublettenprüfung.
+    /// </param>
+    private Task<ScanAnalysisDto> AnalyseAsync(
+        PdfContent inhalt, string dateiname = "beleg.pdf", string bytes = "%PDF-1.4")
         => Service(inhalt).AnalyseAsync(
-            new MemoryStream(Encoding.UTF8.GetBytes("%PDF-1.4")), dateiname);
+            new MemoryStream(Encoding.UTF8.GetBytes(bytes)), dateiname);
 
     private static PdfLine Line(int seite, params string[] zellen) => new(seite, zellen);
 
@@ -301,6 +305,97 @@ public sealed class DocumentScanTests : IDisposable
 
         Assert.False(vorschlag.Proofs[0].Passed);
         Assert.Equal("Rechenprobe nicht aufgegangen — Werte prüfen", vorschlag.Steps[^1]);
+    }
+
+    // ── Dasselbe noch einmal ───────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Dieselbe Datei, von Hand zweimal eingelesen, wird nicht zweimal abgelegt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die Prüfung saß nur an der Einlieferung aus dem überwachten Ordner. Von Hand ließ
+    /// sich dieselbe Datei beliebig oft einlesen, und jedes Mal entstand ein Dokument: im
+    /// gewachsenen Bestand lagen davon drei Abzüge desselben Riester-Statusreports, einer davon
+    /// an keinem Vertrag.</para>
+    /// <para>Geantwortet wird mit dem <em>vorhandenen</em> Beleg. Wer eine Datei einliest, will
+    /// wissen, wo sie liegt — und nicht nur, dass hier nichts passiert ist.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Dieselbe_Datei_wird_von_Hand_nicht_zweimal_abgelegt()
+    {
+        var erster = await AnalyseAsync(Statusreport());
+        var zweiter = await AnalyseAsync(Statusreport());
+
+        Assert.Equal(erster.DocumentId, zweiter.DuplicateOfDocumentId);
+        Assert.Equal(erster.DocumentId, zweiter.DocumentId);
+        Assert.Equal(erster.RelativePath, zweiter.RelativePath);
+        Assert.Contains("Byte für Byte dieselbe Datei", zweiter.Note);
+
+        using var context = database.Context();
+        Assert.Single(context.Documents.ToList());
+    }
+
+    /// <summary>
+    /// Die abgewiesene Datei wird nicht gelesen — und behauptet darum nichts über sich.
+    /// </summary>
+    /// <remarks>
+    /// Eine Seitenzahl oder ein Stichtag in dieser Antwort stammte aus dem vorhandenen Beleg und
+    /// stünde doch da, wo nach der eingereichten Datei gefragt ist. Sie ist gar nicht erst
+    /// geöffnet worden; das ist die ehrliche Auskunft.
+    /// </remarks>
+    [Fact]
+    public async Task Die_abgewiesene_Datei_zaehlt_keine_Seiten()
+    {
+        await AnalyseAsync(Statusreport());
+        var zweiter = await AnalyseAsync(Statusreport());
+
+        Assert.Equal(0, zweiter.PageCount);
+        Assert.Empty(zweiter.Fields);
+        Assert.Empty(zweiter.Proofs);
+        Assert.Null(zweiter.AsOf);
+    }
+
+    /// <summary>
+    /// Derselbe Beleg aus einem zweiten Scan wird gemeldet — und hält nichts auf.
+    /// </summary>
+    /// <remarks>
+    /// <para>Dasselbe Schreiben ein zweites Mal eingescannt ergibt andere Bytes; der Abdruck
+    /// trifft es nicht. Der Ablagename trifft es, denn den bildet die Analyse aus Art, Objekt
+    /// und Stichtag.</para>
+    /// <para>Der Verdacht steht neben dem Vorschlag und nicht im Blocker: eine berichtigte
+    /// Fassung desselben Schreibens bekäme denselben Namen, und sie zu übernehmen ist richtig.
+    /// Entscheiden soll ein Mensch, der den Hinweis gesehen hat.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Derselbe_Beleg_aus_zweitem_Scan_steht_neben_dem_Vorschlag()
+    {
+        var erster = await AnalyseAsync(Statusreport());
+        var zweiter = await AnalyseAsync(Statusreport(), bytes: "%PDF-1.4 zweiter Scan");
+
+        Assert.Null(erster.SameFilingNote);
+
+        Assert.NotEqual(erster.DocumentId, zweiter.DocumentId);
+        Assert.Equal(erster.DocumentId, zweiter.SameFilingDocumentId);
+        Assert.Contains(erster.RelativePath, zweiter.SameFilingNote);
+        Assert.Null(zweiter.Blocker);
+    }
+
+    /// <summary>
+    /// Zwei verschiedene Belege sind keine Dublette.
+    /// </summary>
+    /// <remarks>
+    /// Ein Hinweis, der immer dasteht, wird nicht mehr gelesen. Geprüft wird darum auch die
+    /// andere Richtung: eine Quartalsaufstellung neben einem Statusreport löst nichts aus.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_anderer_Beleg_loest_keinen_Verdacht_aus()
+    {
+        await AnalyseAsync(Statusreport());
+        var zweiter = await AnalyseAsync(Quarterly(), "quartal.pdf", bytes: "%PDF-1.4 Quartal");
+
+        Assert.Null(zweiter.DuplicateOfDocumentId);
+        Assert.Null(zweiter.SameFilingDocumentId);
+        Assert.Null(zweiter.SameFilingNote);
     }
 
     // ── Übernahme ──────────────────────────────────────────────────────────────────────────
