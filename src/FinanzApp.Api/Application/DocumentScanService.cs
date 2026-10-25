@@ -192,10 +192,21 @@ public sealed class DocumentScanService(
         // sich die Eintragung vergleichen ließe — und beim nächsten Öffnen stünde dort nichts.
         var vonHand = werte.Where(w => w.ByHand).Select(w => w.Rule.Key).ToHashSet(StringComparer.Ordinal);
 
-        db.DocumentExtractions.RemoveRange(
-            await db.DocumentExtractions
-                .Where(x => x.DocumentId == dokument.Id && !vonHand.Contains(x.FieldKey))
-                .ToListAsync(ct));
+        var bisher = await db.DocumentExtractions
+            .Where(x => x.DocumentId == dokument.Id)
+            .ToListAsync(ct);
+
+        // Was schon übernommen war, bleibt übernommen — solange die Nachschau <em>dieselbe</em>
+        // Zahl liest. Vorher setzte jeder zweite Blick den Abdruck auf „nicht übernommen“
+        // zurück: der Stand stand im Vertrag, und der Beleg behauptete daneben, seine Werte
+        // habe nie jemand genommen. Liest die Nachschau etwas anderes — weil eine Leseregel
+        // besser geworden ist —, gilt die alte Bestätigung nicht mehr: sie galt einer anderen
+        // Zahl.
+        var uebernommen = bisher
+            .Where(x => x.Confirmed)
+            .ToDictionary(x => x.FieldKey, x => x.Value, StringComparer.Ordinal);
+
+        db.DocumentExtractions.RemoveRange(bisher.Where(x => !vonHand.Contains(x.FieldKey)));
 
         // Nur das Gelesene. Eine eingetragene Zahl im Leseabdruck stünde dort als Lesung, und
         // beim nächsten Öffnen wüsste niemand mehr, welche Zahl vom Papier kam. Mitgeschickt
@@ -210,7 +221,8 @@ public sealed class DocumentScanService(
                 Value = wert.Raw,
                 SourcePage = wert.Page,
                 Confidence = wert.Confidence,
-                Confirmed = false,
+                Confirmed = uebernommen.TryGetValue(wert.Rule.Key, out var vorher)
+                            && vorher == wert.Raw,
                 CreatedAt = clock.Now,
             });
         }

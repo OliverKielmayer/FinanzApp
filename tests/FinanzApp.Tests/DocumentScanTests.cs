@@ -665,6 +665,58 @@ public sealed class DocumentScanTests : IDisposable
     }
 
     /// <summary>
+    /// Ein zweiter Blick nimmt einem Beleg nicht seine Übernahme.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Prüfschritt schreibt den Leseabdruck jedes Mal neu — er ist die Grundlage der
+    /// Übernahme und muss zu dem passen, was auf dem Schirm steht. Dabei setzte er aber auch das
+    /// Merkmal „übernommen“ zurück: der Stand stand im Vertrag, und der Beleg behauptete
+    /// daneben, seine Werte habe nie jemand genommen.</para>
+    /// <para>Aufgefallen ist es am lebenden Bestand — ein Beleg meldete „7 gelesene Angaben noch
+    /// nicht übernommen“, während sein Wert längst im Verlauf stand. Wer das sieht, übernimmt
+    /// ein zweites Mal.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Ein_zweiter_Blick_nimmt_nicht_die_Uebernahme()
+    {
+        var vorschlag = await AnalyseAsync(Statusreport());
+
+        await Service(Statusreport()).ConfirmAsync(new() { DocumentId = vorschlag.DocumentId });
+        await Service(Statusreport()).ReviewAsync(vorschlag.DocumentId);
+
+        using var context = database.Context();
+        var beleg = await Documents(context).GetAsync(vorschlag.DocumentId);
+
+        Assert.NotNull(beleg);
+        Assert.Equal(0, beleg.UnconfirmedValues);
+    }
+
+    /// <summary>
+    /// Liest die Nachschau eine andere Zahl, gilt die alte Bestätigung nicht mehr.
+    /// </summary>
+    /// <remarks>
+    /// Sie galt einer anderen Zahl. Eine verbesserte Leseregel kann aus demselben Papier etwas
+    /// anderes holen — und was dann im Vertrag steht, hat niemand zu <em>diesem</em> Wert
+    /// gesagt. Der Beleg meldet ihn deshalb wieder als offen.
+    /// </remarks>
+    [Fact]
+    public async Task Eine_andere_Lesung_gilt_wieder_als_offen()
+    {
+        var vorschlag = await AnalyseAsync(Statusreport());
+
+        await Service(Statusreport()).ConfirmAsync(new() { DocumentId = vorschlag.DocumentId });
+
+        // Dieselbe Datei, andere Lesung — wie nach einer verbesserten Regel.
+        await Service(Statusreport(gesamt: "14.000,00 EUR")).ReviewAsync(vorschlag.DocumentId);
+
+        using var context = database.Context();
+        var beleg = await Documents(context).GetAsync(vorschlag.DocumentId);
+
+        Assert.NotNull(beleg);
+        Assert.True(beleg.UnconfirmedValues > 0);
+    }
+
+    /// <summary>
     /// Ein Beleg ohne gelesene Werte bietet keinen Prüfschritt an.
     /// </summary>
     /// <remarks>
