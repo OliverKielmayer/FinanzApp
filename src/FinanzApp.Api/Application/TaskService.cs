@@ -292,6 +292,55 @@ public sealed class TaskService(FinanzAppDbContext db, IClock clock)
             }
         }
 
+        // Belege, deren gelesene Werte niemand übernommen hat.
+        //
+        // Der Scaneingang zeigt sie, solange sie dort stehen. Weggeräumt verschwinden sie
+        // daraus, und danach zeigte nichts mehr auf sie: die Zahl steht am Beleg, aber nur,
+        // wer ihn ohnehin öffnet, sieht sie. Genau so sind dreizehn Statusreporte eines
+        // Vertrags durchgerutscht, und am Vertrag stand hinterher eine Null.
+        //
+        // Ohne Termin, als einzige Quelle hier — es läuft nichts ab, es bleibt nur etwas
+        // liegen. Ein erfundenes Fälligkeitsdatum machte daraus eine Dringlichkeit, die das
+        // Papier nicht hergibt.
+        var offenJeBeleg = await db.DocumentExtractions.AsNoTracking()
+            .Where(x => !x.Confirmed)
+            .GroupBy(x => x.DocumentId)
+            .Select(g => new { DocumentId = g.Key, Offen = g.Count() })
+            .ToDictionaryAsync(g => g.DocumentId, g => g.Offen, ct);
+
+        var belege = await db.Documents.AsNoTracking()
+            .Where(d => offenJeBeleg.Keys.Contains(d.Id))
+            .ToDictionaryAsync(d => d.Id, d => d.Title, ct);
+
+        foreach (var (belegId, offen) in offenJeBeleg)
+        {
+            // Ein Leseabdruck ohne Beleg ist nicht vorgesehen — der Fremdschlüssel räumt mit.
+            // Kommt er doch vor, entsteht kein Vorgang, der ins Leere führt.
+            if (!belege.TryGetValue(belegId, out var titel))
+            {
+                continue;
+            }
+
+            Upsert(
+                TaskSource.DocumentValuesOpen, LinkTargetType.Document, belegId,
+                $"Werte übernehmen: {titel}",
+                offen == 1
+                    ? "1 gelesene Angabe steht noch nicht im Objekt"
+                    : $"{offen} gelesene Angaben stehen noch nicht im Objekt",
+                due: null);
+        }
+
+        // Geschlossen wird über die vorhandenen Vorgänge und nicht über die Belege: ein
+        // gelöschter Beleg taucht in keiner Schleife über Belege mehr auf, und sein Vorgang
+        // bliebe für immer offen und führte nirgendwohin.
+        foreach (var vorgang in existing.Where(t =>
+                     t.Source == TaskSource.DocumentValuesOpen
+                     && t.SourceId is { } belegId
+                     && !offenJeBeleg.ContainsKey(belegId)))
+        {
+            Close(TaskSource.DocumentValuesOpen, LinkTargetType.Document, vorgang.SourceId!.Value);
+        }
+
         if (changed)
         {
             await db.SaveChangesAsync(ct);

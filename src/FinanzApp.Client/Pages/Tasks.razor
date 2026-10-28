@@ -121,6 +121,12 @@
             (LinkTargetType.Invoice, { } id) => $"/rechnungen/{id}",
             (LinkTargetType.Policy, { } id) => $"/police/{id}",
             (LinkTargetType.Contract, { } id) => $"/vertraege/{id}",
+
+            // Zum Beleg und nicht gleich in den Prüfschritt: dort steht, worum es geht, und
+            // der Knopf „Werte übernehmen“ steht daneben. Wer eine Zahl in sein Vermögen
+            // nimmt, soll vorher sehen, aus welchem Papier sie kommt.
+            (LinkTargetType.Document, { } id) => $"/dokumente/{id}",
+
             _ => null,
         };
 

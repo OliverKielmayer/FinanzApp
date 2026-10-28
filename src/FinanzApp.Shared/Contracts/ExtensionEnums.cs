@@ -49,6 +49,9 @@ public enum LinkTargetType
     Payslip = 11,
     MedicalBill = 12,
     Vehicle = 13,
+
+    /// <summary>Ein abgelegter Beleg.</summary>
+    Document = 14,
 }
 
 /// <summary>
@@ -85,6 +88,16 @@ public enum TaskSource
     ReimbursementOverdue = 3,
     DocumentExpiry = 4,
     MedicalBillOpen = 5,
+
+    /// <summary>
+    /// Ein Beleg, dessen gelesene Werte noch niemand übernommen hat.
+    /// </summary>
+    /// <remarks>
+    /// Die einzige Quelle ohne Termin: hier läuft nichts ab, es bleibt nur etwas liegen. Sie
+    /// gibt es, weil ein weggeräumter Beleg aus dem Scaneingang verschwindet und danach nichts
+    /// mehr auf seine offenen Werte zeigte.
+    /// </remarks>
+    DocumentValuesOpen = 6,
 }
 
 public enum InvoiceStatus
