@@ -438,6 +438,13 @@ public sealed record ScanInboxItemDto
     /// </remarks>
     public string? ValuesHref { get; init; }
 
+    /// <summary>Wie der Schalter heißt, der dorthin führt.</summary>
+    /// <remarks>
+    /// Aus derselben Hand wie der Weg, und aus demselben Grund: welcher Schirm folgt, weiß der
+    /// Server aus der erkannten Art. Aus einem Kontoauszug werden Buchungen und keine Werte.
+    /// </remarks>
+    public string? ValuesLabel { get; init; }
+
     /// <summary>
     /// Das Dokument, das denselben Beleg schon trägt — <c>null</c> im Normalfall.
     /// </summary>

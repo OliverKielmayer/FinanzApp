@@ -330,10 +330,30 @@ public static class ScanReview
     public static string Href(string? scanKind, int documentId) => scanKind switch
     {
         AssetSheetKind.Key => AssetSheetKind.Href(documentId),
+        StatementKind.Key => StatementKind.Href(documentId),
 
         // Auch ohne Leseabdruck: die Nachschau liest die Datei mit den Regeln von heute und
         // erkennt die Art dabei neu.
         _ => $"/scannen/{documentId}",
+    };
+
+    /// <summary>
+    /// Wie der Schalter heißt, der dorthin führt.
+    /// </summary>
+    /// <remarks>
+    /// Aus derselben Hand wie der Weg. „Werte übernehmen“ über einem Kontoauszug wäre falsch —
+    /// aus ihm werden Buchungen, keine Werte —, und die Oberfläche soll das nicht aus einem
+    /// Kennzeichen selbst zusammenreimen müssen.
+    /// </remarks>
+    public static string Label(string? scanKind) => scanKind switch
+    {
+        StatementKind.Key => "Buchungen einlesen",
+
+        // Ohne erkannte Art gibt es nichts zu übernehmen — wohl aber etwas zu lesen: die
+        // Nachschau kann den Beleg mit den Regeln von heute erst lesbar machen.
+        null or "" => "Werte lesen",
+
+        _ => "Werte übernehmen",
     };
 }
 

@@ -77,7 +77,8 @@ public sealed class ScanReviewTests : IDisposable
 
         return new ScanIntakeService(
             context, Scans(inhalt, context), documents,
-            new ScanInboxService(context, documents, clock), new AssetSheetParser(), clock);
+            new ScanInboxService(context, documents, clock), new AssetSheetParser(),
+            new CamtStatementParser(), clock);
     }
 
     /// <summary>Liefert einen Beleg ein, so wie der Ordnerdienst es täte.</summary>

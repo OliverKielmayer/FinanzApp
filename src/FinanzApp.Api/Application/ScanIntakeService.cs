@@ -28,6 +28,7 @@ public sealed class ScanIntakeService(
     DocumentService documents,
     ScanInboxService inbox,
     AssetSheetParser sheets,
+    IStatementParser statements,
     IClock clock)
 {
     /// <summary>Höchstlänge der mitgelieferten Herkunft. Sie steht am Dokument, nicht im Protokoll.</summary>
@@ -66,6 +67,15 @@ public sealed class ScanIntakeService(
         if (AssetSheetParser.CanRead(fileName) && AssetSheetParser.LooksLikeSheet(puffer))
         {
             return await TakeInSheetAsync(puffer, fileName, source, ct);
+        }
+
+        // Ein Kontoauszug geht denselben Weg wie ein Beleg: ablegen ja, buchen nein. Vorher
+        // saß er hier nicht, lief in den PDF-Leser, fand keine Textebene und landete als
+        // unbekannter Zettel in „Sonstiges“ — wo einer zwei Monate lag.
+        if ((statements.CanRead(fileName) || ZipStatementReader.IsArchive(fileName))
+            && await ReadStatementAsync(puffer, fileName, ct) is { } auszug)
+        {
+            return await TakeInStatementAsync(puffer, fileName, auszug, source, ct);
         }
 
         var analyse = await scans.AnalyseAsync(puffer, fileName, ct);
@@ -142,6 +152,139 @@ public sealed class ScanIntakeService(
             // das Datum von gestern. Der Pfad sagt ohnehin mehr; in ihm steht der Stichtag.
             Summary = DocumentService.DuplicateNote(vorhanden, fileName),
         };
+
+    /// <summary>
+    /// Die Datei lesen, oder <c>null</c>, wenn sie doch keiner ist.
+    /// </summary>
+    /// <remarks>
+    /// Die Endung entscheidet nicht. „.xml“ tragen auch ein Export aus dem Steuerprogramm und
+    /// eine Rechnung im ZUGFeRD-Format; als Kontoauszug abgelegt stünden sie unter Finanzen und
+    /// böten einen Import an, der nichts findet. Wer die Datei liest, weiß es sicher — und was
+    /// sich nicht lesen lässt, fällt an die gewöhnliche Analyse zurück und wird abgelegt.
+    /// </remarks>
+    private async Task<ParsedStatement?> ReadStatementAsync(
+        MemoryStream content, string fileName, CancellationToken ct)
+    {
+        content.Position = 0;
+
+        try
+        {
+            // Dieselbe Weiche wie im Import: die Banken liefern Tagesauszüge als Archiv, und
+            // acht Dateien einzeln durch den Eingang zu schicken wäre Arbeit ohne Gewinn.
+            return ZipStatementReader.IsArchive(fileName)
+                ? await new ZipStatementReader(statements).ReadAsync(content, fileName, ct)
+                : await statements.ParseAsync(content, fileName, ct);
+        }
+        catch (StatementFormatException)
+        {
+            return null;
+        }
+        catch (InvalidDataException)
+        {
+            // Eine Datei, die sich „.zip“ nennt und keines ist. Sie wird abgelegt wie jede
+            // andere unbekannte — verloren gehen soll nichts.
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Ein Kontoauszug: ablegen, in den Eingang stellen — und nichts buchen.
+    /// </summary>
+    /// <remarks>
+    /// <para>Dieselbe Schwelle wie beim Beleg. Aus den Sätzen werden Buchungen, und daran hängen
+    /// Kategorie, Zielkonto und die Frage, ob ein Satz schon im Bestand steht — drei
+    /// Entscheidungen, die ein Dienst nicht treffen kann. Sie fallen in der Vorschau unter
+    /// <c>/import/{id}</c>.</para>
+    /// <para>Gelesen wird dort die <em>abgelegte Datei</em> neu. Die Vorschau dieses Augenblicks
+    /// aufzuheben ginge nicht: sie liegt im Arbeitsspeicher und läuft ab, und ein Entwurf, der
+    /// auf den Nutzer wartet, überlebte die Nacht nicht.</para>
+    /// </remarks>
+    private async Task<ScanIntakeResultDto> TakeInStatementAsync(
+        MemoryStream content, string fileName, ParsedStatement auszug, string? source,
+        CancellationToken ct)
+    {
+        // Der Zeitraum der Sätze benennt die Datei, nicht der Tag der Einlieferung: ein
+        // nachgereichter Auszug vom Juli käme sonst unter dem Namen des Augusts an.
+        var tage = auszug.Records.Select(r => r.BookingDate).OfType<DateOnly>().ToList();
+        var von = tage.Count == 0 ? null : (DateOnly?)tage.Min();
+        var bis = tage.Count == 0 ? null : (DateOnly?)tage.Max();
+
+        content.Position = 0;
+
+        var ablage = await documents.UploadAsync(
+            content, fileName, DocumentArea.Finance,
+            title: StatementKind.Label,
+            documentTypeId: null,
+            documentDate: bis,
+            subFolder: $"Kontoauszüge/{(bis ?? DateOnly.FromDateTime(clock.Now)):yyyy}",
+            preferredName: StatementName(auszug, von, bis),
+            ct: ct);
+
+        var dokument = await db.Documents.FirstAsync(d => d.Id == ablage.DocumentId, ct);
+        dokument.ScanKind = StatementKind.Key;
+
+        if (Clean(source) is { Length: > 0 } herkunft)
+        {
+            dokument.Description = "Aus dem überwachten Ordner übernommen: " + herkunft;
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        var buchbar = auszug.Records.Count(r => r.Problem is null);
+        var doppelt = await documents.FindSameFilingAsync(ablage.DocumentId, ct);
+
+        // „prüfen“ und nicht „erkannt“: erkannt hieße im Eingang, dass nur noch das Ja fehlt.
+        // Hier fehlt mehr — Kategorie, Konto und die Dublettenprüfung gegen den Bestand.
+        var eingang = await inbox.AddAsync(
+            ablage.DocumentId, sender: auszug.BankName, pageCount: null, recognised: false,
+            doppelt?.Id, ct);
+
+        return new ScanIntakeResultDto
+        {
+            DocumentId = ablage.DocumentId,
+            InboxId = eingang,
+            FileName = dokument.FileName,
+            RelativePath = ablage.RelativePath,
+            Area = DocumentArea.Finance,
+            Outcome = ScanIntakeOutcome.Waiting,
+
+            // Eine Auszugsdatei hat keine Seiten; die Zahl der Sätze steht in der Zusammenfassung.
+            PageCount = 1,
+            KindKey = StatementKind.Key,
+            KindLabel = StatementKind.Label,
+            DuplicateOfDocumentId = doppelt?.Id,
+            Missing = "Es fehlt: die Zuordnung der Sätze zu Kategorien und die Übernahme in das Konto.",
+            Summary = $"{StatementKind.Label} {auszug.Format}"
+                      + (von is { } a && bis is { } b ? $" · {a:dd.MM.yyyy} bis {b:dd.MM.yyyy}" : string.Empty)
+                      + $" · {auszug.Records.Count} {(auszug.Records.Count == 1 ? "Satz" : "Sätze")}"
+                      + $", davon {buchbar} buchbar · abgelegt unter {ablage.RelativePath}"
+                      + " · wartet im Scaneingang auf die Prüfung der Buchungen",
+        };
+    }
+
+    /// <summary>
+    /// Der Ablagename eines Auszugs: Konto und Zeitraum.
+    /// </summary>
+    /// <remarks>
+    /// Vom Konto stehen nur die letzten vier Stellen darin. Sie unterscheiden die Konten eines
+    /// Haushalts voneinander, und das ist alles, was ein Dateiname dafür braucht — die ganze
+    /// IBAN stünde ungefragt in jedem Ordnerlisting und jeder Dateiauswahl.
+    /// </remarks>
+    private static string StatementName(ParsedStatement auszug, DateOnly? von, DateOnly? bis)
+    {
+        var konto = auszug.Iban is { Length: >= 4 } iban
+            ? "_" + iban[^4..]
+            : string.Empty;
+
+        var zeitraum = (von, bis) switch
+        {
+            ({ } a, { } b) when a == b => $"_{a:yyyy-MM-dd}",
+            ({ } a, { } b) => $"_{a:yyyy-MM-dd}_{b:yyyy-MM-dd}",
+            _ => string.Empty,
+        };
+
+        return $"Kontoauszug{konto}{zeitraum}";
+    }
 
     /// <summary>
     /// Eine Vermögensübersicht: ablegen, in den Eingang stellen — und nichts übernehmen.

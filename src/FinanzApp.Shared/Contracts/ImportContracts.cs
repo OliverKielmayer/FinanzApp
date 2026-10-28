@@ -1,6 +1,30 @@
 namespace FinanzApp.Shared.Contracts;
 
 /// <summary>
+/// Der Kontoauszug als abgelegter Beleg.
+/// </summary>
+/// <remarks>
+/// <para>Er kommt denselben Weg herein wie ein Statusreport — über den überwachten Ordner — und
+/// endet an derselben Schwelle: abgelegt ja, gebucht nein. Was aus seinen Sätzen wird,
+/// entscheidet ein Mensch an der Vorschau, denn dort hängen Kategorie, Konto und die Frage,
+/// ob ein Satz schon im Bestand steht.</para>
+/// <para>Die Vorschau selbst wird <em>nicht</em> aufbewahrt. Sie liegt im Arbeitsspeicher und
+/// läuft ab; ein Entwurf, der auf den Nutzer wartet, überlebte die Nacht nicht. Geöffnet wird
+/// darum die abgelegte Datei, neu gelesen — dieselbe Lösung wie beim Prüfschritt eines Belegs.</para>
+/// </remarks>
+public static class StatementKind
+{
+    /// <summary>Der Wert, der als <c>ScanKind</c> am Dokument steht.</summary>
+    public const string Key = "kontoauszug";
+
+    public const string Label = "Kontoauszug";
+
+    /// <summary>Der Import, angesetzt auf eine abgelegte Datei.</summary>
+    public static string Href(int documentId) => $"/import/{documentId}";
+}
+
+
+/// <summary>
 /// Wie lange eine gelesene Vorschau auf dem Server liegen bleibt.
 /// </summary>
 /// <remarks>

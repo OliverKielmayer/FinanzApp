@@ -96,7 +96,7 @@
                     {
                         <button type="button" class="btn btn-secondary" disabled="@busy"
                                 @onclick="@(() => Navigation.NavigateTo(pruefen))">
-                            @(item.CanTakeValues ? "Werte übernehmen" : "Werte lesen")
+                            @(item.ValuesLabel ?? "Werte lesen")
                         </button>
                     }
 

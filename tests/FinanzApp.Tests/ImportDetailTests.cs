@@ -40,8 +40,13 @@ public sealed class ImportDetailTests : IDisposable
         account = giro.Id;
     }
 
+    /// <summary>Ein Ablageort, den diese Prüfungen nie anfassen — der Dienst braucht nur einen.</summary>
+    private readonly string root =
+        Path.Combine(Path.GetTempPath(), "finanzapp-tests", Guid.NewGuid().ToString("N"));
+
     private ImportService Service()
-        => new(database.Context(), clock, new CamtStatementParser(), cache, anonymous);
+        => new(database.Context(), clock, new CamtStatementParser(), cache,
+            TestDatabase.PathService(root), anonymous);
 
     /// <summary>Ein Satz mit allen Feldern, die der Handoff im Panel auflistet.</summary>
     private const string Auszug = """

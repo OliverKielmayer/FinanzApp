@@ -1,4 +1,5 @@
 @page "/import"
+@page "/import/{DocumentId:int}"
 @attribute [Authorize]
 @inherits AppPage
 @inject ImportDraft Draft
@@ -862,6 +863,16 @@
     /// soll. Ist er abgelaufen, steht das da — stillschweigend zurückzusetzen sähe aus, als hätte
     /// die Anwendung ihn schlicht vergessen.
     /// </remarks>
+    /// <summary>
+    /// Der Beleg, auf den der Import angesetzt wird — aus dem Scaneingang.
+    /// </summary>
+    /// <remarks>
+    /// Der Ordnerdienst legt einen Auszug ab und bucht nichts. Ohne diesen Weg läge die Datei
+    /// richtig einsortiert da, und ihre Sätze kämen nie im Konto an — außer man sucht dieselbe
+    /// Datei noch einmal von Hand heraus.
+    /// </remarks>
+    [Parameter] public int? DocumentId { get; set; }
+
     protected override async Task LoadAsync()
     {
         // Die Chips im Empfänger-Akkordeon brauchen die Kategorien; ohne sie stünde die Gruppe
@@ -872,6 +883,16 @@
         {
             Draft.Clear();
             problem = "Der begonnene Import ist abgelaufen. Bitte die Datei noch einmal einlesen.";
+        }
+
+        // Ein benannter Beleg geht einem begonnenen Entwurf vor. Wer im Scaneingang auf diesen
+        // Auszug tippt, hat sich für ihn entschieden — genau wie beim Aussuchen einer Datei von
+        // Hand, die den Entwurf ebenfalls neu beginnt.
+        if (DocumentId is { } beleg)
+        {
+            categories = await laden;
+            await ReadAsync(token => Api.ReadFiledStatementAsync(beleg, token));
+            return;
         }
 
         if (Draft.Preview is { } begonnen)

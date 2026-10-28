@@ -193,6 +193,18 @@ public sealed class FinanzAppApi(HttpClient http)
         return await PostFormAsync<ImportPreviewDto>("api/import/read", form, ct);
     }
 
+    /// <summary>
+    /// Liest einen bereits abgelegten Auszug — der Weg aus dem Scaneingang.
+    /// </summary>
+    /// <remarks>
+    /// Hinaufgeladen wird nichts: die Datei liegt seit der Einlieferung im Dokumentordner. Der
+    /// Server liest sie neu, denn die Vorschau von damals lebte im Arbeitsspeicher und ist
+    /// längst abgelaufen.
+    /// </remarks>
+    public Task<ImportPreviewDto> ReadFiledStatementAsync(
+        int documentId, CancellationToken ct = default)
+        => PostAsync<object?, ImportPreviewDto>($"api/import/read/{documentId}", null, ct);
+
     /// <summary>Übernimmt die gewählten Sätze auf das gewählte Konto, samt Zuordnungen.</summary>
     public Task<ImportCommitResultDto> CommitImportAsync(
         Guid previewId,

@@ -454,6 +454,21 @@ public static class ApiEndpoints
             }
         }).RequireAuthorization(AuthPolicies.Write).DisableAntiforgery();
 
+        // Derselbe Weg für eine Datei, die schon in der Ablage liegt — der Ordnerdienst hat
+        // sie eingeliefert, gelesen wird sie erst jetzt, wenn ein Mensch hinsieht.
+        api.MapPost("/import/read/{documentId:int}", async (
+            int documentId, ImportService service, CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(await service.ReadFiledAsync(documentId, ct));
+            }
+            catch (Exception ex) when (ex is RuleViolationException or StatementFormatException)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.Write);
+
         api.MapPost("/import/commit", async (
             ImportCommitRequest request, ImportService service, CancellationToken ct) =>
         {

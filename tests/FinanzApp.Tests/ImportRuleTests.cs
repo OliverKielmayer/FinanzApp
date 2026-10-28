@@ -51,8 +51,13 @@ public sealed class ImportRuleTests : IDisposable
         gehalt = c.Id;
     }
 
+    /// <summary>Ein Ablageort, den diese Prüfungen nie anfassen — der Dienst braucht nur einen.</summary>
+    private readonly string root =
+        Path.Combine(Path.GetTempPath(), "finanzapp-tests", Guid.NewGuid().ToString("N"));
+
     private ImportService Service()
-        => new(database.Context(), clock, new CamtStatementParser(), cache, anonymous);
+        => new(database.Context(), clock, new CamtStatementParser(), cache,
+            TestDatabase.PathService(root), anonymous);
 
     private CatalogService Catalog() => new(database.Context());
 

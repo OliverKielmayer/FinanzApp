@@ -29,6 +29,7 @@ public sealed class ImportService(
     IClock clock,
     IStatementParser parser,
     IMemoryCache cache,
+    DocumentPathService paths,
     CurrentUser current)
 {
     /// <summary>Der Text, der das Kriterium benennt — er gehört sichtbar an die Prüfung.</summary>
@@ -79,6 +80,32 @@ public sealed class ImportService(
         });
 
         return await BuildAsync(batch, ct);
+    }
+
+    /// <summary>
+    /// Liest einen <b>bereits abgelegten</b> Auszug und legt die Vorschau bereit.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Weg für alles, was der Ordnerdienst eingeliefert hat. Er legt ab und hört vor
+    /// der Buchung auf — ein Dienst, dem niemand zusieht, bucht nichts. Ohne diese Stelle bliebe
+    /// es dabei: die Datei läge richtig einsortiert da, und ihre Sätze kämen nie im Konto an.</para>
+    /// <para>Gelesen wird die abgelegte Datei und nicht ein aufbewahrter Entwurf. Die Vorschau
+    /// liegt im Arbeitsspeicher und läuft ab; die Datei liegt seit der Einlieferung und ändert
+    /// sich nicht.</para>
+    /// </remarks>
+    public async Task<ImportPreviewDto> ReadFiledAsync(int documentId, CancellationToken ct = default)
+    {
+        var dokument = await db.Documents.AsNoTracking().FirstOrDefaultAsync(d => d.Id == documentId, ct)
+                       ?? throw new RuleViolationException("Diesen Beleg gibt es nicht.");
+
+        if (paths.Resolve(dokument.RelativePath) is not { } absolut || !File.Exists(absolut))
+        {
+            throw new RuleViolationException(
+                $"Die abgelegte Datei fehlt: {dokument.RelativePath}. Ohne sie lässt sich nichts lesen.");
+        }
+
+        await using var datei = File.OpenRead(absolut);
+        return await ReadAsync(datei, dokument.FileName, ct);
     }
 
     private async Task<ParsedStatement> ReadSingleAsync(

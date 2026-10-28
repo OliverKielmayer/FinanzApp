@@ -48,8 +48,13 @@ public sealed class ImportTests : IDisposable
 
     private readonly CurrentUser anonymous = new(new HttpContextAccessor());
 
+    /// <summary>Ein Ablageort, den diese Prüfungen nie anfassen — der Dienst braucht nur einen.</summary>
+    private readonly string root =
+        Path.Combine(Path.GetTempPath(), "finanzapp-tests", Guid.NewGuid().ToString("N"));
+
     private ImportService Service()
-        => new(database.Context(), clock, new CamtStatementParser(), cache, anonymous);
+        => new(database.Context(), clock, new CamtStatementParser(), cache,
+            TestDatabase.PathService(root), anonymous);
 
     [Fact]
     public async Task Ein_frischer_Bestand_kennt_lauter_neue_Saetze()

@@ -61,6 +61,7 @@ public sealed class ScanInboxService(FinanzAppDbContext db, DocumentService docu
                     Recognised = x.Recognised,
                     CanTakeValues = x.Document != null && x.Document.ScanKind != null,
                     ValuesHref = ValuesHref(x.Document),
+                    ValuesLabel = ScanReview.Label(x.Document?.ScanKind),
                     UnconfirmedValues = offen.GetValueOrDefault(x.DocumentId),
                     DuplicateOfDocumentId = x.DuplicateOfDocumentId,
                     DuplicateOfTitle = x.DuplicateOfDocumentId is { } vorhanden
