@@ -761,9 +761,17 @@ Ein Dokument hat **mit Absicht keine Datei** auf der Platte (`Lohn_07_2026.pdf`)
 „Datei nicht gefunden“ vorführbar ist. Die Erstattung zum überfälligen PKV-Vorgang ist als Buchung
 vorhanden, aber nicht zugeordnet — genau der Fall, für den es den Screen „Zahlung zuordnen“ gibt.
 
-Der fachliche Stichtag liegt fest auf dem 23.08.2026, 08:24 Uhr (`Demo:Today`). **Sitzungen, Sperren
-und Reset-Token hängen nicht daran** — sie laufen über `TimeProvider` auf der echten Uhr, denn der
-Browser prüft die Gültigkeit des Cookies ebenfalls dagegen.
+Die Beispieldaten hängen am 23.08.2026 — so sind sie geschrieben. **`Demo:Today` ist leer**, die
+Anwendung läuft also auf der echten Uhr; die Monatssummen des Demo-Haushalts zeigen deshalb den
+laufenden Monat und nicht den August 2026. Wer die Demo stimmig vorführen will, trägt dort
+`2026-08-23T08:24:00` ein.
+
+Leer ist es, weil ein gesetzter Stichtag nicht bei den Beispieldaten bleibt: er ist die Uhr der
+*ganzen* Anwendung. Jeder eingelesene Beleg bekam damit den 23.08.2026 als Ablagetag, und wo kein
+Dokumentdatum im Papier steht, stand dieses Datum als Datum des Schreibens — drei Berichte aus drei
+Jahren trugen dasselbe. **Sitzungen, Sperren und Reset-Token hingen nie daran** — sie laufen über
+`TimeProvider` auf der echten Uhr, denn der Browser prüft die Gültigkeit des Cookies ebenfalls
+dagegen.
 
 **Der Import ist echt.** „34 Buchungen importieren“ schreibt tatsächlich 34 Buchungen; danach
 stimmen die Demo-Zahlen nicht mehr. `finanzapp.db` löschen stellt den Ausgangszustand her.

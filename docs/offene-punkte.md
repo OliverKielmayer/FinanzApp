@@ -1,8 +1,12 @@
 # Offene Punkte
 
-Stand **01.09.2026**, nach dem achten Bericht „Objekt & Beteiligung“. Eine Liste, kein Plan: sie sagt,
+Stand **27.10.2026**, nach den ersten Tests am eigenen Bestand. Eine Liste, kein Plan: sie sagt,
 was noch nicht gebaut ist und woher die Anforderung stammt — die Reihenfolge steht in den
 Handoffs selbst, nicht hier.
+
+Die Abschnitte bis „Was beim PDF-Scan offen blieb“ sind am echten Papier des Nutzers entstanden
+und nicht am Handoff. Sie zählen beim Weiterbauen am meisten, weil dort steht, woran die
+Anwendung in der Hand eines Menschen hängengeblieben ist.
 
 Fertig und damit hier nicht mehr aufgeführt: der v4-Handoff samt Nachtrag
 ([`handoff-v4-umsetzung.md`](handoff-v4-umsetzung.md)), die Schritte 1–6 des
@@ -44,19 +48,35 @@ auf. Was bleibt:
   Beitragssumme des Jahrgangs 2023 steht als `39 415.80` da und bleibt ungelesen, weil aus ihr
   sonst unbemerkt das Hundertfache würde.
 
-## Stand der Statusreporte aller fünf Verträge
+## Stand der Statusreporte aller sieben Verträge
 
-Geprüft an **58 echten Berichten** (Verträge 01 bis 05, 2012 bis 2025): jeder wird erkannt, jeder
-gibt Vertragsnummer, Stichtag und erreichten Wert her. Offen sind zwei Rechenproben, beide in
-demselben beschädigten Scan-Jahrgang 2023 — und eine Lücke:
+Geprüft an **83 echten Berichten** (Verträge 01 bis 07, 2012 bis 2026): jeder wird erkannt, jeder
+gibt Vertragsnummer, Stichtag und erreichten Wert her, und jeder Wert ist an seinem Vertrag
+angekommen. Im Bestand stehen daraus **91 Vermögensstände, alle mit Beleg** — 83 aus
+Statusreporten, 8 aus der Vermögensübersicht.
 
-- **Vertrag 05, Jahrgang 2017: keine Rechenprobe.** Der Leitwert wird gelesen (18.120,65 EUR) und
-  ist arithmetisch bestätigt, seine Bestandteile aber nicht: die Textebene zerlegt „Rückkaufswert
-  (exkl. Bewertungsreserve)“ so, dass weder Beschriftung noch Wert eine Zeile für sich haben.
-  Ohne Bestandteile keine Probe.
+Was dabei dazugelernt wurde und jetzt in den Leseregeln steht: der Monatsname als Wort
+(„31. Juli 2014“), die zweite Schreibweise eines Kennzeichens, wenn die Texterkennung „Anteils-“
+zu „Anteiis-“ verliest, das letzte Trennzeichen als Komma in einem zerlegten Scan, und das
+Nachbarzeilen-Lesen, wenn eine Beschriftung allein in ihrer Zeile steht.
+
+Offen bleibt:
+
+- **Vertrag 05, Jahrgang 2017: keine Rechenprobe.** Der Leitwert wird gelesen und ist arithmetisch
+  bestätigt, seine Bestandteile sind es nicht: die Textebene zerlegt „Rückkaufswert (exkl.
+  Bewertungsreserve)“ so, dass weder Beschriftung noch Wert eine Zeile für sich haben. Ohne
+  Bestandteile keine Probe.
+- **Neun Berichte haben eine offene Zeilensumme.** Beschädigte Fondstabellen, in denen eine Zeile
+  ihren Betrag nicht hergibt. Der ausgewiesene Gesamtwert steht trotzdem da, und die Zeile sagt,
+  dass ihr Betrag fehlt — eingetragen geht die Probe auf und nennt die Eintragung.
 - **Vertrag 01: die Dateinamen gehen um ein Jahr vor.** „statusreport 2024.pdf“ trägt den Stand
   zum 31.07.2025. Kein Fehler der Anwendung — sie liest den Stichtag aus dem Text und nie aus dem
   Dateinamen; aber wer nach Dateinamen sucht, greift daneben.
+
+**Entschieden ist inzwischen, was die Daten nicht entscheiden konnten:** die beiden Verträge 06
+und 07 laufen über zweiundzwanzig Jahre auf den Cent gleich, und das ist kein kopiertes
+Tabellenblatt. Es sind zwei Verträge aus einem Versorgungsausgleich; jeder trägt seine eigenen
+dreizehn Statusreporte, die ihre Nummer selbst nennen.
 
 ## Was bei Vertrag 04 (Riester) offen bleibt
 
@@ -96,10 +116,10 @@ an den echten Dateien des Nutzers — der Monatsübersicht vom 23.08.2026 und ei
   davor und danach, eine Kopie über zwei Blätter hinweg. Und die Zeilen 2027 bis 2035 des Raiba-Blatts schreiben
   den letzten Wert fort; ein `PolicyReport` ist ein *gemeldeter* Stand, keine Hochrechnung.
   Beides steht im Umwandlungsprotokoll und nicht in der Datei.
-- **Zwei Verträge tragen dieselbe Reihe.** `01511104-06` und `01511104-07` sind über zweiundzwanzig
-  Jahre auf den Cent gleich — in der Tabellenkalkulation *und* in der Monatsübersicht des
-  Maklers. Ob es wirklich zwei gleich laufende Verträge sind oder ein Blatt einmal kopiert
-  wurde, ist aus den Daten nicht zu entscheiden.
+- **Die einmalig umgewandelte Historie steht nicht im Bestand.** Die 264 Stände aus der
+  Tabellenkalkulation sind in der heutigen Datenbank nicht enthalten; was dort steht, kommt aus
+  Belegen. Wer die Monatsreihe vor 2026 wiederhaben will, muss die Umwandlung erneut laufen
+  lassen — das Skript liegt außerhalb der Anwendung.
 - **Ein geänderter Beitrag wird gemeldet, nicht übernommen.** Nennt die Datei einen anderen
   Beitrag als der Vertrag, sagt die Vorschau das und lässt ihn stehen. Für eine Dynamik gibt es
   keinen Weg, der ohne Zutun richtig läge — eine monatlich unbeaufsichtigt hereinkommende Datei
@@ -107,6 +127,44 @@ an den echten Dateien des Nutzers — der Monatsübersicht vom 23.08.2026 und ei
 - **Konten, Tagesgeld und Depot bleiben liegen.** Dieselbe Datei führt sie mit; übernommen
   werden nur Vorsorgeverträge. Die Kontostände darin sind älter als das, was die App aus den
   Kontoauszügen ohnehin weiß, und ein Depotwert ohne Positionen wäre eine Zahl ohne Bestand.
+
+## Was die ersten Tests an den Wegen herein gezeigt haben
+
+Vier Wege führen Daten in die Anwendung: der Beleg **von Hand** (`/scannen`), der **Ordnerdienst**
+aus dem überwachten Ordner, die **Vermögensübersicht** des Maklers (`/vorsorge/werte`) und der
+**Kontoauszug** über den Import. Dass der Ordnerdienst vor der Übernahme anhält, ist Absicht —
+ein Dienst, dem niemand zusieht, verändert keine Vermögenszahl. Was die Tests gezeigt haben,
+ist nicht diese Entscheidung, sondern wie schlecht der Weg zurück markiert war:
+
+- **Zweimal ist der Nutzer im Eingang steckengeblieben.** „Das Übertragen über den Dienst hat
+  nicht die gleiche Auswirkung, wie wenn ich einen Statusreport direkt erfasse“ und später „Ich
+  finde den Schalter *Werte übernehmen* nicht“. Beide Male fehlte nicht die Funktion, sondern
+  ihr Weg. Der Prüfschritt holt die Übernahme inzwischen nach, der Beleg sagt selbst, wie viele
+  Angaben an ihm offen sind, und das Wegräumen fragt nach. **Wie gut das trägt, muss der
+  nächste Test zeigen** — gebaut ist es, bewährt noch nicht.
+- **Die Dublettenprüfung saß nur am Ordnerdienst.** Von Hand ließ sich dieselbe Datei beliebig
+  oft einlesen; im Bestand lagen davon drei Abzüge desselben Berichts, einer an keinem Vertrag.
+  Beide Stufen gelten jetzt auf beiden Wegen.
+
+Offen:
+
+- **Kontoauszüge kennt der Scaneingang nicht.** Eine CAMT-Datei, die durch den überwachten Ordner
+  kommt, wird als unbekannter Zettel in „Sonstiges“ abgelegt und bleibt im Eingang liegen. Der
+  Import ist der einzige Weg, auf dem sie gelesen wird — er steht an anderer Stelle und nimmt
+  keine eingelieferte Datei entgegen.
+- **Eine Ablage lässt sich nicht ändern** (§17.3). Der Pfad entsteht bei der Analyse aus Bereich,
+  Objekt und Jahr und bleibt dann stehen. Ein Beleg, dessen Vertrag erst im Eingang zugeordnet
+  wurde, liegt weiter unter „Unbekannt“ — richtig abgelegt wäre er nur, wenn die Zuordnung ihn
+  umlegen würde.
+- **Die Uhr war eingefroren, und das hing nicht an der Demo.** `Demo:Today` setzt den Stichtag
+  der *ganzen* Anwendung: jeder eingelesene Beleg bekam den 23.08.2026 als Ablagetag, und wo das
+  Papier kein Dokumentdatum nennt, stand dieses Datum als Datum des Schreibens — drei Berichte
+  aus drei Jahren trugen dasselbe. Der Wert ist jetzt leer, die Anwendung läuft auf der echten
+  Uhr. Die Monatssummen des Demo-Haushalts zeigen seitdem den laufenden Monat; die Beispieldaten
+  hängen am August 2026, weil sie so geschrieben sind.
+- **Ein Dokumentdatum wird weiter ersetzt, wenn das Papier keines nennt.** Dann steht der
+  Ablagetag dort. Er ist seit der echten Uhr wenigstens der wahre Tag, aber er ist nicht das
+  Datum des Schreibens, und der Beleg sagt das nicht.
 
 ## Was beim PDF-Scan (§14) offen blieb
 
