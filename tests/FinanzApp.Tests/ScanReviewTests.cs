@@ -108,10 +108,14 @@ public sealed class ScanReviewTests : IDisposable
     };
 
     /// <summary>Ein Statusreport im Aufbau des Originals, mit erfundenen Zahlen.</summary>
-    private static PdfContent Statusreport() => Content(
+    /// <param name="nummer">
+    /// Die Vertragsnummer. Eine, die der Bestand nicht kennt, legt den Beleg unter „Unbekannt“
+    /// ab — der Fall, um den es beim Umlegen geht.
+    /// </param>
+    private static PdfContent Statusreport(string nummer = "77001122-01") => Content(
         Line(1, "Nordstern Lebensversicherung AG"),
         Line(1, "Hamburg, 12.08.2025"),
-        Line(1, "Versicherungsnummer:", "77001122-01"),
+        Line(1, "Versicherungsnummer:", nummer),
         Line(1, "hiermit übersenden wir Ihnen den jährlichen Statusreport"),
         Line(1, "Ihr Vertragsstand zum 31.07.2025"),
         Line(2, "Wert der Versicherung"),
@@ -123,6 +127,90 @@ public sealed class ScanReviewTests : IDisposable
     {
         using var context = database.Context();
         return context.Policies.Single(p => p.Id == vertragId);
+    }
+
+    // ── Die Ablage zieht mit ───────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Die Übernahme holt den Beleg aus „Unbekannt“ heraus.
+    /// </summary>
+    /// <remarks>
+    /// <para>Eine Einlieferung ohne erkanntes Objekt legt die Datei unter „Unbekannt“ ab. Wird
+    /// der Vertrag später im Scaneingang zugeordnet, zieht sie mit — das tat sie schon. Auf dem
+    /// anderen Weg nicht: wer die Werte im Prüfschritt übernahm, hängte den Beleg an seinen
+    /// Vertrag und ließ ihn liegen, wo er lag.</para>
+    /// <para>Im lebenden Bestand war genau ein Beleg so: verknüpft, mit Vermögensstand, und
+    /// trotzdem unter „Unbekannt“.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Die_Uebernahme_holt_den_Beleg_aus_Unbekannt_heraus()
+    {
+        const string fremd = "99887766-01";
+
+        var eingang = await EinliefernAsync(Statusreport(fremd));
+        Assert.Contains("/Unbekannt/", eingang.RelativePath);
+
+        Vertrag(fremd, "Weststern Leben");
+
+        using (var context = database.Context())
+        {
+            await Scans(Statusreport(fremd), context)
+                .ConfirmAsync(new ConfirmScanRequest { DocumentId = eingang.DocumentId });
+        }
+
+        using var pruefung = database.Context();
+        var beleg = pruefung.Documents.Single(d => d.Id == eingang.DocumentId);
+
+        Assert.DoesNotContain("/Unbekannt/", beleg.RelativePath);
+        Assert.Contains("Weststern_Leben", beleg.RelativePath);
+
+        // Nicht nur der Eintrag: die Datei liegt wirklich dort. Ein Pfad in der Datenbank, unter
+        // dem nichts liegt, wäre schlimmer als der alte — er sähe richtig aus.
+        Assert.True(File.Exists(
+            Path.Combine(root, beleg.RelativePath.Replace('/', Path.DirectorySeparatorChar))));
+    }
+
+    /// <summary>
+    /// Eine eingerichtete Ablage fasst die Übernahme nicht an.
+    /// </summary>
+    /// <remarks>
+    /// Umgelegt wird nur, was der Dienst selbst unter „Unbekannt“ gelegt hat. Ein Beleg, der
+    /// sein Objekt von Anfang an kannte, liegt dort, wo die Ablage ihn haben wollte — und ein
+    /// Umzug danach verschöbe eine Datei unter den Augen dessen, der sie gerade abgelegt hat.
+    /// </remarks>
+    [Fact]
+    public async Task Eine_eingerichtete_Ablage_bleibt_liegen()
+    {
+        var eingang = await EinliefernAsync(Statusreport());
+        Assert.DoesNotContain("/Unbekannt/", eingang.RelativePath);
+
+        using (var context = database.Context())
+        {
+            await Scans(Statusreport(), context)
+                .ConfirmAsync(new ConfirmScanRequest { DocumentId = eingang.DocumentId });
+        }
+
+        using var pruefung = database.Context();
+        var beleg = pruefung.Documents.Single(d => d.Id == eingang.DocumentId);
+
+        Assert.Equal(eingang.RelativePath, beleg.RelativePath);
+    }
+
+    /// <summary>Legt einen weiteren Vertrag an.</summary>
+    private void Vertrag(string nummer, string anbieter)
+    {
+        using var context = database.Context();
+
+        context.Policies.Add(new Policy
+        {
+            Name = "Muster Zweitvertrag",
+            Provider = anbieter,
+            Kind = PolicyKind.CapitalLife,
+            IsCapitalForming = true,
+            PolicyNumber = nummer,
+        });
+
+        context.SaveChanges();
     }
 
     // ── Der ganze Bogen ────────────────────────────────────────────────────────────────────

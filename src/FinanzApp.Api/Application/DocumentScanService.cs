@@ -472,6 +472,15 @@ public sealed class DocumentScanService(
 
         await documents.LinkAsync(dokument.Id, LinkTargetType.Policy, vertrag.Id, ct);
 
+        // Und die Datei hinterher. Eine Einlieferung ohne erkanntes Objekt legt sie unter
+        // „Unbekannt“ ab; bliebe sie dort, behauptete der Ordner nach der Übernahme etwas, das
+        // nicht mehr stimmt — und wer im Dateimanager beim Vertrag sucht, fände den Beleg nicht.
+        // Denselben Nachlauf hat das Zuordnen im Scaneingang; er fehlte nur auf diesem Weg.
+        //
+        // Der Name ist der, aus dem die Ablage den Ordner bildet. Ein anderer legte denselben
+        // Beleg je nach Weg in zwei verschiedene Ordner.
+        await documents.RefileAsync(dokument.Id, vertrag.Provider, ct);
+
         return new ScanResultDto
         {
             Saved = true,
@@ -693,6 +702,12 @@ public sealed class DocumentScanService(
         }, ct);
 
         await documents.LinkAsync(dokument.Id, LinkTargetType.Portfolio, depot.Id, ct);
+
+        // Und die Datei hinterher, aus demselben Grund wie beim Vertrag: ein Ordner „Unbekannt“
+        // über einem zugeordneten Beleg behauptet etwas, das nicht mehr stimmt. Der Name ist
+        // der, aus dem die Ablage den Ordner bildet — ein anderer legte denselben Beleg je nach
+        // Weg in zwei verschiedene Ordner.
+        await documents.RefileAsync(dokument.Id, depot.Name, ct);
 
         var wert = decimal.Round(positionen.Sum(p => p.Value ?? p.Quantity * p.Price), 2);
 
