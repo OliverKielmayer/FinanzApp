@@ -3434,7 +3434,7 @@ class Component extends DCLogic {
           { name: 'Statusreport 2024', meta: 'Statusreport · Stichtag 31.07.2024', id: 'status25' },
           { name: 'Nachtrag Beitragsanpassung', meta: 'Nachtrag · 01.02.2019', id: 'police' },
         ],
-        f: { art: 'Kapital-LV', versicherer: 'Heidelberger Leben', nummer: '01511104-01', beitrag: '42,00',
+        f: { art: 'Kapital-LV', versicherer: 'Heidelberger Leben', nummer: '77001122-01', beitrag: '42,00',
              rueckkauf: '18.373,87', ansammlung: '2.107,65', wert: '20.481,52', stichtag: '31.07.2025',
              ablauf: '01.08.2031', ablaufwert: '28.825,65', todesfall: '28.825,65', bericht: 'jährlich erwartet' } },
       { name: 'Raiffeisenbank LV', note: '', value: 14208, asOf: 'Stand 31.12.2025',
@@ -3530,7 +3530,7 @@ class Component extends DCLogic {
         ref: 'camt053-2026-07-18-9600', src: 'camt053_2026-07.xml' },
       { id: 4, date: '19.08', payee: 'Umbuchung → Tagesgeld', cat: 'Umbuchung', acct: 'Sparkasse Giro', amount: -1500.00 },
       { id: 5, date: '18.08', payee: 'Heidelberger Leben', cat: 'Versicherung', acct: 'Raiffeisenbank Giro', amount: -42.00,
-        info: 'BEITRAG 08/2026 VERTRAG 01511104-01 MLP BESTPARTNER CLASSIC', iban: 'DE29 6725 0020 0000 1511 04', bic: 'SOLADES1HDB',
+        info: 'BEITRAG 08/2026 VERTRAG 77001122-01 MLP BESTPARTNER CLASSIC', iban: 'DE29 6725 0020 0000 1511 04', bic: 'SOLADES1HDB',
         ref: 'camt053-2026-08-11-4200', src: 'camt053_2026-08.xml' },
       { id: 51, date: '18.08', payee: 'Debeka Riester', cat: 'Versicherung', acct: 'Raiffeisenbank Giro', amount: -100.00,
         info: 'RIESTER EIGENBEITRAG 08/2026 VERTRAGSNR RIE-880-4419', iban: 'DE44 6009 0100 0000 8804 41', bic: 'GENODEF1S02',
@@ -4125,11 +4125,11 @@ class Component extends DCLogic {
     const DOCKINDS = {
       status: {
         label: 'Statusreport Lebensversicherung', confidence: 'sicher',
-        target: 'Heidelberger Leben', targetSub: 'MLP bestpartner classic · Nr. 01511104-01',
+        target: 'Heidelberger Leben', targetSub: 'MLP bestpartner classic · Nr. 77001122-01',
         path: 'Versicherungen/Lebensversicherung/Heidelberger Leben/2025/Statusreport_2025-07-31.pdf',
         docDate: '12.08.2025', asOf: '31.07.2025', pages: 3,
         file: 'statusreport_2025.pdf', textLayer: 'Seitenbilder mit Textebene darunter',
-        chain: ['Text gelesen (3 Seiten)', 'Absender: Heidelberger Leben', 'Typ: Statusreport', 'Vertrag 01511104-01 zugeordnet', '10 Werte gelesen', 'Rechenprobe bestanden'],
+        chain: ['Text gelesen (3 Seiten)', 'Absender: Heidelberger Leben', 'Typ: Statusreport', 'Vertrag 77001122-01 zugeordnet', '10 Werte gelesen', 'Rechenprobe bestanden'],
         proof: '18.373,87 € + 2.107,65 € = 20.481,52 € — stimmt mit der ausgewiesenen Gesamtleistung überein.',
         proofWhy: 'Rückkaufswert plus Ansammlungsguthaben muss die Gesamtleistung ergeben. Die Probe fängt Zeilenversatz in der Textebene ab — dort steht die Wertspalte stellenweise um eine Zeile verschoben.',
         fields: [
@@ -4969,7 +4969,7 @@ class Component extends DCLogic {
       pvAddDoc: () => this.setState({ screen: 'scan', prev: 'insurance', scanStep: 1, scanPages: 0, scanKind: 'status' }),
 
       insuranceList: [
-        { name: 'Heidelberger Leben', meta: 'Lebensversicherung · Nr. 01511104-01', amount: mask('42,00 €'), to: 'insurance' },
+        { name: 'Heidelberger Leben', meta: 'Lebensversicherung · Nr. 77001122-01', amount: mask('42,00 €'), to: 'insurance' },
         { name: 'Hausrat HUK', meta: 'Kündigung bis 30.09.2027 — 18 Tage', amount: mask('156,00 €'), urgent: true },
         { name: 'Privathaftpflicht', meta: 'HUK · bis 31.12.2027', amount: mask('89,00 €') },
         { name: 'Kfz Allianz', meta: 'Wechselfrist 30.11.2026', amount: mask('618,00 €') },
@@ -5043,7 +5043,7 @@ class Component extends DCLogic {
           fg: done || now ? 'var(--color-text)' : 'var(--color-neutral-600)',
         };
       }),
-      policyFields: {"pension":[["art","Vertragsart","Kapital-LV","Seite 1"],["versicherer","Anbieter","Heidelberger Leben","Seite 1"],["nummer","Vertragsnummer","01511104-01","Seite 1"],["beitrag","Beitrag monatlich","42,00","Seite 2"],["wert","Erreichter Wert","20.481,52","Seite 2"],["stichtag","Stichtag des Werts","31.07.2025","Seite 2"],["ablauf","Ablauf","01.08.2031","Seite 1"]],"insurance":[["art","Versicherungsart","Hausrat","Seite 1"],["versicherer","Versicherer","HUK-Coburg","Seite 1"],["nummer","Versicherungsnummer","HR-88 421","Seite 1"],["beitrag","Beitrag","156,00","Seite 2"],["intervall","Zahlungsintervall","jährlich","Seite 2"],["ende","Vertragsende","31.12.2027","Seite 1"],["frist","Kündigungsfrist","3 Monate","Seite 2"]]}[s.createKind === 'insurance' ? 'insurance' : 'pension'].map(r => {
+      policyFields: {"pension":[["art","Vertragsart","Kapital-LV","Seite 1"],["versicherer","Anbieter","Heidelberger Leben","Seite 1"],["nummer","Vertragsnummer","77001122-01","Seite 1"],["beitrag","Beitrag monatlich","42,00","Seite 2"],["wert","Erreichter Wert","20.481,52","Seite 2"],["stichtag","Stichtag des Werts","31.07.2025","Seite 2"],["ablauf","Ablauf","01.08.2031","Seite 1"]],"insurance":[["art","Versicherungsart","Hausrat","Seite 1"],["versicherer","Versicherer","HUK-Coburg","Seite 1"],["nummer","Versicherungsnummer","HR-88 421","Seite 1"],["beitrag","Beitrag","156,00","Seite 2"],["intervall","Zahlungsintervall","jährlich","Seite 2"],["ende","Vertragsende","31.12.2027","Seite 1"],["frist","Kündigungsfrist","3 Monate","Seite 2"]]}[s.createKind === 'insurance' ? 'insurance' : 'pension'].map(r => {
         const unsure = r[0] === 'beitrag';
         return {
           label: r[1], value: r[2],
@@ -5052,10 +5052,10 @@ class Component extends DCLogic {
           bg: unsure ? 'var(--color-accent-100)' : 'transparent',
         };
       }),
-      policyTakeLabel: 'Alle ' + {"pension":[["art","Vertragsart","Kapital-LV","Seite 1"],["versicherer","Anbieter","Heidelberger Leben","Seite 1"],["nummer","Vertragsnummer","01511104-01","Seite 1"],["beitrag","Beitrag monatlich","42,00","Seite 2"],["wert","Erreichter Wert","20.481,52","Seite 2"],["stichtag","Stichtag des Werts","31.07.2025","Seite 2"],["ablauf","Ablauf","01.08.2031","Seite 1"]],"insurance":[["art","Versicherungsart","Hausrat","Seite 1"],["versicherer","Versicherer","HUK-Coburg","Seite 1"],["nummer","Versicherungsnummer","HR-88 421","Seite 1"],["beitrag","Beitrag","156,00","Seite 2"],["intervall","Zahlungsintervall","jährlich","Seite 2"],["ende","Vertragsende","31.12.2027","Seite 1"],["frist","Kündigungsfrist","3 Monate","Seite 2"]]}[s.createKind === 'insurance' ? 'insurance' : 'pension'].length + ' Werte übernehmen',
+      policyTakeLabel: 'Alle ' + {"pension":[["art","Vertragsart","Kapital-LV","Seite 1"],["versicherer","Anbieter","Heidelberger Leben","Seite 1"],["nummer","Vertragsnummer","77001122-01","Seite 1"],["beitrag","Beitrag monatlich","42,00","Seite 2"],["wert","Erreichter Wert","20.481,52","Seite 2"],["stichtag","Stichtag des Werts","31.07.2025","Seite 2"],["ablauf","Ablauf","01.08.2031","Seite 1"]],"insurance":[["art","Versicherungsart","Hausrat","Seite 1"],["versicherer","Versicherer","HUK-Coburg","Seite 1"],["nummer","Versicherungsnummer","HR-88 421","Seite 1"],["beitrag","Beitrag","156,00","Seite 2"],["intervall","Zahlungsintervall","jährlich","Seite 2"],["ende","Vertragsende","31.12.2027","Seite 1"],["frist","Kündigungsfrist","3 Monate","Seite 2"]]}[s.createKind === 'insurance' ? 'insurance' : 'pension'].length + ' Werte übernehmen',
       policyNote: 'Pfad: ' + (s.createKind === 'insurance' ? 'Versicherungen/Hausrat/' : 'Versicherungen/Lebensversicherung/') + (s.policySource || 'Police_2024.pdf') + ' — Datei wird nicht verschoben.',
       takePolicy: () => {
-        const rows = {"pension":[["art","Vertragsart","Kapital-LV","Seite 1"],["versicherer","Anbieter","Heidelberger Leben","Seite 1"],["nummer","Vertragsnummer","01511104-01","Seite 1"],["beitrag","Beitrag monatlich","42,00","Seite 2"],["wert","Erreichter Wert","20.481,52","Seite 2"],["stichtag","Stichtag des Werts","31.07.2025","Seite 2"],["ablauf","Ablauf","01.08.2031","Seite 1"]],"insurance":[["art","Versicherungsart","Hausrat","Seite 1"],["versicherer","Versicherer","HUK-Coburg","Seite 1"],["nummer","Versicherungsnummer","HR-88 421","Seite 1"],["beitrag","Beitrag","156,00","Seite 2"],["intervall","Zahlungsintervall","jährlich","Seite 2"],["ende","Vertragsende","31.12.2027","Seite 1"],["frist","Kündigungsfrist","3 Monate","Seite 2"]]}[s.createKind === 'insurance' ? 'insurance' : 'pension'];
+        const rows = {"pension":[["art","Vertragsart","Kapital-LV","Seite 1"],["versicherer","Anbieter","Heidelberger Leben","Seite 1"],["nummer","Vertragsnummer","77001122-01","Seite 1"],["beitrag","Beitrag monatlich","42,00","Seite 2"],["wert","Erreichter Wert","20.481,52","Seite 2"],["stichtag","Stichtag des Werts","31.07.2025","Seite 2"],["ablauf","Ablauf","01.08.2031","Seite 1"]],"insurance":[["art","Versicherungsart","Hausrat","Seite 1"],["versicherer","Versicherer","HUK-Coburg","Seite 1"],["nummer","Versicherungsnummer","HR-88 421","Seite 1"],["beitrag","Beitrag","156,00","Seite 2"],["intervall","Zahlungsintervall","jährlich","Seite 2"],["ende","Vertragsende","31.12.2027","Seite 1"],["frist","Kündigungsfrist","3 Monate","Seite 2"]]}[s.createKind === 'insurance' ? 'insurance' : 'pension'];
         const filled = {};
         rows.forEach(r => { filled[r[0]] = r[2]; });
         this.setState({ form: Object.assign({}, this.state.form, filled), policy: 'idle', policyAt: 0 });
@@ -5159,7 +5159,7 @@ class Component extends DCLogic {
         pension: [
           { key: 'art', label: 'Vertragsart', chips: ['Kapital-LV', 'Rentenversicherung', 'Riester', 'Bausparen', 'bAV'], def: 'Kapital-LV', req: true },
           { key: 'versicherer', label: 'Anbieter', ph: 'z. B. Heidelberger Leben', req: true },
-          { key: 'nummer', label: 'Vertragsnummer', ph: '01511104-01' },
+          { key: 'nummer', label: 'Vertragsnummer', ph: '77001122-01' },
           { key: 'beitrag', label: 'Beitrag monatlich', ph: '42,00' },
           { key: 'rueckkauf', label: 'Rückkaufswert', ph: '18.373,87', hint: 'aus dem Statusreport' },
           { key: 'ansammlung', label: 'Ansammlungsguthaben', ph: '2.107,65', hint: 'aus dem Statusreport' },

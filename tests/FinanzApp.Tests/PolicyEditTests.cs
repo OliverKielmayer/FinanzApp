@@ -38,7 +38,7 @@ public sealed class PolicyEditTests : IDisposable
     {
         ["kind"] = nameof(PolicyKind.CapitalLife),
         ["provider"] = "Alte Leipziger",
-        ["number"] = "01511104-01",
+        ["number"] = "77001122-01",
         ["baseValue"] = basis,
         ["accruedBonus"] = bonus,
         ["value"] = wert,

@@ -112,7 +112,7 @@ an den echten Dateien des Nutzers — der Monatsübersicht vom 23.08.2026 und ei
   Tabelle dieser Art gibt es nicht, und eine allgemeine Umwandlung wäre eine Lösung für ein
   Problem, das nur einmal auftrat.
 - **Zwei Zellen der Tabellenkalkulation sind nicht übernommen worden.** Der Juli 2024 von
-  `01511104-02` trug den Wert des Nachbarvertrags — er lag um ein Drittel unter den Ständen
+  `77001122-02` trug den Wert des Nachbarvertrags — er lag um ein Drittel unter den Ständen
   davor und danach, eine Kopie über zwei Blätter hinweg. Und die Zeilen 2027 bis 2035 des Raiba-Blatts schreiben
   den letzten Wert fort; ein `PolicyReport` ist ein *gemeldeter* Stand, keine Hochrechnung.
   Beides steht im Umwandlungsprotokoll und nicht in der Datei.

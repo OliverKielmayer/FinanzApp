@@ -675,11 +675,11 @@ Im Bearbeitenformular ließ sich nicht scrollen. Gemessen: `documentElement.scro
 
 Die zugeordneten Buchungen passten nicht — die Zuordnung lief über den Namen, und der Beispielbeitrag war mit 212,00 € gebucht, während der Vertrag 42,00 €/Monat ausweist.
 
-**Zugeordnet wird ausschließlich über die Vertragsnummer im Verwendungszweck**, normalisiert (Groß/Klein, Leerzeichen und Trennzeichen entfernt). Ein Treffer über den Anbieternamen ist bei mehreren Verträgen desselben Hauses falsch — die Beispieldaten zeigen genau das: vier Verträge, vier Beitragsbuchungen, jede mit ihrer Nummer im Verwendungszweck („BEITRAG 08/2026 VERTRAG 01511104-01 …").
+**Zugeordnet wird ausschließlich über die Vertragsnummer im Verwendungszweck**, normalisiert (Groß/Klein, Leerzeichen und Trennzeichen entfernt). Ein Treffer über den Anbieternamen ist bei mehreren Verträgen desselben Hauses falsch — die Beispieldaten zeigen genau das: vier Verträge, vier Beitragsbuchungen, jede mit ihrer Nummer im Verwendungszweck („BEITRAG 08/2026 VERTRAG 77001122-01 …").
 
 Dazu drei Dinge, die im UI stehen:
 
-- **Die Zuordnungsbegründung an jeder Zeile**: „Vertragsnummer 01511104-01 im Verwendungszweck", darunter der Verwendungszweck im Original.
+- **Die Zuordnungsbegründung an jeder Zeile**: „Vertragsnummer 77001122-01 im Verwendungszweck", darunter der Verwendungszweck im Original.
 - **Eine Gegenprobe** unter der Liste: gebuchter Betrag gegen den Beitrag im Vertrag, mit Tag „stimmt" / „prüfen" — weicht er ab, ist einer der beiden Werte veraltet, und der Text sagt das.
 - **Ein ehrlicher Leerzustand**: ohne Treffer erklärt der Screen, dass nur über die Nummer zugeordnet wird, und bietet „In Buchungen suchen". Ohne erfasste Nummer sagt er das stattdessen.
 

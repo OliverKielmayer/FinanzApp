@@ -527,7 +527,7 @@ public sealed class PolicyValueImportService(
     /// <remarks>
     /// Ohne Leerzeichen und ohne Rücksicht auf Groß- und Kleinschreibung: dieselbe Nummer steht
     /// in der Datei als „80 511623094“ und im Vertrag vielleicht als „80511623094“. Der
-    /// Bindestrich bleibt — er trennt bei „01511104-01“ sieben Verträge voneinander, und ohne
+    /// Bindestrich bleibt — er trennt bei „77001122-01“ sieben Verträge voneinander, und ohne
     /// ihn fielen sie zusammen.
     /// </remarks>
     private static string Key(string number)

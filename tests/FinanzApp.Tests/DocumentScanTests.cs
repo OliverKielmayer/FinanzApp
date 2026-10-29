@@ -585,8 +585,8 @@ public sealed class DocumentScanTests : IDisposable
     /// Die Meldung nennt den Vertrag, der dieselben Ziffern trägt.
     /// </summary>
     /// <remarks>
-    /// <para>Der Fall aus dem Betrieb: der Riester-Statusreport nennt „R-01511104-04“, im
-    /// Vertrag stand „01511104-04“. Alle Werte waren gelesen, der Knopf war tot, und die Meldung
+    /// <para>Der Fall aus dem Betrieb: der Riester-Statusreport nennt „R-77001122-04“, im
+    /// Vertrag stand „77001122-04“. Alle Werte waren gelesen, der Knopf war tot, und die Meldung
     /// las sich wie „diesen Vertrag gibt es nicht“ — während er einen Bindestrich entfernt
     /// dastand.</para>
     /// <para>Genannt und <b>nicht zugeordnet</b>: das R steht bei diesem Absender für die

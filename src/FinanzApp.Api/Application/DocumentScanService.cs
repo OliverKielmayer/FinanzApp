@@ -806,7 +806,7 @@ public sealed class DocumentScanService(
     /// </summary>
     /// <remarks>
     /// <para>Verglichen wird auf die Ziffern herunter: Bindestriche, Leerzeichen und Buchstaben
-    /// fallen weg. „R-01511104-04“ und „01511104-04“ treffen sich dabei, und genau daran hing
+    /// fallen weg. „R-77001122-04“ und „77001122-04“ treffen sich dabei, und genau daran hing
     /// ein Riester-Statusreport, dessen Werte alle gelesen waren.</para>
     /// <para>Es wird <b>genannt und nicht zugeordnet</b>. Das R steht bei diesem Absender für
     /// die geförderte Tranche desselben Stammvertrags; es kann beide geben, und ein Beleg am
@@ -996,7 +996,7 @@ public sealed class DocumentScanService(
     /// </param>
     /// <param name="beinahe">
     /// Ein Objekt, dessen Nummer <em>dieselben Ziffern</em> trägt. Es gehört in die Meldung und
-    /// wird nicht zugeordnet: „R-01511104-04“ auf dem Papier und „01511104-04“ im Vertrag sind
+    /// wird nicht zugeordnet: „R-77001122-04“ auf dem Papier und „77001122-04“ im Vertrag sind
     /// meist derselbe Vertrag — aber das R steht bei diesem Absender für die geförderte Tranche,
     /// und es kann beide geben. Nennen hilft, raten hängte einen Beleg an einen fremden Vertrag.
     /// </param>

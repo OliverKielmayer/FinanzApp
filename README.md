@@ -261,7 +261,7 @@ unter Absicherung.
 
 Findet die Analyse kein Zielobjekt, nennt die Meldung die gesuchte Nummer, **den Haushalt** und
 — wenn es einen gibt — das Objekt mit **denselben Ziffern**. Verglichen wird dafür auf die Ziffern
-herunter: „R-01511104-04“ auf dem Papier und „01511104-04“ im Vertrag treffen sich dabei. Genannt
+herunter: „R-77001122-04“ auf dem Papier und „77001122-04“ im Vertrag treffen sich dabei. Genannt
 wird er und nicht zugeordnet: das R steht bei diesem Absender für die geförderte Tranche desselben
 Stammvertrags, es kann beide geben, und ein Beleg am falschen Vertrag ist von allen möglichen
 Fehlern der teuerste.
