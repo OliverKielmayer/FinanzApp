@@ -267,6 +267,12 @@ public static class ApiEndpoints
                 FixedCostsRequest request, ReportService service, CancellationToken ct)
             => Results.Ok(await service.GetFixedCostsAsync(request, ct)));
 
+        // Vorsorge: Zuwachs gegen Beitrag. Ohne Argumente - der Bericht nimmt je Vertrag die
+        // beiden jüngsten Stände, und die stehen je Vertrag woanders.
+        api.MapGet("/reports/pension-growth", async (
+                PensionGrowthService service, CancellationToken ct)
+            => Results.Ok(await service.GetAsync(ct)));
+
         // Ohne Depot im Bestand gibt es nichts zu berichten — 404 statt einer Hülle aus Nullen.
         api.MapGet("/reports/portfolio-gain", async (
             int? depot, ReportService service, CancellationToken ct) =>

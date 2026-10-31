@@ -1,0 +1,133 @@
+@*
+    Vorsorge: Zuwachs gegen Beitrag.
+
+    Der Wert eines Vertrags beantwortet die Frage nicht, die zählt. Er steigt auch dann, wenn
+    von jedem eingezahlten Euro Kosten abgehen — nur langsamer als die Summe der Einzahlungen.
+    Erst der Abstand sagt, was der Vertrag leistet.
+
+    Zwei Beitragszahlen, nie eine: hochgerechnet aus dem heutigen Beitrag, gemessen aus den
+    Buchungen. Dieselbe Trennung wie im Objektbericht, und aus demselben Grund.
+*@
+
+<div class="report-split">
+    <div class="report-hero">
+        <span class="kicker">Zuwachs</span>
+        <span class="hero-value medium num">@State.Euro(Data.TotalGrowth)</span>
+        <span class="meta">gemessen aus je zwei Ständen</span>
+    </div>
+
+    <div class="report-hero">
+        <span class="kicker">Beitrag hochgerechnet</span>
+        <span class="hero-value medium num">@State.Euro(Data.TotalProjected)</span>
+        <span class="meta">heutiger Beitrag × Monate</span>
+    </div>
+
+    <div class="report-hero">
+        <span class="kicker">Differenz</span>
+        <span class="hero-value medium num @(Data.TotalDifference < 0 ? "debt" : null)">
+            @State.Euro(Data.TotalDifference, withPlusSign: true)
+        </span>
+        <span class="meta">
+            @(Data.TotalDifference < 0
+                ? "weniger gutgeschrieben als eingezahlt"
+                : "mehr erwirtschaftet als eingezahlt")
+        </span>
+    </div>
+</div>
+
+<div class="report-bar-wrap">
+    <span class="meta">@Data.Note</span>
+</div>
+
+@if (Data.Rows.Count == 0)
+{
+    <div class="import-nothing">
+        <span class="label-strong">Kein Vorsorgevertrag erfasst</span>
+        <span class="create-help">
+            Dieser Bericht lebt von Statusberichten: zwei Stände je Vertrag, und daraus der
+            Zuwachs. Unter <em>Vorsorge &amp; Kapital</em> werden sie erfasst oder eingelesen.
+        </span>
+    </div>
+}
+
+@foreach (var zeile in Data.Rows)
+{
+    <div class="report-fix-row">
+        <span class="stack">
+            <span class="contract-name">@zeile.Name</span>
+            <span class="meta">@Zeitraum(zeile)</span>
+        </span>
+
+        <span class="stack-end">
+            @if (zeile.DifferenceProjected is { } differenz)
+            {
+                <span class="holding-value num @(differenz < 0 ? "debt" : null)">
+                    @State.Euro(differenz, withPlusSign: true)
+                </span>
+                <span class="meta num">
+                    Zuwachs @State.Euro0(zeile.Growth ?? 0m) · Beitrag @State.Euro0(zeile.Projected ?? 0m)
+                </span>
+            }
+            else
+            {
+                @* Ein Gedankenstrich und nicht eine Null: Die Null wäre eine Messung. *@
+                <span class="holding-value num">—</span>
+            }
+        </span>
+    </div>
+
+    @*
+        Die gemessene Zahl steht nur dort, wo die Buchungen den Zeitraum wirklich abdecken.
+        Steht sie, ist sie die bessere: Sie kennt den Beitrag von damals und nicht den von heute.
+    *@
+    @if (zeile.Measured is { } gemessen)
+    {
+        <div class="report-fix-row sub">
+            <span class="meta">
+                Gemessen aus @zeile.MeasuredCount @(zeile.MeasuredCount == 1 ? "Buchung" : "Buchungen")
+            </span>
+            <span class="stack-end">
+                <span class="holding-value num @(zeile.DifferenceMeasured < 0 ? "debt" : null)">
+                    @State.Euro(zeile.DifferenceMeasured ?? 0m, withPlusSign: true)
+                </span>
+                <span class="meta num">Beitrag @State.Euro0(gemessen)</span>
+            </span>
+        </div>
+    }
+    else if (zeile.Note is { Length: > 0 } hinweis)
+    {
+        <div class="report-fix-row sub">
+            <span class="meta">@hinweis</span>
+        </div>
+    }
+}
+
+@if (Data.SkippedPolicies > 0)
+{
+    <div class="doc-foot">
+        <span>
+            @Data.SkippedPolicies von @(Data.CountedPolicies + Data.SkippedPolicies)
+            @(Data.SkippedPolicies == 1 ? "Vertrag trägt" : "Verträgen tragen") keinen Zuwachs
+        </span>
+        <span>ein zweiter Stand fehlt</span>
+    </div>
+}
+
+@code {
+    [Inject] private AppState State { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public PensionGrowthDto Data { get; set; } = default!;
+
+    /// <summary>
+    /// Der Zeitraum einer Zeile, mit der Zahl der Monate.
+    /// </summary>
+    /// <remarks>
+    /// Die Monatszahl steht dabei, weil sie der Faktor der Hochrechnung ist: Wer die Differenz
+    /// nachrechnen will, braucht sie, und ohne sie sähe „Beitrag 900 €“ aus wie eine Messung.
+    /// </remarks>
+    private static string Zeitraum(PensionGrowthRowDto zeile)
+        => zeile is { From: { } von, To: { } bis }
+            ? $"{GermanFormat.Date(von)} – {GermanFormat.Date(bis)} · {zeile.Months} Monate · {zeile.Provider}"
+            : zeile.Provider;
+}

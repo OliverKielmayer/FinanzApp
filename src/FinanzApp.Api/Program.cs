@@ -166,6 +166,7 @@ builder.Services.AddSingleton<PdfPigTextReader>();
 builder.Services.AddSingleton<ImageTextReader>();
 builder.Services.AddSingleton<IPdfTextReader, ScanTextReader>();
 
+builder.Services.AddScoped<PensionGrowthService>();
 builder.Services.AddScoped<ObjectLabelService>();
 builder.Services.AddScoped<DocumentService>();
 builder.Services.AddScoped<TaskService>();

@@ -61,6 +61,11 @@ public static class FinanzAppApiExtensions
         => api.SendAsync<FixDocumentPathRequest, DocumentDetailDto>(
             HttpMethod.Put, $"api/documents/{id}/path", new FixDocumentPathRequest { RelativePath = relativePath }, ct);
 
+    /// <summary>Vorsorge: Zuwachs gegen Beitrag.</summary>
+    public static Task<PensionGrowthDto> GetPensionGrowthAsync(
+        this FinanzAppApi api, CancellationToken ct = default)
+        => api.GetAsync<PensionGrowthDto>("api/reports/pension-growth", ct);
+
     /// <summary>Holt den gelesenen Text für Dokumente nach, die noch keinen haben.</summary>
     public static Task<BackfillResultDto> BackfillDocumentTextAsync(
         this FinanzAppApi api, int limit = 50, CancellationToken ct = default)

@@ -379,7 +379,14 @@ public sealed class PolicyService(FinanzAppDbContext db, DocumentService documen
     /// „77001122-01“, „77001122 01“ und „77001122/01“ sind dieselbe Vertragsnummer. Ohne diesen
     /// Schritt fände die Zuordnung nur die eine Schreibweise, die die Bank gerade verwendet.
     /// </remarks>
-    private static string? Normalise(string? text)
+    /// <summary>
+    /// Eine Vertragsnummer auf ihren Kern: nur Buchstaben und Ziffern, groß geschrieben.
+    /// </summary>
+    /// <remarks>
+    /// Öffentlich, weil der Vorsorgebericht dieselbe Zuordnung braucht. Zwei Fassungen desselben
+    /// Vergleichs hießen, dass ein Vertrag je nach Bildschirm andere Buchungen trägt.
+    /// </remarks>
+    public static string? Normalise(string? text)
         => text is not { Length: > 0 }
             ? null
             : new string([.. text.Where(char.IsLetterOrDigit)]).ToUpperInvariant();

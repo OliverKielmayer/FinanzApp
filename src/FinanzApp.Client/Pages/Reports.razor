@@ -129,6 +129,11 @@
         <FixedCostsReport Data="fix" />
         <div class="spacer"></div>
     }
+    else if (report == ReportKind.PensionGrowth && pensionGrowth is { } vorsorge)
+    {
+        <PensionGrowthReport Data="vorsorge" />
+        <div class="spacer"></div>
+    }
     else if (report == ReportKind.DataQuality && quality is { } luecken)
     {
         <DataQualityReport Data="luecken" />
@@ -350,6 +355,7 @@
 @code {
     private CostTrendDto? data;
     private FixedCostsDto? fixedCosts;
+    private PensionGrowthDto? pensionGrowth;
     private PortfolioGainDto? gain;
     private DataQualityDto? quality;
     private HealthBalanceDto? health;
@@ -433,6 +439,7 @@
         (ReportKind.CostTrend, "Kostentrend", true),
         (ReportKind.FixedCosts, "Fixkosten", true),
         (ReportKind.PropertyParticipation, "Objekt & Beteiligung", true),
+        (ReportKind.PensionGrowth, "Vorsorge: Zuwachs", true),
         (ReportKind.PortfolioGainLoss, "Depot G/V", true),
         (ReportKind.HealthBalance, "PKV-Bilanz", true),
         (ReportKind.TaxYear, "Steuerjahr", true),
@@ -465,6 +472,10 @@
             case ReportKind.PropertyParticipation:
                 propertyReport = await Api.GetPropertyReportAsync(propertyId);
                 propertyId = propertyReport?.PropertyId;
+                break;
+
+            case ReportKind.PensionGrowth:
+                pensionGrowth = await Api.GetPensionGrowthAsync();
                 break;
 
             case ReportKind.PortfolioGainLoss:
@@ -755,6 +766,7 @@
             {
                 ReportKind.FixedCosts => "fixkosten",
                 ReportKind.PropertyParticipation => "objekt-beteiligung",
+                ReportKind.PensionGrowth => "vorsorge-zuwachs",
                 ReportKind.PortfolioGainLoss => "depot",
                 ReportKind.DataQuality => "datenqualitaet",
                 _ => "kostentrend",

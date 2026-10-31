@@ -99,6 +99,9 @@ public enum ReportKind
 
     /// <summary>Objekt &amp; Beteiligung — Handoff „Gemeinsame Immobilie“, 3.5.</summary>
     PropertyParticipation = 6,
+
+    /// <summary>Vorsorge: Zuwachs gegen Beitrag — was ein Vertrag selbst erwirtschaftet hat.</summary>
+    PensionGrowth = 7,
 }
 
 /// <summary>Wonach der Kostentrend seine Kategorien ordnet.</summary>
