@@ -242,5 +242,6 @@ public sealed class ImageTextTests
             new PdfPigTextReader(),
             new ImageTextReader(
                 new OcrOptions { Command = befehl, TimeoutSeconds = 5 },
-                NullLogger<ImageTextReader>.Instance));
+                NullLogger<ImageTextReader>.Instance),
+            NullLogger<ScanTextReader>.Instance);
 }

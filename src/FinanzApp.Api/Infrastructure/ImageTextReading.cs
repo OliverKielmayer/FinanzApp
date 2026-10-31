@@ -355,7 +355,8 @@ public sealed class ImageTextReader(OcrOptions options, ILogger<ImageTextReader>
 /// Die Entscheidung fällt an den ersten Bytes und nicht am Namen. Ein Foto, das jemand
 /// <c>Beleg.pdf</c> genannt hat, soll gelesen und nicht beklagt werden.
 /// </remarks>
-public sealed class ScanTextReader(PdfPigTextReader pdf, ImageTextReader images) : IPdfTextReader
+public sealed class ScanTextReader(
+    PdfPigTextReader pdf, ImageTextReader images, ILogger<ScanTextReader> log) : IPdfTextReader
 {
     public PdfContent Read(Stream content)
     {
@@ -367,8 +368,101 @@ public sealed class ScanTextReader(PdfPigTextReader pdf, ImageTextReader images)
         var gelesen = puffer.Read(kopf, 0, kopf.Length);
         puffer.Position = 0;
 
-        return ImageFormats.LooksLikeImage(kopf.AsSpan(0, gelesen))
-            ? images.Read(puffer)
-            : pdf.Read(puffer);
+        if (ImageFormats.LooksLikeImage(kopf.AsSpan(0, gelesen)))
+        {
+            return images.Read(puffer);
+        }
+
+        var inhalt = pdf.Read(puffer);
+
+        // Ein PDF mit Text ist fertig gelesen. Eines ohne kann trotzdem beschrieben sein — als
+        // Bild. Ein Flachbettscanner liefert genau das: ein Foto der Seite in einem
+        // PDF-Umschlag, null Schriftobjekte. Bis hierher fiel so ein Zettel durch jede Regel,
+        // bekam keinen Vorschlag und lag stumm unter „Sonstiges“.
+        if (inhalt.HasTextLayer || inhalt.ImageCount == 0 || !images.Configured)
+        {
+            return inhalt;
+        }
+
+        puffer.Position = 0;
+        return Seitenbilder(puffer, inhalt);
+    }
+
+    /// <summary>
+    /// Liest die Seitenbilder eines textlosen PDF durch die Erkennung.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Je Seite nur das größte Bild.</b> Ein eingescanntes Blatt ist ein Bild; was sonst
+    /// noch darauf liegt, sind Logos und Linien. Alle Bilder einer Seite nacheinander zu lesen
+    /// hieße, ihre Zeilen nach der Höhe im jeweils eigenen Bild zu mischen — und aus zwei
+    /// Bildkoordinatensystemen wird keine Seite.</para>
+    /// <para>Scheitert die Erkennung oder liefert sie nichts, bleibt es beim Ergebnis des
+    /// PDF-Lesers. Ein leeres Ergebnis ist eine Auskunft; ein erfundenes wäre keine.</para>
+    /// </remarks>
+    private PdfContent Seitenbilder(MemoryStream puffer, PdfContent inhalt)
+    {
+        var zeilen = new List<PdfLine>();
+
+        try
+        {
+            using var pdf = UglyToad.PdfPig.PdfDocument.Open(puffer.ToArray());
+
+            var seite = 0;
+            foreach (var blatt in pdf.GetPages())
+            {
+                seite++;
+
+                if (Groesstes(blatt) is not { } bytes)
+                {
+                    continue;
+                }
+
+                using var strom = new MemoryStream(bytes);
+                var gelesen = images.Read(strom);
+
+                // Die Erkennung zählt ihre eigenen Seiten ab eins. Hier zählt das Blatt.
+                zeilen.AddRange(gelesen.Lines.Select(z => z with { Page = seite }));
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            log.LogWarning(ex, "Seitenbilder ließen sich nicht lesen.");
+            return inhalt;
+        }
+
+        if (zeilen.Count == 0)
+        {
+            return inhalt;
+        }
+
+        return inhalt with { Lines = zeilen, Source = TextSource.Recognition };
+    }
+
+    /// <summary>
+    /// Das größte Bild einer Seite, als Bytes — oder nichts.
+    /// </summary>
+    /// <remarks>
+    /// PNG zuerst: Es entsteht aus jedem Kodierverfahren, das PdfPig versteht. Gelingt das
+    /// nicht, sind die Rohbytes einen Versuch wert — ein JPEG liegt im PDF als JPEG, und dann
+    /// sind die Rohbytes bereits die Datei.
+    /// </remarks>
+    private static byte[]? Groesstes(UglyToad.PdfPig.Content.Page blatt)
+    {
+        var bild = blatt.GetImages()
+            .OrderByDescending(b => (long)b.WidthInSamples * b.HeightInSamples)
+            .FirstOrDefault();
+
+        if (bild is null)
+        {
+            return null;
+        }
+
+        if (bild.TryGetPng(out var png) && png is { Length: > 0 })
+        {
+            return png;
+        }
+
+        var roh = bild.RawBytes.ToArray();
+        return ImageFormats.LooksLikeImage(roh) ? roh : null;
     }
 }
