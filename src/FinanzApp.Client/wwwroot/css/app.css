@@ -6028,3 +6028,17 @@ button.repeat-value:disabled {
     max-width: 560px;
   }
 }
+
+/* Die Einlage im Detailbereich: eine Reihe Namen, darunter der Satz, der sagt, was sie ist. */
+.tx-detail-deposit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-neutral-300);
+}
+
+.tx-detail-deposit .chipcloud {
+  margin: 0;
+}

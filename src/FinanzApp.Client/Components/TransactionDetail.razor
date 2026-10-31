@@ -81,6 +81,13 @@
                         Ausgabe und tragen deshalb keine Kategorie.
                     </p>
                 }
+                else if (buchung.Kind == TransactionKind.Deposit)
+                {
+                    <p class="tx-detail-note">
+                        Als Einlage markiert. Sie zählt in die Beteiligungsrechnung und nicht in
+                        Einnahmen, Sparquote oder Liquidität.
+                    </p>
+                }
                 else
                 {
                     <label class="tx-detail-option">
@@ -97,6 +104,32 @@
 
                     <button type="button" class="btn btn-secondary tx-detail-action"
                             @onclick="OnPickTransfer">Als Umbuchung markieren</button>
+
+                    @*
+                        Nur, wo es eine Einlage sein kann: ein Zufluss auf einem
+                        Gemeinschaftskonto, und jemand, dem er zuzurechnen wäre. Sonst stünde hier
+                        ein Knopf, der nichts als eine Fehlermeldung liefert.
+                    *@
+                    @if (buchung.Amount > 0m && Contributors.Count > 0)
+                    {
+                        <div class="tx-detail-deposit">
+                            <span class="label-muted">Einlage von</span>
+                            <div class="chipcloud">
+                                @foreach (var person in Contributors)
+                                {
+                                    var wer = person;
+                                    <button type="button" class="chip"
+                                            @onclick="() => OnPickDeposit.InvokeAsync(wer.UserId)">
+                                        @wer.Name
+                                    </button>
+                                }
+                            </div>
+                            <span class="tx-detail-note">
+                                Eine Einlage ist weder Einnahme noch Umbuchung: Das Geld gehörte
+                                schon einem der Beteiligten, und der Eigentümer wechselt.
+                            </span>
+                        </div>
+                    }
                 }
 
                 @*
@@ -139,8 +172,21 @@
 
     [Parameter] public IReadOnlyList<CategoryDto> Categories { get; set; } = [];
 
+    /// <summary>
+    /// Wer auf dieses Konto einzahlt — leer, wenn es kein Gemeinschaftskonto ist.
+    /// </summary>
+    /// <remarks>
+    /// Die Liste entscheidet, ob die Einlage überhaupt angeboten wird. Sie kommt von der Seite
+    /// und nicht aus einer zweiten Abfrage: dort steht sie ohnehin, für die Gegenüberstellung
+    /// von Soll und Eingang.
+    /// </remarks>
+    [Parameter] public IReadOnlyList<JointContributorDto> Contributors { get; set; } = [];
+
     [Parameter] public EventCallback<CategoryDto> OnPickCategory { get; set; }
     [Parameter] public EventCallback OnPickTransfer { get; set; }
+
+    /// <summary>Die Buchung wird zur Einlage dieser Person.</summary>
+    [Parameter] public EventCallback<int> OnPickDeposit { get; set; }
     [Parameter] public EventCallback OnDelete { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
 

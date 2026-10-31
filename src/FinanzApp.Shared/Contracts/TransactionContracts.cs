@@ -131,6 +131,15 @@ public sealed record BatchAssignRequest
     /// überhaupt angefasst.
     /// </summary>
     public bool MarkAsTransfer { get; init; }
+
+    /// <summary>Stuft alle gewählten Buchungen als Einlage derselben Person ein.</summary>
+    public bool MarkAsDeposit { get; init; }
+
+    /// <summary>Wer eingezahlt hat. Pflicht bei <see cref="MarkAsDeposit"/>.</summary>
+    public int? DepositUserId { get; init; }
+
+    /// <summary>Für welches Objekt — nur nötig, wenn die Person an mehr als einem beteiligt ist.</summary>
+    public int? PropertyId { get; init; }
 }
 
 /// <summary>
@@ -166,4 +175,25 @@ public sealed record AssignCategoryRequest
     /// <summary>Stuft die Buchung als Umbuchung ein statt ihr eine Kategorie zu geben.
     /// Schließt <see cref="CategoryId"/> aus.</summary>
     public bool MarkAsTransfer { get; init; }
+
+    /// <summary>
+    /// Stuft die Buchung als <b>Einlage</b> auf ein Gemeinschaftskonto ein.
+    /// </summary>
+    /// <remarks>
+    /// <para>Bisher ging das nur beim Erfassen von Hand. Eine eingelesene Einzahlung ließ sich
+    /// nur als Umbuchung markieren — damit war sie wenigstens keine Einnahme, tauchte aber in
+    /// der Beteiligungsrechnung nicht auf. Wer seine Einlagen importiert, hatte die
+    /// Gegenüberstellung von Soll und Eingang also leer.</para>
+    /// <para>Braucht <see cref="DepositUserId"/>: eine Einlage ohne Person ließe sich niemandem
+    /// zurechnen.</para>
+    /// </remarks>
+    public bool MarkAsDeposit { get; init; }
+
+    /// <summary>Wer eingezahlt hat. Pflicht bei <see cref="MarkAsDeposit"/>.</summary>
+    public int? DepositUserId { get; init; }
+
+    /// <summary>
+    /// Für welches Objekt. Nur nötig, wenn die Person an mehr als einem beteiligt ist.
+    /// </summary>
+    public int? PropertyId { get; init; }
 }

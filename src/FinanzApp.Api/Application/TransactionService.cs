@@ -109,6 +109,20 @@ public sealed class TransactionService(FinanzAppDbContext db, IClock clock)
             return await ResultAsync(rows.Count, 0, $"{Plural(rows.Count)} als Umbuchung markiert", ids, ct);
         }
 
+        if (request.MarkAsDeposit)
+        {
+            // Jede einzeln geprüft: Fällt eine durch, wird keine geschrieben. Ein halb
+            // umgestellter Stapel wäre schlimmer als ein abgelehnter — er sähe aus, als hätte
+            // es geklappt.
+            foreach (var row in rows)
+            {
+                await MarkDepositAsync(row, request.DepositUserId, request.PropertyId, ct);
+            }
+
+            await db.SaveChangesAsync(ct);
+            return await ResultAsync(rows.Count, 0, $"{Plural(rows.Count)} als Einlage markiert", ids, ct);
+        }
+
         if (request.CategoryId is not { } categoryId)
         {
             throw new RuleViolationException("Ohne Kategorie lässt sich nichts zuweisen.");
@@ -243,6 +257,78 @@ public sealed class TransactionService(FinanzAppDbContext db, IClock clock)
     }
 
     /// <summary>
+    /// Macht aus einer eingelesenen Buchung eine Einlage.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Der Betrag bleibt, wie er ist.</b> Er steht so im Auszug, und sein Vorzeichen
+    /// trägt die Richtung. Ihn hier zu drehen hieße, einen Kontoauszug zu korrigieren.</para>
+    /// <para>Geprüft wird dafür dreierlei: Das Konto muss ein <b>Gemeinschaftskonto</b> sein —
+    /// anderswo gibt es keine Einlage, nur eine Überweisung. Die Buchung muss ein <b>Zufluss</b>
+    /// sein, denn die Beteiligungsrechnung zählt nur Zuflüsse; ein Abfluss verschwände dort
+    /// stillschweigend. Und die Person muss am Objekt <b>beteiligt</b> sein, sonst gibt es
+    /// nichts, worauf sich die Einlage anrechnen ließe.</para>
+    /// <para>Das Objekt darf fehlen, solange die Person an genau einem beteiligt ist. Bei
+    /// mehreren fragt die Meldung danach, statt eines zu wählen.</para>
+    /// </remarks>
+    private async Task MarkDepositAsync(
+        Transaction entity, int? depositUserId, int? propertyId, CancellationToken ct)
+    {
+        if (depositUserId is not { } person)
+        {
+            throw new RuleViolationException(
+                "Eine Einlage braucht die Person, die eingezahlt hat.");
+        }
+
+        var konto = await db.Accounts.AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Id == entity.AccountId, ct);
+
+        if (konto?.Sharing != AccountSharing.Shared)
+        {
+            throw new RuleViolationException(
+                "Eine Einlage gibt es nur auf einem Gemeinschaftskonto. "
+                + "Auf einem anderen Konto ist dieselbe Zahlung eine Umbuchung.");
+        }
+
+        if (entity.Amount <= 0m)
+        {
+            throw new RuleViolationException(
+                "Diese Buchung geht ab, sie kommt nicht an — eine Einlage ist ein Zufluss.");
+        }
+
+        var objekte = await db.PropertyShares.AsNoTracking()
+            .Where(a => a.UserId == person)
+            .Select(a => a.PropertyId)
+            .Distinct()
+            .ToListAsync(ct);
+
+        if (objekte.Count == 0)
+        {
+            throw new RuleViolationException(
+                "Die Person ist an keinem Objekt beteiligt — dann ist es keine Einlage.");
+        }
+
+        if (propertyId is { } gewaehlt)
+        {
+            if (!objekte.Contains(gewaehlt))
+            {
+                throw new RuleViolationException(
+                    "Die Person ist an diesem Objekt nicht beteiligt — dann ist es keine Einlage.");
+            }
+        }
+        else if (objekte.Count > 1)
+        {
+            throw new RuleViolationException(
+                $"Die Person ist an {objekte.Count} Objekten beteiligt. Bitte eines wählen.");
+        }
+
+        // Eine Einlage trägt keine Kategorie — sie ist weder Einnahme noch Ausgabe.
+        entity.Kind = TransactionKind.Deposit;
+        entity.CategoryId = null;
+        entity.DepositUserId = person;
+        entity.PropertyId = propertyId ?? objekte[0];
+    }
+
+    /// <summary>
     /// Prüft Person und Objekt einer Einlage.
     /// </summary>
     /// <remarks>
@@ -296,6 +382,13 @@ public sealed class TransactionService(FinanzAppDbContext db, IClock clock)
             // Eine Umbuchung ist weder Einnahme noch Ausgabe und trägt deshalb keine Kategorie.
             entity.Kind = TransactionKind.Transfer;
             entity.CategoryId = null;
+            await db.SaveChangesAsync(ct);
+            return await GetAsync(id, ct);
+        }
+
+        if (request.MarkAsDeposit)
+        {
+            await MarkDepositAsync(entity, request.DepositUserId, request.PropertyId, ct);
             await db.SaveChangesAsync(ct);
             return await GetAsync(id, ct);
         }

@@ -409,8 +409,10 @@
         @* ── Die gewählte Buchung ─────────────────────────────────────────────────────── *@
         <TransactionDetail Transaction="sheetTransaction"
                            Categories="categories"
+                           Contributors="ContributorsOf(sheetTransaction)"
                            OnPickCategory="AssignShown"
                            OnPickTransfer="TransferShown"
+                           OnPickDeposit="DepositShownAsync"
                            OnDelete="DeleteSingleAsync"
                            OnClose="CloseSheet" />
     </div>
@@ -986,6 +988,32 @@ else if (sheetTransaction is { } sheet)
         {
             Advance();
         }
+    });
+
+    /// <summary>
+    /// Wer auf das Konto dieser Buchung einzahlt — leer, wenn es kein Gemeinschaftskonto ist.
+    /// </summary>
+    private IReadOnlyList<JointContributorDto> ContributorsOf(TransactionDto? buchung)
+        => buchung is null
+            ? []
+            : joint.FirstOrDefault(j => j.AccountId == buchung.AccountId)?.Contributors ?? [];
+
+    /// <summary>
+    /// Macht aus der gezeigten Buchung eine Einlage.
+    /// </summary>
+    /// <remarks>
+    /// Das Objekt bestimmt der Server, solange die Person an genau einem beteiligt ist. Es hier
+    /// zu raten hieße, eine Zurechnung zu erfinden, die der Ausgleichsstand dann trägt.
+    /// </remarks>
+    private Task DepositShownAsync(int userId) => RunAsync(async () =>
+    {
+        var updated = await Api.AssignCategoryAsync(
+            sheetTransaction!.Id,
+            new AssignCategoryRequest { MarkAsDeposit = true, DepositUserId = userId });
+
+        Apply(updated);
+        await ReloadAsync();
+        Toasts.Show("Als Einlage markiert");
     });
 
     /// <summary>Eine Umbuchung ist keine Kategorie — hier entsteht darum auch keine Regel.</summary>
