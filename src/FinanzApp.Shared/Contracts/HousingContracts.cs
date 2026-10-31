@@ -466,6 +466,30 @@ public sealed record ScanInboxItemDto
     public string? DuplicateOfTitle { get; init; }
 
     /// <summary>
+    /// Was der Text vermuten lässt, wenn keine Leseregel gegriffen hat.
+    /// </summary>
+    /// <remarks>
+    /// <para>Gerechnet und nicht gespeichert: Der Vorschlag entsteht bei jedem Aufruf neu aus
+    /// dem gelesenen Text. Eine gespeicherte Vermutung liefe den Regeln davon, sobald jemand
+    /// eine ändert — und sie stünde noch am Beleg, wenn sie längst widerlegt wäre.</para>
+    /// <para><c>null</c> heißt: Der Text gibt nichts her, oder es gibt keinen.</para>
+    /// </remarks>
+    public string? SuggestedType { get; init; }
+
+    /// <summary>Der vorgeschlagene Bereich, im Klartext.</summary>
+    public string? SuggestedArea { get; init; }
+
+    /// <summary>
+    /// Ob es den vorgeschlagenen Dokumenttyp im Haushalt schon gibt.
+    /// </summary>
+    /// <remarks>
+    /// Gibt es ihn nicht, bietet die Zeile an, ihn anzulegen. Den Benutzer stattdessen in die
+    /// Typenverwaltung zu schicken hieße, ihn für eine Auskunft arbeiten zu lassen, die die
+    /// Anwendung selbst hat.
+    /// </remarks>
+    public bool SuggestedTypeExists { get; init; }
+
+    /// <summary>
     /// Gelesene Werte, die noch niemand übernommen hat.
     /// </summary>
     /// <remarks>

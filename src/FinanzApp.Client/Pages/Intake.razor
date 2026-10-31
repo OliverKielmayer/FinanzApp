@@ -1,0 +1,204 @@
+@page "/einlesen"
+@attribute [Authorize(Roles = "Owner,Member")]
+@inherits AppPage
+
+@*
+    Ein Weg für jeden Beleg.
+
+    Vorher standen im Erfassen-Fenster fünf Türen für Papier — Statusreport, Arztrechnung,
+    Rechnung, Kontoauszug, Beleg — und jede führte in einen eigenen Leser. Wer eine Arztrechnung
+    unter „Beleg scannen“ hochlud, bekam die Statusreport-Regeln. Der Benutzer musste das
+    Dokument einordnen, bevor die Maschine es ansah.
+
+    Dabei kann die Maschine es längst: Derselbe Trichter, durch den der Ordnerdienst jede Datei
+    schickt, erkennt Vermögensübersicht, Kontoauszug und Beleg selbst — und schlägt seit Kurzem
+    auch vor, wo ein unerkanntes Schreiben hingehört. Hier liegt er offen.
+*@
+
+<PageTitle>Beleg einlesen — FinanzApp</PageTitle>
+
+@if (ergebnis is { } fertig)
+{
+    <div class="proposal">
+        <span class="proposal-kicker">@Kicker(fertig)</span>
+        <span class="proposal-label">@Bezeichnung(fertig)</span>
+    </div>
+
+    <div class="detail-block">
+        <span class="detail-label">Abgelegt</span>
+        <span class="detail-value break num">@fertig.RelativePath</span>
+    </div>
+
+    @if (fertig.TargetName is { Length: > 0 } ziel)
+    {
+        <div class="detail-block">
+            <span class="detail-label">@(fertig.TargetNoun ?? "Gehört zu")</span>
+            <span class="detail-value">@ziel</span>
+        </div>
+    }
+
+    @if (fertig.Missing is { Length: > 0 } fehlt)
+    {
+        <div class="notice">
+            <span class="notice-title">Noch nicht vollständig zugeordnet</span>
+            <span class="notice-text">@fehlt</span>
+        </div>
+    }
+
+    @if (fertig.DuplicateOfDocumentId is { } vorhanden)
+    {
+        <div class="notice">
+            <span class="notice-title">Schon einmal da gewesen</span>
+            <span class="notice-text">
+                Ein Beleg mit derselben Ablage liegt bereits im Bestand. Es kann eine berichtigte
+                Fassung sein — das entscheidet kein Dienst.
+            </span>
+            <a class="section-link" href="@($"/dokumente/{vorhanden}")">Den vorhandenen ansehen</a>
+        </div>
+    }
+
+    <div class="actions entry-actions">
+        @if (fertig.InboxId is not null)
+        {
+            <button type="button" class="btn btn-primary"
+                    @onclick="@(() => Navigation.NavigateTo("/scaneingang"))">
+                Im Scaneingang zuordnen
+            </button>
+        }
+        <button type="button" class="btn btn-secondary" @onclick="Reset">Noch einen einlesen</button>
+    </div>
+
+    <div class="spacer"></div>
+}
+else
+{
+    <div class="import-panel blueprint">
+        <i class="corner tl" aria-hidden="true"></i>
+        <i class="corner tr" aria-hidden="true"></i>
+        <i class="corner bl" aria-hidden="true"></i>
+        <i class="corner br" aria-hidden="true"></i>
+
+        <span class="kicker">Beleg einlesen</span>
+
+        @if (laeuft)
+        {
+            @* Kein Spinner, sondern die Kette — man sieht, wo es steht. *@
+            <div class="chain">
+                @foreach (var (name, fertigSchritt) in Schritte)
+                {
+                    <div class="chain-step @(fertigSchritt ? "done" : "current")">
+                        <span class="chain-mark" aria-hidden="true">@(fertigSchritt ? "✓" : "◻")</span>
+                        <span class="chain-title">@name</span>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <span class="create-help">
+                Statusreport, Kontoauszug, Vermögensübersicht, Rechnung, irgendein Schreiben —
+                einerlei. Die Anwendung sieht selbst nach, was es ist, legt es ab und stellt es in
+                den Scaneingang. Was sie nicht erkennt, bekommt einen Vorschlag und wartet auf Sie.
+            </span>
+
+            <div class="note-field">
+                <InputFile class="input" accept=".pdf,.xml,.csv,.xlsx,image/*" OnChange="OnPicked" />
+            </div>
+
+            <span class="create-help">
+                Der Beleg landet im Dokumentordner; die Anwendung merkt sich nur den Pfad.
+                Derselbe Weg wie der überwachte Ordner — wer einen Scanner hat, legt die Datei
+                gleich dort hinein und braucht diese Seite nicht.
+            </span>
+        }
+    </div>
+
+    @if (fehler is { Length: > 0 })
+    {
+        <div class="notice">
+            <span class="notice-title">Nicht eingelesen</span>
+            <span class="notice-text">@fehler</span>
+        </div>
+    }
+
+    <div class="spacer"></div>
+}
+
+@code {
+    private ScanIntakeResultDto? ergebnis;
+    private bool laeuft;
+    private int schritt;
+    private string? fehler;
+
+    /// <summary>
+    /// Die sichtbare Kette. Sie sagt, welcher Schritt dran wäre — mehr weiß der Client nicht.
+    /// </summary>
+    private (string Name, bool Fertig)[] Schritte =>
+    [
+        ("Datei gelesen", schritt > 0),
+        ("Art bestimmt", schritt > 1),
+        ("Abgelegt", schritt > 2),
+    ];
+
+    protected override Task LoadAsync() => Task.CompletedTask;
+
+    private void Reset()
+    {
+        ergebnis = null;
+        fehler = null;
+        schritt = 0;
+    }
+
+    private async Task OnPicked(InputFileChangeEventArgs e)
+    {
+        if (e.File is not { } datei)
+        {
+            return;
+        }
+
+        laeuft = true;
+        schritt = 0;
+        fehler = null;
+
+        try
+        {
+            var aufruf = Api.TakeInScanAsync(datei.OpenReadStream(25L * 1024 * 1024), datei.Name);
+
+            while (!aufruf.IsCompleted && schritt < 2)
+            {
+                await Task.Delay(220);
+                schritt++;
+                StateHasChanged();
+            }
+
+            ergebnis = await aufruf;
+            schritt = 3;
+        }
+        catch (ApiException ex)
+        {
+            fehler = ex.Message;
+        }
+        finally
+        {
+            laeuft = false;
+        }
+    }
+
+    /// <summary>Die Kopfzeile: was geschehen ist, in einem Wort.</summary>
+    private static string Kicker(ScanIntakeResultDto r) => r.Outcome switch
+    {
+        ScanIntakeOutcome.Assigned => "Erkannt und zugeordnet",
+        ScanIntakeOutcome.Waiting => "Abgelegt · wartet im Eingang",
+        _ => "Schon vorhanden",
+    };
+
+    /// <summary>
+    /// Was die Anwendung gefunden hat.
+    /// </summary>
+    /// <remarks>
+    /// Der erkannte Typ geht vor, dann der gesetzte, dann die Auskunft, dass keiner passt. Ein
+    /// leeres Feld wäre an dieser Stelle die schlechteste Antwort — es sähe aus wie ein Fehler.
+    /// </remarks>
+    private static string Bezeichnung(ScanIntakeResultDto r)
+        => r.KindLabel ?? r.TypeName ?? "Unbekannte Art";
+}

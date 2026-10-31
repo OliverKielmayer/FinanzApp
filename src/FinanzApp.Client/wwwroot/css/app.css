@@ -6042,3 +6042,28 @@ button.repeat-value:disabled {
 .tx-detail-deposit .chipcloud {
   margin: 0;
 }
+
+/* Die selteneren Wege im Erfassen-Fenster: da, aber nicht als erste Entscheidung. */
+.capture-more {
+  margin-top: 14px;
+  border-top: 1px solid var(--color-neutral-300);
+  padding-top: 10px;
+}
+
+.capture-more > summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-neutral-700);
+  padding: 4px 0;
+}
+
+.capture-more > summary:hover {
+  color: var(--color-text);
+}
+
+.capture-more .capture-list {
+  margin-top: 8px;
+}

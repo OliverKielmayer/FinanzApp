@@ -46,6 +46,14 @@ public sealed class ScanInboxService(FinanzAppDbContext db, DocumentService docu
                 .Where(d => verdächtig.Contains(d.Id))
                 .ToDictionaryAsync(d => d.Id, d => d.Title, ct);
 
+        // Die gepflegten Typennamen, damit die Zeile sagen kann, ob der Vorschlag schon einen
+        // hat. Einmal geladen statt je Zeile gefragt.
+        var typen = (await db.DocumentTypes.AsNoTracking()
+                .Where(t => !t.IsRetired)
+                .Select(t => t.Name)
+                .ToListAsync(ct))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         return new ScanInboxDto
         {
             WaitingCount = rows.Count,
@@ -68,6 +76,15 @@ public sealed class ScanInboxService(FinanzAppDbContext db, DocumentService docu
                                        && namen.TryGetValue(vorhanden, out var name)
                         ? name
                         : null,
+
+                    // Nur für das Unerkannte. Wo eine Leseregel gegriffen hat, steht der Typ
+                    // schon fest, und ein zweiter Vorschlag daneben wäre ein Widerspruch.
+                    SuggestedType = Vorschlag(x.Document)?.TypeName,
+                    SuggestedArea = Vorschlag(x.Document) is { } v
+                        ? DocumentPathService.FolderFor(v.Area)
+                        : null,
+                    SuggestedTypeExists = Vorschlag(x.Document) is { } w
+                                          && typen.Contains(w.TypeName),
                     ArrivedOn = DateOnly.FromDateTime(x.CreatedAt),
                 }),
             ],
@@ -126,6 +143,18 @@ public sealed class ScanInboxService(FinanzAppDbContext db, DocumentService docu
     /// <exception cref="ArgumentException">
     /// Der Dokumenttyp oder das Zielobjekt gibt es im eigenen Haushalt nicht.
     /// </exception>
+    /// <summary>
+    /// Was der Text vermuten lässt — nur, wenn keine Leseregel gegriffen hat.
+    /// </summary>
+    /// <remarks>
+    /// Gerechnet statt gespeichert. Der Text steht ohnehin am Dokument; eine zweite Spalte für
+    /// die Vermutung liefe den Regeln davon, sobald jemand eine ändert.
+    /// </remarks>
+    private static FilingSuggestion? Vorschlag(Document? dokument)
+        => dokument is { ScanKind: null }
+            ? FilingSuggestions.For(dokument.ContentText)
+            : null;
+
     public async Task<bool> AssignAsync(
         int id, AssignScanInboxRequest request, CancellationToken ct = default)
     {
@@ -161,6 +190,13 @@ public sealed class ScanInboxService(FinanzAppDbContext db, DocumentService docu
         if (verknuepfung is { Label.Length: > 0 } gefunden)
         {
             await documents.RefileAsync(item.DocumentId, gefunden.Label, ct);
+
+            // Und der Name hinterher. Ein Scanner nennt jede Seite „Scannen0007“; nach dem
+            // Umlegen liegt sie zwar beim richtigen Vertrag, heißt aber weiter so — und im
+            // Dateimanager unterscheidet nichts die eine von der nächsten. Ein gepflegter Name
+            // bleibt unangetastet, dieselbe Regel wie beim Umlegen.
+            await documents.RenameIfScannedAsync(
+                item.DocumentId, typ.Name, gefunden.Label, dokument.DocumentDate, ct);
         }
 
         // Über dieselbe Schwelle wie jeder andere Beleg. Die Regel steht einmal, und sie gilt

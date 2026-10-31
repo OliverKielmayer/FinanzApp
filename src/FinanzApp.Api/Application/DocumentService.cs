@@ -479,6 +479,79 @@ public sealed class DocumentService(
     }
 
     /// <summary>
+    /// Die Namen, die ein Gerät vergibt, wenn niemand einen nennt.
+    /// </summary>
+    /// <remarks>
+    /// Sie sind nicht falsch, sie sagen nur nichts: Ein Scanner zählt durch, ein Telefon nimmt
+    /// das Datum der Aufnahme. Wer im Dateimanager sucht, unterscheidet daran keine zwei
+    /// Belege. Alles andere gilt als <em>gepflegt</em> und bleibt stehen — die Grenze muss
+    /// eng sein, denn ein überschriebener Name ist nicht zurückzuholen.
+    /// </remarks>
+    private static readonly System.Text.RegularExpressions.Regex GeraeteName =
+        new(@"^(scannen|scan|bild|image|img|dokument|document|doc|pdf|datei|file)[ _-]*\d*$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase
+            | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    /// <summary>
+    /// Benennt einen Beleg um, der noch den Namen seines Geräts trägt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Nach dem Zuordnen im Eingang liegt der Beleg beim richtigen Vertrag und heißt
+    /// weiter „Scannen0007“. Der Ordner stimmt dann, der Name nicht — und im Dateimanager
+    /// unterscheidet nichts die eine Seite von der nächsten.</para>
+    /// <para>Angefasst wird <b>nur</b>, was nach einem Gerätenamen aussieht. Was ein Mensch
+    /// benannt hat, bleibt: Ein überschriebener Name ist nicht zurückzuholen, und die Anwendung
+    /// weiß nicht besser als er, wie sein Beleg heißen soll.</para>
+    /// <para>Gibt den neuen Pfad zurück oder <c>null</c>, wenn nichts zu tun war.</para>
+    /// </remarks>
+    public async Task<string?> RenameIfScannedAsync(
+        int documentId, string typeName, string targetName, DateOnly? documentDate,
+        CancellationToken ct = default)
+    {
+        var document = await db.Documents.FirstOrDefaultAsync(d => d.Id == documentId, ct);
+        if (document is null)
+        {
+            return null;
+        }
+
+        var stamm = Path.GetFileNameWithoutExtension(document.FileName);
+        if (!GeraeteName.IsMatch(stamm))
+        {
+            return null;
+        }
+
+        var teile = new List<string> { typeName, targetName };
+        if (documentDate is { } tag)
+        {
+            teile.Add(tag.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        var neu = DocumentPathService.Sanitize(
+            string.Join("_", teile.Where(s => !string.IsNullOrWhiteSpace(s)))
+            + Path.GetExtension(document.FileName));
+
+        if (string.Equals(neu, document.FileName, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var ordner = FilingFolder(document.RelativePath);
+        var ziel = paths.Move(document.RelativePath, ordner + neu);
+
+        if (ziel is null)
+        {
+            return null;
+        }
+
+        document.RelativePath = ziel;
+        document.FileName = Path.GetFileName(ziel);
+        document.UpdatedAt = clock.Now;
+        await db.SaveChangesAsync(ct);
+
+        return ziel;
+    }
+
+    /// <summary>
     /// Holt einen Beleg aus dem Ordner <c>Unbekannt</c> heraus, sobald sein Objekt feststeht.
     /// </summary>
     /// <remarks>

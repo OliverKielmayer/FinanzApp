@@ -20,48 +20,61 @@
     </div>
 
     <div class="sheet-body">
+        @*
+            Eine Tür für Papier, nicht fünf.
+
+            Vorher stand hier je ein Eingang für Statusreport, Arztrechnung, Rechnung,
+            Kontoauszug und „Beleg“ — und jeder führte in einen eigenen Leser. Der Benutzer
+            musste einordnen, bevor die Maschine hingesehen hatte, und wer sich vergriff, bekam
+            die falschen Leseregeln. Dabei erkennt derselbe Trichter, durch den der überwachte
+            Ordner jede Datei schickt, die Art selbst.
+        *@
         <div class="capture-list">
-            <button type="button" class="btn btn-primary capture-item" @onclick="@(() => Go("/gesundheit/scannen"))">
-                Beleg scannen
+            <button type="button" class="btn btn-primary capture-item" @onclick="@(() => Go("/einlesen"))">
+                Beleg einlesen
             </button>
             <button type="button" class="btn btn-secondary capture-item" @onclick="@(() => Go("/erfassen"))">
                 Buchung erfassen
             </button>
-            @* Statusreport und Quartalsaufstellung liest die Anwendung selbst aus; deshalb
-               steht dieser Weg oben und nicht bei den Masken, die von Hand gefüllt werden. *@
-            <button type="button" class="btn btn-secondary capture-item" @onclick="@(() => Go("/scannen"))">
-                Statusreport / Quartalsaufstellung (PDF)
-            </button>
-            <button type="button" class="btn btn-secondary capture-item"
-                    @onclick="@(() => Go("/gesundheit/scannen?art=arztrechnung"))">
-                Arztrechnung / PKV
-            </button>
-            <button type="button" class="btn btn-secondary capture-item"
-                    @onclick="@(() => Go("/gesundheit/scannen?art=rechnung"))">
-                Rechnung
-            </button>
-            @* Kontoauszug und Scaneingang sind Zustände dieses Flusses, keine
-               Navigationsziele: der Nutzer sucht die Tür, nicht das Dateiformat. *@
-            <button type="button" class="btn btn-secondary capture-item" @onclick="@(() => Go("/import"))">
-                Kontoauszug einlesen
-            </button>
             <button type="button" class="btn btn-secondary capture-item" @onclick="@(() => Go("/scaneingang"))">
                 Scaneingang öffnen@(WaitingLabel)
-            </button>
-            <button type="button" class="btn btn-secondary capture-item" @onclick="@(() => Go("/dokumente?neu=1"))">
-                Dokument verknüpfen
-            </button>
-            <button type="button" class="btn btn-secondary capture-item" @onclick="@(() => Go("/vorgaenge?neu=1"))">
-                Aufgabe / Frist
             </button>
             <button type="button" class="btn btn-secondary capture-item" @onclick="@(() => Go("/neu"))">
                 Objekt oder Vertrag anlegen
             </button>
+            <button type="button" class="btn btn-secondary capture-item" @onclick="@(() => Go("/vorgaenge?neu=1"))">
+                Aufgabe / Frist
+            </button>
         </div>
 
         <span class="capture-note">
-            Der Beleg landet im Dokumentordner; die Anwendung merkt sich nur den Pfad.
+            Der Beleg landet im Dokumentordner; die Anwendung merkt sich nur den Pfad. Wer einen
+            Scanner hat, legt die Datei gleich in den überwachten Ordner — dann braucht es auch
+            diesen Weg nicht.
         </span>
+
+        @*
+            Die alten Türen bleiben erreichbar, aber nicht als erste Entscheidung. Wer weiß, dass
+            er einen Kontoauszug in der Hand hält, soll ihn direkt importieren dürfen.
+        *@
+        <details class="capture-more">
+            <summary>Wenn Sie es genau wissen</summary>
+            <div class="capture-list">
+                <button type="button" class="btn btn-ghost capture-item" @onclick="@(() => Go("/import"))">
+                    Kontoauszug importieren
+                </button>
+                <button type="button" class="btn btn-ghost capture-item" @onclick="@(() => Go("/scannen"))">
+                    Statusreport / Quartalsaufstellung
+                </button>
+                <button type="button" class="btn btn-ghost capture-item"
+                        @onclick="@(() => Go("/gesundheit/scannen?art=arztrechnung"))">
+                    Arztrechnung / PKV
+                </button>
+                <button type="button" class="btn btn-ghost capture-item" @onclick="@(() => Go("/dokumente?neu=1"))">
+                    Dokument verknüpfen
+                </button>
+            </div>
+        </details>
     </div>
 </div>
 

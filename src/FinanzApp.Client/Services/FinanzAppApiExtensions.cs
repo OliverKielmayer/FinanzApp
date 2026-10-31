@@ -405,6 +405,26 @@ public static class FinanzAppApiExtensions
         return await api.PostFormAsync<DocumentAnalysisDto>($"api/create/{type}/analyse", form, ct);
     }
 
+    /// <summary>
+    /// Liefert einen Beleg ein — derselbe Weg, den auch der überwachte Ordner nimmt.
+    /// </summary>
+    /// <remarks>
+    /// Kein eigener Leser je Dokumentart: Der Trichter dahinter erkennt Vermögensübersicht,
+    /// Kontoauszug und Beleg selbst. Wer vorher wählen muss, was er in der Hand hält, ordnet
+    /// ein, bevor die Maschine hingesehen hat.
+    /// </remarks>
+    public static async Task<ScanIntakeResultDto> TakeInScanAsync(
+        this FinanzAppApi api, Stream content, string fileName, CancellationToken ct = default)
+    {
+        using var form = new MultipartFormDataContent();
+        using var file = new StreamContent(content);
+        file.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        form.Add(file, "file", fileName);
+
+        return await api.PostFormAsync<ScanIntakeResultDto>(
+            "api/scan/intake?source=Erfassen", form, ct);
+    }
+
     // ── Fahrzeuge und Scaneingang ──────────────────────────────────────────────
 
     public static Task<IReadOnlyList<VehicleListItemDto>> GetVehiclesAsync(

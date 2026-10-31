@@ -59,6 +59,31 @@
                 gar nicht erst herein — was hier steht, ist der unsichere Fall, und der braucht
                 einen Blick auf beide Belege. Der Verweis führt deshalb zum vorhandenen.
             *@
+            @*
+                Was der Text vermuten lässt, wenn keine Leseregel gegriffen hat. Ein Vorschlag
+                und keine Zuordnung — bestätigt wird von Hand, immer. Fehlt der Typ noch in der
+                Liste des Haushalts, steht das dabei: Den Benutzer dafür in die Typenverwaltung
+                zu schicken hieße, ihn für eine Auskunft arbeiten zu lassen, die hier vorliegt.
+            *@
+            @if (!item.Recognised && item.SuggestedType is { Length: > 0 } geraten)
+            {
+                <div class="doc-duplicate">
+                    Dem Text nach eine <strong>@geraten</strong>, Ablage unter @item.SuggestedArea.
+                    @if (item.SuggestedTypeExists)
+                    {
+                        <text>Den Typ gibt es — beim Zuordnen auswählen.</text>
+                    }
+                    else
+                    {
+                        <text>
+                            Diesen Dokumenttyp gibt es im Haushalt noch nicht.
+                            <a href="/dokumenttypen">Jetzt anlegen</a>, dann steht er beim Zuordnen
+                            zur Auswahl.
+                        </text>
+                    }
+                </div>
+            }
+
             @if (item.DuplicateOfDocumentId is { } vorhanden)
             {
                 <div class="doc-duplicate">
