@@ -232,7 +232,28 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseBlazorFrameworkFiles();
-app.UseStaticFiles();
+
+// Im Entwicklungsbetrieb soll der Browser jede Datei nachfragen, statt sie zu raten.
+//
+// Ohne Cache-Control schätzt er selbst, wie lange eine Datei frisch bleibt — üblicherweise ein
+// Zehntel ihres Alters. Eine eben geänderte Datei gilt damit ein paar Minuten als gültig, und
+// genau in dieses Fenster fällt das Neuladen nach einer Änderung: der Entwickler sieht neues
+// Markup mit altem Stylesheet und sucht den Fehler im Code. Mit „no-cache“ behält der Browser
+// die Datei, fragt aber jedes Mal nach — ist sie unverändert, kommt 304 zurück.
+//
+// Nur hier. Im Betrieb ist das Raten richtig; dort ändert sich zwischen zwei Besuchen nichts.
+var entwicklung = app.Environment.IsDevelopment();
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = context =>
+    {
+        if (entwicklung)
+        {
+            context.Context.Response.Headers.CacheControl = "no-cache";
+        }
+    },
+});
 
 app.UseRateLimiter();
 app.UseAuthentication();
