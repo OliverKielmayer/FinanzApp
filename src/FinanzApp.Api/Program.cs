@@ -152,10 +152,19 @@ builder.Services.AddSingleton<IBillTextExtractor, NoBillTextExtractor>();
 // Anlege-Flow trotzdem — nur mit leerer Maske.
 builder.Services.AddSingleton<IPolicyDocumentAnalyzer, NoPolicyDocumentAnalyzer>();
 
-// Der PDF-Leser hinter derselben Art Schnittstelle. Er braucht keine Texterkennung: Originale
-// von Versicherung und Bank tragen eine Textebene. Was keine hat, wird abgelegt und von Hand
-// erfasst — der Beleg-Flow hängt nicht an ihm.
-builder.Services.AddSingleton<IPdfTextReader, PdfPigTextReader>();
+// Der Leser hinter derselben Art Schnittstelle, und hinter ihm zwei: die Textebene eines PDF
+// und, für Fotos und Scans, eine Texterkennung. Welcher zuständig ist, entscheiden die ersten
+// Bytes der Datei.
+//
+// Originale von Versicherung und Bank tragen eine Textebene und brauchen keine Erkennung — der
+// Beleg-Weg hängt nicht an ihr. Ist keine eingerichtet, wird ein Bild abgelegt und als
+// ungelesen gemeldet; genau so war es, bevor es sie gab.
+var ocrOptions = builder.Configuration.GetSection(OcrOptions.SectionName)
+                     .Get<OcrOptions>() ?? new OcrOptions();
+builder.Services.AddSingleton(ocrOptions);
+builder.Services.AddSingleton<PdfPigTextReader>();
+builder.Services.AddSingleton<ImageTextReader>();
+builder.Services.AddSingleton<IPdfTextReader, ScanTextReader>();
 
 builder.Services.AddScoped<ObjectLabelService>();
 builder.Services.AddScoped<DocumentService>();

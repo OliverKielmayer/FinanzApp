@@ -71,6 +71,41 @@ Alle drei Benutzer des Haushalts *Haushalt Kielmayer* teilen das Passwort
 > erst beim `dotnet publish` in das `wwwroot` der API wandern. Im Entwicklungsbetrieb darf das
 > Anmelde-Cookie außerdem über HTTP laufen; in jeder anderen Umgebung verlangt es HTTPS.
 
+### Texterkennung für Fotos und Scans
+
+Ein Beleg kommt auf vier Wegen herein: als Datei, aus dem überwachten Ordner, **mit der Kamera**
+und als Kontoauszug über den Import. Für die ersten beiden tragen die Originale von Versicherung
+und Bank eine Textebene — da ist nichts zu erkennen. Ein Foto und ein Scan tragen keine.
+
+`Texterkennung:Command` zeigt auf das Hilfsprogramm. **Leer heißt: keine Erkennung** — ein Bild
+wird dann abgelegt und sagt am Beleg, dass es ungelesen ist. Dieselbe Regel wie beim Mailversand:
+was nicht eingerichtet ist, läuft nicht und behauptet auch nicht, es liefe.
+
+```bash
+dotnet build src/FinanzApp.Texterkennung
+```
+
+Danach den Pfad zur gebauten `FinanzApp.Texterkennung.exe` eintragen, oder als Umgebungsvariable
+`Texterkennung__Command` setzen. `Texterkennung:Language` ist die Sprache **des Papiers** (Vorgabe
+`de`), nicht die des Rechners: eine englische Erkennung verliest deutsche Wörter, ohne es zu
+melden.
+
+Das Programm benutzt die in Windows eingebaute Erkennung. Sie kommt mit dem Sprachpaket —
+*Einstellungen › Zeit und Sprache › Sprache*, dort bei den Sprachoptionen die **Texterkennung**
+mitinstallieren. Fehlt sie, sagt das Programm genau das.
+
+Es ist bewusst ein **eigener Prozess** und keine Bibliothek: die Erkennung von Windows liegt in
+WinRT und verlangt einen Windows-Zielrahmen. Hätte die API ihn, hätten ihn auch die Tests, und
+auf einem Linux-Rechner ließe sich nichts mehr bauen. Was das Programm liefert, sind Wörter mit
+Koordinaten — damit ist es gegen eine andere Erkennung austauschbar, ohne dass die API davon
+erfährt.
+
+**Gelesen wird danach wie bei jedem PDF.** Aus den Wörtern setzt dieselbe Stelle die Zeilen und
+Spalten, die auch die Textebene eines PDF verarbeitet, und dieselben Leseregeln greifen darauf.
+Vor allem: dieselben Rechenproben prüfen nach. Eine verlesene Zahl bringt die Fondstabelle nicht
+mehr auf den ausgewiesenen Gesamtwert, und der Beleg sagt das — statt sie still in einen Vertrag
+zu schreiben.
+
 ### Dokumentordner und Mailversand
 
 `Documents:Root` in `appsettings.json` bestimmt, wo die Dateien liegen (Vorgabe
@@ -116,6 +151,7 @@ src/
     Endpoints/             HTTP-Oberfläche, ohne Fachlogik
     Infrastructure/        Uhr, aktueller Benutzer, Rollen, Mail, Dokumentablage, Belegerkennung
   FinanzApp.Ordnerdienst/  Windows-Dienst: überwachter Ordner → POST /api/scan/intake
+  FinanzApp.Texterkennung/ Windows-Programm: Bild → erkannte Wörter mit Koordinaten
   FinanzApp.Client/
     Layout/                Kopfzeile, Tab-Bar, Seitennavigation, Anmelderahmen
     Pages/                 die Screens

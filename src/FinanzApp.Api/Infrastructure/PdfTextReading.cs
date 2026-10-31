@@ -21,6 +21,26 @@ public sealed record PdfLine(int Page, IReadOnlyList<string> Cells)
 }
 
 /// <summary>
+/// Woher der gelesene Text stammt.
+/// </summary>
+/// <remarks>
+/// Es ist ein Unterschied, ob eine Zahl im Papier steht oder ob eine Erkennung sie aus einem
+/// Bild gelesen hat — und der Unterschied gehört an den Beleg. Was erkannt wurde, prüfen die
+/// Rechenproben wie jeden anderen Wert nach; verschwiegen wäre es eine Zahl wie jede andere.
+/// </remarks>
+public enum TextSource
+{
+    /// <summary>Aus der Textebene eines PDF.</summary>
+    PdfTextLayer = 0,
+
+    /// <summary>Ein Bild, das niemand gelesen hat — es ist keine Erkennung eingerichtet.</summary>
+    Image = 1,
+
+    /// <summary>Aus einer Texterkennung über ein Bild.</summary>
+    Recognition = 2,
+}
+
+/// <summary>
 /// Was ein PDF hergibt.
 /// </summary>
 /// <remarks>
@@ -48,19 +68,36 @@ public sealed record PdfContent
 
     public required int ImageCount { get; init; }
 
+    /// <summary>Woher der Text kommt. Vorgabe ist die Textebene eines PDF.</summary>
+    public TextSource Source { get; init; } = TextSource.PdfTextLayer;
+
     /// <summary>Wie der Vorschlagsschritt die Beschaffenheit nennt.</summary>
     /// <remarks>
-    /// Drei Befunde, nicht zwei: eine Datei ohne Seiten ist nicht bildlastig, sondern gar nicht
-    /// erst zu öffnen. „Nur Bild“ zu melden, wo das Format kaputt ist, schickte den Nutzer auf
-    /// die Suche nach einer Texterkennung, die ihm nicht hilft.
+    /// <para>Drei Befunde am PDF, nicht zwei: eine Datei ohne Seiten ist nicht bildlastig,
+    /// sondern gar nicht erst zu öffnen. „Nur Bild“ zu melden, wo das Format kaputt ist,
+    /// schickte den Nutzer auf die Suche nach einer Texterkennung, die ihm nicht hilft.</para>
+    /// <para>Und drei am Bild: keine Erkennung eingerichtet, Erkennung ohne Fund, Erkennung mit
+    /// Text. Die ersten beiden sehen auf dem Schirm gleich aus — leere Maske — und verlangen
+    /// Verschiedenes. Beim einen fehlt eine Einrichtung, beim anderen eine bessere Aufnahme.</para>
     /// </remarks>
-    public string Note => PageCount == 0
-        ? "die Datei ließ sich nicht als PDF lesen"
-        : !HasTextLayer
-            ? "nur Bild — ohne Texterkennung nichts auszulesen"
-            : TextIsInvisible
-                ? "Seitenbilder mit Textebene darunter"
-                : "durchsuchbarer Text";
+    public string Note => Source switch
+    {
+        TextSource.Image =>
+            "ein Bild — ohne eingerichtete Texterkennung ist daraus nichts auszulesen",
+
+        TextSource.Recognition when !HasTextLayer =>
+            "ein Bild — die Texterkennung hat darauf keinen Text gefunden",
+
+        TextSource.Recognition => "aus dem Bild erkannter Text",
+
+        _ => PageCount == 0
+            ? "die Datei ließ sich nicht als PDF lesen"
+            : !HasTextLayer
+                ? "nur Bild — ohne Texterkennung nichts auszulesen"
+                : TextIsInvisible
+                    ? "Seitenbilder mit Textebene darunter"
+                    : "durchsuchbarer Text",
+    };
 }
 
 /// <summary>
@@ -159,122 +196,22 @@ public sealed class PdfPigTextReader : IPdfTextReader
     }
 
     /// <summary>
-    /// Die Zeilen einer Seite, aus den Koordinaten gesetzt.
+    /// Die Wörter einer Seite, an den gemeinsamen Zeilensetzer gereicht.
     /// </summary>
     /// <remarks>
-    /// <para>Nicht in Inhaltsreihenfolge: die schreibt der Erzeuger, wie es ihm passt. Die echte
-    /// Quartalsaufstellung liefert so <c>„EUR95.558,12763 A0RPWHStück“</c> — vier Spalten einer
-    /// Tabellenzeile, ineinandergeschoben. Wer darauf ein Feld abbildet, bildet es auf Zufall ab.</para>
-    /// <para>Also: Wörter nach ihrer Höhe zu Zeilen bündeln, innerhalb der Zeile nach links/rechts
-    /// ordnen und dort trennen, wo ein Zwischenraum breiter ist als ein paar Zeichen. Was dabei
-    /// entsteht, ist die Tabellenstruktur des Blattes.</para>
+    /// Das Vorzeichen ist der ganze Unterschied zwischen einem PDF und einem Bild: hier wächst Y
+    /// nach oben, dort nach unten. <see cref="TextWord.Middle"/> zählt in Leserichtung, also
+    /// kehrt die Umrechnung es um. Alles Weitere — bündeln, ordnen, in Spalten trennen — gilt
+    /// für beide Quellen gleich und steht deshalb in <see cref="TextLayout"/>.
     /// </remarks>
     private static IEnumerable<PdfLine> Lines(Page page)
-    {
-        var woerter = page.GetWords(NearestNeighbourWordExtractor.Instance)
-            .Where(w => Clean(w.Text).Length > 0)
-            .ToList();
-
-        if (woerter.Count == 0)
-        {
-            yield break;
-        }
-
-        // Von oben nach unten. Im PDF wächst Y nach oben, gelesen wird andersherum.
-        foreach (var zeile in Rows(woerter))
-        {
-            yield return new PdfLine(page.Number, Cells(zeile));
-        }
-    }
-
-    /// <summary>
-    /// Wörter zu Zeilen bündeln.
-    /// </summary>
-    /// <remarks>
-    /// Über die Mitte der Grundlinie, nicht über die Unterkante: Ziffern, Großbuchstaben und
-    /// Buchstaben mit Unterlänge sitzen unterschiedlich tief, stehen aber in derselben Zeile.
-    /// Die Toleranz richtet sich nach der Schrifthöhe des Wortes selbst, damit eine Überschrift
-    /// nicht dieselbe Toleranz bekommt wie eine Fußnote.
-    /// </remarks>
-    private static IEnumerable<List<Word>> Rows(List<Word> woerter)
-    {
-        var sortiert = woerter.OrderByDescending(Middle).ThenBy(w => w.BoundingBox.Left).ToList();
-
-        var laufend = new List<Word> { sortiert[0] };
-        var hoehe = Middle(sortiert[0]);
-
-        foreach (var wort in sortiert.Skip(1))
-        {
-            var toleranz = Math.Max(1.5, wort.BoundingBox.Height * 0.4);
-
-            if (Math.Abs(Middle(wort) - hoehe) <= toleranz)
-            {
-                laufend.Add(wort);
-                continue;
-            }
-
-            yield return laufend;
-            laufend = [wort];
-            hoehe = Middle(wort);
-        }
-
-        yield return laufend;
-    }
-
-    /// <summary>
-    /// Eine Zeile in ihre Spalten zerlegen.
-    /// </summary>
-    /// <remarks>
-    /// Ein Zwischenraum von mehr als etwa zwei Zeichenbreiten ist keine Wortlücke mehr, sondern
-    /// ein Spaltenabstand. Die Zeichenbreite wird aus dem vorangehenden Wort geschätzt — eine
-    /// feste Punktzahl träfe bei 7 pt und bei 14 pt nie beide.
-    /// </remarks>
-    private static List<string> Cells(List<Word> zeile)
-    {
-        var sortiert = zeile.OrderBy(w => w.BoundingBox.Left).ToList();
-
-        var spalten = new List<string>();
-        var laufend = new List<string> { Clean(sortiert[0].Text) };
-        var vorher = sortiert[0];
-
-        foreach (var wort in sortiert.Skip(1))
-        {
-            var zeichen = vorher.Text.Length == 0
-                ? vorher.BoundingBox.Height * 0.5
-                : vorher.BoundingBox.Width / vorher.Text.Length;
-
-            var luecke = wort.BoundingBox.Left - vorher.BoundingBox.Right;
-
-            if (luecke > Math.Max(2.0, zeichen * 2.0))
-            {
-                spalten.Add(string.Join(" ", laufend));
-                laufend = [];
-            }
-
-            laufend.Add(Clean(wort.Text));
-            vorher = wort;
-        }
-
-        spalten.Add(string.Join(" ", laufend));
-        return [.. spalten.Where(s => s.Length > 0)];
-    }
-
-    /// <summary>Die Mitte eines Wortes in der Höhe.</summary>
-    private static double Middle(Word wort)
-        => (wort.BoundingBox.Bottom + wort.BoundingBox.Top) / 2.0;
-
-    /// <summary>
-    /// Geschützte Leerzeichen weg, Trennstriche am Wortende weg.
-    /// </summary>
-    /// <remarks>
-    /// Der Statusreport der Heidelberger trennt am Zeilenende nicht mit einem Bindestrich,
-    /// sondern mit dem Nicht-Zeichen <c>U+00AC</c> — siebzehnmal im Dokument. Bliebe es stehen,
-    /// hieße das Wort „Ge¬“ und keine Suche fände es. Nur am Wortende entfernt: mitten im Text
-    /// wäre ein <c>¬</c> ein Zeichen und keine Trennung.
-    /// </remarks>
-    private static string Clean(string text)
-        => text.Replace(' ', ' ')
-            .Replace("­", string.Empty)
-            .TrimEnd('¬')
-            .Trim();
+        => TextLayout.Lines(
+            page.Number,
+            page.GetWords(NearestNeighbourWordExtractor.Instance)
+                .Select(w => new TextWord(
+                    w.Text,
+                    w.BoundingBox.Left,
+                    w.BoundingBox.Right,
+                    -(w.BoundingBox.Bottom + w.BoundingBox.Top) / 2.0,
+                    w.BoundingBox.Height)));
 }

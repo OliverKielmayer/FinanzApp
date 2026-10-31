@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Ein eigenes Programm und kein Teil der API.
+
+    Die Texterkennung von Windows liegt in WinRT, und die erreicht nur ein Projekt mit einem
+    Windows-Zielrahmen. Bekäme die API diesen Rahmen, bekämen ihn auch die Tests, die sie
+    referenzieren, und der dokumentierte Startbefehl bräuchte fortan die Angabe des Rahmens.
+    Ein Dienst, der auf einem Linux-Rechner gebaut werden soll, ginge gar nicht mehr.
+
+    So bleibt alles, wie es war, und hier liegt das Einzige, was Windows braucht. Was das
+    Programm liefert, ist Text mit Koordinaten — damit lässt es sich gegen eine andere
+    Erkennung austauschen, ohne dass die API davon erfährt.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <AssemblyName>FinanzApp.Texterkennung</AssemblyName>
+    <RootNamespace>FinanzApp.Texterkennung</RootNamespace>
+  </PropertyGroup>
+
+</Project>

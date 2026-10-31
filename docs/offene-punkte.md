@@ -187,10 +187,13 @@ den Jahrgängen bis 2018 kam zuerst kein einziger Wert heraus; die Leseregeln ke
 Schreibweise jetzt (ausgeschriebenes „Euro“, kürzere Abschnittsnamen, Druckmarken links,
 Stichtag mit Monatsnamen). Was dabei liegen blieb:
 
-- **Keine Texterkennung.** Beide Originale tragen eine Textebene — der Statusreport eine
-  unsichtbare hinter vier Seitenbildern. Ein abfotografierter Beleg wird deshalb erkannt,
-  abgelegt und mit leerer Maske gemeldet, aber nicht gelesen. Die Schnittstelle
-  `IPdfTextReader` ist der Platz, an dem eine Erkennung andockt.
+- **Texterkennung gibt es jetzt** — sie dockt an `IPdfTextReader` an, wie hier vorgesehen war.
+  Ein Foto oder Scan läuft über ein eigenes Windows-Programm (`src/FinanzApp.Texterkennung`),
+  das Wörter mit Koordinaten liefert; daraus setzt dieselbe Stelle die Zeilen und Spalten wie
+  aus der Textebene eines PDF, und dieselben Leseregeln und Rechenproben greifen darauf. Ohne
+  eingerichtetes Programm bleibt es beim Alten: abgelegt, als ungelesen gemeldet. Was offen
+  bleibt: ein **PDF, das nur aus Seitenbildern besteht**, geht noch nicht durch die Erkennung —
+  dafür müssten die eingebetteten Bilder erst herausgelöst werden.
 - **Die gelernte Ablageregel wird angezeigt, aber nicht gespeichert.** „Absender X + Typ Y →
   künftig automatisch hierher“ steht auf der Bestätigungsseite; beim nächsten Beleg entsteht
   der Vorschlag wieder aus dem Typ-Datensatz und nicht aus einer gelernten Regel.
