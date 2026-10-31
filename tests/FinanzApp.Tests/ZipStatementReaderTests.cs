@@ -40,7 +40,7 @@ public sealed class ZipStatementReaderTests
                     <AcctSvcrRef>NONREF</AcctSvcrRef>
                     <NtryDtls><TxDtls>
                       <Refs><Prtry><Tp>FI-UMSATZ-ID</Tp><Ref>{umsatzId}</Ref></Prtry></Refs>
-                      <RltdPties><Dbtr><Nm>Carmen Sperrle</Nm></Dbtr></RltdPties>
+                      <RltdPties><Dbtr><Nm>Sabine Keller</Nm></Dbtr></RltdPties>
                     </TxDtls></NtryDtls>
                   </Ntry>
                 </Rpt>

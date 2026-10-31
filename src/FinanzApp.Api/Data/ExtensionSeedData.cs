@@ -111,7 +111,7 @@ public static class ExtensionSeedData
                 "kein Rückkaufswert", 42m, PremiumInterval.Monthly,
                 new DateOnly(2020, 7, 1), null, 1, 250000m),
             ("Wohngebäude", "Wohngebäude", "HUK-Coburg", PolicyKind.Building,
-                "Haus Kammerstatter Straße 10", 412m, PremiumInterval.Yearly,
+                "Haus Birkenstetter Straße 10", 412m, PremiumInterval.Yearly,
                 new DateOnly(2019, 4, 1), new DateOnly(2027, 3, 31), 3, null),
             ("Rechtsschutz", "Rechtsschutz", "ARAG", PolicyKind.LegalExpenses,
                 "bis 31.05.2027", 231m, PremiumInterval.Yearly,

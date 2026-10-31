@@ -165,7 +165,7 @@ public sealed class CamtParserTests
                     <AcctSvcrRef>NONREF</AcctSvcrRef>
                     <NtryDtls><TxDtls>
                       <Refs><Prtry><Tp>FI-UMSATZ-ID</Tp><Ref>{umsatzId}</Ref></Prtry></Refs>
-                      <RltdPties><Dbtr><Nm>Carmen Sperrle</Nm></Dbtr></RltdPties>
+                      <RltdPties><Dbtr><Nm>Sabine Keller</Nm></Dbtr></RltdPties>
                     </TxDtls></NtryDtls>
                   </Ntry>
                 </Rpt>
@@ -211,7 +211,7 @@ public sealed class CamtParserTests
                         <EndToEndId>AD08-D-2026-06-07-21.43.34.736843</EndToEndId>
                         <Prtry><Tp>FI-UMSATZ-ID</Tp><Ref>2026-06-09-00.11.26.628896</Ref></Prtry>
                       </Refs>
-                      <RltdPties><Dbtr><Nm>Carmen Sperrle</Nm></Dbtr></RltdPties>
+                      <RltdPties><Dbtr><Nm>Sabine Keller</Nm></Dbtr></RltdPties>
                     </TxDtls></NtryDtls>
                   </Ntry>
                 </Rpt>

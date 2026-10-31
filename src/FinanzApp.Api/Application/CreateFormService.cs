@@ -1365,7 +1365,7 @@ public sealed class CreateFormService(
             Hint = "Ein bestehendes Darlehen wird verknüpft, nicht kopiert — es bleibt unter Finanzierungen.",
             Fields =
             [
-                Text("name", "Bezeichnung", required: true, placeholder: "z. B. Haus Kammerstatter Straße 10"),
+                Text("name", "Bezeichnung", required: true, placeholder: "z. B. Haus Birkenstetter Straße 10"),
                 Text("address", "Adresse", required: false),
                 Choice("kind", "Typ", required: false,
                 [

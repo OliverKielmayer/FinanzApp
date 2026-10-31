@@ -332,7 +332,7 @@ public sealed class LoanCreateTests : IDisposable
     public async Task Die_Loeschfolge_zaehlt_die_verknuepften_Objekte()
     {
         var angelegt = await Service().CreateAsync(CreateObjectType.Loan, Werte());
-        Haus("Haus Kammerstatter Straße", angelegt.Id);
+        Haus("Haus Birkenstetter Straße", angelegt.Id);
 
         var form = await Service().GetFormAsync(CreateObjectType.Loan, angelegt.Id);
 
@@ -346,7 +346,7 @@ public sealed class LoanCreateTests : IDisposable
     public async Task Bei_zwei_Objekten_steht_die_Folge_im_Plural()
     {
         var angelegt = await Service().CreateAsync(CreateObjectType.Loan, Werte());
-        Haus("Haus Kammerstatter Straße", angelegt.Id);
+        Haus("Haus Birkenstetter Straße", angelegt.Id);
         Haus("Wohnung Bahnhofstraße", angelegt.Id);
 
         var form = await Service().GetFormAsync(CreateObjectType.Loan, angelegt.Id);
@@ -377,7 +377,7 @@ public sealed class LoanCreateTests : IDisposable
     public async Task Geloescht_wird_das_Darlehen_und_nicht_das_Haus()
     {
         var angelegt = await Service().CreateAsync(CreateObjectType.Loan, Werte());
-        Haus("Haus Kammerstatter Straße", angelegt.Id);
+        Haus("Haus Birkenstetter Straße", angelegt.Id);
 
         var result = await Service().DeleteAsync(CreateObjectType.Loan, angelegt.Id!.Value);
 

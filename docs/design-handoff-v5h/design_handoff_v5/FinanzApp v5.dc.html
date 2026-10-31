@@ -1764,7 +1764,7 @@ a{color:var(--color-accent-700)}a:hover{color:var(--color-accent-800)}
           <div style="padding:18px 16px 16px;display:flex;flex-direction:column;gap:6px">
             <span style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">Marktwert · Kauf 2019</span>
             <span style="font-family:'Barlow Condensed';font-weight:700;font-size:46px;line-height:1;letter-spacing:-.035em">{{ propValue }}</span>
-            <span style="font-size:12px;color:var(--color-neutral-700)">Kammerstatter Straße 10, Bühlerzell · 142 m² Wohnfläche</span>
+            <span style="font-size:12px;color:var(--color-neutral-700)">Birkenstetter Straße 10, Bühlerzell · 142 m² Wohnfläche</span>
             <span onClick="{{ editMainProperty }}" style="align-self:flex-start;font-size:11px;font-weight:600;color:var(--color-accent);cursor:pointer;padding-top:2px">Immobilie bearbeiten</span>
           </div>
           <div onClick="{{ goLoan }}" style="border-top:1px solid var(--color-text);padding:13px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;border-bottom:1px solid var(--color-divider)" style-hover="background:rgba(29,31,32,.045)">
@@ -3321,12 +3321,12 @@ class Component extends DCLogic {
       { name: 'Berufsunfähigkeit', note: 'BU-Rente 3.871,36 € monatlich', amount: 118, cycle: 'monatlich', keepName: true, f: { art: 'BU', versicherer: 'Alte Leipziger', beitrag: '118,00', intervall: 'monatlich', frist: '1 Monat' } },
       { name: 'Hausrat HUK', note: 'Kündigung in 18 Tagen möglich', amount: 156, cycle: 'jährlich', urgent: true, f: { art: 'Hausrat', versicherer: 'HUK-Coburg', nummer: 'HR-88 421', beitrag: '156,00', intervall: 'jährlich', ende: '31.12.2027', frist: '3 Monate' } },
       { name: 'Privathaftpflicht', note: '', amount: 89, cycle: 'jährlich', keepName: true, f: { art: 'Haftpflicht', versicherer: 'Adam Riese', beitrag: '89,00', intervall: 'jährlich', ende: '31.12.2027', frist: '3 Monate' } },
-      { name: 'Wohngebäude', note: 'Haus Kammerstatter Straße 10', amount: 412, cycle: 'jährlich', keepName: true, f: { art: 'Wohngebäude', versicherer: 'WGV', beitrag: '412,00', intervall: 'jährlich', frist: '3 Monate' } },
+      { name: 'Wohngebäude', note: 'Haus Birkenstetter Straße 10', amount: 412, cycle: 'jährlich', keepName: true, f: { art: 'Wohngebäude', versicherer: 'WGV', beitrag: '412,00', intervall: 'jährlich', frist: '3 Monate' } },
       { name: 'Kfz WGV', note: 'L-2905 · Wechselfrist 30.11.2026', amount: 618, cycle: 'jährlich', to: 'vehicle', f: { art: 'Kfz', versicherer: 'WGV', beitrag: '618,00', intervall: 'jährlich', frist: '1 Monat' } },
       { name: 'Rechtsschutz', note: '', amount: 231, cycle: 'jährlich', f: { art: 'Rechtsschutz', versicherer: 'ARAG', beitrag: '231,00', intervall: 'jährlich', ende: '31.05.2027', frist: '3 Monate' } },
       { name: 'Krankenversicherung Debeka', note: 'PKV · Erstattungen unter Gesundheit', amount: 742, cycle: 'monatlich', to: 'pkv', keepName: true, f: { art: 'Krankenversicherung', versicherer: 'Debeka', beitrag: '742,00', intervall: 'monatlich', frist: '3 Monate' } },
     ],
-    propertiesX: [{ name: 'Haus Kammerstatter Straße 10', note: '142 m²', value: 395000, main: true, f: { bez: 'Haus Kammerstatter Straße 10', adresse: 'Kammerstatter Straße 10, Bühlerzell', typ: 'Haus', kauf: '2019 · 340.000', markt: '395.000', darlehen: 'Sparkasse · 148.300 €' } }],
+    propertiesX: [{ name: 'Haus Birkenstetter Straße 10', note: '142 m²', value: 395000, main: true, f: { bez: 'Haus Birkenstetter Straße 10', adresse: 'Birkenstetter Straße 10, Bühlerzell', typ: 'Haus', kauf: '2019 · 340.000', markt: '395.000', darlehen: 'Sparkasse · 148.300 €' } }],
     contractsX: [
       { name: 'Strom Stadtwerke', note: '1 Rechnung offen', amount: 142.50, urgent: true, to: 'contract', f: { art: 'Strom', anbieter: 'Stadtwerke', nummer: 'SW-993 210', abschlag: '142,50', frist: '6 Wochen' } },
       { name: 'Internet Telekom', note: 'bis 31.12.2026', amount: 39.99, f: { art: 'Internet', anbieter: 'Telekom', abschlag: '39,99', frist: '4 Wochen' } },
@@ -3493,7 +3493,7 @@ class Component extends DCLogic {
       budget: { kategorie: 'Lebensmittel', periode: 'monatlich', warnung: '90 %' },
       insurance: { art: 'Haftpflicht', intervall: 'jährlich', frist: '3 Monate' },
       property: { typ: 'Haus', darlehen: 'Sparkasse · 148.300 €' },
-      contract: { art: 'Strom', konto: konto, objekt: 'Haus Kammerstatter Straße 10', frist: '6 Wochen' },
+      contract: { art: 'Strom', konto: konto, objekt: 'Haus Birkenstetter Straße 10', frist: '6 Wochen' },
       vehicle: { art: 'Privat', kfz: 'WGV · 618 €' },
     })[kind] || {};
   }
@@ -3667,7 +3667,7 @@ class Component extends DCLogic {
       { id: 'strom', name: 'Rechnung_2026_08.pdf', meta: 'Stromrechnung · Stadtwerke · 01.08.2026', area: 'Wohnen' },
       { id: 'lohn', name: 'Lohn_07_2026.pdf', meta: 'Datei nicht gefunden', area: 'Arbeit', missing: true },
       { id: 'arzt', name: 'R-2026-114.pdf', meta: 'Arztrechnung · Dr. Meyer · 18.08.2026', area: 'Gesundheit' },
-      { id: 'kauf', name: 'Kaufvertrag_2019.pdf', meta: 'Kaufvertrag · Kammerstatter Straße 10 · 04.06.2019', area: 'Wohnen' },
+      { id: 'kauf', name: 'Kaufvertrag_2019.pdf', meta: 'Kaufvertrag · Birkenstetter Straße 10 · 04.06.2019', area: 'Wohnen' },
     ].filter(d => (s.docsHidden || []).indexOf(d.id) < 0);
     const docVisible = docsAll.filter(d => (s.docFilter === 'Alle' || d.area === s.docFilter)
       && (!s.docQuery || (d.name + ' ' + d.meta).toLowerCase().includes(s.docQuery.toLowerCase())));
@@ -3749,7 +3749,7 @@ class Component extends DCLogic {
       inbox: ['Eingang', 'Scaneingang'], pension: ['Finanzen', 'Vorsorge & Kapital'], protection: ['Absicherung', 'Versicherungen'],
       vehicles: ['Mobilität', 'Fahrzeuge'], vehicle: ['Fahrzeug', 'VW Passat'],
       create: [s.editIx !== null ? 'Bearbeiten' : 'Neu', s.editIx !== null ? ({ work: 'Arbeitsverhältnis bearbeiten', account: 'Konto bearbeiten', insurance: 'Versicherung bearbeiten', property: 'Immobilie bearbeiten', contract: 'Vertrag bearbeiten', vehicle: 'Fahrzeug bearbeiten', depot: 'Depot bearbeiten', pension: 'Vorsorgevertrag bearbeiten', budget: 'Budget bearbeiten' })[s.createKind] : ({ account: 'Konto anlegen', insurance: 'Versicherung anlegen', property: 'Immobilie anlegen', contract: 'Vertrag anlegen', vehicle: 'Fahrzeug anlegen', depot: 'Depot anlegen', pension: 'Vorsorgevertrag anlegen', budget: 'Budget anlegen' })[s.createKind]],
-      property: ['Wohnen', 'Kammerstatter Straße'], contract: ['Vertrag', 'Strom'], invoice: ['Rechnung', 'Stadtwerke'],
+      property: ['Wohnen', 'Birkenstetter Straße'], contract: ['Vertrag', 'Strom'], invoice: ['Rechnung', 'Stadtwerke'],
       loan: ['Finanzierungen', 'Darlehen'], reports: ['Analyse', 'Auswertungen'], import: ['Import', 'Importvorschau'], rules: ['Verwaltung', 'Kategorieregeln'], cats: ['Verwaltung', 'Kategorien'],
     };
     const t = titles[s.screen] || titles.dash;
@@ -3966,7 +3966,7 @@ class Component extends DCLogic {
     const CASES_OPEN = pkvCases.concat([
       { title: 'Stromrechnung 08/2026', amount: '−142,50 €', meta: 'fällig in 5 Tagen · Stadtwerke', urgent: true, to: 'invoice' },
       { title: 'Kündigungsfrist Hausrat', amount: '', meta: 'Kündigung bis 30.09.2027 · in 18 Tagen erinnern', urgent: false, to: 'protection' },
-      { title: 'Wartung Heizung fällig', amount: '', meta: 'Kammerstatter Straße · letzte Wartung 09/2025', urgent: false, to: 'property' },
+      { title: 'Wartung Heizung fällig', amount: '', meta: 'Birkenstetter Straße · letzte Wartung 09/2025', urgent: false, to: 'property' },
       { title: '2 Buchungen ohne Kategorie', amount: '', meta: 'aus dem Import vom 21.08.', urgent: false, to: 'accounts' },
     ]);
     const casesOpenN = CASES_OPEN.length;
@@ -4640,7 +4640,7 @@ class Component extends DCLogic {
       prevKind: s.docId === 'lohn' && !s.docFixed ? 'Datei nicht gefunden' : (({ status25: 'Statusreport · 3 Seiten · Stichtag 31.07.2025', police: 'Versicherungsschein · gültig ab 01.02.2026', strom: 'Stromrechnung · 08/2026', lohn: 'Lohnabrechnung · 07/2026', arzt: 'Arztrechnung · R-2026-114', kauf: 'Kaufvertrag · Notar Dr. Bauer' })[s.docId] || 'Links eine Zeile wählen'),
       prevColor: s.docId === 'lohn' && !s.docFixed ? 'var(--color-accent)' : 'var(--color-neutral-700)',
       prevPath: ({ status25: 'Versicherungen/Lebensversicherung/Heidelberger Leben/2025/Statusreport_2025-07-31.pdf', police: 'Versicherungen/Risikoleben/Police_2026.pdf', strom: 'Wohnen/Energie/Strom/Rechnung_2026_08.pdf', lohn: 'Arbeit/Lohn/2026/Lohn_07_2026.pdf', arzt: 'Gesundheit/Rechnungen/2026/R-2026-114.pdf', kauf: 'Wohnen/Immobilie/Kaufvertrag_2019.pdf' })[s.docId] || '—',
-      prevLink: ({ status25: 'Heidelberger Leben (Vorsorge)', police: 'Risikoleben (Absicherung)', strom: 'Strom Stadtwerke · Kammerstatter Straße 10', lohn: 'Lohnabrechnung 07/2026 · EWV', arzt: 'PKV-Vorgang Dr. Meyer', kauf: 'Kammerstatter Straße 10' })[s.docId] || '—',
+      prevLink: ({ status25: 'Heidelberger Leben (Vorsorge)', police: 'Risikoleben (Absicherung)', strom: 'Strom Stadtwerke · Birkenstetter Straße 10', lohn: 'Lohnabrechnung 07/2026 · EWV', arzt: 'PKV-Vorgang Dr. Meyer', kauf: 'Birkenstetter Straße 10' })[s.docId] || '—',
       prevPlaceholder: s.docId === 'lohn' && !s.docFixed ? 'Datei fehlt — Pfad prüfen' : (s.docId ? 'Seite 1' : 'Vorschau erscheint hier'),
       prevAction: s.docId === 'lohn' && !s.docFixed ? 'Pfad korrigieren' : 'Details öffnen',
       openPrevDoc: () => s.docId ? this.setState({ screen: 'docdetail', prev: 'docs' }) : this.flash('Kein Dokument gewählt'),
@@ -4652,7 +4652,7 @@ class Component extends DCLogic {
         strom: [{ label: 'Rechnung 08/2026', kind: 'Rechnung', to: 'invoice' }, { label: 'Strom Stadtwerke', kind: 'Vertrag', to: 'contract' }],
         lohn: [{ label: 'Lohnabrechnung 07/2026', kind: 'Arbeitgeber EWV', to: 'more' }],
         arzt: [{ label: 'PKV-Vorgang Dr. Meyer', kind: 'Vorgang', to: 'pkv' }],
-        kauf: [{ label: 'Kammerstatter Straße 10', kind: 'Immobilie', to: 'property' }],
+        kauf: [{ label: 'Birkenstetter Straße 10', kind: 'Immobilie', to: 'property' }],
       })[s.docId] : []) || []).map(l => ({ label: l.label, kind: l.kind, onOpen: () => this.go(l.to) })),
       addLink: () => this.flash('Objekt zum Verknüpfen wählen'),
       docDelAsked: !!s.docDel,
@@ -4769,7 +4769,7 @@ class Component extends DCLogic {
       invoiceChain: [
         { kind: 'Dokument', label: 'Rechnung_2026_08.pdf', to: 'docdetail' },
         { kind: 'Vertrag', label: 'Strom Stadtwerke', to: 'contract' },
-        { kind: 'Immobilie', label: 'Kammerstatter Straße 10', to: 'property' },
+        { kind: 'Immobilie', label: 'Birkenstetter Straße 10', to: 'property' },
       ].map(c => ({ kind: c.kind, label: c.label, onOpen: () => c.to === 'docdetail' ? this.setState({ docId: 'strom', screen: 'docdetail', prev: 'invoice' }) : this.go(c.to) })),
       assignInvoice: () => this.flash('Passende Buchung: 142,50 € am 23.08.'),
       markPaid: () => { this.setState({ invoicePaid: true }); this.flash('Als bezahlt markiert'); },
@@ -6488,7 +6488,7 @@ class Component extends DCLogic {
         };
       }),
       txExcluded: [
-        { label: 'Darlehenszinsen Kammerstatter Straße', why: 'selbst genutzt — nicht absetzbar' },
+        { label: 'Darlehenszinsen Birkenstetter Straße', why: 'selbst genutzt — nicht absetzbar' },
         { label: 'Kfz-Versicherung', why: 'privat genutzt' },
         { label: 'Kapital-LV Beiträge', why: 'Altvertrag ohne Abzug' },
         { label: 'Erstattete Arztrechnungen', why: 'kein Eigenanteil' },
