@@ -20,6 +20,12 @@ public sealed record DocumentListItemDto
     /// <summary>Woran das Dokument hängt, für die Untertitelzeile.</summary>
     public string? LinkedLabel { get; init; }
 
+    /// <summary>Freie Schlagworte. Sie stehen in der Zeile und greifen in der Suche.</summary>
+    public IReadOnlyList<string> Tags { get; init; } = [];
+
+    /// <summary>Wer es sehen darf. Die Zeile trägt ein Zeichen, wenn es privat ist.</summary>
+    public DocumentSharing Sharing { get; init; } = DocumentSharing.Household;
+
     /// <summary>
     /// Ob die Datei am hinterlegten Pfad liegt. Fehlt sie, bleibt die Zeile stehen und wird
     /// markiert — ausblenden wäre der schlechteste aller Auswege.
@@ -32,6 +38,15 @@ public sealed record DocumentPageDto
     public required IReadOnlyList<DocumentListItemDto> Items { get; init; }
     public required int TotalCount { get; init; }
     public required int MissingFileCount { get; init; }
+
+    /// <summary>
+    /// Wie viele Dokumente noch keinen gelesenen Text haben.
+    /// </summary>
+    /// <remarks>
+    /// Alles, was vor der Suche nach Text abgelegt wurde. Die Zahl steht am Fuß der Liste und
+    /// hängt an einem Knopf: Ein Nachlauf ohne Auslöser wäre eine Funktion, die niemand findet.
+    /// </remarks>
+    public int WithoutTextCount { get; init; }
 }
 
 public sealed record DocumentDetailDto
@@ -50,6 +65,10 @@ public sealed record DocumentDetailDto
     public DateOnly? ValidUntil { get; init; }
     public required DocumentStatus Status { get; init; }
     public required IReadOnlyList<string> Tags { get; init; }
+
+    /// <summary>Wer es sehen darf — Haushalt oder nur der Eigentümer.</summary>
+    public DocumentSharing Sharing { get; init; } = DocumentSharing.Household;
+
     public required bool FileExists { get; init; }
     public required IReadOnlyList<DocumentLinkDto> Links { get; init; }
 
@@ -133,4 +152,16 @@ public sealed record DocumentUploadResultDto
 {
     public required int DocumentId { get; init; }
     public required string RelativePath { get; init; }
+}
+
+/// <summary>Die gewünschte Freigabe eines Dokuments.</summary>
+public sealed record DocumentSharingRequest
+{
+    public required DocumentSharing Sharing { get; init; }
+}
+
+/// <summary>Wie viele Dokumente beim Nachlauf einen Text bekommen haben.</summary>
+public sealed record BackfillResultDto
+{
+    public required int Gelesen { get; init; }
 }

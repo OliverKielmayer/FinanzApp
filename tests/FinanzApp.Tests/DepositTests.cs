@@ -95,7 +95,7 @@ public sealed class DepositTests : IDisposable
                 TestDatabase.PathService(Path.Combine(Path.GetTempPath(), "finanzapp-tests", "einlage")),
                 new ObjectLabelService(context),
                 clock,
-                NullLogger<DocumentService>.Instance),
+                new PdfPigTextReader(), NullLogger<DocumentService>.Instance),
             clock,
             new ParticipationService(context, TestDatabase.SignedIn(alsBenutzer)));
     }

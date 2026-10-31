@@ -12,6 +12,57 @@ public enum DocumentArea
     Housing = 3,
     Work = 4,
     Finance = 5,
+
+    /// <summary>Fahrzeuge — Versicherung, Werkstatt, Steuer, Finanzierung.</summary>
+    /// <remarks>
+    /// Die Anwendung kennt Fahrzeuge als Objekt, die Ablage kannte sie nicht: Jede Werkstattrechnung
+    /// fiel nach „Sonstiges“, obwohl daneben ein Fahrzeug mit Kennzeichen steht.
+    /// </remarks>
+    Vehicle = 6,
+
+    /// <summary>Persönliche Papiere — Ausweis, Zeugnis, Urkunde.</summary>
+    Personal = 7,
+}
+
+/// <summary>
+/// Woher der gelesene Text stammt.
+/// </summary>
+/// <remarks>
+/// Es ist ein Unterschied, ob eine Zahl im Papier steht oder ob eine Erkennung sie aus einem
+/// Bild gelesen hat — und der Unterschied gehört an den Beleg. Was erkannt wurde, prüfen die
+/// Rechenproben wie jeden anderen Wert nach; verschwiegen wäre es eine Zahl wie jede andere.
+/// </remarks>
+public enum TextSource
+{
+    /// <summary>Aus der Textebene eines PDF.</summary>
+    PdfTextLayer = 0,
+
+    /// <summary>Ein Bild, das niemand gelesen hat — es ist keine Erkennung eingerichtet.</summary>
+    Image = 1,
+
+    /// <summary>Aus einer Texterkennung über ein Bild.</summary>
+    Recognition = 2,
+}
+
+/// <summary>
+/// Wer ein Dokument sehen darf.
+/// </summary>
+/// <remarks>
+/// <para>Zwei Stufen, nicht vier. Konten tragen zusätzlich „namentlich“ und „Gemeinschaft“;
+/// beides beantwortet Fragen, die ein Dokument nicht stellt — das eine den Zugriff einzelner,
+/// das andere ein Einzahlungssoll. Für den Fall, der sie verlangt hat — eine Arztrechnung, die
+/// nur den angeht, der sie bekommen hat — genügt die Unterscheidung „alle“ oder „ich“.</para>
+/// <para><see cref="Household"/> ist die Vorgabe und bleibt es. Ein Bestand, der nach einer
+/// Erweiterung plötzlich halb unsichtbar wäre, nähme dem Haushalt Dokumente weg, ohne dass
+/// jemand etwas getan hat.</para>
+/// </remarks>
+public enum DocumentSharing
+{
+    /// <summary>Alle Mitglieder des Haushalts.</summary>
+    Household = 0,
+
+    /// <summary>Nur der Eigentümer — eigentümerrelativ, nie global auswertbar.</summary>
+    Private = 1,
 }
 
 public enum DocumentStatus

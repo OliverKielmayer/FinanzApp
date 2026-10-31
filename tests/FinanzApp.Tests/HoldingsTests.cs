@@ -43,7 +43,7 @@ public sealed class HoldingsTests : IDisposable
 
         var documents = new DocumentService(
             context, TestDatabase.PathService(root), new ObjectLabelService(context), clock,
-            NullLogger<DocumentService>.Instance);
+            new PdfPigTextReader(), NullLogger<DocumentService>.Instance);
 
         return new HoldingsService(
             context, dashboard, new VehicleService(context, documents, clock), TestDatabase.Portfolio(context), clock);

@@ -40,6 +40,20 @@ public static class ExtensionEndpoints
         api.MapGet("/types", async (DocumentService service, CancellationToken ct)
             => Results.Ok(await service.GetTypesAsync(ct)));
 
+        // Freigabe eines Dokuments: Haushalt oder nur ich.
+        api.MapPut("/{id:int}/freigabe", async (
+                int id, DocumentSharingRequest request, DocumentService service, CancellationToken ct)
+            => await service.SetSharingAsync(id, request.Sharing, ct)
+                ? Results.NoContent()
+                : Results.NotFound())
+            .RequireAuthorization(AuthPolicies.Write);
+
+        // Den Text nachholen, für alles, was vor der Suche nach Text abgelegt wurde. Die
+        // Obergrenze steht da, damit der Aufruf endet statt in eine Zeitüberschreitung zu laufen.
+        api.MapPost("/volltext", async (int? limit, DocumentService service, CancellationToken ct)
+            => Results.Ok(new BackfillResultDto { Gelesen = await service.BackfillTextAsync(limit ?? 50, ct) }))
+            .RequireAuthorization(AuthPolicies.Write);
+
         api.MapGet("/search", async (string q, DocumentService service, CancellationToken ct)
             => Results.Ok(await service.SearchAsync(q, ct)));
 

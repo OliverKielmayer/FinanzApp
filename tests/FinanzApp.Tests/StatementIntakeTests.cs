@@ -349,7 +349,7 @@ public sealed class StatementIntakeTests : IDisposable
 
     private DocumentService Documents(FinanzAppDbContext context)
         => new(context, TestDatabase.PathService(root), new ObjectLabelService(context), clock,
-            NullLogger<DocumentService>.Instance);
+            new PdfPigTextReader(), NullLogger<DocumentService>.Instance);
 
     private ScanInboxService Inbox(FinanzAppDbContext context)
         => new(context, Documents(context), clock);

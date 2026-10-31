@@ -12,8 +12,19 @@ public sealed class DocumentService(
     DocumentPathService paths,
     ObjectLabelService labels,
     IClock clock,
+    IPdfTextReader reader,
     ILogger<DocumentService> log)
 {
+    /// <summary>
+    /// Wie viele Zeichen Text je Dokument aufgehoben werden.
+    /// </summary>
+    /// <remarks>
+    /// Eine Million Zeichen sind rund vierhundert eng beschriebene Seiten — mehr Post bekommt
+    /// niemand in einem Umschlag. Die Grenze steht nicht gegen den Platzbedarf, sondern gegen
+    /// den Einzelfall, der die Datenbank aufbläht: ein fehlgeschlagener Scan, der statt Text
+    /// Zeichensalat liefert.
+    /// </remarks>
+    private const int MaxTextLength = 1_000_000;
     /// <summary>
     /// Die Typen, die sich vergeben lassen.
     /// </summary>
@@ -34,10 +45,11 @@ public sealed class DocumentService(
         DocumentArea? area = null, string? search = null, CancellationToken ct = default)
     {
         var documents = await LoadAsync(ct);
+        var imText = await TextHitsAsync(search, ct);
 
         var filtered = documents
             .Where(d => area is null || d.Area == area)
-            .Where(d => string.IsNullOrWhiteSpace(search) || Matches(d, search))
+            .Where(d => string.IsNullOrWhiteSpace(search) || Matches(d, search, imText))
             .ToList();
 
         return new DocumentPageDto
@@ -45,6 +57,7 @@ public sealed class DocumentService(
             Items = filtered,
             TotalCount = documents.Count,
             MissingFileCount = documents.Count(d => !d.FileExists),
+            WithoutTextCount = await db.Documents.CountAsync(d => d.ContentText == null, ct),
         };
     }
 
@@ -59,7 +72,8 @@ public sealed class DocumentService(
             return new DocumentSearchResultDto { Documents = [], Objects = [] };
         }
 
-        var documents = (await LoadAsync(ct)).Where(d => Matches(d, term)).ToList();
+        var imText = await TextHitsAsync(term, ct);
+        var documents = (await LoadAsync(ct)).Where(d => Matches(d, term, imText)).ToList();
         var objects = new List<ObjectHitDto>();
 
         void Add(LinkTargetType type, int id, string label, string subtitle)
@@ -158,6 +172,7 @@ public sealed class DocumentService(
             ValidUntil = document.ValidUntil,
             Status = document.Status,
             Tags = SplitTags(document.Tags),
+            Sharing = document.Sharing,
             FileExists = paths.Exists(document.RelativePath),
             Links = links,
             UnconfirmedValues = offen,
@@ -200,6 +215,8 @@ public sealed class DocumentService(
         DateOnly? documentDate,
         string? subFolder = null,
         string? preferredName = null,
+        string? contentText = null,
+        TextSource? textSource = null,
         CancellationToken ct = default)
     {
         var extension = Path.GetExtension(fileName).ToLowerInvariant();
@@ -226,6 +243,14 @@ public sealed class DocumentService(
                 // dieser Stelle gelesen, und ob er sich zurückspulen lässt, weiß hier niemand.
                 // Was zählt, ist ohnehin, was auf der Platte liegt.
                 ContentHash = await FingerprintAsync(relativePath, ct),
+
+                // Der Text, falls der Aufrufer ihn ohnehin gelesen hat — die Einlieferung und
+                // der Prüfschritt tun das. Wer ihn nicht mitbringt, bekommt ihn später über
+                // EnsureTextAsync; zweimal durch die Erkennung zu laufen kostet Sekunden und
+                // bringt dasselbe Ergebnis.
+                ContentText = Shorten(contentText),
+                TextSource = textSource,
+
                 DocumentDate = documentDate ?? clock.Today,
                 Status = DocumentStatus.Active,
                 CreatedAt = now,
@@ -624,6 +649,8 @@ public sealed class DocumentService(
                 Area = row.Area,
                 DocumentDate = row.DocumentDate,
                 LinkedLabel = linkedLabel,
+                Tags = SplitTags(row.Tags),
+                Sharing = row.Sharing,
                 FileExists = paths.Exists(row.RelativePath),
             });
         }
@@ -631,11 +658,159 @@ public sealed class DocumentService(
         return items;
     }
 
-    private static bool Matches(DocumentListItemDto document, string term)
+    /// <summary>
+    /// Ob ein Dokument zum Suchbegriff passt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die ersten vier Felder sind gepflegt: Titel, Dateiname, Typ, verknüpftes Objekt.
+    /// Wer danach suchte, fand nur, was vorher jemand von Hand benannt hatte — und genau das ist
+    /// bei einem Stapel eingescannter Post niemand.</para>
+    /// <para>Schlagworte und <b>Text</b> kommen dazu. Der Text ist der eigentliche Gewinn: Er
+    /// wird beim Einlesen ohnehin gewonnen, und eine Rechnungsnummer oder ein Absender steht
+    /// darin, ohne dass ihn jemand abgeschrieben hat.</para>
+    /// </remarks>
+    private static bool Matches(DocumentListItemDto document, string term, IReadOnlySet<int> imText)
         => document.Title.Contains(term, StringComparison.OrdinalIgnoreCase)
            || document.FileName.Contains(term, StringComparison.OrdinalIgnoreCase)
            || (document.TypeName?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
-           || (document.LinkedLabel?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false);
+           || (document.LinkedLabel?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+           || document.Tags.Any(t => t.Contains(term, StringComparison.OrdinalIgnoreCase))
+           || imText.Contains(document.Id);
+
+    /// <summary>
+    /// Welche Dokumente den Suchbegriff <em>im Text</em> tragen.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die Frage geht an die Datenbank und nicht an die geladene Liste: Der Text bleibt
+    /// damit, wo er hingehört. Ihn in die Listenzeile zu hängen hieße, ihn bei jedem Aufruf
+    /// über die Leitung zu schicken — für hundertdreißig Belege mehrere Megabyte, damit die
+    /// Suche zwei Zeilen findet.</para>
+    /// <para><c>LIKE</c> in SQLite vergleicht Groß- und Kleinschreibung nur bei ASCII-Zeichen
+    /// ohne Unterschied. „rechnung“ findet „Rechnung“, „über“ findet „Über“ nicht. Das ist eine
+    /// Einschränkung und keine Absicht.</para>
+    /// </remarks>
+    private async Task<IReadOnlySet<int>> TextHitsAsync(string? search, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            return new HashSet<int>();
+        }
+
+        // Die Platzhalter von LIKE entschärfen: Wer nach „50 %“ sucht, meint das Zeichen und
+        // nicht „irgendetwas“. Ohne das fände ein einzelnes Prozentzeichen jedes Dokument.
+        var muster = "%" + search.Trim().Replace(@"\", @"\\").Replace("%", @"\%").Replace("_", @"\_") + "%";
+
+        var treffer = await db.Documents.AsNoTracking()
+            .Where(d => d.ContentText != null && EF.Functions.Like(d.ContentText, muster, @"\"))
+            .Select(d => d.Id)
+            .ToListAsync(ct);
+
+        return treffer.ToHashSet();
+    }
+
+    /// <summary>Kappt den Text auf das, was aufgehoben wird — <c>null</c> bleibt <c>null</c>.</summary>
+    private static string? Shorten(string? text)
+        => text is null ? null
+            : text.Length <= MaxTextLength ? text
+            : text[..MaxTextLength];
+
+    /// <summary>
+    /// Liest den Text eines abgelegten Dokuments nach, falls er fehlt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Für alles, was vor dieser Spalte abgelegt wurde, und für die Wege, die den Text
+    /// nicht ohnehin schon in der Hand haben. Gelesen wird die <em>abgelegte</em> Datei; liegt
+    /// dort keine, bleibt der Text leer und der Versuch wird nicht wiederholt.</para>
+    /// <para>Der Unterschied zwischen <c>null</c> und der leeren Zeichenkette trägt hier: null
+    /// heißt „noch nie gelesen“, leer heißt „gelesen, nichts gefunden“. Ohne ihn liefe ein
+    /// bildhaftes PDF bei jedem Aufruf erneut durch die Erkennung.</para>
+    /// <para>Gibt zurück, ob etwas geschrieben wurde.</para>
+    /// </remarks>
+    public async Task<bool> EnsureTextAsync(int documentId, CancellationToken ct = default)
+    {
+        var document = await db.Documents.FirstOrDefaultAsync(d => d.Id == documentId, ct);
+        if (document is null || document.ContentText is not null)
+        {
+            return false;
+        }
+
+        if (paths.Resolve(document.RelativePath) is not { } absolute || !File.Exists(absolute))
+        {
+            // Keine Datei, kein Text — und kein Eintrag, der das Gegenteil behauptet.
+            return false;
+        }
+
+        try
+        {
+            await using var strom = File.OpenRead(absolute);
+            var inhalt = reader.Read(strom);
+
+            document.ContentText = Shorten(string.Join("\n", inhalt.Lines.Select(z => z.Text)));
+            document.TextSource = inhalt.Source;
+            await db.SaveChangesAsync(ct);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            log.LogWarning(ex, "Text von Dokument {Id} ließ sich nicht lesen.", documentId);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Stellt ein Dokument auf "nur ich" oder zurück auf den Haushalt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Wer es privat stellt, wird im selben Zug sein Eigentümer. Ohne Eigentümer sähe ein
+    /// privates Dokument niemand mehr — auch der nicht, der es abgelegt hat.</para>
+    /// <para>Zurück auf "Haushalt" verliert es den Eigentümer wieder: Ein Eigentümer ohne
+    /// Wirkung ist eine Angabe, die beim nächsten Umstellen stillschweigend mitspielte.</para>
+    /// </remarks>
+    public async Task<bool> SetSharingAsync(
+        int id, DocumentSharing sharing, CancellationToken ct = default)
+    {
+        var document = await db.Documents.FirstOrDefaultAsync(d => d.Id == id, ct);
+        if (document is null)
+        {
+            return false;
+        }
+
+        document.Sharing = sharing;
+        document.OwnerUserId = sharing == DocumentSharing.Private ? db.CurrentUserId : null;
+        document.UpdatedAt = clock.Now;
+
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    /// <summary>
+    /// Holt den Text für alle Dokumente nach, die noch keinen haben.
+    /// </summary>
+    /// <remarks>
+    /// Einmalig gedacht, für den Bestand, der vor der Suche nach Text entstanden ist. Die
+    /// Obergrenze steht da, damit ein Aufruf endet: Hundert Belege durch eine Texterkennung
+    /// sind Minuten, und eine Anfrage, die Minuten braucht, bricht unterwegs ab.
+    /// </remarks>
+    public async Task<int> BackfillTextAsync(int limit = 50, CancellationToken ct = default)
+    {
+        var offen = await db.Documents.AsNoTracking()
+            .Where(d => d.ContentText == null)
+            .OrderBy(d => d.Id)
+            .Select(d => d.Id)
+            .Take(limit)
+            .ToListAsync(ct);
+
+        var gelesen = 0;
+        foreach (var id in offen)
+        {
+            if (await EnsureTextAsync(id, ct))
+            {
+                gelesen++;
+            }
+        }
+
+        return gelesen;
+    }
 
     private static IReadOnlyList<string> SplitTags(string? tags)
         => string.IsNullOrWhiteSpace(tags)

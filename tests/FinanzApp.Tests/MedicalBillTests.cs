@@ -111,7 +111,7 @@ public sealed class MedicalBillTests : IDisposable
         var context = database.Context();
         var labels = new ObjectLabelService(context);
         var paths = TestDatabase.PathService(root);
-        var documents = new DocumentService(context, paths, labels, clock, NullLogger<DocumentService>.Instance);
+        var documents = new DocumentService(context, paths, labels, clock, new PdfPigTextReader(), NullLogger<DocumentService>.Instance);
         return new MedicalBillService(context, documents, clock);
     }
 

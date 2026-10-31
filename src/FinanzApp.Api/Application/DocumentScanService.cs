@@ -82,6 +82,8 @@ public sealed class DocumentScanService(
             documentDate: schreiben,
             subFolder: Folder(art, ziel, stichtag),
             preferredName: FileName(art, stichtag),
+            contentText: inhalt.PlainText,
+            textSource: inhalt.Source,
             ct: ct);
 
         var dokument = await db.Documents.FirstAsync(d => d.Id == ablage.DocumentId, ct);
@@ -333,9 +335,16 @@ public sealed class DocumentScanService(
         MemoryStream buffer, string fileName, PdfContent inhalt, CancellationToken ct)
     {
         buffer.Position = 0;
+
+        // Keine Leseregel hat gegriffen - aber der Text liegt vor, und daraus laesst sich die
+        // Schublade raten. Abgelegt wird trotzdem unter "Sonstiges": Ein Vorschlag, der die
+        // Datei gleich verschiebt, waere keiner mehr.
+        var vorschlag = FilingSuggestions.For(inhalt.PlainText);
+
         var ablage = await documents.UploadAsync(
             buffer, fileName, DocumentArea.Other,
-            title: null, documentTypeId: null, documentDate: null, ct: ct);
+            title: null, documentTypeId: null, documentDate: null,
+            contentText: inhalt.PlainText, textSource: inhalt.Source, ct: ct);
 
         return new ScanAnalysisDto
         {
@@ -345,7 +354,17 @@ public sealed class DocumentScanService(
             PageCount = inhalt.PageCount,
             TextNote = inhalt.Note,
             HasTextLayer = inhalt.HasTextLayer,
-            Steps = ["Text gelesen (" + inhalt.PageCount + " Seiten)", "Typ nicht erkannt"],
+            SuggestedLabel = vorschlag?.Label,
+            SuggestedArea = vorschlag is { } v ? DocumentPathService.FolderFor(v.Area) : null,
+            SuggestedType = vorschlag?.TypeName,
+            SuggestedHits = vorschlag?.Hits ?? [],
+            Steps =
+            [
+                "Text gelesen (" + inhalt.PageCount + " Seiten)",
+                vorschlag is { } gefunden
+                    ? "Typ nicht erkannt, Vorschlag: " + gefunden.Label
+                    : "Typ nicht erkannt",
+            ],
             Fields = [],
             Proofs = [],
             Note = inhalt.HasTextLayer

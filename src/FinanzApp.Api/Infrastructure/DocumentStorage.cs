@@ -257,6 +257,8 @@ public sealed class DocumentPathService
         DocumentArea.Housing => "Wohnen",
         DocumentArea.Work => "Arbeit",
         DocumentArea.Finance => "Finanzen",
+        DocumentArea.Vehicle => "Fahrzeuge",
+        DocumentArea.Personal => "Persoenlich",
         _ => "Sonstiges",
     };
 

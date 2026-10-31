@@ -378,6 +378,8 @@ public sealed class ReportService(
         DocumentArea.Housing => "Wohnen",
         DocumentArea.Work => "Arbeit",
         DocumentArea.Finance => "Finanzen",
+        DocumentArea.Vehicle => "Fahrzeuge",
+        DocumentArea.Personal => "Persönlich",
         _ => "Sonstiges",
     };
 

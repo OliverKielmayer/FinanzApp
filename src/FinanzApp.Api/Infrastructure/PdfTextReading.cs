@@ -2,6 +2,8 @@ using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
 using UglyToad.PdfPig.DocumentLayoutAnalysis.WordExtractor;
 
+using FinanzApp.Shared.Contracts;
+
 namespace FinanzApp.Api.Infrastructure;
 
 /// <summary>
@@ -20,25 +22,7 @@ public sealed record PdfLine(int Page, IReadOnlyList<string> Cells)
     public string Text { get; } = string.Join(" ", Cells);
 }
 
-/// <summary>
-/// Woher der gelesene Text stammt.
-/// </summary>
-/// <remarks>
-/// Es ist ein Unterschied, ob eine Zahl im Papier steht oder ob eine Erkennung sie aus einem
-/// Bild gelesen hat — und der Unterschied gehört an den Beleg. Was erkannt wurde, prüfen die
-/// Rechenproben wie jeden anderen Wert nach; verschwiegen wäre es eine Zahl wie jede andere.
-/// </remarks>
-public enum TextSource
-{
-    /// <summary>Aus der Textebene eines PDF.</summary>
-    PdfTextLayer = 0,
 
-    /// <summary>Ein Bild, das niemand gelesen hat — es ist keine Erkennung eingerichtet.</summary>
-    Image = 1,
-
-    /// <summary>Aus einer Texterkennung über ein Bild.</summary>
-    Recognition = 2,
-}
 
 /// <summary>
 /// Was ein PDF hergibt.
@@ -56,6 +40,16 @@ public sealed record PdfContent
 
     /// <summary>Ob überhaupt Text zu holen war.</summary>
     public bool HasTextLayer => Lines.Count > 0;
+
+    /// <summary>
+    /// Der ganze Text am Stück, Zeile für Zeile — für Suche und Vorschlag.
+    /// </summary>
+    /// <remarks>
+    /// Die Spalten sind hier wieder zusammengesetzt. Für die Leseregeln sind sie das
+    /// Entscheidende; wer ein Wort sucht, stört sich daran nur, weil „Rechnungsnummer 4711“ sonst
+    /// über zwei Zellen verteilt läge und keine Suche beides zugleich fände.
+    /// </remarks>
+    public string PlainText => string.Join('\n', Lines.Select(z => z.Text));
 
     /// <summary>
     /// Der Text liegt unsichtbar hinter Seitenbildern.

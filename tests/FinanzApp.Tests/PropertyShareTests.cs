@@ -69,7 +69,7 @@ public sealed class PropertyShareTests : IDisposable
                 TestDatabase.PathService(root),
                 new ObjectLabelService(context),
                 clock,
-                NullLogger<DocumentService>.Instance),
+                new PdfPigTextReader(), NullLogger<DocumentService>.Instance),
             clock,
             new ParticipationService(context, TestDatabase.SignedIn(alsBenutzer)));
     }

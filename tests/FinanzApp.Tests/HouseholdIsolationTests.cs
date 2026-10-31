@@ -1,3 +1,4 @@
+using FinanzApp.Api.Infrastructure;
 using FinanzApp.Api.Application;
 using FinanzApp.Api.Data.Entities;
 using FinanzApp.Shared.Contracts;
@@ -87,7 +88,7 @@ public sealed class HouseholdIsolationTests : IDisposable
         var labels = new ObjectLabelService(context);
         var paths = TestDatabase.PathService(Path.GetTempPath());
         var documents = new DocumentService(
-            context, paths, labels, TestDatabase.ClockAt(2026, 8, 23), NullLogger<DocumentService>.Instance);
+            context, paths, labels, TestDatabase.ClockAt(2026, 8, 23), new PdfPigTextReader(), NullLogger<DocumentService>.Instance);
 
         context.Policies.Add(new Policy { Name = "Neu", Provider = "Test", Premium = 10m });
         await context.SaveChangesAsync();
@@ -258,7 +259,7 @@ public sealed class HouseholdIsolationTests : IDisposable
                 TestDatabase.PathService(Path.Combine(Path.GetTempPath(), "finanzapp-tests", "isolation")),
                 new ObjectLabelService(meiner),
                 TestDatabase.ClockAt(2026, 8, 30),
-                NullLogger<DocumentService>.Instance),
+                new PdfPigTextReader(), NullLogger<DocumentService>.Instance),
             TestDatabase.ClockAt(2026, 8, 30));
 
         Assert.False(await dienst.DeleteReportAsync(fremderBericht));

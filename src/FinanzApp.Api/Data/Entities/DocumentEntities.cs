@@ -74,6 +74,41 @@ public class Document : IHouseholdOwned
     public string? Tags { get; set; }
 
     /// <summary>
+    /// Der gelesene Text des Dokuments, für die Suche.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die Anwendung las ihn längst — aus der Textebene eines PDF, seit der Texterkennung
+    /// auch aus Fotos und Scans —, zog ihre Werte heraus und warf ihn weg. Wer danach ein
+    /// Schreiben suchte, fand es nur über Titel, Dateiname, Typ oder verknüpftes Objekt: über
+    /// das, was jemand vorher von Hand gepflegt hatte.</para>
+    /// <para>Dass er aus einer Erkennung stammen kann, steht an <see cref="TextSource"/>.
+    /// Verlesene Wörter sind in einer Suche kein Schaden — sie finden eben nicht —, aber wer
+    /// nichts findet, soll wissen, ob er schlecht gesucht oder die Maschine schlecht gelesen
+    /// hat.</para>
+    /// <para><c>null</c> heißt: noch nicht gelesen. <see cref="string.Empty"/> heißt: gelesen
+    /// und nichts gefunden. Die Unterscheidung verhindert, dass ein bildhaftes PDF bei jedem
+    /// Aufruf erneut durch die Erkennung läuft.</para>
+    /// </remarks>
+    public string? ContentText { get; set; }
+
+    /// <summary>Woher der Text stammt — Textebene, Bild ohne Erkennung, oder Erkennung.</summary>
+    public TextSource? TextSource { get; set; }
+
+    /// <summary>
+    /// Wer das Dokument sehen darf. Vorgabe: der ganze Haushalt.
+    /// </summary>
+    public DocumentSharing Sharing { get; set; } = DocumentSharing.Household;
+
+    /// <summary>
+    /// Wem es gehört — nur bei <see cref="DocumentSharing.Private"/> von Bedeutung.
+    /// </summary>
+    /// <remarks>
+    /// Ohne Eigentümer sähe ein privates Dokument niemand mehr, auch der nicht, der es abgelegt
+    /// hat. Wer ein Dokument auf „nur ich“ stellt, wird deshalb im selben Zug sein Eigentümer.
+    /// </remarks>
+    public int? OwnerUserId { get; set; }
+
+    /// <summary>
     /// Der beim Einlesen erkannte Dokumenttyp, etwa <c>statusreport-lv</c>.
     /// </summary>
     /// <remarks>

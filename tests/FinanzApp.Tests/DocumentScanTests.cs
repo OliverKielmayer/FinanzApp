@@ -67,7 +67,7 @@ public sealed class DocumentScanTests : IDisposable
             TestDatabase.PathService(root),
             new ObjectLabelService(context),
             clock,
-            NullLogger<DocumentService>.Instance);
+            new PdfPigTextReader(), NullLogger<DocumentService>.Instance);
 
         return new DocumentScanService(
             context,
@@ -833,7 +833,7 @@ public sealed class DocumentScanTests : IDisposable
 
     private DocumentService Documents(FinanzAppDbContext context)
         => new(context, TestDatabase.PathService(root), new ObjectLabelService(context), clock,
-            NullLogger<DocumentService>.Instance);
+            new PdfPigTextReader(), NullLogger<DocumentService>.Instance);
 
     /// <summary>
     /// Ein eingetragener Wert steht im Prüfschritt — und nicht im Leseabdruck.

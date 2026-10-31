@@ -162,6 +162,13 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
                 || ((t.Account.Sharing == AccountSharing.Named
                      || t.Account.Sharing == AccountSharing.Shared)
                     && t.Account.Shares.Any(s => s.UserId == CurrentUserId))));
+
+        // Ein Dokument gehört dem Haushalt, solange niemand es auf „nur ich“ gestellt hat.
+        // Danach ist es eigentümerrelativ wie ein privates Konto — und darf aus demselben Grund
+        // nie global ausgewertet werden.
+        b.Entity<Document>().HasQueryFilter(d =>
+            d.HouseholdId == CurrentHouseholdId
+            && (d.Sharing == DocumentSharing.Household || d.OwnerUserId == CurrentUserId));
     }
 
     private static void ConfigureSharing(ModelBuilder b)

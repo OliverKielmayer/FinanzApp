@@ -115,8 +115,29 @@ else if (step == Step.Proposal && analysis is { } vorschlag)
 {
     <div class="proposal">
         <span class="proposal-kicker">@Kicker(vorschlag)</span>
-        <span class="proposal-label">@vorschlag.KindLabel</span>
+        <span class="proposal-label">@(vorschlag.KindLabel ?? vorschlag.SuggestedLabel ?? "Unbekannte Art")</span>
     </div>
+
+    @*
+        Keine Leseregel hat gegriffen, aber der Text gibt etwas her. Der Vorschlag nennt seine
+        Gründe: Wer die Wörter sieht, die ihn ausgelöst haben, kann ihm trauen oder nicht — ein
+        Vorschlag ohne Begründung verlangt Glauben.
+    *@
+    @if (vorschlag.KindLabel is null && vorschlag.SuggestedLabel is { Length: > 0 } geraten)
+    {
+        <div class="notice">
+            <span class="notice-title">Vorschlag: @geraten</span>
+            <span class="notice-text">
+                Aus dem Text geschlossen, nicht gelesen — Ablage unter @vorschlag.SuggestedArea,
+                Typ @vorschlag.SuggestedType.
+                @if (vorschlag.SuggestedHits.Count > 0)
+                {
+                    <text>Ausschlag gaben: @string.Join(", ", vorschlag.SuggestedHits).</text>
+                }
+                Die Datei liegt vorerst unter Sonstiges; zugeordnet wird sie im Scaneingang.
+            </span>
+        </div>
+    }
 
     <div class="detail-block">
         <span class="detail-label">Gehört zu</span>

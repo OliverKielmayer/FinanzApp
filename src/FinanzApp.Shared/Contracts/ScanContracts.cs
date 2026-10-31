@@ -22,6 +22,27 @@ public sealed record ScanAnalysisDto
     public string? KindLabel { get; init; }
 
     /// <summary>
+    /// Wohin es nach dem Text gehören dürfte, wenn keine Leseregel gegriffen hat.
+    /// </summary>
+    /// <remarks>
+    /// <para>Ein <b>Vorschlag</b> und keine Zuordnung: Die Leseregeln tragen Werte in Verträge
+    /// ein und müssen genau sein; hier geht es um die Schublade, und ein falscher Griff kostet
+    /// einen Klick. Bestätigt wird von Hand, immer.</para>
+    /// <para><c>null</c> heißt: Der Text gibt nichts her. Das ist eine gültige Antwort — ein
+    /// schlechter Vorschlag ist teurer als keiner, weil man dem nächsten nicht mehr traut.</para>
+    /// </remarks>
+    public string? SuggestedLabel { get; init; }
+
+    /// <summary>Der vorgeschlagene Bereich, als Ordnername im Klartext.</summary>
+    public string? SuggestedArea { get; init; }
+
+    /// <summary>Der vorgeschlagene Dokumenttyp.</summary>
+    public string? SuggestedType { get; init; }
+
+    /// <summary>Die Wörter, die den Ausschlag gaben — damit der Vorschlag prüfbar ist.</summary>
+    public IReadOnlyList<string> SuggestedHits { get; init; } = [];
+
+    /// <summary>
     /// Beschaffenheit der Datei im Klartext: Textebene, Textebene hinter Bildern, oder nur Bild.
     /// </summary>
     /// <remarks>

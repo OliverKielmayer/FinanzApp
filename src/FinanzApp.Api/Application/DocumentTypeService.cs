@@ -23,6 +23,8 @@ public sealed class DocumentTypeService(FinanzAppDbContext db)
         DocumentArea.Health,
         DocumentArea.Housing,
         DocumentArea.Finance,
+        DocumentArea.Vehicle,
+        DocumentArea.Personal,
         DocumentArea.Other,
     ];
 
@@ -158,6 +160,8 @@ public sealed class DocumentTypeService(FinanzAppDbContext db)
         DocumentArea.Housing => "Wohnen",
         DocumentArea.Work => "Arbeit",
         DocumentArea.Finance => "Finanzen",
+        DocumentArea.Vehicle => "Fahrzeuge",
+        DocumentArea.Personal => "Persönlich",
         _ => "Sonstiges",
     };
 }

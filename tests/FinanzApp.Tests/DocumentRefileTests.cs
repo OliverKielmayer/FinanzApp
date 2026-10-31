@@ -31,7 +31,7 @@ public sealed class DocumentRefileTests : IDisposable
 
     private DocumentService Documents(FinanzAppDbContext context)
         => new(context, Paths(), new ObjectLabelService(context), clock,
-            NullLogger<DocumentService>.Instance);
+            new PdfPigTextReader(), NullLogger<DocumentService>.Instance);
 
     /// <summary>Legt eine Datei an den Pfad und einen Eintrag dazu.</summary>
     private int Ablegen(string relativePath)

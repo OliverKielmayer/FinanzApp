@@ -496,6 +496,9 @@ namespace FinanzApp.Api.Data.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("ContentText")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
@@ -521,6 +524,9 @@ namespace FinanzApp.Api.Data.Migrations
                     b.Property<int>("HouseholdId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("OwnerUserId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("RelativePath")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -529,12 +535,18 @@ namespace FinanzApp.Api.Data.Migrations
                     b.Property<string>("ScanKind")
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("Sharing")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("Status")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Tags")
                         .HasMaxLength(400)
                         .HasColumnType("TEXT");
+
+                    b.Property<int?>("TextSource")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Title")
                         .IsRequired()

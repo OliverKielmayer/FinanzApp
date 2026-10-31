@@ -31,7 +31,7 @@ public sealed class HoldingMetaTests : IDisposable
 
         return new DocumentService(
             context, TestDatabase.PathService(root), new ObjectLabelService(context), clock,
-            NullLogger<DocumentService>.Instance);
+            new PdfPigTextReader(), NullLogger<DocumentService>.Instance);
     }
 
     private HoldingsService Holdings()

@@ -128,6 +128,31 @@
             <span class="detail-value">@DescribeMeta(document)</span>
         </div>
 
+        @*
+            Die Freigabe. Zwei Stufen genügen: Ein Konto kennt zusätzlich „namentlich“ und
+            „Gemeinschaft“, aber beides beantwortet Fragen, die ein Dokument nicht stellt.
+        *@
+        <AuthorizeView Roles="Owner,Member" Context="freigabe">
+            <div class="picker">
+                <span class="label-strong">Sichtbar für</span>
+                <div class="chipcloud">
+                    <button type="button" disabled="@busy"
+                            class="chip @(document.Sharing == DocumentSharing.Household ? "active" : null)"
+                            @onclick="() => ShareAsync(DocumentSharing.Household)">den Haushalt</button>
+                    <button type="button" disabled="@busy"
+                            class="chip @(document.Sharing == DocumentSharing.Private ? "active" : null)"
+                            @onclick="() => ShareAsync(DocumentSharing.Private)">nur mich</button>
+                </div>
+                @if (document.Sharing == DocumentSharing.Private)
+                {
+                    <span class="create-help">
+                        Niemand sonst im Haushalt sieht dieses Dokument — auch nicht in der Suche
+                        oder in einer Auswertung.
+                    </span>
+                }
+            </div>
+        </AuthorizeView>
+
         @if (document.Tags.Count > 0)
         {
             <div class="picker">
@@ -222,6 +247,35 @@
         confirmingDelete = false;
         data = await Api.GetDocumentAsync(Id);
     }
+
+    /// <summary>
+    /// Stellt die Freigabe um und lädt neu.
+    /// </summary>
+    /// <remarks>
+    /// Neu geladen, nicht am Ort geändert: Wer ein Dokument auf „nur ich“ stellt, wird dabei
+    /// sein Eigentümer — das entscheidet der Server, und die Anzeige soll sagen, was dort steht.
+    /// </remarks>
+    private Task ShareAsync(DocumentSharing freigabe) => RunAsync(async () =>
+    {
+        if (data is null || data.Sharing == freigabe)
+        {
+            return;
+        }
+
+        busy = true;
+        try
+        {
+            await Api.SetDocumentSharingAsync(Id, freigabe);
+            data = await Api.GetDocumentAsync(Id);
+            Toasts.Show(freigabe == DocumentSharing.Private
+                ? "Sichtbar nur für Sie"
+                : "Sichtbar für den Haushalt");
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
 
     /// <summary>
     /// Ab Tablet bleibt die Komponente stehen und bekommt nur eine andere Id — dann muss sie

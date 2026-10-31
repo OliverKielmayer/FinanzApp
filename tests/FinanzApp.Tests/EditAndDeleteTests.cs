@@ -28,7 +28,7 @@ public sealed class EditAndDeleteTests : IDisposable
         var paths = TestDatabase.PathService(root);
         var documents = new DocumentService(
             context, paths, new ObjectLabelService(context), clock,
-            NullLogger<DocumentService>.Instance);
+            new PdfPigTextReader(), NullLogger<DocumentService>.Instance);
 
         return new CreateFormService(context, clock, documents, new NoPolicyDocumentAnalyzer());
     }

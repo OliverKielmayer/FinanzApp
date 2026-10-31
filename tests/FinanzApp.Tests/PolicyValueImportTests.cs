@@ -657,7 +657,7 @@ public sealed class PolicyValueImportTests : IDisposable
 
     private DocumentService Documents(FinanzAppDbContext context)
         => new(context, TestDatabase.PathService(root), new ObjectLabelService(context), clock,
-            NullLogger<DocumentService>.Instance);
+            new PdfPigTextReader(), NullLogger<DocumentService>.Instance);
 
     private PolicyValueImportService Service(FinanzAppDbContext context)
         => new(context, TestDatabase.PathService(root), new AssetSheetParser(), clock);

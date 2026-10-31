@@ -69,7 +69,7 @@ public sealed class ScanIntakeTests : IDisposable
         var paths = TestDatabase.PathService(root);
         var documents = new DocumentService(
             context, paths, new ObjectLabelService(context), clock,
-            NullLogger<DocumentService>.Instance);
+            new PdfPigTextReader(), NullLogger<DocumentService>.Instance);
 
         var scans = new DocumentScanService(
             context, documents, paths, new DepotStatementService(context),
@@ -721,7 +721,7 @@ public sealed class ScanIntakeTests : IDisposable
             context,
             new DocumentService(
                 context, TestDatabase.PathService(root), new ObjectLabelService(context), clock,
-                NullLogger<DocumentService>.Instance),
+                new PdfPigTextReader(), NullLogger<DocumentService>.Instance),
             clock);
 
     public void Dispose()

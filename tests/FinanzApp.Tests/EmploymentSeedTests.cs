@@ -1,3 +1,4 @@
+using FinanzApp.Api.Infrastructure;
 using FinanzApp.Api.Application;
 using FinanzApp.Api.Data;
 using FinanzApp.Shared.Contracts;
@@ -120,7 +121,7 @@ public sealed class EmploymentSeedTests : IDisposable
 
         var dokumente = new DocumentService(
             context, TestDatabase.PathService(root), new ObjectLabelService(context), uhr,
-            NullLogger<DocumentService>.Instance);
+            new PdfPigTextReader(), NullLogger<DocumentService>.Instance);
 
         var bestand = new HoldingsService(
             context,

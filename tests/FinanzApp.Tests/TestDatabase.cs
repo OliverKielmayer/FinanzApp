@@ -118,7 +118,7 @@ public sealed class TestDatabase : IDisposable
                 PathService(root),
                 new ObjectLabelService(context),
                 clock,
-                NullLogger<DocumentService>.Instance),
+                new PdfPigTextReader(), NullLogger<DocumentService>.Instance),
             SignedIn(userId),
             Portfolio(context),
             new ParticipationService(context, SignedIn(userId)));

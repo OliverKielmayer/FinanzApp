@@ -27,6 +27,7 @@ public sealed class CreateFormTests : IDisposable
         var labels = new ObjectLabelService(context);
         var documents = new DocumentService(
             context, paths, labels, clock,
+            new PdfPigTextReader(),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<DocumentService>.Instance);
 
         return new CreateFormService(context, clock, documents, new NoPolicyDocumentAnalyzer());

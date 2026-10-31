@@ -86,6 +86,24 @@
             <span>sortiert nach Dokumentdatum</span>
         </div>
     }
+
+    @*
+        Alles, was vor der Textsuche abgelegt wurde, trägt noch keinen Text. Der Nachlauf liest
+        die Dateien erneut — bei Fotos durch die Texterkennung, und die braucht Sekunden je
+        Stück. Deshalb in Schüben und mit einer Zahl, die sagt, wie viel noch aussteht.
+    *@
+    @if (withoutText > 0)
+    {
+        <AuthorizeView Roles="Owner,Member" Context="volltext">
+            <div class="doc-foot">
+                <span>@withoutText @(withoutText == 1 ? "Dokument ist" : "Dokumente sind") noch nicht durchsuchbar</span>
+                <button type="button" class="btn btn-secondary" disabled="@reading"
+                        @onclick="BackfillAsync">
+                    @(reading ? "liest …" : "Text nachholen")
+                </button>
+            </div>
+        </AuthorizeView>
+    }
 </AsyncView>
 </div>
 
@@ -141,12 +159,16 @@
         (DocumentArea.Housing, "Wohnen"),
         (DocumentArea.Work, "Arbeit"),
         (DocumentArea.Finance, "Finanzen"),
+        (DocumentArea.Vehicle, "Fahrzeuge"),
+        (DocumentArea.Personal, "Persönlich"),
     ];
 
     private IReadOnlyList<DocumentListItemDto> documents = [];
     private IReadOnlyList<ObjectHitDto> objects = [];
     private int total;
     private int missing;
+    private int withoutText;
+    private bool reading;
 
     private DocumentArea? area;
     private string search = string.Empty;
@@ -161,6 +183,7 @@
             objects = [];
             total = page.TotalCount;
             missing = page.MissingFileCount;
+            withoutText = page.WithoutTextCount;
             return;
         }
 
@@ -170,6 +193,32 @@
         total = documents.Count;
         missing = documents.Count(d => !d.FileExists);
     }
+
+    /// <summary>
+    /// Holt den gelesenen Text für Dokumente nach, die noch keinen haben.
+    /// </summary>
+    /// <remarks>
+    /// In Schüben von fünfzig. Ein Aufruf über hundertdreißig Belege, von denen einige durch die
+    /// Texterkennung müssen, dauert Minuten — und eine Anfrage, die Minuten braucht, bricht
+    /// unterwegs ab. Wer mehr will, drückt noch einmal; die Zahl daneben sagt, wie viel bleibt.
+    /// </remarks>
+    private Task BackfillAsync() => RunAsync(async () =>
+    {
+        reading = true;
+        try
+        {
+            var ergebnis = await Api.BackfillDocumentTextAsync(50);
+            Toasts.Show(ergebnis.Gelesen == 0
+                ? "Kein Text zu holen"
+                : $"{ergebnis.Gelesen} {(ergebnis.Gelesen == 1 ? "Dokument" : "Dokumente")} gelesen");
+
+            await ReloadAsync();
+        }
+        finally
+        {
+            reading = false;
+        }
+    });
 
     private async Task SwitchArea(DocumentArea? next)
     {
@@ -229,6 +278,14 @@
         }
 
         var parts = new List<string>();
+
+        // Zuerst, weil es die Frage beantwortet, die vor allen anderen kommt: Sieht das noch
+        // jemand? Hinten zwischen Typ und Datum ginge es unter.
+        if (document.Sharing == DocumentSharing.Private)
+        {
+            parts.Add("nur ich");
+        }
+
         if (document.TypeName is { Length: > 0 } type)
         {
             parts.Add(type);
@@ -243,6 +300,10 @@
         {
             parts.Add(GermanFormat.Date(date));
         }
+
+        // Schlagworte zum Schluss: Sie sind das Einzige, was der Nutzer selbst vergibt, und
+        // sie sollen die gepflegten Angaben nicht verdrängen.
+        parts.AddRange(document.Tags);
 
         return string.Join(" · ", parts);
     }

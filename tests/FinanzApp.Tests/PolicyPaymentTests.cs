@@ -50,7 +50,7 @@ public sealed class PolicyPaymentTests : IDisposable
                 TestDatabase.PathService(Path.Combine(Path.GetTempPath(), "finanzapp-tests", "policy")),
                 new ObjectLabelService(context),
                 clock,
-                NullLogger<DocumentService>.Instance),
+                new PdfPigTextReader(), NullLogger<DocumentService>.Instance),
             clock);
     }
 

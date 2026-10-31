@@ -61,6 +61,19 @@ public static class FinanzAppApiExtensions
         => api.SendAsync<FixDocumentPathRequest, DocumentDetailDto>(
             HttpMethod.Put, $"api/documents/{id}/path", new FixDocumentPathRequest { RelativePath = relativePath }, ct);
 
+    /// <summary>Holt den gelesenen Text für Dokumente nach, die noch keinen haben.</summary>
+    public static Task<BackfillResultDto> BackfillDocumentTextAsync(
+        this FinanzAppApi api, int limit = 50, CancellationToken ct = default)
+        => api.SendAsync<object?, BackfillResultDto>(
+            HttpMethod.Post, $"api/documents/volltext?limit={limit}", null, ct);
+
+    /// <summary>Stellt ein Dokument auf „nur ich“ oder zurück auf den Haushalt.</summary>
+    public static Task SetDocumentSharingAsync(
+        this FinanzAppApi api, int id, DocumentSharing sharing, CancellationToken ct = default)
+        => api.SendWithoutResultAsync<DocumentSharingRequest>(
+            HttpMethod.Put, $"api/documents/{id}/freigabe",
+            new DocumentSharingRequest { Sharing = sharing }, ct);
+
     public static Task<DocumentLinkDto> LinkDocumentAsync(
         this FinanzAppApi api, int id, LinkTargetType type, int targetId, CancellationToken ct = default)
         => api.SendAsync<CreateDocumentLinkRequest, DocumentLinkDto>(

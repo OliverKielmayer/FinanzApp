@@ -62,7 +62,7 @@ public sealed class ScanReviewTests : IDisposable
 
         var documents = new DocumentService(
             context, paths, new ObjectLabelService(context), clock,
-            NullLogger<DocumentService>.Instance);
+            new PdfPigTextReader(), NullLogger<DocumentService>.Instance);
 
         return new DocumentScanService(
             context, documents, paths, new DepotStatementService(context),
@@ -73,7 +73,7 @@ public sealed class ScanReviewTests : IDisposable
     {
         var documents = new DocumentService(
             context, TestDatabase.PathService(root), new ObjectLabelService(context), clock,
-            NullLogger<DocumentService>.Instance);
+            new PdfPigTextReader(), NullLogger<DocumentService>.Instance);
 
         return new ScanIntakeService(
             context, Scans(inhalt, context), documents,
@@ -278,7 +278,7 @@ public sealed class ScanReviewTests : IDisposable
                 vorher,
                 new DocumentService(
                     vorher, TestDatabase.PathService(root), new ObjectLabelService(vorher), clock,
-                    NullLogger<DocumentService>.Instance),
+                    new PdfPigTextReader(), NullLogger<DocumentService>.Instance),
                 clock).GetAsync()).WaitingCount);
         }
 
@@ -442,7 +442,7 @@ public sealed class ScanReviewTests : IDisposable
             prüfung,
             new DocumentService(
                 prüfung, TestDatabase.PathService(root), new ObjectLabelService(prüfung), clock,
-                NullLogger<DocumentService>.Instance),
+                new PdfPigTextReader(), NullLogger<DocumentService>.Instance),
             clock).GetAsync();
 
         var eintrag = Assert.Single(eingang.Items);
@@ -501,7 +501,7 @@ public sealed class ScanReviewTests : IDisposable
             context,
             new DocumentService(
                 context, TestDatabase.PathService(root), new ObjectLabelService(context), clock,
-                NullLogger<DocumentService>.Instance),
+                new PdfPigTextReader(), NullLogger<DocumentService>.Instance),
             clock).GetAsync();
 
         Assert.Equal(2, eingang.Items.Count);

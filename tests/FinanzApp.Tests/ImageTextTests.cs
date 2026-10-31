@@ -1,5 +1,6 @@
 using System.Text;
 using FinanzApp.Api.Infrastructure;
+using FinanzApp.Shared.Contracts;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FinanzApp.Tests;

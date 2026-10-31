@@ -31,7 +31,7 @@ public sealed class ContractIntervalTests : IDisposable
         var context = database.Context();
         var documents = new DocumentService(
             context, TestDatabase.PathService(root), new ObjectLabelService(context), clock,
-            NullLogger<DocumentService>.Instance);
+            new PdfPigTextReader(), NullLogger<DocumentService>.Instance);
 
         return new CreateFormService(context, clock, documents, new NoPolicyDocumentAnalyzer());
     }
