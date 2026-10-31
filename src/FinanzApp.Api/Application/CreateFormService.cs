@@ -3,6 +3,7 @@ using FinanzApp.Api.Data;
 using FinanzApp.Api.Data.Entities;
 using FinanzApp.Api.Infrastructure;
 using FinanzApp.Shared.Contracts;
+using FinanzApp.Shared.Formatting;
 using Microsoft.EntityFrameworkCore;
 
 namespace FinanzApp.Api.Application;
@@ -77,6 +78,7 @@ public sealed class CreateFormService(
             CreateObjectType.Budget => await BudgetFormAsync(ct),
             CreateObjectType.Vehicle => await VehicleFormAsync(ct),
             CreateObjectType.Employment => EmploymentForm(),
+            CreateObjectType.Loan => LoanForm(),
             _ => null,
         };
 
@@ -110,6 +112,7 @@ public sealed class CreateFormService(
             CreateObjectType.Budget => await CreateBudgetAsync(values, ct),
             CreateObjectType.Vehicle => await CreateVehicleAsync(values, ct),
             CreateObjectType.Employment => await CreateEmploymentAsync(values, ct),
+            CreateObjectType.Loan => await CreateLoanAsync(values, ct),
             _ => Fail(null, "Diesen Objekttyp gibt es noch nicht."),
         };
     }
@@ -149,6 +152,7 @@ public sealed class CreateFormService(
             CreateObjectType.Budget => await UpdateBudgetAsync(id, values, ct),
             CreateObjectType.Vehicle => await UpdateVehicleAsync(id, values, ct),
             CreateObjectType.Employment => await UpdateEmploymentAsync(id, values, ct),
+            CreateObjectType.Loan => await UpdateLoanAsync(id, values, ct),
             _ => Fail(null, "Diesen Objekttyp gibt es noch nicht."),
         };
     }
@@ -168,6 +172,11 @@ public sealed class CreateFormService(
             CreateObjectType.Vehicle => await DeleteSimpleAsync(db.Vehicles, id, "Fahrzeug gelöscht", "/fahrzeuge", ct),
             CreateObjectType.Employment => await DeleteSimpleAsync(
                 db.Employments, id, "Arbeitsverhältnis gelöscht", "/arbeit", ct),
+
+            // Die Verknüpfung einer Immobilie wird dabei auf null gesetzt, nicht die Immobilie
+            // gelöscht: das Fremdschlüsselverhalten steht auf SetNull.
+            CreateObjectType.Loan => await DeleteSimpleAsync(db.Loans, id, "Darlehen gelöscht", "/darlehen", ct),
+
             _ => new DeleteResultDto { Ok = false, Message = "Diesen Objekttyp gibt es nicht." },
         };
 
@@ -266,6 +275,7 @@ public sealed class CreateFormService(
         CreateObjectType.Budget => "Die bisher verbrauchte Summe bleibt erhalten.",
         CreateObjectType.Vehicle => "Die verknüpfte Versicherung bleibt unverändert unter Absicherung.",
         CreateObjectType.Employment => "Ein neues Gehalt gilt ab sofort; erfasste Abrechnungen bleiben, wie sie sind.",
+        CreateObjectType.Loan => "Restschuld, Zins und Rate gelten ab sofort; der Tilgungsplan rechnet von hier an neu.",
         _ => "Änderungen gelten ab sofort.",
     };
 
@@ -360,6 +370,18 @@ public sealed class CreateFormService(
                     + (agreements == 0
                         ? string.Empty
                         : $" {agreements} {(agreements == 1 ? "Vereinbarung entfällt" : "Vereinbarungen entfallen")} mit."));
+            }
+
+            case CreateObjectType.Loan:
+            {
+                var objekte = await db.Properties.CountAsync(p => p.LoanId == id, ct);
+                return Impact("Darlehen löschen",
+                    "Restschuld und Tilgungsplan entfallen."
+                    + (objekte == 0
+                        ? " Es hängt keine Immobilie daran."
+                        : $" {objekte} {(objekte == 1
+                            ? "Immobilie verliert die Verknüpfung, bleibt aber bestehen."
+                            : "Immobilien verlieren die Verknüpfung, bleiben aber bestehen.")}"));
             }
 
             default:
@@ -548,6 +570,20 @@ public sealed class CreateFormService(
                     ["first"] = Iso(x.FirstRegistration),
                     ["mileage"] = x.Mileage?.ToString(),
                     ["policy"] = x.PolicyId?.ToString(),
+                };
+            }
+
+            case CreateObjectType.Loan:
+            {
+                var x = await db.Loans.AsNoTracking().FirstOrDefaultAsync(y => y.Id == id, ct);
+                return x is null ? null : new()
+                {
+                    ["name"] = x.Name,
+                    ["lender"] = x.Lender,
+                    ["debt"] = Money(x.RemainingDebt),
+                    ["rate"] = NumberValue(x.InterestRatePercent),
+                    ["installment"] = Money(x.Installment),
+                    ["payment"] = Iso(x.NextPaymentDate),
                 };
             }
 
@@ -933,7 +969,7 @@ public sealed class CreateFormService(
                         // Ein Depot ist kein Konto, ein Darlehen erst recht nicht. Beide führen
                         // dorthin, wo sie hingehören, statt hier etwas Falsches anzulegen.
                         new() { Value = "depot", Label = "Depot", Hint = "eigener Flow", RedirectTo = "/neu/depot" },
-                        new() { Value = "loan", Label = "Darlehen", Hint = "unter Finanzierungen", RedirectTo = "/darlehen" },
+                        new() { Value = "loan", Label = "Darlehen", Hint = "unter Finanzierungen", RedirectTo = "/neu/loan" },
                     ],
                 },
                 Text("bank", "Bank", required: true, placeholder: "z. B. Sparkasse Heidelberg"),
@@ -1941,6 +1977,149 @@ public sealed class CreateFormService(
     /// <summary>Eine Zahl im Klartext einer Meldung: deutsch, ohne überflüssige Nullen.</summary>
     private static string GermanNumber(decimal value)
         => value.ToString("0.##", CultureInfo.InvariantCulture).Replace('.', ',');
+
+    // ── Darlehen ───────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Das Anlegeformular eines Darlehens.
+    /// </summary>
+    /// <remarks>
+    /// <para>Es hat lange gefehlt, und sein Fehlen war ein Kreis: Die Wahl „Darlehen“ im
+    /// Konto-Formular führte auf den Darlehensbereich, der ohne erfasstes Darlehen auf die
+    /// Übersicht der Arten verwies, und dort stand wieder nur „Konto“. Wer ein Darlehen anlegen
+    /// wollte, lief im Ring, ohne je eine Maske zu sehen.</para>
+    /// <para>Die sechs Felder sind genau die, aus denen <see cref="LoanService.BuildSchedule"/>
+    /// den Tilgungsplan rechnet. Ein siebtes wäre eine Angabe, die niemand wiedersieht.</para>
+    /// </remarks>
+    private CreateFormDto LoanForm()
+        => new()
+        {
+            Type = CreateObjectType.Loan,
+            Kicker = "Neu",
+            Title = "Darlehen anlegen",
+            SubmitLabel = "Darlehen anlegen",
+            Hint = "Aus Restschuld, Zins und Rate entsteht der Tilgungsplan — er wird gerechnet, nicht erfasst.",
+            Fields =
+            [
+                Text("name", "Bezeichnung", required: true, placeholder: "z. B. Immobiliendarlehen"),
+                Text("lender", "Darlehensgeber", required: true, placeholder: "z. B. Sparkasse"),
+                Money("debt", "Restschuld", required: true,
+                    help: "Der Stand heute, positiv angegeben — nicht die ursprüngliche Summe."),
+                Number("rate", "Sollzins in %", required: true,
+                    help: "Nominalzins im Jahr, etwa 1,84."),
+                Money("installment", "Monatsrate", required: true,
+                    help: "Die ganze Rate. Zins und Tilgung trennt der Plan selbst."),
+                Date("payment", "Nächste Zahlung", required: true,
+                    defaultValue: FirstOfMonth(clock.Today.AddMonths(1))),
+            ],
+        };
+
+    private async Task<CreateResultDto> CreateLoanAsync(
+        IReadOnlyDictionary<string, string?> values, CancellationToken ct)
+    {
+        var name = Value(values, "name")!.Trim();
+
+        if (await db.Loans.AnyAsync(l => l.Name == name, ct))
+        {
+            return Fail("name", $"Ein Darlehen „{name}“ besteht bereits.");
+        }
+
+        // Die beiden Namen stehen hier, weil der Datensatz ohne sie nicht zu bauen ist; geprüft
+        // und gesetzt wird alles — auch sie — in ApplyLoan.
+        var loan = new Loan { Name = name, Lender = Value(values, "lender")!.Trim() };
+
+        if (ApplyLoan(loan, values) is { } problem)
+        {
+            return problem;
+        }
+
+        db.Loans.Add(loan);
+        await db.SaveChangesAsync(ct);
+
+        return Ok(loan.Id, $"/darlehen?id={loan.Id}");
+    }
+
+    private async Task<CreateResultDto> UpdateLoanAsync(
+        int id, IReadOnlyDictionary<string, string?> values, CancellationToken ct)
+    {
+        var loan = await db.Loans.FirstOrDefaultAsync(l => l.Id == id, ct);
+        if (loan is null)
+        {
+            return Fail(null, "Das Darlehen gibt es nicht mehr.");
+        }
+
+        if (ApplyLoan(loan, values) is { } problem)
+        {
+            return problem;
+        }
+
+        await db.SaveChangesAsync(ct);
+        return Ok(id, $"/darlehen?id={id}");
+    }
+
+    /// <summary>
+    /// Prüft die Werte eines Darlehens und schreibt sie erst, wenn alle tragen.
+    /// </summary>
+    /// <remarks>
+    /// Die letzte Prüfung ist die eigentliche. Eine Rate unter dem Monatszins tilgt nichts — sie
+    /// lässt die Schuld wachsen. Der Tilgungsplan rechnete das brav vor, und die Zahlen sähen aus
+    /// wie eine Aussage über das Darlehen, wären aber die Folge eines Vertippers. Die Meldung
+    /// nennt darum den Monatszins, gegen den die Rate antreten muss: dieselbe Zahl, die sonst in
+    /// der ersten Zeile des Plans stünde.
+    /// </remarks>
+    private static CreateResultDto? ApplyLoan(Loan loan, IReadOnlyDictionary<string, string?> values)
+    {
+        if (ParseMoney(Value(values, "debt")) is not { } debt)
+        {
+            return Fail("debt", "Restschuld ist kein Betrag");
+        }
+
+        if (debt <= 0m)
+        {
+            return Fail("debt", "Ohne Restschuld gibt es nichts zu tilgen.");
+        }
+
+        if (ParseMoney(Value(values, "rate")) is not { } rate)
+        {
+            return Fail("rate", "Sollzins ist keine Zahl");
+        }
+
+        if (rate < 0m)
+        {
+            return Fail("rate", "Einen Sollzins unter null gibt es nicht.");
+        }
+
+        if (ParseMoney(Value(values, "installment")) is not { } installment)
+        {
+            return Fail("installment", "Monatsrate ist kein Betrag");
+        }
+
+        if (installment <= 0m)
+        {
+            return Fail("installment", "Eine Rate von null zahlt nichts zurück.");
+        }
+
+        if (ParseDate(Value(values, "payment")) is not { } payment)
+        {
+            return Fail("payment", "Nächste Zahlung ist kein Datum");
+        }
+
+        var monatszins = Math.Round(debt * rate / 100m / 12m, 2, MidpointRounding.AwayFromZero);
+        if (installment < monatszins)
+        {
+            return Fail("installment",
+                $"Allein der erste Monat kostet {GermanFormat.Euro(monatszins)} Zinsen. "
+                + "Mit einer kleineren Rate wüchse die Schuld, statt zu sinken.");
+        }
+
+        loan.Name = Value(values, "name")!.Trim();
+        loan.Lender = Value(values, "lender")!.Trim();
+        loan.RemainingDebt = debt;
+        loan.InterestRatePercent = rate;
+        loan.Installment = installment;
+        loan.NextPaymentDate = payment;
+        return null;
+    }
 
     // ── Bausteine ──────────────────────────────────────────────────────────────────────────
 

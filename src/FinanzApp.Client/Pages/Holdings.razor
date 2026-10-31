@@ -144,9 +144,6 @@
     /// Die Anlegeseite nimmt die Art als Pfadabschnitt, nicht als Abfrageparameter — „/neu/account“,
     /// nicht „/neu?art=konto“. Ein Link mit dem falschen Muster führt zwar auf die Seite, wählt
     /// dort aber nichts aus: er täte nur so, als spare er einen Schritt.
-    ///
-    /// Für Darlehen gibt es keine Anlegeseite. Dann führt die Zeile auf die Übersicht der Arten,
-    /// statt auf eine Adresse, die es nicht gibt.
     /// </remarks>
     private static string CreateRoute(HoldingClass klasse) => klasse switch
     {
@@ -157,6 +154,7 @@
         HoldingClass.Housing => "/neu/property",
         HoldingClass.Vehicles => "/neu/vehicle",
         HoldingClass.Work => "/neu/employment",
+        HoldingClass.Loans => "/neu/loan",
         _ => "/neu",
     };
 

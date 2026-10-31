@@ -113,16 +113,19 @@ und Konto untereinander auf einer Seite, und gespeichert wird in einem Zug.
 
 ### Etwas anlegen
 
-Konto, Depot, Vorsorgevertrag, Versicherung, Immobilie, Vertrag und Budget haben denselben
-Formularaufbau: Auswahlwerte als Kacheln, alles übrige als Feld, Pflichtfelder ohne den Zusatz
+Konto, Depot, Vorsorgevertrag, Versicherung, Immobilie, Darlehen, Vertrag und Budget haben
+denselben Formularaufbau: Auswahlwerte als Kacheln, alles übrige als Feld, Pflichtfelder ohne den Zusatz
 *optional*. Fehlt eines, sagt die App **welches** — „Versicherer fehlt“ — und hebt die Zeile
 hervor. Der Einstieg steht jeweils **am Ende der zugehörigen Liste** als „+“-Zeile; über das
 Erfassen-Fenster geht es auch.
 
 Zwei Dinge, die auffallen können:
 
-- **Depot** und **Darlehen** im Konto-Formular legen kein Konto an, sondern führen dorthin, wo
-  sie hingehören. Ein Depot ist kein Konto, ein Darlehen erst recht nicht.
+- **Depot** und **Darlehen** im Konto-Formular legen kein Konto an, sondern führen in ihre
+  eigene Maske. Ein Depot ist kein Konto, ein Darlehen erst recht nicht.
+- Beim **Darlehen** wird der Tilgungsplan gerechnet, nicht erfasst: Restschuld, Sollzins, Rate
+  und die nächste Zahlung genügen. Eine Rate unterhalb des Monatszinses lehnt die App ab und
+  nennt den Zins — sie würde nichts tilgen, sondern die Schuld wachsen lassen.
 - Was es schon gibt, wird nicht doppelt angelegt: „Budget für Lebensmittel besteht bereits“.
 
 Mit Lesezugriff fehlt die Zelle in der Tab-Bar; erfassen kann nur, wer Schreibrecht hat.

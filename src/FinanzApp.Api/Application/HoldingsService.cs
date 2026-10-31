@@ -217,7 +217,10 @@ public sealed class HoldingsService(
                 HoldingClass.Loans, darlehen.Name, HoldingMeta.ForLoan(darlehen),
                 value: -darlehen.RemainingDebt,
                 note: $"nächste Zahlung {GermanFormat.Date(darlehen.NextPaymentDate)}",
-                route: "/darlehen"));
+
+                // Mit der Kennung, nicht ohne: ohne sie zeigte jede Zeile das erste Darlehen,
+                // und das zweite wäre angelegt, aber unerreichbar.
+                route: $"/darlehen?id={darlehen.Id}"));
         }
 
         return zeilen;

@@ -168,7 +168,9 @@ else
                             break;
 
                         case CreateFieldKind.Number:
-                            <input id="@("f-" + field.Key)" class="input num" type="number" min="0"
+                            @* step="any" ist nicht Zierde: ohne ihn gilt die Schrittweite 1, und
+                               ein Sollzins von 1,84 stünde im Browser als ungültig da. *@
+                            <input id="@("f-" + field.Key)" class="input num" type="number" min="0" step="any"
                                    placeholder="@field.Placeholder" value="@Get(field.Key)"
                                    @oninput="e => Set(field.Key, e.Value?.ToString())" />
                             break;
@@ -242,8 +244,9 @@ else
 
 @code {
     /// <summary>
-    /// Die Typen, die angelegt werden können — die acht aus Abschnitt 6 des Handoffs und
-    /// das Arbeitsverhältnis aus Abschnitt 8 der v5-Erweiterung.
+    /// Die Typen, die angelegt werden können — die acht aus Abschnitt 6 des Handoffs, das
+    /// Arbeitsverhältnis aus Abschnitt 8 der v5-Erweiterung und das Darlehen, das bis dahin
+    /// überall verlinkt war, aber nirgends anzulegen.
     /// </summary>
     private static readonly (string Route, string Label, string Hint)[] Kinds =
     [
@@ -252,6 +255,7 @@ else
         ("/neu/pension", "Vorsorgevertrag", "Kapital-LV, Riester, Bausparen — zählt zum Vermögen"),
         ("/neu/protection", "Versicherung", "Hausrat, Kfz, Haftpflicht — ohne Vermögenswert"),
         ("/neu/property", "Immobilie", "mit Kaufdatum und bestehendem Darlehen"),
+        ("/neu/loan", "Darlehen", "Restschuld, Zins und Rate — der Tilgungsplan folgt daraus"),
         ("/neu/contract", "Vertrag", "Strom, Internet, Wartung — mit Abschlag"),
         ("/neu/vehicle", "Fahrzeug", "Kennzeichen, Erstzulassung, verknüpfte Versicherung"),
         ("/neu/budget", "Budget", "Kategorie, Betrag, Warnschwelle"),

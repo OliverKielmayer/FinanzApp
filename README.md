@@ -484,8 +484,15 @@ zugehörigen Liste, nicht unter „Mehr“.
 
 Jeder Flow schreibt wirklich und rechnet durch: ein neues Konto ist sofort in der Vertragsanlage
 wählbar, ein neues Budget verändert Plan und Verbleibend. Doppelte Anlage wird abgelehnt.
-„Depot“ und „Darlehen“ im Konto-Formular legen kein Konto an, sondern führen dorthin, wo sie
-hingehören.
+„Depot“ und „Darlehen“ im Konto-Formular legen kein Konto an, sondern führen in ihre eigene
+Maske.
+
+Das Darlehen hat diese Maske lange nicht gehabt, und sein Fehlen war ein Kreis: Die Wahl führte
+auf den Darlehensbereich, der ohne erfasstes Darlehen auf die Typenübersicht verwies, und dort
+stand wieder nur „Konto“. Seine sechs Felder sind genau die, aus denen der Tilgungsplan rechnet.
+Eine Rate unterhalb des Monatszinses wird abgelehnt und der Zins genannt: Sie tilgte nichts,
+sondern ließe die Schuld wachsen — der Plan rechnete das brav vor, und die steigenden Zahlen
+sähen aus wie eine Aussage über das Darlehen.
 
 ### Bearbeiten und Löschen
 

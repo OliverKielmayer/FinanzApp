@@ -12,6 +12,9 @@ public enum CreateObjectType
     Budget = 6,
     Vehicle = 7,
     Employment = 8,
+
+    /// <summary>Darlehen. Es steht unter Finanzierungen, hat aber seinen eigenen Anlegeweg.</summary>
+    Loan = 9,
 }
 
 /// <summary>Wie ein Feld einzugeben ist. Bestimmt allein die Darstellung, nicht die Bedeutung.</summary>

@@ -18,7 +18,12 @@
         </section>
 
         <div class="section" style="padding-bottom:4px">
-            <span class="label-strong">Tilgungsplan</span>
+            <div class="section-head" style="margin-bottom:0">
+                <span class="label-strong">Tilgungsplan</span>
+                <AuthorizeView Roles="Owner,Member" Context="edit">
+                    <a class="section-link" href="@($"/bearbeiten/loan/{loan.Id}")">Bearbeiten</a>
+                </AuthorizeView>
+            </div>
         </div>
 
         <div class="table-wrap">
@@ -51,8 +56,9 @@
     else if (!Loading && Error is null)
     {
         @* Ohne Darlehen antwortet der Endpunkt mit 404 — kein Fehler, sondern die Auskunft,
-           dass es keines gibt. Eine Anlegeseite für Darlehen gibt es noch nicht; die Zeile
-           führt darum auf die Übersicht der Arten statt auf eine Adresse, die es nicht gibt. *@
+           dass es keines gibt. Die Zeile führt in die Maske, nicht auf die Übersicht der Arten:
+           von dort führte früher kein Weg zurück, und wer ein Darlehen anlegen wollte, lief im
+           Kreis. *@
         <div class="import-nothing">
             <span class="label-strong">Kein Darlehen erfasst</span>
             <span class="create-help">
@@ -61,7 +67,7 @@
             </span>
         </div>
 
-        <AddRow Route="/neu" Label="Objekt oder Vertrag anlegen" />
+        <AddRow Route="/neu/loan" Label="Darlehen anlegen" />
 
         <div class="spacer"></div>
     }
