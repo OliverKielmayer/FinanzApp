@@ -72,15 +72,28 @@ public static class FilingSuggestions
             Strong: ["kontoauszug", "auszug nr", "umsatzübersicht"],
             Weak: ["kontostand", "iban", "alter kontostand", "neuer kontostand", "buchungstag"]),
 
-        new("Versicherungsschein", DocumentArea.Insurance, "Versicherungsschein",
+        // Der Typ heißt in der Anwendung „Versicherungspolice“ — der Vorschlag muss auf einen
+        // Typ zeigen, den es gibt, sonst schickt er den Benutzer zum Anlegen eines Synonyms.
+        new("Versicherungsschein", DocumentArea.Insurance, "Versicherungspolice",
             Strong: ["versicherungsschein", "nachtrag zum versicherungsschein", "policennummer"],
             Weak: ["versicherungsnummer", "beitragsrechnung", "versicherungsjahr", "tarif",
                    "versicherungsbeginn"]),
 
         // Zuletzt und nur, wenn nichts Genaueres greift.
+        //
+        // Die schwachen Wörter sind an einer eingescannten Rechnung gewählt und nicht am
+        // Schreibtisch. Dort stand „RECHNU G Nr.“ — die Erkennung hatte ein N verschluckt, und
+        // eine Regel, die auf „rechnung“ wartet, wartete vergeblich. Was ein Scan heil
+        // überliefert, sind die kurzen Feldbeschriftungen ringsum: Kunden-Nr., Auftrags-Nr.,
+        // MwSt, Warenwert. Sie stehen auf jeder Rechnung und auf wenig sonst.
         new("Rechnung", DocumentArea.Other, "Rechnung",
-            Strong: ["rechnungsnummer", "rechnungsdatum", "zahlungsziel"],
-            Weak: ["rechnung", "zahlbar", "ust-idnr", "umsatzsteuer", "gesamtbetrag", "nettobetrag"],
+            Strong: ["rechnungsnummer", "rechnungsdatum", "rechnungs-nr", "zahlungsziel"],
+            Weak:
+            [
+                "rechnung", "zahlbar", "ust-idnr", "umsatzsteuer", "gesamtbetrag", "nettobetrag",
+                "kunden-nr", "auftrags-nr", "mwst", "warenwert", "zwischensumme", "einzelpreis",
+                "lieferschein", "lieferdat",
+            ],
             IsFallback: true),
     ];
 

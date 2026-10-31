@@ -92,6 +92,42 @@ public sealed class FilingSuggestionTests
     }
 
     /// <summary>
+    /// Eine eingescannte Rechnung wird erkannt, auch wenn die Erkennung das Wort zerlegt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Fall stammt von einem echten Blatt: Auf der Seite stand groß „RECHNUNG Nr.“,
+    /// und die Texterkennung lieferte „RECHNU G Nr.“ — ein verschlucktes N. Eine Regel, die auf
+    /// das Wort selbst wartet, wartet dann vergeblich, und der Zettel bleibt ohne Vorschlag
+    /// liegen, obwohl ein Mensch ihn in einer Sekunde einordnet.</para>
+    /// <para>Was ein Scan dagegen heil überliefert, sind die kurzen Feldbeschriftungen ringsum.
+    /// Sie tragen den Vorschlag, wenn das große Wort zerfällt. Zahlen und Namen hier sind
+    /// erfunden.</para>
+    /// </remarks>
+    [Fact]
+    public void Eine_zerlesene_Rechnung_wird_an_ihren_Feldern_erkannt()
+    {
+        var text = """
+            Musterholz GmbH & Co. KG
+            Auftrags-Nr. 01234567
+            RECHNU G Nr. 00099887
+            Kunden-Nr. 77341
+            Datum 04.11.2026
+            Pos Bezeichnung Menge EH GP EUR
+            Warenwert: 318,40 EUR 19,00 0/0 MwSt 60,50 EUR Summe:
+            """;
+
+        var vorschlag = FilingSuggestions.For(text);
+
+        Assert.NotNull(vorschlag);
+        Assert.Equal("Rechnung", vorschlag.Value.Label);
+        Assert.Contains("kunden-nr", vorschlag.Value.Hits);
+        Assert.Contains("mwst", vorschlag.Value.Hits);
+
+        // Und zwar ohne das Wort, an dem es eigentlich hängen sollte.
+        Assert.DoesNotContain("rechnung", vorschlag.Value.Hits);
+    }
+
+    /// <summary>
     /// Ein einzelnes schwaches Wort entscheidet nichts.
     /// </summary>
     /// <remarks>
