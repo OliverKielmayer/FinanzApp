@@ -212,6 +212,16 @@ public sealed record FixedCostsDto
     public required IReadOnlyList<FixedCostRowDto> Rows { get; init; }
 
     /// <summary>
+    /// Dieselben Posten nach Kostenart gebündelt, die schwerste Gruppe zuerst.
+    /// </summary>
+    /// <remarks>
+    /// Zwanzig Einzelzeilen beantworten die Frage nicht, die man an eine Fixkostenliste stellt:
+    /// <em>Wofür geht das Geld?</em> Vier Gruppen beantworten sie. Die Zeilen bleiben trotzdem
+    /// da — die Gruppe sagt, wie viel, die Zeile, was gekündigt werden könnte.
+    /// </remarks>
+    public required IReadOnlyList<FixedCostGroupDto> Groups { get; init; }
+
+    /// <summary>
     /// Verträge, die keinen Beitrag ausweisen — sie stehen in keiner Zeile.
     /// </summary>
     /// <remarks>
@@ -225,6 +235,16 @@ public sealed record FixedCostsDto
 public sealed record FixedCostRowDto
 {
     public required string Name { get; init; }
+
+    /// <summary>
+    /// Die Kostenart, unter der dieser Posten steht — „Vorsorge", „Wohnen", „Streaming".
+    /// </summary>
+    /// <remarks>
+    /// Gepflegt am Vertrag oder an der Police; fehlt sie, leitet der Bericht sie aus Bereich
+    /// und Art ab. Nie leer: Ein Posten ohne Gruppe fiele aus jeder Summe heraus, und ein
+    /// Bericht, der nicht alles zeigt, was er zusammenzählt, ist keiner.
+    /// </remarks>
+    public required string Group { get; init; }
 
     /// <summary>Auf den Monat umgerechnet, egal in welchem Takt gezahlt wird.</summary>
     public required decimal MonthlyAmount { get; init; }
@@ -356,3 +376,17 @@ public sealed record SaveReportViewRequest(
     int? DepotId = null,
     IReadOnlyList<int>? ExcludedTransactionIds = null,
     string? Name = null);
+
+/// <summary>Eine Kostenart mit ihrer Summe.</summary>
+public sealed record FixedCostGroupDto
+{
+    public required string Name { get; init; }
+
+    /// <summary>Summe der Posten dieser Art je Monat.</summary>
+    public required decimal MonthlyAmount { get; init; }
+
+    /// <summary>Anteil an den gebundenen Kosten, 0…100.</summary>
+    public required decimal SharePercent { get; init; }
+
+    public required IReadOnlyList<FixedCostRowDto> Rows { get; init; }
+}

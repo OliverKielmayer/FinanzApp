@@ -225,6 +225,9 @@ namespace FinanzApp.Api.Data.Migrations
                         .HasMaxLength(60)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("CostGroup")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateOnly?>("EndsOn")
                         .HasColumnType("TEXT");
 
@@ -1085,6 +1088,9 @@ namespace FinanzApp.Api.Data.Migrations
 
                     b.Property<long?>("BaseValue")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("CostGroup")
+                        .HasColumnType("TEXT");
 
                     b.Property<long?>("CurrentValue")
                         .HasColumnType("INTEGER");

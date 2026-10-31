@@ -461,6 +461,7 @@ public sealed class CreateFormService(
                     ["maturesOn"] = Iso(x.MaturesOn),
                     ["endsOn"] = Iso(x.EndsOn),
                     ["notice"] = x.NoticePeriodMonths == 0 ? null : x.NoticePeriodMonths.ToString(),
+                    ["costGroup"] = x.CostGroup,
                 };
             }
 
@@ -511,6 +512,7 @@ public sealed class CreateFormService(
                     ["account"] = x.AccountId?.ToString(),
                     ["property"] = x.PropertyId?.ToString(),
                     ["objekt"] = x.PropertyRelated ? FlagOn : FlagOff,
+                    ["costGroup"] = x.CostGroup,
                     ["notice"] = x.NoticePeriodWeeks == 0 ? null : x.NoticePeriodWeeks.ToString(),
                 };
             }
@@ -710,6 +712,7 @@ public sealed class CreateFormService(
                 : PremiumInterval.Yearly;
             policy.EndsOn = ParseDate(Value(values, "endsOn"));
             policy.NoticePeriodMonths = ParseInt(Value(values, "notice")) ?? 0;
+            policy.CostGroup = Value(values, "costGroup")?.Trim();
         }
 
         await db.SaveChangesAsync(ct);
@@ -773,6 +776,7 @@ public sealed class CreateFormService(
         contract.AccountId = ParseInt(Value(values, "account"));
         contract.PropertyId = ParseInt(Value(values, "property"));
         contract.PropertyRelated = Flagged(values, "objekt", fallback: contract.PropertyRelated);
+        contract.CostGroup = Value(values, "costGroup")?.Trim();
         contract.NoticePeriodWeeks = ParseInt(Value(values, "notice")) ?? 0;
 
         await db.SaveChangesAsync(ct);
@@ -1191,6 +1195,8 @@ public sealed class CreateFormService(
             Date("endsOn", "Vertragsende", required: false),
             Number("notice", "Kündigungsfrist in Monaten", required: false,
                 help: "Aus Vertragsende minus Frist entsteht der Kündigungstermin. Er wird nicht eingegeben."),
+            Text("costGroup", "Kostenart", required: false,
+                placeholder: "leer: Vorsorge, Gesundheit, Wohnen je nach Art"),
         ],
     };
 
@@ -1276,6 +1282,7 @@ public sealed class CreateFormService(
                 : PremiumInterval.Yearly;
             policy.EndsOn = ParseDate(Value(values, "endsOn"));
             policy.NoticePeriodMonths = ParseInt(Value(values, "notice")) ?? 0;
+            policy.CostGroup = Value(values, "costGroup")?.Trim();
         }
 
         db.Policies.Add(policy);
@@ -1588,6 +1595,8 @@ public sealed class CreateFormService(
                     help: "Objektbezogen zählt in die Objektkosten und in €/m². "
                           + "Der Internetanschluss hängt am Haus und zieht doch mit um.",
                     defaultOn: true),
+                Text("costGroup", "Kostenart", required: false,
+                    placeholder: "z. B. Wohnen, Streaming, Mobilfunk"),
                 Number("notice", "Kündigungsfrist in Wochen", required: false),
             ],
         };
@@ -1619,6 +1628,7 @@ public sealed class CreateFormService(
             AccountId = ParseInt(Value(values, "account")),
             PropertyId = ParseInt(Value(values, "property")),
             PropertyRelated = Flagged(values, "objekt", fallback: true),
+            CostGroup = Value(values, "costGroup")?.Trim(),
             NoticePeriodWeeks = ParseInt(Value(values, "notice")) ?? 0,
         };
 

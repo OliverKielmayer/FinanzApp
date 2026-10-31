@@ -42,15 +42,37 @@
     </div>
 }
 
-@foreach (var zeile in Data.Rows)
+@*
+    Nach Kostenart gebündelt. Zwanzig Einzelzeilen beantworten die Frage nicht, die man an eine
+    Fixkostenliste stellt — wofür geht das Geld? Vier Gruppen beantworten sie. Die Zeilen bleiben
+    darunter stehen: Die Gruppe sagt, wie viel, die Zeile, was gekündigt werden könnte.
+
+    Die Anteile beziehen sich auf die gebundenen Kosten und ergeben zusammen hundert Prozent.
+    Gegen die Monatsbasis gerechnet täten sie es nicht.
+*@
+@foreach (var gruppe in Data.Groups)
 {
-    <div class="report-fix-row">
+    <div class="report-fix-group">
         <span class="stack">
-            <span class="report-row-name">@zeile.Name</span>
-            <span class="meta @(zeile.NoticeDue ? "due" : null)">@zeile.Note</span>
+            <span class="label-strong">@gruppe.Name</span>
+            <span class="meta num">
+                @gruppe.Rows.Count @(gruppe.Rows.Count == 1 ? "Posten" : "Posten") ·
+                @GermanFormat.Percent(gruppe.SharePercent, 0) der Fixkosten
+            </span>
         </span>
-        <span class="report-row-amount num">@State.Euro(zeile.MonthlyAmount)</span>
+        <span class="report-row-amount num">@State.Euro(gruppe.MonthlyAmount)</span>
     </div>
+
+    @foreach (var zeile in gruppe.Rows)
+    {
+        <div class="report-fix-row sub">
+            <span class="stack">
+                <span class="report-row-name">@zeile.Name</span>
+                <span class="meta @(zeile.NoticeDue ? "due" : null)">@zeile.Note</span>
+            </span>
+            <span class="report-row-amount num">@State.Euro(zeile.MonthlyAmount)</span>
+        </div>
+    }
 }
 
 @if (Data.WithoutAmountCount > 0)

@@ -105,6 +105,16 @@ public class Policy : IHouseholdOwned
     public decimal Premium { get; set; }
     public PremiumInterval PremiumInterval { get; set; }
 
+    /// <summary>
+    /// Die Kostenart, unter der dieser Beitrag im Fixkostenbericht zusammengefasst wird.
+    /// </summary>
+    /// <remarks>
+    /// Leer heißt nicht „ohne Gruppe“ — dann leitet der Bericht sie aus der Policenart ab:
+    /// kapitalbildend wird „Vorsorge“, eine Krankenversicherung „Gesundheit“, eine Gebäude- oder
+    /// Hausratpolice „Wohnen“. Gepflegt wird nur, wo die Ableitung nicht passt.
+    /// </remarks>
+    public string? CostGroup { get; set; }
+
     public DateOnly? StartsOn { get; set; }
 
     /// <summary>Vertragsende. Aus ihm und der Frist entsteht die Kündigungsfrist.</summary>
@@ -346,6 +356,20 @@ public class Contract : IHouseholdOwned
 
     /// <summary>In welchem Takt <see cref="Amount"/> fällig wird.</summary>
     public PremiumInterval PaymentInterval { get; set; } = PremiumInterval.Monthly;
+
+    /// <summary>
+    /// Die Kostenart, unter der dieser Posten im Fixkostenbericht zusammengefasst wird.
+    /// </summary>
+    /// <remarks>
+    /// <para>Frei gewählt und nicht aus einer Liste: „Streaming“ gibt es in keinem Bereich und
+    /// in keiner Policenart, und genau solche Gruppen will man bilden. Der Bereich beantwortet
+    /// die Frage, wo ein Beleg abgelegt wird; die Kostenart, womit sich ein Posten vergleichen
+    /// lässt.</para>
+    /// <para>Leer heißt nicht „ohne Gruppe“: Dann leitet der Bericht sie aus dem Bereich ab.
+    /// Ein Bestand, der nach dieser Erweiterung erst einmal lauter Einzelzeilen zeigte, wäre
+    /// schlechter als vorher.</para>
+    /// </remarks>
+    public string? CostGroup { get; set; }
 
     /// <summary>
     /// Derselbe Betrag auf den Monat gerechnet — die Größe, in der Berichte vergleichen.

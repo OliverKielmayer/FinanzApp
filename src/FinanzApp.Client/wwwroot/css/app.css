@@ -6067,3 +6067,21 @@ button.repeat-value:disabled {
 .capture-more .capture-list {
   margin-top: 8px;
 }
+
+/* Die Kostenart über ihren Posten: eine Zeile, die zusammenfasst, was darunter steht. */
+.report-fix-group {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 12px 16px 6px;
+  border-top: 1px solid var(--color-text);
+}
+
+.report-fix-row.sub {
+  padding-left: 32px;
+}
+
+.report-fix-row.sub .report-row-name {
+  font-weight: 400;
+}

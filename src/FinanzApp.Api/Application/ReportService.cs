@@ -278,6 +278,7 @@ public sealed class ReportService(
             zeilen.Add(new FixedCostRowDto
             {
                 Name = darlehen.Name,
+                Group = "Finanzierung",
                 MonthlyAmount = darlehen.Installment,
                 Note = $"{darlehen.Lender} · "
                        + $"{GermanFormat.Percent(darlehen.InterestRatePercent, 2)} · nicht kündbar",
@@ -291,6 +292,7 @@ public sealed class ReportService(
             zeilen.Add(new FixedCostRowDto
             {
                 Name = vertrag.Name,
+                Group = Kostenart(vertrag),
                 MonthlyAmount = vertrag.MonthlyAmount,
                 Note = $"{AreaLabel(vertrag.Area)} · "
                        + Notice(vertrag.NoticePeriodWeeks, "Woche", "Wochen", vertrag.NoticeToDate),
@@ -304,6 +306,7 @@ public sealed class ReportService(
             zeilen.Add(new FixedCostRowDto
             {
                 Name = police.Name,
+                Group = Kostenart(police),
                 MonthlyAmount = PaymentIntervals.PerMonth(police.Premium, police.PremiumInterval),
 
                 // Ein kapitalbildender Beitrag fließt ab wie jeder andere, verschwindet aber
@@ -337,9 +340,81 @@ public sealed class ReportService(
                 : decimal.Round(fix / monatsbasis * 100m, 1),
             Note = Bound(fix, monatsbasis),
             Rows = [.. mitBetrag.OrderByDescending(z => z.MonthlyAmount)],
+            Groups = Gruppen(mitBetrag, fix),
             WithoutAmountCount = zeilen.Count - mitBetrag.Count,
         };
     }
+
+    /// <summary>
+    /// Die Kostenart eines Vertrags.
+    /// </summary>
+    /// <remarks>
+    /// Was gepflegt ist, gilt. Sonst der Bereich — er trifft es in den meisten Fällen, und ein
+    /// Bestand, der nach dieser Erweiterung lauter Einzelzeilen zeigte, wäre schlechter als
+    /// vorher. Wer „Streaming“ will, trägt es ein; die Ableitung kennt keine Gruppe, die in
+    /// keinem Bereich steht.
+    /// </remarks>
+    private static string Kostenart(Contract vertrag)
+        => vertrag.CostGroup is { Length: > 0 } gepflegt
+            ? gepflegt.Trim()
+            : AreaLabel(vertrag.Area);
+
+    /// <summary>
+    /// Die Kostenart einer Police.
+    /// </summary>
+    /// <remarks>
+    /// Ein kapitalbildender Beitrag ist Vorsorge, auch wenn er von der Absicherungsseite kommt:
+    /// Er fließt ab und wird Vermögen. Gebäude und Hausrat gehören zum Wohnen, eine
+    /// Krankenversicherung zur Gesundheit — alles andere bleibt Absicherung.
+    /// </remarks>
+    private static string Kostenart(Policy police)
+    {
+        if (police.CostGroup is { Length: > 0 } gepflegt)
+        {
+            return gepflegt.Trim();
+        }
+
+        if (police.IsCapitalForming)
+        {
+            return "Vorsorge";
+        }
+
+        return police.Kind switch
+        {
+            PolicyKind.Building or PolicyKind.HouseholdContents => "Wohnen",
+            PolicyKind.Health => "Gesundheit",
+            PolicyKind.Vehicle => "Mobilität",
+            _ => "Absicherung",
+        };
+    }
+
+    /// <summary>
+    /// Die Posten nach Kostenart gebündelt, die schwerste Gruppe zuerst.
+    /// </summary>
+    /// <remarks>
+    /// Der Anteil bezieht sich auf die <em>gebundenen</em> Kosten und nicht auf die Monatsbasis:
+    /// Die Gruppen teilen die Fixkosten unter sich auf, und ihre Anteile ergeben hundert
+    /// Prozent. Gegen die Monatsbasis gerechnet täten sie es nicht, und ein Kreis, dessen
+    /// Stücke nicht aufgehen, ist eine falsche Zeichnung.
+    /// </remarks>
+    private static List<FixedCostGroupDto> Gruppen(IReadOnlyList<FixedCostRowDto> zeilen, decimal fix)
+        => [.. zeilen
+            .GroupBy(z => z.Group, StringComparer.CurrentCultureIgnoreCase)
+            .Select(g => new
+            {
+                Name = g.First().Group,
+                Summe = decimal.Round(g.Sum(z => z.MonthlyAmount), 2),
+                Zeilen = g.OrderByDescending(z => z.MonthlyAmount).ToList(),
+            })
+            .OrderByDescending(g => g.Summe)
+            .ThenBy(g => g.Name)
+            .Select(g => new FixedCostGroupDto
+            {
+                Name = g.Name,
+                MonthlyAmount = g.Summe,
+                SharePercent = fix <= 0m ? 0m : decimal.Round(g.Summe / fix * 100m, 1),
+                Rows = g.Zeilen,
+            })];
 
     /// <summary>
     /// Die Kündigungsfrist im Klartext.
