@@ -241,8 +241,6 @@ if (app.Environment.IsDevelopment())
     app.UseWebAssemblyDebugging();
 }
 
-app.UseBlazorFrameworkFiles();
-
 // Im Entwicklungsbetrieb soll der Browser jede Datei nachfragen, statt sie zu raten.
 //
 // Ohne Cache-Control schätzt er selbst, wie lange eine Datei frisch bleibt — üblicherweise ein
@@ -251,19 +249,32 @@ app.UseBlazorFrameworkFiles();
 // Markup mit altem Stylesheet und sucht den Fehler im Code. Mit „no-cache“ behält der Browser
 // die Datei, fragt aber jedes Mal nach — ist sie unverändert, kommt 304 zurück.
 //
+// **Als Middleware und nicht als Einstellung der Dateiauslieferung.** Der erste Anlauf hing an
+// UseStaticFiles und griff damit an den beiden Dateien vorbei, auf die es ankommt:
+// „/“ liefert MapFallbackToFile aus, die Startliste des Frameworks UseBlazorFrameworkFiles —
+// beide bringen ihre eigene Auslieferung mit. Übrig blieb ein Browser, der neues CSS holte und
+// die alte Laufzeit startete, und eine Seite, die mit 404 auf eine Datei stehen blieb, die es
+// nie gab.
+//
 // Nur hier. Im Betrieb ist das Raten richtig; dort ändert sich zwischen zwei Besuchen nichts.
-var entwicklung = app.Environment.IsDevelopment();
-
-app.UseStaticFiles(new StaticFileOptions
+if (app.Environment.IsDevelopment())
 {
-    OnPrepareResponse = context =>
+    app.Use(async (context, next) =>
     {
-        if (entwicklung)
+        // Beim Start der Antwort gesetzt: Später käme der Kopf zu spät, früher überschriebe
+        // ihn die Auslieferung, die ihn selbst setzt.
+        context.Response.OnStarting(() =>
         {
-            context.Context.Response.Headers.CacheControl = "no-cache";
-        }
-    },
-});
+            context.Response.Headers.CacheControl = "no-cache";
+            return Task.CompletedTask;
+        });
+
+        await next();
+    });
+}
+
+app.UseBlazorFrameworkFiles();
+app.UseStaticFiles();
 
 app.UseRateLimiter();
 app.UseAuthentication();
