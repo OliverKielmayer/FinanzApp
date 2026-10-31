@@ -1,5 +1,6 @@
 using FinanzApp.Api.Application;
 using FinanzApp.Api.Data;
+using FinanzApp.Api.Data.Entities;
 using FinanzApp.Api.Infrastructure;
 using FinanzApp.Shared.Contracts;
 using Microsoft.Extensions.Caching.Memory;
@@ -26,6 +27,27 @@ public sealed class StatementIntakeTests : IDisposable
 
     private readonly string root =
         Path.Combine(Path.GetTempPath(), "finanzapp-tests", Guid.NewGuid().ToString("N"));
+
+    /// <summary>Das Konto, in das die Sätze gehen. Ohne eines gibt es keine Übernahme.</summary>
+    private int KontoId { get; }
+
+    public StatementIntakeTests()
+    {
+        using var context = database.Context();
+
+        var konto = new Account
+        {
+            Name = "Sparkasse Giro",
+            ShortName = "Sparkasse",
+            BankName = "Sparkasse",
+            Kind = AccountKind.Checking,
+            BalanceAsOf = new DateOnly(2026, 10, 27),
+        };
+
+        context.Accounts.Add(konto);
+        context.SaveChanges();
+        KontoId = konto.Id;
+    }
 
     [Fact]
     public async Task Ein_Kontoauszug_wird_erkannt_und_abgelegt()
@@ -148,6 +170,128 @@ public sealed class StatementIntakeTests : IDisposable
         Assert.Equal(DocumentArea.Other, ergebnis.Area);
     }
 
+    /// <summary>
+    /// Die übernommenen Buchungen räumen den Beleg weg.
+    /// </summary>
+    /// <remarks>
+    /// Der Schritt, an dem der Weg beim ersten Test endete. Lesen ging; danach stand der Auszug
+    /// weiter im Eingang und behauptete „wartet auf Prüfung“ über eine Datei, deren Sätze im
+    /// Konto standen. „Wegräumen“ half nicht: es verlangt Dokumenttyp <em>und</em> Verknüpfung,
+    /// und für einen Kontoauszug gibt es keinen Dokumenttyp.
+    /// </remarks>
+    [Fact]
+    public async Task Die_uebernommenen_Buchungen_raeumen_den_Beleg_weg()
+    {
+        var ergebnis = await TakeInAsync();
+        var vorschau = await LeseAsync(ergebnis.DocumentId);
+
+        var uebernahme = await UebernehmeAsync(vorschau, vorschau.Rows.Select(r => r.Index));
+
+        // Fünf von sieben: der Auszug führt eine vorgemerkte Buchung und eine mit unlesbarem
+        // Betrag. Beide werden nie buchbar, und sie dürfen den Beleg trotzdem nicht festhalten —
+        // sonst hinge er für immer im Eingang. Offen ist nur, was als neu dastand und niemand
+        // angehakt hat.
+        Assert.Equal(5, uebernahme.ImportedCount);
+        Assert.True(uebernahme.DocumentFiled);
+
+        using var context = database.Context();
+        var eingang = await Inbox(context).GetAsync();
+
+        Assert.Empty(eingang.Items);
+    }
+
+    /// <summary>
+    /// Danach hängt der Beleg am Konto, in das gebucht wurde.
+    /// </summary>
+    /// <remarks>
+    /// Das Konto hat der Nutzer in der Vorschau gewählt, und dorthin sind die Sätze gegangen. Es
+    /// aus der IBAN der Datei zu nehmen wäre eine zweite Quelle für dieselbe Größe — und beim
+    /// Gemeinschaftskonto die falsche.
+    /// </remarks>
+    [Fact]
+    public async Task Der_Beleg_haengt_danach_am_gewaehlten_Konto()
+    {
+        var ergebnis = await TakeInAsync();
+        var vorschau = await LeseAsync(ergebnis.DocumentId);
+
+        await UebernehmeAsync(vorschau, vorschau.Rows.Select(r => r.Index));
+
+        using var context = database.Context();
+        var verknuepfung = Assert.Single(
+            context.DocumentLinks.Where(l => l.DocumentId == ergebnis.DocumentId));
+
+        Assert.Equal(LinkTargetType.Account, verknuepfung.TargetType);
+        Assert.Equal(KontoId, verknuepfung.TargetId);
+    }
+
+    /// <summary>
+    /// Ein Auszug, dessen Sätze alle schon gebucht sind, ist auch ohne eine einzige Buchung fertig.
+    /// </summary>
+    /// <remarks>
+    /// Der häufigste Fall im Betrieb: die Datei kommt ein zweites Mal durch den Ordner, oder die
+    /// Buchungen waren vor der Ablage schon von Hand eingelesen. Bliebe der Beleg dafür liegen,
+    /// hinge er für immer im Eingang — wegzuräumen ist er ja nicht, und zu buchen gibt es nichts.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_laengst_gebuchter_Auszug_wird_auch_ohne_Buchung_erledigt()
+    {
+        // Erst von Hand einlesen — ohne Beleg, so wie es der Import bisher allein konnte.
+        var hochgeladen = await LeseHochgeladenAsync();
+        await UebernehmeAsync(hochgeladen, hochgeladen.Rows.Select(r => r.Index));
+
+        // Und jetzt dieselbe Datei durch den Ordner. Sie wird abgelegt: ein Dokument dieses
+        // Inhalts gibt es noch nicht, die Buchungen daraus aber schon.
+        var ergebnis = await TakeInAsync();
+        var vorschau = await LeseAsync(ergebnis.DocumentId);
+
+        Assert.Equal(0, vorschau.NewCount);
+
+        var uebernahme = await UebernehmeAsync(vorschau, []);
+
+        Assert.Equal(0, uebernahme.ImportedCount);
+        Assert.True(uebernahme.DocumentFiled);
+    }
+
+    /// <summary>
+    /// Ein übergangener neuer Satz lässt den Beleg liegen.
+    /// </summary>
+    /// <remarks>
+    /// Wer die Hälfte bucht, ist nicht fertig. Der Beleg bleibt im Eingang und bietet das Lesen
+    /// weiter an — der Rest seiner Sätze steht in keinem Konto, und das soll man sehen.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_uebergangener_Satz_laesst_den_Beleg_im_Eingang()
+    {
+        var ergebnis = await TakeInAsync();
+        var vorschau = await LeseAsync(ergebnis.DocumentId);
+
+        // Alle neuen Sätze bis auf einen. Genau dieser eine steht danach in keinem Konto.
+        var neu = vorschau.Rows.Where(r => r.State == ImportRowState.New).ToList();
+        var uebernahme = await UebernehmeAsync(vorschau, neu.Skip(1).Select(r => r.Index));
+
+        Assert.Equal(neu.Count - 1, uebernahme.ImportedCount);
+        Assert.False(uebernahme.DocumentFiled);
+
+        using var context = database.Context();
+        var eingang = await Inbox(context).GetAsync();
+
+        Assert.Single(eingang.Items);
+    }
+
+    /// <summary>
+    /// Ein von Hand hochgeladener Auszug räumt keinen Beleg weg — es gibt keinen.
+    /// </summary>
+    [Fact]
+    public async Task Ein_hochgeladener_Auszug_raeumt_keinen_Beleg_weg()
+    {
+        var vorschau = await LeseHochgeladenAsync();
+
+        var uebernahme = await UebernehmeAsync(vorschau, vorschau.Rows.Select(r => r.Index));
+
+        Assert.Equal(5, uebernahme.ImportedCount);
+        Assert.False(uebernahme.DocumentFiled);
+    }
+
     // ── Aufbau ─────────────────────────────────────────────────────────────────────────────
 
     /// <summary>Ein Leser ohne Textebene — so sieht eine XML-Datei für den PDF-Leser aus.</summary>
@@ -172,6 +316,35 @@ public sealed class StatementIntakeTests : IDisposable
         using var datei = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(inhalt ?? Sample()));
 
         return await Intake(context).TakeInAsync(datei, dateiname, source: "Scanordner");
+    }
+
+    /// <summary>Die Vorschau zu einem abgelegten Beleg.</summary>
+    private async Task<ImportPreviewDto> LeseAsync(int documentId)
+    {
+        using var context = database.Context();
+        return await Imports(context).ReadFiledAsync(documentId);
+    }
+
+    /// <summary>Dieselbe Datei von Hand — der Weg ohne Beleg.</summary>
+    private async Task<ImportPreviewDto> LeseHochgeladenAsync()
+    {
+        using var context = database.Context();
+        using var datei = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(Sample()));
+
+        return await Imports(context).ReadAsync(datei, "C52_hochgeladen.xml");
+    }
+
+    private async Task<ImportCommitResultDto> UebernehmeAsync(
+        ImportPreviewDto vorschau, IEnumerable<int> saetze)
+    {
+        using var context = database.Context();
+
+        return await Imports(context).CommitAsync(new ImportCommitRequest
+        {
+            PreviewId = vorschau.Id,
+            AccountId = KontoId,
+            Indexes = [.. saetze],
+        });
     }
 
     private DocumentService Documents(FinanzAppDbContext context)

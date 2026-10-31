@@ -37,7 +37,14 @@ public sealed class ImportService(
         "Geprüft gegen den Bestand: gleiche Importreferenz gilt als vorhanden, "
         + "gleicher Tag mit gleichem Empfänger und Betrag als mögliches Duplikat.";
 
-    /// <summary>Ein gelesener Stapel — aus einer Datei oder aus der eingebauten Vorlage.</summary>
+    /// <summary>
+    /// Ein gelesener Stapel — aus einer Datei oder aus der eingebauten Vorlage.
+    /// </summary>
+    /// <remarks>
+    /// <c>DocumentId</c> steht nur, wenn der Stapel aus einem <b>abgelegten</b> Beleg kommt. Daran
+    /// hängt, was die Übernahme mit diesem Beleg macht — ein hochgeladener Auszug hat keinen, und
+    /// für ihn gibt es nichts zu erledigen.
+    /// </remarks>
     private sealed record Batch(
         Guid Id,
         string FileName,
@@ -47,13 +54,18 @@ public sealed class ImportService(
         decimal? StatementBalance,
         string? Separator,
         IReadOnlyList<ImportRecord> Records,
-        int SourceCount = 1);
+        int SourceCount = 1,
+        int? DocumentId = null);
 
     /// <summary>
     /// Liest eine hochgeladene Auszugsdatei und legt die Vorschau bereit.
     /// </summary>
-    public async Task<ImportPreviewDto> ReadAsync(
+    public Task<ImportPreviewDto> ReadAsync(
         Stream content, string fileName, CancellationToken ct = default)
+        => ReadCoreAsync(content, fileName, documentId: null, ct);
+
+    private async Task<ImportPreviewDto> ReadCoreAsync(
+        Stream content, string fileName, int? documentId, CancellationToken ct)
     {
         // Ein Archiv wird zu einem Auszug zusammengelegt: eine Vorschau, eine Übernahme. Die
         // Banken liefern Tagesauszüge als ZIP, und acht Dateien einzeln durch denselben Ablauf
@@ -71,7 +83,8 @@ public sealed class ImportService(
             StatementBalance: statement.ClosingBalance,
             Separator: null,
             Records: statement.Records,
-            SourceCount: statement.SourceCount);
+            SourceCount: statement.SourceCount,
+            DocumentId: documentId);
 
         cache.Set(KeyOf(batch.Id), batch, new MemoryCacheEntryOptions
         {
@@ -105,7 +118,7 @@ public sealed class ImportService(
         }
 
         await using var datei = File.OpenRead(absolut);
-        return await ReadAsync(datei, dokument.FileName, ct);
+        return await ReadCoreAsync(datei, dokument.FileName, dokument.Id, ct);
     }
 
     private async Task<ParsedStatement> ReadSingleAsync(
@@ -234,6 +247,10 @@ public sealed class ImportService(
         }
 
         await db.SaveChangesAsync(ct);
+
+        // Und der Beleg, aus dem die Sätze kamen — falls es einen gibt.
+        var erledigt = await SettleDocumentAsync(batch, rows, chosen, account, ct);
+
         await tx.CommitAsync(ct);
 
         // Nach der Übernahme ist die Vorschau verbraucht — ein zweiter Klick soll nicht dieselben
@@ -246,7 +263,70 @@ public sealed class ImportService(
             ForcedDuplicates = forced,
             WithoutCategory = withoutCategory,
             LearnedRuleIds = [.. learned],
+            DocumentFiled = erledigt,
         };
+    }
+
+    /// <summary>
+    /// Schließt den abgelegten Auszug ab: verknüpft ihn mit dem Konto und räumt ihn aus dem
+    /// Scaneingang, wenn von seinen Sätzen nichts mehr offen ist.
+    /// </summary>
+    /// <remarks>
+    /// <para>Übernommen ist mehr als abgelegt — dieselbe Regel wie bei der Vermögensübersicht.
+    /// Wartet der Auszug nach der Buchung weiter im Eingang, behauptet er „wartet auf Prüfung“
+    /// über eine Datei, deren Sätze im Konto stehen. Genau daran ist der Weg beim ersten Test
+    /// hängengeblieben: lesen ging, herauskommen nicht.</para>
+    /// <para>Über das Feld und nicht über <see cref="ScanInboxService.FileAsync"/>: dessen
+    /// Schwelle ist Dokumenttyp <em>und</em> Verknüpfung, und für einen Kontoauszug gibt es
+    /// keinen Dokumenttyp — seine Einordnung ist das Konto.</para>
+    /// <para>Das Konto kommt aus der Wahl des Nutzers in der Vorschau und nicht aus der IBAN der
+    /// Datei. Dorthin wurde gebucht; ein Beleg, der an einem anderen Konto hinge als seine eigenen
+    /// Buchungen, wäre eine zweite Wahrheit über dieselbe Sache.</para>
+    /// <para><b>Offen</b> heißt: ein Satz, den die Vorschau als neu geführt hat und den niemand
+    /// angehakt hat. Was schon gebucht war, was als Treffer gegen den Bestand dastand und was
+    /// unlesbar ist, hat der Nutzer gesehen — daran ist nichts mehr zu tun. Ein übergangener
+    /// neuer Satz dagegen steht in keinem Konto, und dann ist der Auszug nicht fertig.</para>
+    /// </remarks>
+    private async Task<bool> SettleDocumentAsync(
+        Batch batch, List<ImportRowDto> rows, HashSet<int> chosen, Account account,
+        CancellationToken ct)
+    {
+        // Zwischen Vorschau und Übernahme kann der Beleg gelöscht worden sein. Ungeprüft bräche
+        // die Verknüpfung am Fremdschlüssel ab — und zwar nach der Buchung.
+        if (batch.DocumentId is not { } belegId
+            || !await db.Documents.AnyAsync(d => d.Id == belegId, ct))
+        {
+            return false;
+        }
+
+        if (!await db.DocumentLinks.AnyAsync(
+                l => l.DocumentId == belegId
+                     && l.TargetType == LinkTargetType.Account
+                     && l.TargetId == account.Id, ct))
+        {
+            db.DocumentLinks.Add(new DocumentLink
+            {
+                DocumentId = belegId,
+                TargetType = LinkTargetType.Account,
+                TargetId = account.Id,
+                CreatedAt = clock.Now,
+            });
+        }
+
+        var offen = rows.Count(r => r.State == ImportRowState.New && !chosen.Contains(r.Index));
+
+        var eingang = await db.ScanInbox.FirstOrDefaultAsync(
+            x => x.DocumentId == belegId && x.FiledAt == null, ct);
+
+        var erledigt = eingang is not null && offen == 0;
+
+        if (erledigt)
+        {
+            eingang!.FiledAt = clock.Now;
+        }
+
+        await db.SaveChangesAsync(ct);
+        return erledigt;
     }
 
     /// <summary>

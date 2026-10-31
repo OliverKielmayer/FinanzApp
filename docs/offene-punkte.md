@@ -1,6 +1,6 @@
 # Offene Punkte
 
-Stand **27.10.2026**, nach den ersten Tests am eigenen Bestand. Eine Liste, kein Plan: sie sagt,
+Stand **29.10.2026**, nach den ersten Tests am eigenen Bestand. Eine Liste, kein Plan: sie sagt,
 was noch nicht gebaut ist und woher die Anforderung stammt — die Reihenfolge steht in den
 Handoffs selbst, nicht hier.
 
@@ -145,23 +145,35 @@ ist nicht diese Entscheidung, sondern wie schlecht der Weg zurück markiert war:
 - **Die Dublettenprüfung saß nur am Ordnerdienst.** Von Hand ließ sich dieselbe Datei beliebig
   oft einlesen; im Bestand lagen davon drei Abzüge desselben Berichts, einer an keinem Vertrag.
   Beide Stufen gelten jetzt auf beiden Wegen.
-
-Offen:
-
-- **Kontoauszüge kennt der Scaneingang nicht.** Eine CAMT-Datei, die durch den überwachten Ordner
-  kommt, wird als unbekannter Zettel in „Sonstiges“ abgelegt und bleibt im Eingang liegen. Der
-  Import ist der einzige Weg, auf dem sie gelesen wird — er steht an anderer Stelle und nimmt
-  keine eingelieferte Datei entgegen.
-- **Eine Ablage lässt sich nicht ändern** (§17.3). Der Pfad entsteht bei der Analyse aus Bereich,
-  Objekt und Jahr und bleibt dann stehen. Ein Beleg, dessen Vertrag erst im Eingang zugeordnet
-  wurde, liegt weiter unter „Unbekannt“ — richtig abgelegt wäre er nur, wenn die Zuordnung ihn
-  umlegen würde.
+- **Ein Kontoauszug lief in den PDF-Leser.** Eine camt-Datei aus dem überwachten Ordner fand dort
+  keine Textebene und lag als unbekannter Zettel in „Sonstiges“. Sie geht jetzt denselben Weg wie
+  ein Beleg — abgelegt unter `Finanzen/Kontoauszüge/{Jahr}`, im Eingang mit dem Schalter
+  „Buchungen einlesen“, und die Vorschau liest die *abgelegte* Datei neu.
+- **Und er kam nicht wieder heraus.** Der zweite Befund desselben Weges, einen Test später: lesen
+  ging, herauskommen nicht. „Wegräumen“ verlangt Dokumenttyp *und* Verknüpfung, und für einen
+  Kontoauszug gibt es keinen Dokumenttyp. Jetzt erledigt ihn die Übernahme der Buchungen selbst —
+  sie verknüpft ihn mit dem Konto, in das gebucht wurde, und räumt ihn aus dem Eingang, sobald von
+  seinen Sätzen nichts Neues mehr offen ist. Dieselbe Regel wie bei der Vermögensübersicht:
+  übernommen ist mehr als abgelegt.
 - **Die Uhr war eingefroren, und das hing nicht an der Demo.** `Demo:Today` setzt den Stichtag
   der *ganzen* Anwendung: jeder eingelesene Beleg bekam den 23.08.2026 als Ablagetag, und wo das
   Papier kein Dokumentdatum nennt, stand dieses Datum als Datum des Schreibens — drei Berichte
   aus drei Jahren trugen dasselbe. Der Wert ist jetzt leer, die Anwendung läuft auf der echten
   Uhr. Die Monatssummen des Demo-Haushalts zeigen seitdem den laufenden Monat; die Beispieldaten
   hängen am August 2026, weil sie so geschrieben sind.
+
+Offen:
+
+- **Der Import liest camt, das Papier kommt als Tabelle.** `camt.052` und `camt.053` versteht er,
+  einzeln und als ZIP. Im Bankordner des Nutzers liegen über alle Institute hinweg zwei solche
+  Dateien — die Umsätze des Girokontos dagegen als vierzehn CSV und acht XLSX. Ob der Weg im
+  Alltag trägt, hängt daran, was die Bank monatlich hergibt; ein Leser für ihren CSV-Export wäre
+  die Antwort, wenn nicht.
+- **Eine Ablage lässt sich nicht von Hand wählen** (§17.3). Der Pfad entsteht bei der Analyse aus
+  Bereich, Objekt und Jahr. Die Zuordnung im Eingang legt den Beleg inzwischen um — ein Beleg,
+  dessen Vertrag erst dort gefunden wurde, liegt danach bei seinem Vertrag und nicht mehr unter
+  „Unbekannt“. Was fehlt, ist der Griff, mit dem jemand einen Ablageort *anders* bestimmt als die
+  Regel.
 - **Ein Dokumentdatum wird weiter ersetzt, wenn das Papier keines nennt.** Dann steht der
   Ablagetag dort. Er ist seit der echten Uhr wenigstens der wahre Tag, aber er ist nicht das
   Datum des Schreibens, und der Beleg sagt das nicht.

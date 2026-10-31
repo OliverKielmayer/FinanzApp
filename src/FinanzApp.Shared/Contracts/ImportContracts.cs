@@ -276,4 +276,14 @@ public sealed record ImportCommitResultDto
 
     /// <summary>Die in diesem Lauf gelernten Regeln.</summary>
     public required IReadOnlyList<int> LearnedRuleIds { get; init; }
+
+    /// <summary>
+    /// Ob der abgelegte Auszug damit aus dem Scaneingang verschwunden ist.
+    /// </summary>
+    /// <remarks>
+    /// Gehört in die Meldung: ein Beleg, der ohne ein Wort aus dem Eingang verschwindet, lässt
+    /// den Nutzer dort nachsehen, ob er noch da ist. Ein hochgeladener Auszug hat keinen Beleg
+    /// und nichts zu melden — dann steht hier <c>false</c>.
+    /// </remarks>
+    public bool DocumentFiled { get; init; }
 }

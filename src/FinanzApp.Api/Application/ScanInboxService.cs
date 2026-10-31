@@ -117,10 +117,11 @@ public sealed class ScanInboxService(FinanzAppDbContext db, DocumentService docu
     /// Textebene, eine Rechnung, für die es keine Leseregel gibt, ein Beleg zu einem Vertrag,
     /// den es in der Anwendung noch nicht gibt. Er endet dort, wo der erkannte Beleg auch
     /// endet: eingeordnet und aus dem Eingang verschwunden.</para>
-    /// <para>Der <see cref="Document.Area">Bereich</see> folgt dem gewählten Typ. Die Datei
-    /// selbst bleibt liegen, wo sie liegt: sie zu verschieben hieße, einen Pfad zu ändern, den
-    /// jemand vielleicht schon woanders notiert hat — und der Bereich ist die Angabe, nach der
-    /// gesucht und gefiltert wird, nicht der Ordnername.</para>
+    /// <para>Der <see cref="Document.Area">Bereich</see> folgt dem gewählten Typ, und die Datei
+    /// zieht mit: eine Einlieferung ohne erkanntes Objekt liegt unter „Unbekannt“, und bliebe sie
+    /// dort, behauptete der Ordner nach dem Zuordnen etwas, das nicht mehr stimmt. Dass sich ein
+    /// Pfad damit ändert, ist der Preis — wer im Dateimanager sucht, fände den Beleg sonst nicht
+    /// bei seinem Vertrag.</para>
     /// </remarks>
     /// <exception cref="ArgumentException">
     /// Der Dokumenttyp oder das Zielobjekt gibt es im eigenen Haushalt nicht.

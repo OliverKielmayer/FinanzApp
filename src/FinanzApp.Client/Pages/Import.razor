@@ -168,13 +168,23 @@
                             </span>
                         </div>
 
+                        @*
+                            „Nichts ausgewählt“ ist nicht immer dasselbe wie „nichts zu tun“. Steht
+                            der Auszug als Beleg im Scaneingang und ist jeder seiner Sätze schon
+                            gebucht, dann ist das Ergebnis der Prüfung: hier bleibt nichts zu
+                            buchen. Gesperrt bliebe der Beleg für immer im Eingang stehen — es gibt
+                            keinen zweiten Weg, ihn herauszuholen.
+                        *@
                         <AuthorizeView Roles="Owner,Member" Context="bar">
                             <div class="import-bar-actions">
                                 <button type="button" class="btn btn-primary"
-                                        disabled="@(busy || Draft.Selected.Count == 0)" @onclick="CommitAsync">
-                                    @(Draft.Selected.Count == 0
-                                        ? "Nichts ausgewählt"
-                                        : $"{Draft.Selected.Count} {(Draft.Selected.Count == 1 ? "Buchung" : "Buchungen")} importieren")
+                                        disabled="@(busy || (Draft.Selected.Count == 0 && !NothingLeftToBook))"
+                                        @onclick="CommitAsync">
+                                    @(Draft.Selected.Count > 0
+                                        ? $"{Draft.Selected.Count} {(Draft.Selected.Count == 1 ? "Buchung" : "Buchungen")} importieren"
+                                        : NothingLeftToBook
+                                            ? "Nichts zu buchen — Beleg abschließen"
+                                            : "Nichts ausgewählt")
                                 </button>
                                 <button type="button" class="btn btn-ghost" disabled="@busy"
                                         @onclick="Cancel">Verwerfen</button>
@@ -1033,6 +1043,20 @@
         }
     }
 
+    /// <summary>
+    /// Ein abgelegter Auszug, von dem nichts Neues übrig ist.
+    /// </summary>
+    /// <remarks>
+    /// Nur für den Beleg aus dem Scaneingang: ein von Hand hochgeladener Auszug hat nichts
+    /// abzuschließen, und dort hieße ein freigeschalteter Knopf, dass ein leerer Import etwas
+    /// bewirkt. <em>Nichts übrig</em> heißt: kein Satz, der als neu dasteht und nicht gewählt ist.
+    /// Was schon gebucht war und was unlesbar ist, hat der Nutzer gesehen.
+    /// </remarks>
+    private bool NothingLeftToBook
+        => DocumentId is not null
+           && Draft.Preview is { } vorschau
+           && !vorschau.Rows.Any(r => r.State == ImportRowState.New && !Draft.Selected.Contains(r.Index));
+
     private Task CommitAsync() => RunAsync(async () =>
     {
         busy = true;
@@ -1057,6 +1081,12 @@
             if (result.WithoutCategory > 0)
             {
                 teile.Add($"{result.WithoutCategory} ohne Kategorie");
+            }
+
+            // Der Beleg ist damit weg aus dem Eingang. Ungesagt ginge der Nutzer dort nachsehen.
+            if (result.DocumentFiled)
+            {
+                teile.Add("Beleg aus dem Scaneingang");
             }
 
             // Die Vorschau ist auf dem Server verbraucht. Bliebe der Entwurf stehen, böte die
