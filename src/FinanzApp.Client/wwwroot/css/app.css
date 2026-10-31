@@ -752,7 +752,6 @@ body {
 
 /* Auf dem Telefon ist die Buchungsliste eine Reihe kompakter Zeilen. Die Tabellenspalten
    und die Auswahlspalte sind hier nicht da — dafür fehlt schlicht die Breite. */
-.tx-head,
 .tx-cell,
 .tx-check {
   display: none;
@@ -857,14 +856,6 @@ body {
   border-bottom: 1px solid var(--color-divider);
 }
 
-.tx-date {
-  flex: none;
-  width: 36px;
-  padding-top: 3px;
-  font-size: 11px;
-  color: var(--color-neutral-600);
-}
-
 .tx-main {
   flex: 1;
   display: flex;
@@ -905,6 +896,379 @@ body {
 
 .tx-amount.income {
   color: var(--color-accent-700);
+}
+
+/* ── Konten, Buchungen, Details nebeneinander ───────────────────────────────── */
+
+/* Auf dem Telefon untereinander in der Reihenfolge, in der man danach greift: Konten,
+   das gewählte Konto, seine Buchungen. Die Detailspalte ist hier nicht da — dafür
+   gibt es das Sheet, das die Liste verdeckt und auf einer Hand bedienbar bleibt. */
+.ledger {
+  display: block;
+}
+
+.ledger-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 16px 8px;
+  border-bottom: 1px solid var(--color-text);
+}
+
+.ledger-title {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ledger-sum,
+.list-count {
+  font-size: 12px;
+  color: var(--color-neutral-700);
+}
+
+/* Die Kontokarte: Zeichen, Name und Stand. Sie wählt aus, statt zu navigieren —
+   deshalb sieht man ihr an, welche gerade gilt. */
+.acct-card {
+  display: flex;
+  width: 100%;
+  gap: 12px;
+  align-items: center;
+  padding: 11px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--color-divider);
+  border-left: 3px solid transparent;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.acct-card:hover {
+  background: var(--color-neutral-100);
+}
+
+.acct-card.picked {
+  border-left-color: var(--color-accent);
+  background: var(--color-accent-100);
+}
+
+.acct-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--color-accent-600);
+  color: var(--color-neutral-100);
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 15px;
+}
+
+.acct-mark-all {
+  background: var(--color-neutral-600);
+}
+
+.acct-mark-large {
+  width: 54px;
+  height: 54px;
+  font-size: 22px;
+}
+
+.acct-name {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acct-sub {
+  font-size: 11px;
+  color: var(--color-neutral-700);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acct-balance {
+  margin-left: auto;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+/* Das aufgeschlagene Konto. */
+.acct-sheet {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 20px 16px;
+  text-align: center;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.acct-sheet-name {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 18px;
+}
+
+.acct-sheet-kind,
+.acct-sheet .meta {
+  font-size: 11px;
+  color: var(--color-neutral-700);
+}
+
+.acct-sheet-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.acct-sheet-balance {
+  margin-top: 10px;
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 30px;
+  color: var(--color-accent-700);
+}
+
+.acct-sheet-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  margin-top: 14px;
+}
+
+/* ── Der Buchungstag ────────────────────────────────────────────────────────── */
+
+/* Datum links, daneben was an dem Tag passiert ist und wo das Konto danach stand.
+   Die Klammer um die Tagessumme trennt die beiden Zahlen fürs Auge: die eine ist
+   eine Bewegung, die andere ein Stand. */
+.tx-day-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 16px 6px;
+  background: var(--color-neutral-100);
+  border-bottom: 1px solid var(--color-divider);
+  font-size: 12px;
+}
+
+.tx-day-date {
+  font-weight: 600;
+}
+
+.tx-day-sum {
+  margin-left: auto;
+  color: var(--color-neutral-700);
+}
+
+.tx-day-balance {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  min-width: 96px;
+  text-align: right;
+}
+
+/* ── Die eingeklappte Kategorienzeile ───────────────────────────────────────── */
+
+.filter-fold {
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.filter-fold-head {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  gap: 10px;
+  padding: 9px 16px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.filter-fold-head:hover {
+  background: var(--color-neutral-100);
+}
+
+.filter-fold-label {
+  flex: none;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-neutral-700);
+}
+
+/* Der gewählte Filter steht hier auch im zugeklappten Zustand — und wenn einer steht,
+   steht er in der Farbe, die in dieser Anwendung „aktiv“ heißt. */
+.filter-fold-state {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--color-neutral-700);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filter-fold-state.set {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.filter-fold-mark {
+  flex: none;
+  font-size: 11px;
+  color: var(--color-neutral-600);
+}
+
+/* Die Chips darin tragen den Strich der Klappe, nicht ihren eigenen. */
+.filter-fold .filter-row {
+  border-bottom: 0;
+}
+
+/* Der Verwendungszweck unter dem Empfänger — eine Zeile, der Rest in den Details. */
+.tx-purpose {
+  font-size: 11px;
+  color: var(--color-neutral-600);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Die aufgeschlagene Zeile bleibt markiert, solange die Spalte sie zeigt. */
+.tx-line.shown {
+  background: var(--color-accent-100);
+}
+
+/* ── Die Detailspalte ───────────────────────────────────────────────────────── */
+
+/* Erst ab Schreibtischbreite. Darunter leistet das Sheet dasselbe und verdeckt dabei
+   die Liste — bei 380 Pixeln ist das richtig. */
+.tx-detail {
+  display: none;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 24px;
+}
+
+.tx-detail-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 16px 8px;
+  border-bottom: 1px solid var(--color-text);
+}
+
+.tx-detail-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 24px 16px;
+}
+
+.tx-detail-title {
+  padding: 4px 16px 0;
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 17px;
+  letter-spacing: 0.02em;
+}
+
+.tx-detail-amount {
+  padding: 0 16px;
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 30px;
+}
+
+.tx-detail-amount.income {
+  color: var(--color-accent-700);
+}
+
+.tx-detail-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 16px 0;
+  border-top: 1px solid var(--color-divider);
+}
+
+.tx-detail-purpose {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.tx-detail-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-neutral-700);
+  line-height: 1.45;
+}
+
+.tx-detail-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+}
+
+.tx-detail-field {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.tx-detail-field dt {
+  flex: none;
+}
+
+.tx-detail-field dd {
+  margin: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.tx-detail-option {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.tx-detail-action {
+  align-self: flex-start;
+}
+
+.tx-detail-close {
+  display: none;
+}
+
+/* Der Umschlag um das Sheet steht selbst nicht im Fluss — er ist nur die Fläche,
+   an der die Breite entscheidet, ob das Sheet überhaupt erscheint. */
+.sheet-narrow {
+  display: contents;
 }
 
 .empty {
@@ -1690,25 +2054,11 @@ body {
     align-items: stretch;
   }
 
-  .tx-head {
-    display: grid;
-    grid-template-columns: 28px 56px minmax(160px, 2fr) 118px 110px 104px;
-    align-items: center;
-    padding: 8px 16px;
-    border-bottom: 1px solid var(--color-text);
-    font-size: 10px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--color-neutral-700);
-  }
-
-  .tx-head-amount {
-    text-align: right;
-  }
-
+  /* Ohne Datumsspalte: das Datum steht einmal im Tageskopf und nicht dreißigmal
+     daneben — genau so, wie ein Auszug auf Papier es macht. */
   .tx-row {
     display: grid;
-    grid-template-columns: 56px minmax(160px, 2fr) 118px 110px 104px;
+    grid-template-columns: 118px minmax(160px, 2fr) 110px 104px;
     align-items: center;
     gap: 0;
     padding: 9px 16px 9px 0;
@@ -1785,6 +2135,11 @@ body {
     border-right: 1px solid var(--color-text);
   }
 
+  /* Der Tageskopf trägt ab hier dieselbe rechte Kante wie die Beträge darunter. */
+  .tx-day-head {
+    padding-right: 16px;
+  }
+
   /* Chart und Bilanz nebeneinander statt untereinander. */
   .chart-balance {
     display: grid;
@@ -1828,6 +2183,93 @@ body {
 
   .sheet {
     width: 480px;
+  }
+
+  /* Drei Spalten: Konten, das gewählte Konto, seine Buchungen. Die Detailspalte
+     käme hier noch zu teuer — die Liste behielte keine 200 Pixel, und ihre Zeilen
+     brauchen gut 500. Bis dahin leistet das Sheet die Details. */
+  .ledger {
+    display: grid;
+    grid-template-columns: 250px 230px minmax(0, 1fr);
+    height: 100%;
+  }
+
+  /* Enger als in der Vollbreite, weil die Liste hier eine Spalte ist und keine Seite. */
+  .ledger-list .tx-row {
+    grid-template-columns: 104px minmax(110px, 2fr) 84px 96px;
+  }
+
+  /* Jede Spalte scrollt für sich. Scrollte die Seite als Ganzes, nähme die dritte
+     Buchung die anderen drei Spalten mit aus dem Bild — und genau die will man ja
+     danebenbehalten, während man die Liste durchgeht. */
+  .app-main:has(.ledger) {
+    overflow: hidden;
+  }
+
+  .app-content:has(.ledger) {
+    height: 100%;
+  }
+
+  .ledger > * {
+    height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+
+  .ledger-account,
+  .ledger-list,
+  .tx-detail {
+    border-left: 1px solid var(--color-text);
+  }
+
+  /* Drei Beträge nebeneinander brauchen Breite, die diese Spalte nicht hat: in
+     230 Pixeln liefe der Saldo in die Liste hinein. Untereinander passen sie. */
+  .ledger-account .tx-totals {
+    grid-template-columns: 1fr;
+  }
+
+  .ledger-account .tx-total + .tx-total {
+    border-left: 0;
+    border-top: 1px solid var(--color-divider);
+  }
+
+  .ledger-account .tx-total {
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 16px;
+  }
+
+  .ledger-account .tx-total-value {
+    font-size: 15px;
+  }
+}
+
+/* ── Vollbreite: die vierte Spalte ──────────────────────────────────────────── */
+
+/* Erst hier, und nicht einen Pixel früher: die Detailspalte kostet 340 Pixel, und
+   die Buchungsliste braucht gut 500 für ihre eigenen Spalten. Darunter stünde sie
+   neben einer Liste, die ihre Zeilen abschneidet — und das Sheet kann dasselbe,
+   ohne jemandem Platz wegzunehmen. */
+@media (min-width: 1600px) {
+  .ledger {
+    grid-template-columns: 290px 250px minmax(0, 1fr) 340px;
+  }
+
+  .ledger-list .tx-row {
+    grid-template-columns: 118px minmax(160px, 2fr) 110px 104px;
+  }
+
+  .tx-detail {
+    display: flex;
+  }
+
+  /* Die Spalte zeigt die Buchung schon an — das Sheet wäre ein zweites Fenster
+     auf dieselbe Sache, und es läge über der Liste, die man gerade vergleicht. */
+  .sheet-narrow {
+    display: none;
   }
 }
 

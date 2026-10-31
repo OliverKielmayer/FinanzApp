@@ -1,0 +1,243 @@
+@using FinanzApp.Shared.Contracts
+@using FinanzApp.Shared.Formatting
+
+@*
+    Die Buchung in voller Breite, neben der Liste statt über ihr.
+
+    Auf dem Telefon leistet das Sheet dasselbe und verdeckt dabei die Liste — bei einer Hand und
+    380 Pixeln ist das richtig. Am Schreibtisch ist es das nicht: dort steht die Liste daneben,
+    man springt von Zeile zu Zeile und vergleicht. Ein Fenster, das sich bei jedem Sprung
+    öffnet und schließt, macht aus dem Vergleichen ein Klicken.
+*@
+<aside class="tx-detail">
+    <div class="tx-detail-head">
+        <span class="ledger-title">Details</span>
+        <button type="button" class="btn btn-ghost tx-detail-close" @onclick="OnClose"
+                aria-label="Details schließen">Schließen</button>
+    </div>
+
+    @if (Transaction is not { } buchung)
+    {
+        @*
+            Nie eine leere Fläche: die Spalte steht auch ohne Auswahl da und sagt, wofür sie da
+            ist. Sonst sähe sie aus wie ein Fehler.
+        *@
+        <div class="tx-detail-empty">
+            <span class="empty-area-title">Keine Buchung gewählt</span>
+            <span class="empty-area-text">
+                Eine Zeile der Liste anwählen — hier stehen dann Verwendungszweck, Gegenseite und
+                die Felder des Auszugs.
+            </span>
+        </div>
+    }
+    else
+    {
+        <div class="tx-detail-title">@buchung.Payee</div>
+        <div class="tx-detail-amount num @(buchung.Amount > 0 ? "income" : null)">
+            @GermanFormat.Euro(buchung.Amount, withPlusSign: true)
+        </div>
+
+        @*
+            Der Verwendungszweck zuerst, und ungekürzt: in der Liste ist er auf eine Zeile
+            beschnitten, und genau deshalb schlägt man hier nach. Ihn auch hier zu kürzen hieße,
+            die Spalte um ihre Aufgabe zu bringen.
+        *@
+        @if (buchung.Details?.Purpose is { Length: > 0 } zweck)
+        {
+            <div class="tx-detail-block">
+                <span class="label-strong">Verwendungszweck</span>
+                <p class="tx-detail-purpose">@zweck</p>
+            </div>
+        }
+
+        @if (Fields(buchung) is { Count: > 0 } felder)
+        {
+            <div class="tx-detail-block">
+                <span class="label-strong">Zusätzliche Informationen</span>
+                <dl class="tx-detail-fields">
+                    @foreach (var (name, wert) in felder)
+                    {
+                        <div class="tx-detail-field">
+                            <dt class="label-muted">@name</dt>
+                            <dd class="num">@wert</dd>
+                        </div>
+                    }
+                </dl>
+            </div>
+        }
+
+        <AuthorizeView Roles="Owner,Member" Context="options">
+            <div class="tx-detail-block">
+                <span class="label-strong">Optionen</span>
+
+                @*
+                    Eine Umbuchung trägt keine Kategorie — die Auswahl stünde da und hätte keine
+                    Wirkung. Sie zu zeigen und zu sperren wäre dasselbe in umständlich.
+                *@
+                @if (buchung.Kind == TransactionKind.Transfer)
+                {
+                    <p class="tx-detail-note">
+                        Als Umbuchung markiert. Umbuchungen zählen weder als Einnahme noch als
+                        Ausgabe und tragen deshalb keine Kategorie.
+                    </p>
+                }
+                else
+                {
+                    <label class="tx-detail-option">
+                        <span class="label-muted">Kategorie</span>
+                        <select class="input" value="@(buchung.CategoryId?.ToString() ?? string.Empty)"
+                                @onchange="PickAsync" aria-label="Kategorie der Buchung">
+                            <option value="">Nicht zugeordnet</option>
+                            @foreach (var kategorie in Fitting(buchung))
+                            {
+                                <option value="@kategorie.Id">@kategorie.Name</option>
+                            }
+                        </select>
+                    </label>
+
+                    <button type="button" class="btn btn-secondary tx-detail-action"
+                            @onclick="OnPickTransfer">Als Umbuchung markieren</button>
+                }
+
+                @*
+                    Löschen steht hier wie im Sheet hinter einem zweiten Tipp. Eine Buchung, die
+                    auf einen Klick verschwindet, nimmt einen Auszugssatz mit, den niemand
+                    wiederherstellen kann.
+                *@
+                @if (confirmingDelete)
+                {
+                    <button type="button" class="btn btn-primary delete-confirm" @onclick="DeleteAsync">
+                        Buchung wird gelöscht — erneut tippen
+                    </button>
+                }
+                else
+                {
+                    <button type="button" class="btn btn-ghost tx-detail-action"
+                            @onclick="@(() => confirmingDelete = true)">Löschen</button>
+                }
+            </div>
+        </AuthorizeView>
+
+        @*
+            Die Notiz steht da, wenn eine da ist — geschrieben wird sie hier nicht. Der Server
+            kennt dafür keinen Weg, und ein Feld, das sich füllen lässt und nichts speichert,
+            wäre schlimmer als keines.
+        *@
+        @if (buchung.Note is { Length: > 0 } notiz)
+        {
+            <div class="tx-detail-block">
+                <span class="label-strong">Notiz</span>
+                <p class="tx-detail-purpose">@notiz</p>
+            </div>
+        }
+    }
+</aside>
+
+@code {
+    /// <summary>Die gewählte Buchung — <c>null</c>, solange keine gewählt ist.</summary>
+    [Parameter] public TransactionDto? Transaction { get; set; }
+
+    [Parameter] public IReadOnlyList<CategoryDto> Categories { get; set; } = [];
+
+    [Parameter] public EventCallback<CategoryDto> OnPickCategory { get; set; }
+    [Parameter] public EventCallback OnPickTransfer { get; set; }
+    [Parameter] public EventCallback OnDelete { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private bool confirmingDelete;
+    private int? shownId;
+
+    /// <summary>
+    /// Ein Wechsel der Buchung nimmt die halb gegebene Löschzusage zurück.
+    /// </summary>
+    /// <remarks>
+    /// Sonst stünde „erneut tippen“ über der nächsten Buchung, und der zweite Tipp träfe eine
+    /// andere als die, für die er gemeint war.
+    /// </remarks>
+    protected override void OnParametersSet()
+    {
+        if (shownId != Transaction?.Id)
+        {
+            shownId = Transaction?.Id;
+            confirmingDelete = false;
+        }
+    }
+
+    /// <summary>Kategorien passend zum Vorzeichen — eine Ausgabe bekommt keine Einnahmekategorie.</summary>
+    private IReadOnlyList<CategoryDto> Fitting(TransactionDto transaction)
+    {
+        var richtung = transaction.Amount > 0 ? CategoryDirection.Income : CategoryDirection.Expense;
+        return [.. Categories.Where(c => c.Direction == richtung)];
+    }
+
+    private async Task PickAsync(ChangeEventArgs e)
+    {
+        if (!int.TryParse(e.Value?.ToString(), out var id))
+        {
+            return;
+        }
+
+        if (Categories.FirstOrDefault(c => c.Id == id) is { } kategorie)
+        {
+            await OnPickCategory.InvokeAsync(kategorie);
+        }
+    }
+
+    private async Task DeleteAsync()
+    {
+        confirmingDelete = false;
+        await OnDelete.InvokeAsync();
+    }
+
+    /// <summary>
+    /// Was an der Buchung steht — und nur das.
+    /// </summary>
+    /// <remarks>
+    /// Jede Zeile kommt aus einem gespeicherten Feld. Eine von Hand erfasste Buchung hat keine
+    /// Gegenseite und keine Wertstellung; dort bleibt die Liste kurz, statt Platzhalter zu
+    /// zeigen. „—“ in sechs Zeilen sagt nichts aus, es füllt nur die Fläche.
+    /// </remarks>
+    private List<(string Name, string Value)> Fields(TransactionDto transaction)
+    {
+        var felder = new List<(string, string)>
+        {
+            ("Buchungstag", GermanFormat.Date(transaction.BookingDate)),
+        };
+
+        if (transaction.Details?.ValueDate is { } wert)
+        {
+            felder.Add(("Wertstellung", GermanFormat.Date(wert)));
+        }
+
+        felder.Add(("Konto", transaction.AccountName));
+
+        if (transaction.Details?.CounterpartyIban is { Length: > 0 } iban)
+        {
+            felder.Add(("IBAN", iban));
+        }
+
+        if (transaction.Details?.CounterpartyBic is { Length: > 0 } bic)
+        {
+            felder.Add(("BIC", bic));
+        }
+
+        if (transaction.Details?.BookingText is { Length: > 0 } art)
+        {
+            felder.Add(("Buchungsart", art));
+        }
+
+        if (transaction.Details?.StatementId is { Length: > 0 } auszug)
+        {
+            felder.Add(("Auszug", auszug));
+        }
+
+        // Die Importreferenz zuletzt: sie ist das Duplikatkriterium und interessiert nur den,
+        // der einem doppelten Satz nachgeht.
+        if (transaction.ImportReference is { Length: > 0 } referenz)
+        {
+            felder.Add(("Referenz", referenz));
+        }
+
+        return felder;
+    }
+}

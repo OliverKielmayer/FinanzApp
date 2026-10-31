@@ -5,300 +5,415 @@
 <PageTitle>Konten &amp; Buchungen — FinanzApp</PageTitle>
 
 <AsyncView Loading="Loading" Error="@Error" Stale="HasLoadedOnce" Retry="ReloadAsync">
-    @* Ein Konto hat keinen eigenen Detailscreen — die Zeile führt deshalb direkt ins
-       Bearbeiten, statt einen Link zu tragen. *@
-    <AuthorizeView Roles="Owner,Member">
-        <Authorized>
-            @foreach (var account in accounts)
-            {
-                @* Ein fremdes Konto ist nicht bearbeitbar — es führt gar nicht erst irgendwohin,
-                   statt auf einer Maske abzuweisen. Der Tag nennt dafür den Eigentümer. *@
-                @if (account.IsMine || account.OwnerUserId is null)
-                {
-                    <button type="button" class="tap row"
-                            @onclick="@(() => Navigation.NavigateTo($"/bearbeiten/account/{account.Id}"))">
-                        <span class="stack">
-                            <span class="account-name">@account.Name</span>
-                            <span class="account-sub">@AccountSubtitle(account)</span>
-                        </span>
-                        <span class="stack-end">
-                            <span class="account-balance num">@State.Euro(account.Balance)</span>
-                            <span class="meta">@AsOfLabel(account.BalanceAsOf)</span>
-                        </span>
-                    </button>
-                }
-                else
-                {
-                    <div class="row">
-                        <div class="stack">
-                            <span class="account-name">@account.Name</span>
-                            <span class="account-sub">@AccountSubtitle(account)</span>
-                        </div>
-                        <div class="stack-end">
-                            <span class="account-balance num">@State.Euro(account.Balance)</span>
-                            <span class="meta">@AsOfLabel(account.BalanceAsOf)</span>
-                        </div>
-                    </div>
-                }
-            }
-        </Authorized>
-        <NotAuthorized>
-            @foreach (var account in accounts)
-            {
-                <div class="row">
-                    <div class="stack">
-                        <span class="account-name">@account.Name</span>
-                        <span class="account-sub">@AccountSubtitle(account)</span>
-                    </div>
-                    <div class="stack-end">
-                        <span class="account-balance num">@State.Euro(account.Balance)</span>
-                        <span class="meta">@AsOfLabel(account.BalanceAsOf)</span>
-                    </div>
-                </div>
-            }
-        </NotAuthorized>
-    </AuthorizeView>
-
-    <AddRow Route="/neu/account" Label="Konto anlegen" />
-
     @*
-        Gemeinschaftskonten — Handoff „Gemeinsame Immobilie“, 3.3. Unter der Kontoliste, weil
-        der Block das Konto erklärt und nicht ersetzt: Soll gegen Eingang je Person, daneben der
-        Jahresstand. Er mahnt nicht, er sagt, was steht.
+        Vier Spalten am Schreibtisch, untereinander auf dem Telefon: Konten, das gewählte Konto,
+        seine Buchungen, die gewählte Buchung. Das ist die Ordnung, in der man danach greift —
+        erst das Konto, dann der Monat, dann die eine Zeile, die man sucht.
+
+        Die Spalten sind eine Sache der Breite und nicht des Zustands: dieselbe Markierung trägt
+        beide Fassungen, und was auf dem Telefon untereinander steht, steht am Schreibtisch
+        nebeneinander. Ein zweiter Satz Seiten für den großen Schirm hieße, jede Änderung zweimal
+        zu machen und eine davon zu vergessen.
     *@
-    @foreach (var gemeinschaft in joint)
-    {
-        <div class="list-head">
-            <span class="label-strong">@gemeinschaft.Name · Gemeinschaft</span>
-            <span class="tag tag-outline">Gemeinschaftskonto</span>
-        </div>
+    <div class="ledger">
 
-        <div class="joint-head">
-            <span class="stack">
-                <span class="meta">@Kopfzeile(gemeinschaft)</span>
-
-                @* Zweite Zeile, zweite Größe: der Abfluss ist nicht der Eingang und nicht die
-                   Objektkosten — jede Zahl sagt, was sie ist. Wo nichts abgeht, fehlt sie:
-                   drei Nullen sind keine Auskunft. *@
-                @if (Abflusszeile(gemeinschaft) is { Length: > 0 } abfluss)
-                {
-                    <span class="meta">@abfluss</span>
-                }
-            </span>
-
-            @* Der Saldo kommt aus der Kontoliste, nicht aus einer zweiten Rechnung. *@
-            @if (Saldo(gemeinschaft.AccountId) is { } saldo)
-            {
-                <span class="balance-value num">@State.Euro(saldo)</span>
-            }
-        </div>
-
-        @foreach (var person in gemeinschaft.Contributors)
-        {
-            <div class="row joint-row">
-                <span class="joint-name">@person.Name</span>
-
-                @* Kein Vorwurf, wo nichts vereinbart ist: „unter Soll“ ohne Soll hätte keine
-                   Grundlage. Deshalb entscheidet der Stand über die Farbe, nicht der Betrag. *@
-                <span class="joint-state @(person.MonthlyTarget is not null && !person.Fulfilled ? "behind" : null)">
-                    @Stand(person)
-                </span>
-
-                <span class="balance-value num joint-amount">@State.Euro(person.PaidThisMonth)</span>
+        @* ── Konten ───────────────────────────────────────────────────────────────────── *@
+        <aside class="ledger-accounts">
+            <div class="ledger-head">
+                <span class="ledger-title">Konten</span>
+                <span class="ledger-sum num">@State.Euro(AccountTotal)</span>
             </div>
-        }
 
-        <div class="tx-totals-note">
-            Einlagen zählen in die Beteiligungsrechnung — nicht in Einnahmen, Sparquote oder
-            Liquidität. Die App vergleicht Soll und Eingang; sie mahnt nicht.
-            @Jahreszeile(gemeinschaft)
-        </div>
-    }
+            @*
+                Die Karte wählt das Konto aus, statt ins Bearbeiten zu führen. Ein Tipp, der die
+                Liste daneben umstellt, ist das, was man hier erwartet; bearbeitet wird in der
+                Spalte, die das Konto ohnehin aufschlägt.
+            *@
+            <button type="button" class="acct-card @(accountFilter is null ? "picked" : null)"
+                    @onclick="() => SetAccount(null)">
+                <span class="acct-mark acct-mark-all" aria-hidden="true">Σ</span>
+                <span class="stack">
+                    <span class="acct-name">Alle Konten</span>
+                    <span class="acct-sub">@accounts.Count @(accounts.Count == 1 ? "Konto" : "Konten")</span>
+                </span>
+                <span class="acct-balance num">@State.Euro(AccountTotal)</span>
+            </button>
 
-    <div class="list-head">
-        <span class="label-strong">Buchungen</span>
-        <span class="list-count num">@list.FilteredCount von @list.TotalCount</span>
-    </div>
-
-    <div class="searchbar">
-        <input class="input" type="search" placeholder="Buchungen durchsuchen" aria-label="Buchungen durchsuchen"
-               value="@search" @oninput="OnSearchInput" />
-        @if (HasFilter)
-        {
-            <button type="button" class="btn btn-secondary" @onclick="ResetFilter">Zurücksetzen</button>
-        }
-    </div>
-
-    @* Filterchips: auf dem Telefon eine scrollende Reihe, ab Tablet umbrechend. *@
-    <div class="filter-row">
-        <button type="button" class="chip @(accountFilter is null ? "active" : null)"
-                @onclick="() => SetAccount(null)">Alle Konten</button>
-        @foreach (var account in accounts)
-        {
-            <button type="button" class="chip @(accountFilter == account.Id ? "active" : null)"
-                    @onclick="() => SetAccount(account.Id)">@account.ShortName</button>
-        }
-
-        <span class="filter-sep" aria-hidden="true"></span>
-
-        <button type="button" class="chip @(kindFilter is null && !onlyOpen ? "active" : null)"
-                @onclick="() => SetKind(null)">Alle Arten</button>
-        <button type="button" class="chip @(kindFilter == TransactionKind.Income ? "active" : null)"
-                @onclick="() => SetKind(TransactionKind.Income)">Einnahmen</button>
-        <button type="button" class="chip @(kindFilter == TransactionKind.Expense ? "active" : null)"
-                @onclick="() => SetKind(TransactionKind.Expense)">Ausgaben</button>
-        <button type="button" class="chip @(kindFilter == TransactionKind.Transfer ? "active" : null)"
-                @onclick="() => SetKind(TransactionKind.Transfer)">Umbuchungen</button>
-        <button type="button" class="chip @(onlyOpen ? "active" : null)"
-                @onclick="ToggleOnlyOpen">Ohne Kategorie</button>
-
-        <span class="filter-sep" aria-hidden="true"></span>
-
-        <button type="button" class="chip @(categoryFilter is null ? "active" : null)"
-                @onclick="() => SetCategory(null)">Alle Kategorien</button>
-        @foreach (var category in categories)
-        {
-            <button type="button" class="chip @(categoryFilter == category.Id ? "active" : null)"
-                    @onclick="() => SetCategory(category.Id)">@category.Name</button>
-        }
-    </div>
-
-    @* Die Summen rechnen gegen den sichtbaren Ausschnitt, nicht gegen den Gesamtbestand. *@
-    <section class="tx-totals">
-        <div class="tx-total">
-            <span class="label-muted">Einnahmen</span>
-            <span class="tx-total-value num income">@State.Euro(list.Totals.Income)</span>
-        </div>
-        <div class="tx-total">
-            <span class="label-muted">Ausgaben</span>
-            <span class="tx-total-value num">@State.Euro(list.Totals.Expense)</span>
-        </div>
-        <div class="tx-total">
-            <span class="label-muted">Saldo</span>
-            <span class="tx-total-value num">@Signed(list.Totals.Balance)</span>
-        </div>
-    </section>
-
-    @if (list.Totals.TransferCount > 0)
-    {
-        <div class="tx-totals-note">
-            @list.Totals.TransferCount @(list.Totals.TransferCount == 1 ? "Umbuchung zählt" : "Umbuchungen zählen")
-            weder als Einnahme noch als Ausgabe.
-        </div>
-    }
-
-    @if (list.FilteredUncategorizedCount > 0)
-    {
-        <AuthorizeView Roles="Owner,Member">
-            <div class="triage-wrap">
-                <button type="button" class="triage" @onclick="StartTriage">
+            @foreach (var account in accounts)
+            {
+                <button type="button" class="acct-card @(accountFilter == account.Id ? "picked" : null)"
+                        @onclick="() => SetAccount(account.Id)">
+                    <span class="acct-mark" aria-hidden="true">@Initial(account)</span>
                     <span class="stack">
-                        <span class="triage-title">
-                            @list.FilteredUncategorizedCount
-                            @(list.FilteredUncategorizedCount == 1 ? "Buchung" : "Buchungen") ohne Kategorie
-                        </span>
-                        <span class="triage-sub">Jetzt zuordnen</span>
+                        <span class="acct-name">@account.Name</span>
+                        <span class="acct-sub">@AccountSubtitle(account)</span>
+                        <span class="meta">@AsOfLabel(account.BalanceAsOf)</span>
                     </span>
-                    <span class="triage-arrow" aria-hidden="true">→</span>
+                    <span class="acct-balance num">@State.Euro(account.Balance)</span>
                 </button>
-            </div>
-        </AuthorizeView>
-    }
+            }
 
-    @if (selected.Count > 0)
-    {
-        <AuthorizeView Roles="Owner,Member">
-            <div class="tx-selection">
-                <span class="tx-selection-count">
-                    @selected.Count @(selected.Count == 1 ? "Buchung" : "Buchungen") ausgewählt
-                </span>
-                <button type="button" class="btn btn-primary" @onclick="OpenBatchSheet">Kategorie zuweisen</button>
+            <AuthorizeView Roles="Owner,Member" Context="neu">
+                <AddRow Route="/neu/account" Label="Konto anlegen" />
+            </AuthorizeView>
+        </aside>
 
-                @if (confirmingBatchDelete)
-                {
-                    <button type="button" class="btn btn-primary delete-confirm" @onclick="DeleteBatchAsync">
-                        @selected.Count @(selected.Count == 1 ? "Buchung wird" : "Buchungen werden")
-                        gelöscht — erneut tippen
-                    </button>
-                }
-                else
-                {
-                    <button type="button" class="btn btn-secondary"
-                            @onclick="@(() => confirmingBatchDelete = true)">Löschen</button>
-                }
-
-                <button type="button" class="btn btn-secondary" @onclick="ClearSelection">Auswahl aufheben</button>
-            </div>
-        </AuthorizeView>
-    }
-
-    @if (list.Items.Count == 0)
-    {
-        @* Nie eine leere Fläche: Ursache benennen, Ausweg anbieten. *@
-        <div class="empty-area">
-            <span class="empty-area-title">Keine Buchung im gewählten Ausschnitt</span>
-            <span class="empty-area-text">@EmptyReason</span>
-            <div class="empty-area-actions">
-                <button type="button" class="btn btn-secondary" @onclick="ResetFilter">Filter zurücksetzen</button>
-                <AuthorizeView Roles="Owner,Member">
-                    <button type="button" class="btn btn-primary"
-                            @onclick="@(() => Navigation.NavigateTo("/erfassen"))">Buchung erfassen</button>
-                </AuthorizeView>
-            </div>
-        </div>
-    }
-    else
-    {
-        <div class="tx-table">
-            @* Die Kopfzeile trägt nur die Tabelle ab Tablet; auf dem Telefon ist sie ausgeblendet. *@
-            <div class="tx-head">
-                <AuthorizeView Roles="Owner,Member">
-                    <label class="tx-check">
-                        <input type="checkbox" checked="@AllSelected" @onchange="ToggleAll"
-                               aria-label="Alle sichtbaren Buchungen wählen" />
-                    </label>
-                </AuthorizeView>
-                <span>Datum</span>
-                <span>Empfänger</span>
-                <span>Kategorie</span>
-                <span>Konto</span>
-                <span class="tx-head-amount">Betrag</span>
-            </div>
-
-            @foreach (var transaction in list.Items)
+        @* ── Das gewählte Konto ───────────────────────────────────────────────────────── *@
+        <aside class="ledger-account">
+            @if (PickedAccount is { } konto)
             {
-                <div class="tx-line @(selected.Contains(transaction.Id) ? "picked" : null)">
-                    <AuthorizeView Roles="Owner,Member">
-                        <label class="tx-check">
-                            <input type="checkbox" checked="@selected.Contains(transaction.Id)"
-                                   @onchange="e => Toggle(transaction.Id, e)"
-                                   aria-label="@($"{transaction.Payee} wählen")" />
-                        </label>
-                    </AuthorizeView>
+                <div class="acct-sheet">
+                    <span class="acct-mark acct-mark-large" aria-hidden="true">@Initial(konto)</span>
+                    <span class="acct-sheet-name">@konto.Name</span>
 
-                    <button type="button" class="tap tx-row" @onclick="() => OpenSheet(transaction)">
-                        <span class="tx-date num">@GermanFormat.DateShort(transaction.BookingDate)</span>
-                        <span class="tx-main">
-                            <span class="tx-payee">@transaction.Payee</span>
-                            <span class="tx-tags">
-                                <span class="tag @TagClass(transaction)">@TagLabel(transaction)</span>
-                                <span class="tx-account">@transaction.AccountShortName</span>
-                            </span>
-                        </span>
-                        <span class="tx-cell tx-cell-category">
-                            <span class="tag @TagClass(transaction)">@TagLabel(transaction)</span>
-                        </span>
-                        <span class="tx-cell tx-cell-account">@transaction.AccountShortName</span>
-                        <span class="tx-amount num @(transaction.Amount > 0 ? "income" : null)">
-                            @State.Euro(transaction.Amount, withPlusSign: true)
-                        </span>
-                    </button>
+                    @* Nur was am Konto steht. Eine Kontoart führt das Modell nicht, und sie aus
+                       der IBAN zu raten hieße, jedes Konto mit IBAN ein Girokonto zu nennen. *@
+                    @if (KindLabel(konto) is { Length: > 0 } art)
+                    {
+                        <span class="acct-sheet-kind">@art</span>
+                    }
+
+                    @if (konto.Iban is { Length: > 0 } iban)
+                    {
+                        <div class="acct-sheet-field">
+                            <span class="label-muted">IBAN</span>
+                            <span class="num">@iban</span>
+                        </div>
+                    }
+
+                    <span class="acct-sheet-balance num">@State.Euro(konto.Balance)</span>
+                    <span class="meta">Stand @AsOfLabel(konto.BalanceAsOf)</span>
+
+                    @if (SharingLabel(konto) is { Length: > 0 } freigabe)
+                    {
+                        <span class="tag tag-outline">@freigabe</span>
+                    }
+
+                    @*
+                        Was dieses Konto hergibt — nicht, was eine Bank könnte. „Konto
+                        aktualisieren“ stünde hier ohne Bankzugang und täte nichts.
+                    *@
+                    <AuthorizeView Roles="Owner,Member" Context="aktionen">
+                        <div class="acct-sheet-actions">
+                            @if (konto.IsMine || konto.OwnerUserId is null)
+                            {
+                                <button type="button" class="btn btn-secondary"
+                                        @onclick="@(() => Navigation.NavigateTo($"/bearbeiten/account/{konto.Id}"))">
+                                    Konto bearbeiten
+                                </button>
+                            }
+
+                            <button type="button" class="btn btn-secondary"
+                                    @onclick="@(() => Navigation.NavigateTo("/erfassen"))">
+                                Buchung erfassen
+                            </button>
+
+                            <button type="button" class="btn btn-secondary"
+                                    @onclick="@(() => Navigation.NavigateTo("/import"))">
+                                Buchungen einlesen
+                            </button>
+                        </div>
+                    </AuthorizeView>
                 </div>
             }
-        </div>
-    }
+            else
+            {
+                <div class="acct-sheet">
+                    <span class="acct-mark acct-mark-large acct-mark-all" aria-hidden="true">Σ</span>
+                    <span class="acct-sheet-name">Alle Konten</span>
+                    <span class="acct-sheet-kind">
+                        @accounts.Count @(accounts.Count == 1 ? "Konto" : "Konten") zusammen
+                    </span>
+                    <span class="acct-sheet-balance num">@State.Euro(AccountTotal)</span>
+                    <span class="meta">
+                        Ein Konto wählen, um seinen Stand je Tag zu sehen — über mehrere Konten
+                        hinweg gibt es keinen.
+                    </span>
+                </div>
+            }
 
-    <div class="spacer"></div>
+            @*
+                Die Summen rechnen gegen den sichtbaren Ausschnitt, nicht gegen den Gesamtbestand.
+            *@
+            <section class="tx-totals">
+                <div class="tx-total">
+                    <span class="label-muted">Einnahmen</span>
+                    <span class="tx-total-value num income">@State.Euro(list.Totals.Income)</span>
+                </div>
+                <div class="tx-total">
+                    <span class="label-muted">Ausgaben</span>
+                    <span class="tx-total-value num">@State.Euro(list.Totals.Expense)</span>
+                </div>
+                <div class="tx-total">
+                    <span class="label-muted">Saldo</span>
+                    <span class="tx-total-value num">@Signed(list.Totals.Balance)</span>
+                </div>
+            </section>
+
+            @if (list.Totals.TransferCount > 0)
+            {
+                <div class="tx-totals-note">
+                    @list.Totals.TransferCount @(list.Totals.TransferCount == 1 ? "Umbuchung zählt" : "Umbuchungen zählen")
+                    weder als Einnahme noch als Ausgabe.
+                </div>
+            }
+
+            @*
+                Gemeinschaftskonten — Handoff „Gemeinsame Immobilie“, 3.3. Beim Konto, weil der
+                Block das Konto erklärt und nicht ersetzt: Soll gegen Eingang je Person, daneben
+                der Jahresstand. Er mahnt nicht, er sagt, was steht.
+            *@
+            @foreach (var gemeinschaft in JointShown)
+            {
+                <div class="list-head">
+                    <span class="label-strong">@gemeinschaft.Name · Gemeinschaft</span>
+                    <span class="tag tag-outline">Gemeinschaftskonto</span>
+                </div>
+
+                <div class="joint-head">
+                    <span class="stack">
+                        <span class="meta">@Kopfzeile(gemeinschaft)</span>
+
+                        @* Zweite Zeile, zweite Größe: der Abfluss ist nicht der Eingang und nicht die
+                           Objektkosten — jede Zahl sagt, was sie ist. Wo nichts abgeht, fehlt sie:
+                           drei Nullen sind keine Auskunft. *@
+                        @if (Abflusszeile(gemeinschaft) is { Length: > 0 } abfluss)
+                        {
+                            <span class="meta">@abfluss</span>
+                        }
+                    </span>
+
+                    @* Der Saldo kommt aus der Kontoliste, nicht aus einer zweiten Rechnung. *@
+                    @if (Saldo(gemeinschaft.AccountId) is { } saldo)
+                    {
+                        <span class="balance-value num">@State.Euro(saldo)</span>
+                    }
+                </div>
+
+                @foreach (var person in gemeinschaft.Contributors)
+                {
+                    <div class="row joint-row">
+                        <span class="joint-name">@person.Name</span>
+
+                        @* Kein Vorwurf, wo nichts vereinbart ist: „unter Soll“ ohne Soll hätte keine
+                           Grundlage. Deshalb entscheidet der Stand über die Farbe, nicht der Betrag. *@
+                        <span class="joint-state @(person.MonthlyTarget is not null && !person.Fulfilled ? "behind" : null)">
+                            @Stand(person)
+                        </span>
+
+                        <span class="balance-value num joint-amount">@State.Euro(person.PaidThisMonth)</span>
+                    </div>
+                }
+
+                <div class="tx-totals-note">
+                    Einlagen zählen in die Beteiligungsrechnung — nicht in Einnahmen, Sparquote oder
+                    Liquidität. Die App vergleicht Soll und Eingang; sie mahnt nicht.
+                    @Jahreszeile(gemeinschaft)
+                </div>
+            }
+        </aside>
+
+        @* ── Buchungen ────────────────────────────────────────────────────────────────── *@
+        <section class="ledger-list">
+            <div class="ledger-head">
+                <span class="ledger-title">Buchungen</span>
+                <span class="list-count num">@list.FilteredCount von @list.TotalCount</span>
+            </div>
+
+            <div class="searchbar">
+                <input class="input" type="search" placeholder="Buchungen durchsuchen" aria-label="Buchungen durchsuchen"
+                       value="@search" @oninput="OnSearchInput" />
+                @if (HasFilter)
+                {
+                    <button type="button" class="btn btn-secondary" @onclick="ResetFilter">Zurücksetzen</button>
+                }
+            </div>
+
+            @* Filterchips: auf dem Telefon eine scrollende Reihe, ab Tablet umbrechend. Das Konto
+               steht nicht mehr darunter — es wird in der ersten Spalte gewählt. *@
+            <div class="filter-row">
+                <button type="button" class="chip @(kindFilter is null && !onlyOpen ? "active" : null)"
+                        @onclick="() => SetKind(null)">Alle Arten</button>
+                <button type="button" class="chip @(kindFilter == TransactionKind.Income ? "active" : null)"
+                        @onclick="() => SetKind(TransactionKind.Income)">Einnahmen</button>
+                <button type="button" class="chip @(kindFilter == TransactionKind.Expense ? "active" : null)"
+                        @onclick="() => SetKind(TransactionKind.Expense)">Ausgaben</button>
+                <button type="button" class="chip @(kindFilter == TransactionKind.Transfer ? "active" : null)"
+                        @onclick="() => SetKind(TransactionKind.Transfer)">Umbuchungen</button>
+                <button type="button" class="chip @(onlyOpen ? "active" : null)"
+                        @onclick="ToggleOnlyOpen">Ohne Kategorie</button>
+            </div>
+
+            @*
+                Dreißig Kategorien sind drei Zeilen Knöpfe über jeder Liste — am eigenen Bestand
+                gezählt. Eingeklappt sagt der Kopf, wonach gefiltert wird: ein zugeklappter Filter,
+                der seinen Zustand verschweigt, nimmt der Liste Zeilen weg, ohne dass irgendwo
+                stünde, warum.
+            *@
+            <div class="filter-fold">
+                <button type="button" class="filter-fold-head" @onclick="ToggleCategories"
+                        aria-expanded="@(categoriesOpen ? "true" : "false")">
+                    <span class="filter-fold-label">Kategorie</span>
+                    <span class="filter-fold-state @(categoryFilter is not null ? "set" : null)">
+                        @CategoryFilterLabel
+                    </span>
+                    <span class="filter-fold-mark" aria-hidden="true">@(categoriesOpen ? "▴" : "▾")</span>
+                </button>
+
+                @if (categoriesOpen)
+                {
+                    <div class="filter-row">
+                        <button type="button" class="chip @(categoryFilter is null ? "active" : null)"
+                                @onclick="() => SetCategory(null)">Alle Kategorien</button>
+
+                        @* Die Richtung steht nur an den doppelten Namen — sonst wäre sie
+                           dreißigmal dieselbe Auskunft und ginge dort unter, wo sie zählt. *@
+                        @foreach (var category in categories)
+                        {
+                            <button type="button" class="chip @(categoryFilter == category.Id ? "active" : null)"
+                                    @onclick="() => SetCategory(category.Id)">
+                                @CategoryChips.Label(category, categories)
+                            </button>
+                        }
+                    </div>
+                }
+            </div>
+
+            @if (list.FilteredUncategorizedCount > 0)
+            {
+                <AuthorizeView Roles="Owner,Member" Context="triage">
+                    <div class="triage-wrap">
+                        <button type="button" class="triage" @onclick="StartTriage">
+                            <span class="stack">
+                                <span class="triage-title">
+                                    @list.FilteredUncategorizedCount
+                                    @(list.FilteredUncategorizedCount == 1 ? "Buchung" : "Buchungen") ohne Kategorie
+                                </span>
+                                <span class="triage-sub">Jetzt zuordnen</span>
+                            </span>
+                            <span class="triage-arrow" aria-hidden="true">→</span>
+                        </button>
+                    </div>
+                </AuthorizeView>
+            }
+
+            @if (selected.Count > 0)
+            {
+                <AuthorizeView Roles="Owner,Member" Context="auswahl">
+                    <div class="tx-selection">
+                        <span class="tx-selection-count">
+                            @selected.Count @(selected.Count == 1 ? "Buchung" : "Buchungen") ausgewählt
+                        </span>
+                        <button type="button" class="btn btn-primary" @onclick="OpenBatchSheet">Kategorie zuweisen</button>
+
+                        @if (confirmingBatchDelete)
+                        {
+                            <button type="button" class="btn btn-primary delete-confirm" @onclick="DeleteBatchAsync">
+                                @selected.Count @(selected.Count == 1 ? "Buchung wird" : "Buchungen werden")
+                                gelöscht — erneut tippen
+                            </button>
+                        }
+                        else
+                        {
+                            <button type="button" class="btn btn-secondary"
+                                    @onclick="@(() => confirmingBatchDelete = true)">Löschen</button>
+                        }
+
+                        <button type="button" class="btn btn-secondary" @onclick="ClearSelection">Auswahl aufheben</button>
+                    </div>
+                </AuthorizeView>
+            }
+
+            @if (list.Items.Count == 0)
+            {
+                @* Nie eine leere Fläche: Ursache benennen, Ausweg anbieten. *@
+                <div class="empty-area">
+                    <span class="empty-area-title">Keine Buchung im gewählten Ausschnitt</span>
+                    <span class="empty-area-text">@EmptyReason</span>
+                    <div class="empty-area-actions">
+                        <button type="button" class="btn btn-secondary" @onclick="ResetFilter">Filter zurücksetzen</button>
+                        <AuthorizeView Roles="Owner,Member" Context="leer">
+                            <button type="button" class="btn btn-primary"
+                                    @onclick="@(() => Navigation.NavigateTo("/erfassen"))">Buchung erfassen</button>
+                        </AuthorizeView>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="tx-days">
+                    @foreach (var tag in Days)
+                    {
+                        @*
+                            Der Tageskopf trägt zwei Zahlen und sie sagen Verschiedenes: was an
+                            diesem Tag zu- und abging, und wo das Konto danach stand. Der Stand
+                            steht nur da, wenn er sich belegen lässt — ein Konto, kein weiterer
+                            Filter. Sonst wäre es der Stand eines Kontos, das es nicht gibt.
+                        *@
+                        <div class="tx-day-head">
+                            <span class="tx-day-date num">@GermanFormat.Date(tag.Date)</span>
+                            <span class="tx-day-sum num">(@Signed(tag.Sum))</span>
+                            @if (tag.Balance is { } stand)
+                            {
+                                <span class="tx-day-balance num">@State.Euro(stand)</span>
+                            }
+                        </div>
+
+                        @foreach (var transaction in tag.Items)
+                        {
+                            <div class="tx-line @(selected.Contains(transaction.Id) ? "picked" : null) @(sheetTransaction?.Id == transaction.Id ? "shown" : null)">
+                                <AuthorizeView Roles="Owner,Member" Context="zeile">
+                                    <label class="tx-check">
+                                        <input type="checkbox" checked="@selected.Contains(transaction.Id)"
+                                               @onchange="e => Toggle(transaction.Id, e)"
+                                               aria-label="@($"{transaction.Payee} wählen")" />
+                                    </label>
+                                </AuthorizeView>
+
+                                <button type="button" class="tap tx-row" @onclick="() => OpenSheet(transaction)">
+                                    <span class="tx-cell tx-cell-category">
+                                        <span class="tag @TagClass(transaction)">@TagLabel(transaction)</span>
+                                    </span>
+                                    <span class="tx-main">
+                                        <span class="tx-payee">@transaction.Payee</span>
+
+                                        @*
+                                            Der Verwendungszweck unter dem Empfänger, auf eine Zeile
+                                            beschnitten: bei einer Kartenzahlung steht der Laden dort
+                                            und sonst nirgends. Ganz steht er in den Details.
+                                        *@
+                                        @if (Subline(transaction) is { Length: > 0 } unterzeile)
+                                        {
+                                            <span class="tx-purpose">@unterzeile</span>
+                                        }
+
+                                        <span class="tx-tags">
+                                            <span class="tag @TagClass(transaction)">@TagLabel(transaction)</span>
+                                            <span class="tx-account">@transaction.AccountShortName</span>
+                                        </span>
+                                    </span>
+                                    <span class="tx-cell tx-cell-account">@transaction.AccountShortName</span>
+                                    <span class="tx-amount num @(transaction.Amount > 0 ? "income" : null)">
+                                        @State.Euro(transaction.Amount, withPlusSign: true)
+                                    </span>
+                                </button>
+                            </div>
+                        }
+                    }
+                </div>
+            }
+
+            <div class="spacer"></div>
+        </section>
+
+        @* ── Die gewählte Buchung ─────────────────────────────────────────────────────── *@
+        <TransactionDetail Transaction="sheetTransaction"
+                           Categories="categories"
+                           OnPickCategory="AssignShown"
+                           OnPickTransfer="TransferShown"
+                           OnDelete="DeleteSingleAsync"
+                           OnClose="CloseSheet" />
+    </div>
 </AsyncView>
 
 @if (batchOpen)
@@ -313,6 +428,11 @@
 }
 else if (sheetTransaction is { } sheet)
 {
+    @*
+        Dasselbe Ziel wie die Detailspalte, auf schmalem Schirm. Beide gleichzeitig waeren zwei
+        Fenster auf dieselbe Buchung; welches gilt, entscheidet die Breite und nicht der Code.
+    *@
+    <div class="sheet-narrow">
     <CategorySheet Transaction="sheet"
                    Categories="SheetCategories(sheet)"
                    @bind-RememberRule="rememberRule"
@@ -322,6 +442,7 @@ else if (sheetTransaction is { } sheet)
                    OnClose="CloseSheet"
                    OnDelete="DeleteSingleAsync"
                    OnSplit="@(() => Toasts.Show("Split-Buchung folgt"))" />
+    </div>
 }
 
 @code {
@@ -347,6 +468,9 @@ else if (sheetTransaction is { } sheet)
     private readonly HashSet<int> selected = [];
     private bool batchOpen;
     private bool confirmingBatchDelete;
+
+    /// <summary>Ob die Kategorienzeile aufgeklappt ist.</summary>
+    private bool categoriesOpen;
 
     private string search = string.Empty;
     private int? accountFilter;
@@ -382,6 +506,34 @@ else if (sheetTransaction is { } sheet)
     private bool HasFilter => !string.IsNullOrWhiteSpace(search)
                               || accountFilter is not null || categoryFilter is not null
                               || kindFilter is not null || onlyOpen;
+
+    /// <summary>
+    /// Ein Filter <em>außer</em> dem Konto.
+    /// </summary>
+    /// <remarks>
+    /// Die Unterscheidung trägt den Tagesstand: das Konto zu wählen lässt seine Buchungen
+    /// vollständig stehen, jeder andere Filter nimmt welche heraus. Zurückgerechnet werden darf
+    /// nur über eine vollständige Liste.
+    /// </remarks>
+    private bool HasOtherFilter => !string.IsNullOrWhiteSpace(search)
+                                   || categoryFilter is not null
+                                   || kindFilter is not null || onlyOpen;
+
+    /// <summary>Das gewählte Konto — <c>null</c> bei „Alle Konten“.</summary>
+    private AccountDto? PickedAccount
+        => accountFilter is { } id ? accounts.FirstOrDefault(a => a.Id == id) : null;
+
+    private decimal AccountTotal => accounts.Sum(a => a.Balance);
+
+    /// <summary>
+    /// Die Buchungen tagweise, mit Tagessumme und — wo sie trägt — dem Stand des Kontos.
+    /// </summary>
+    private IReadOnlyList<BookingDay> Days
+        => BookingDays.Group(list.Items, BookingDays.StartBalance(PickedAccount, HasOtherFilter, skip: 0));
+
+    /// <summary>Die Gemeinschaftsblöcke zum gewählten Konto, sonst alle.</summary>
+    private IEnumerable<JointAccountDto> JointShown
+        => accountFilter is { } id ? joint.Where(j => j.AccountId == id) : joint;
 
     private bool AllSelected => list.Items.Count > 0 && list.Items.All(t => selected.Contains(t.Id));
 
@@ -497,6 +649,10 @@ else if (sheetTransaction is { } sheet)
         categoryFilter = CategoryFromQuery;
         onlyOpen = OpenFromQuery is "true" or "1" or "";
 
+        // Wer über „In Buchungen zeigen“ hereinkommt, trägt den Filter schon mit. Zugeklappt
+        // stünde er als Wort da, aber ohne die Nachbarn, zwischen denen er gewählt wurde.
+        categoriesOpen = CategoryFromQuery is not null;
+
         accounts = await Api.GetAccountsAsync();
         categories = await Api.GetCategoriesAsync();
         joint = await Api.GetJointAccountsAsync();
@@ -564,6 +720,25 @@ else if (sheetTransaction is { } sheet)
             Toasts.Show(ex.Message);
         }
     }
+
+    private void ToggleCategories() => categoriesOpen = !categoriesOpen;
+
+    /// <summary>
+    /// Was der zugeklappte Kopf über den Kategorienfilter sagt.
+    /// </summary>
+    /// <remarks>
+    /// „Alle“ heißt: diese Zeile nimmt der Liste nichts weg. Steht hier ein Name, fehlen Zeilen,
+    /// und dann gehört der Name dorthin, auch wenn die Knöpfe zugeklappt sind. Eine Kategorie,
+    /// die es nicht mehr gibt — aus einem alten Lesezeichen — wird benannt und nicht verschwiegen.
+    /// </remarks>
+    private string CategoryFilterLabel
+        => categoryFilter switch
+        {
+            null => "Alle",
+            { } id when categories.FirstOrDefault(c => c.Id == id) is { } gewaehlt
+                => CategoryChips.Label(gewaehlt, categories),
+            _ => "Unbekannte Kategorie",
+        };
 
     private Task SetAccount(int? id) => Filter(() => accountFilter = id);
 
@@ -777,25 +952,48 @@ else if (sheetTransaction is { } sheet)
     /// kommt niemand mehr an „Fertig“ vorbei, und ein Schalter, der nichts bewirkt, wäre
     /// schlimmer als keiner.
     /// </remarks>
-    private Task PickCategory(CategoryDto category) => RunAsync(async () =>
+    private Task PickCategory(CategoryDto category) => AssignAsync(category, advance: true);
+
+    /// <summary>
+    /// Zuordnen aus der Detailspalte — ohne Weiterschalten.
+    /// </summary>
+    /// <remarks>
+    /// Im Sheet ist das Weiterschalten der Sinn der Sache: man räumt einen Stapel ab. In der
+    /// Spalte hat man <em>diese</em> Buchung aufgeschlagen; spränge sie nach der Zuordnung zur
+    /// nächsten, wäre die, die man gerade angesehen hat, weg.
+    /// </remarks>
+    private Task AssignShown(CategoryDto category) => AssignAsync(category, advance: false);
+
+    private Task AssignAsync(CategoryDto category, bool advance) => RunAsync(async () =>
     {
         var empfaenger = sheetTransaction!.Payee;
 
+        // Eine Regel entsteht nur aus dem Sheet: dort steht der Schalter dafür und der Nutzer
+        // hat ihn vor sich. Die Spalte ordnet die eine Buchung zu und sonst nichts.
+        var regel = advance && rememberRule;
+
         var updated = await Api.AssignCategoryAsync(
             sheetTransaction.Id,
-            new AssignCategoryRequest { CategoryId = category.Id, CreateRule = rememberRule });
+            new AssignCategoryRequest { CategoryId = category.Id, CreateRule = regel });
 
         Apply(updated);
 
-        Toasts.Show(rememberRule
+        Toasts.Show(regel
             ? $"{category.Name} zugeordnet · Regel für „{Categorization.RulePatternFor(empfaenger)}“ gemerkt"
             : category.Name + " zugeordnet");
 
-        Advance();
+        if (advance)
+        {
+            Advance();
+        }
     });
 
     /// <summary>Eine Umbuchung ist keine Kategorie — hier entsteht darum auch keine Regel.</summary>
-    private Task PickTransfer() => RunAsync(async () =>
+    private Task PickTransfer() => TransferAsync(advance: true);
+
+    private Task TransferShown() => TransferAsync(advance: false);
+
+    private Task TransferAsync(bool advance) => RunAsync(async () =>
     {
         var updated = await Api.AssignCategoryAsync(
             sheetTransaction!.Id, new AssignCategoryRequest { MarkAsTransfer = true });
@@ -803,7 +1001,10 @@ else if (sheetTransaction is { } sheet)
         Apply(updated);
         Toasts.Show("Als Umbuchung markiert");
 
-        Advance();
+        if (advance)
+        {
+            Advance();
+        }
     });
 
     /// <summary>
@@ -924,6 +1125,60 @@ else if (sheetTransaction is { } sheet)
             : asOf == today.AddDays(-1) ? "gestern"
             : GermanFormat.DateShort(asOf) + ".";
     }
+
+    /// <summary>Das Zeichen auf der Kontokarte: der erste Buchstabe der Kurzform.</summary>
+    /// <remarks>
+    /// Kein Bankenlogo. Die Anwendung kennt keine Institute, nur Konten, und ein geratenes Logo
+    /// wäre eine Behauptung über die Bank. Der Buchstabe unterscheidet die Karten, und mehr soll
+    /// er nicht.
+    /// </remarks>
+    private static string Initial(AccountDto account)
+        => account.ShortName is { Length: > 0 } kurz
+            ? kurz[..1].ToUpperInvariant()
+            : account.Name is { Length: > 0 } name ? name[..1].ToUpperInvariant() : "?";
+
+    /// <summary>
+    /// Was über das Konto bekannt ist, ohne die IBAN — die steht darunter.
+    /// </summary>
+    /// <remarks>
+    /// Eine Kontoart führt das Modell nicht. Sie aus der IBAN abzuleiten hieße, jedes Konto mit
+    /// IBAN „Girokonto“ zu nennen — auch das Darlehenskonto. Was dasteht, steht an den Daten.
+    /// </remarks>
+    private static string KindLabel(AccountDto account)
+    {
+        var teile = new List<string>();
+
+        if (account.InterestRatePercent is { } zins)
+        {
+            teile.Add(GermanFormat.Percent(zins, 2) + " Zinsen");
+        }
+
+        if (account.InterestYearToDate is { } gutschrift)
+        {
+            teile.Add("Zinsen " + GermanFormat.Euro(gutschrift) + " im laufenden Jahr");
+        }
+
+        if (!account.IsMine && account.OwnerName is { Length: > 0 } eigentuemer)
+        {
+            teile.Add("Konto von " + eigentuemer);
+        }
+
+        return string.Join(" · ", teile);
+    }
+
+    /// <summary>
+    /// Die Zeile unter dem Empfänger: der Verwendungszweck, sonst die Notiz.
+    /// </summary>
+    /// <remarks>
+    /// Bei einer Kartenzahlung steht der Laden im Verwendungszweck und sonst nirgends — der
+    /// Empfänger heißt dann „PayPal“ oder der Name des Zahlungsdienstleisters. Ohne Auszug ist
+    /// die Notiz das, was ein Mensch dazugeschrieben hat; beschnitten wird die Zeile im
+    /// Stylesheet, nicht hier.
+    /// </remarks>
+    private static string Subline(TransactionDto transaction)
+        => transaction.Details?.Purpose is { Length: > 0 } zweck
+            ? zweck
+            : transaction.Note ?? string.Empty;
 
     private static string TagClass(TransactionDto transaction) => transaction switch
     {
