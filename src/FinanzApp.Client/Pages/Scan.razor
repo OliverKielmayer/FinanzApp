@@ -34,13 +34,32 @@
         </span>
     </div>
 
-    <div class="picker last">
+    <div class="picker">
         <span class="label-strong">Datei</span>
         <div class="note-field">
-            @* capture="environment" öffnet auf dem Handy direkt die Kamera. *@
+            @* capture="environment" öffnet auf dem Handy direkt die Kamera-App des Geräts. *@
             <InputFile class="input" accept=".pdf,image/*" capture="environment"
                        OnChange="OnFileSelected" aria-label="Beleg auswählen" />
         </div>
+    </div>
+
+    @*
+        Am Rechner führt dasselbe Dateifeld nur in den Dateiwähler — eine Webcam ist darüber
+        nicht zu erreichen. Dieser Weg öffnet sie mit Vorschau, und er ist auf beiden Geräten
+        derselbe.
+    *@
+    <div class="picker last">
+        <span class="label-strong">Kamera</span>
+        @if (camera)
+        {
+            <CameraCapture OnCaptured="OnCapturedAsync" OnClose="@(() => camera = false)" />
+        }
+        else
+        {
+            <button type="button" class="btn btn-secondary" @onclick="@(() => camera = true)">
+                Mit der Kamera aufnehmen
+            </button>
+        }
     </div>
 }
 else if (step == Step.Analysis)
@@ -382,6 +401,9 @@ else if (step == Step.Done && result is { } fertig)
     private ScanResultDto? result;
     private bool busy;
 
+    /// <summary>Ob die Kameravorschau offen ist.</summary>
+    private bool camera;
+
     private string? editing;
     private readonly Dictionary<string, string> corrections = [];
 
@@ -428,7 +450,35 @@ else if (step == Step.Done && result is { } fertig)
             return;
         }
 
-        fileName = file.Name;
+        await using var content = file.OpenReadStream(MaxBytes);
+        await ReadAsync(content, file.Name);
+    }
+
+    /// <summary>
+    /// Eine Aufnahme geht denselben Weg wie eine gewählte Datei.
+    /// </summary>
+    /// <remarks>
+    /// Der Name trägt den Zeitpunkt, weil eine Aufnahme keinen mitbringt. Erkennt die Analyse
+    /// die Art, benennt sie die Ablage ohnehin nach Art und Stichtag um; bleibt sie unbekannt,
+    /// ist der Zeitpunkt das Einzige, was diesen Zettel von den anderen unterscheidet.
+    /// </remarks>
+    private async Task OnCapturedAsync(byte[] bytes)
+    {
+        camera = false;
+
+        if (bytes.LongLength > MaxBytes)
+        {
+            Toasts.Show("Die Aufnahme ist größer als 25 MB.");
+            return;
+        }
+
+        using var content = new MemoryStream(bytes);
+        await ReadAsync(content, $"Aufnahme_{DateTime.Now:yyyy-MM-dd_HHmm}.jpg");
+    }
+
+    private async Task ReadAsync(Stream content, string name)
+    {
+        fileName = name;
         analysis = null;
         result = null;
         corrections.Clear();
@@ -437,8 +487,7 @@ else if (step == Step.Done && result is { } fertig)
 
         try
         {
-            await using var content = file.OpenReadStream(MaxBytes);
-            analysis = await Api.AnalyseScanAsync(content, file.Name);
+            analysis = await Api.AnalyseScanAsync(content, name);
         }
         catch (ApiException ex)
         {

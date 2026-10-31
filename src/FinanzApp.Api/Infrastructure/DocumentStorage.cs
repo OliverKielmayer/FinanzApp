@@ -17,7 +17,7 @@ public sealed class DocumentStorageOptions
 
     /// <summary>Zugelassene Erweiterungen, klein geschrieben mit Punkt.</summary>
     public string[] AllowedExtensions { get; set; } =
-        [".pdf", ".jpg", ".jpeg", ".png", ".webp", ".heic", ".txt", ".xml", ".csv"];
+        [".pdf", ".jpg", ".jpeg", ".png", ".webp", ".heic", ".tif", ".tiff", ".txt", ".xml", ".csv"];
 }
 
 /// <summary>

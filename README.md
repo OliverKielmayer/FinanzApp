@@ -106,6 +106,19 @@ Vor allem: dieselben Rechenproben prüfen nach. Eine verlesene Zahl bringt die F
 mehr auf den ausgewiesenen Gesamtwert, und der Beleg sagt das — statt sie still in einen Vertrag
 zu schreiben.
 
+### Scannen
+
+**Mit der Kamera.** Auf dem Telefon öffnet das Dateifeld direkt die Kamera-App. Am Rechner führt
+dasselbe Feld nur in den Dateiwähler, deshalb gibt es daneben *Mit der Kamera aufnehmen*: Vorschau
+im Bild, Auslöser, Beurteilen, Verwenden. Mehrere Kameras stehen zur Auswahl. Der Browser gibt
+eine Kamera nur in einem **gesicherten Kontext** frei — über `https` oder auf `localhost`. Über
+`http` von einem anderen Gerät aus bleibt sie gesperrt, und die Seite sagt es.
+
+**Mit dem Scanner.** Browser können keinen Scanner ansprechen; dafür gibt es keine Schnittstelle.
+Der Weg führt über den [Ordnerdienst](src/FinanzApp.Ordnerdienst/README.md): das Gerät scannt in
+den überwachten Ordner (bei Netzwerkgeräten „Scan to Folder“ über SMB), der Dienst liefert die
+Datei ein. Zugelassen sind unter anderem `.pdf`, `.jpg`, `.png` und `.tif`.
+
 ### Dokumentordner und Mailversand
 
 `Documents:Root` in `appsettings.json` bestimmt, wo die Dateien liegen (Vorgabe
