@@ -502,7 +502,7 @@ public static class ExtensionSeedData
                 Name = row.Name,
                 Provider = row.Provider,
                 ContractNumber = row.Number,
-                MonthlyAmount = row.Monthly,
+                Amount = row.Monthly,
                 AccountId = account?.Id,
                 StartsOn = new DateOnly(2019, 4, 1),
                 NoticePeriodWeeks = row.NoticeWeeks,

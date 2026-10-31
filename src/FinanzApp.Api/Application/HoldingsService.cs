@@ -178,7 +178,7 @@ public sealed class HoldingsService(
         {
             zeilen.Add(Row(
                 HoldingClass.Housing, vertrag.Name, HoldingMeta.ForContract(vertrag),
-                yearlyCost: vertrag.MonthlyAmount * 12m,
+                yearlyCost: vertrag.YearAmount,
                 note: null,
                 route: "/wohnen"));
         }

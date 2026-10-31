@@ -158,7 +158,7 @@ public sealed class HouseholdIsolationTests : IDisposable
             PropertyId = property.Id,
             Name = "Strom",
             Provider = "Werke",
-            MonthlyAmount = 50m,
+            Amount = 50m,
         };
         context.Contracts.Add(contract);
         context.SaveChanges();

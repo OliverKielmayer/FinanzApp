@@ -107,6 +107,8 @@ public sealed class PropertyService(
             Name = contract.Name,
             Provider = contract.Provider,
             ContractNumber = contract.ContractNumber,
+            Amount = contract.Amount,
+            PaymentInterval = contract.PaymentInterval,
             MonthlyAmount = contract.MonthlyAmount,
             AccountName = contract.Account?.Name,
             StartsOn = contract.StartsOn,
@@ -295,7 +297,7 @@ public sealed class PropertyService(
             parts.Add("Darlehen");
         }
 
-        var contractTotal = property.Contracts.Sum(c => c.MonthlyAmount) * 12m;
+        var contractTotal = property.Contracts.Sum(c => c.YearAmount);
         if (contractTotal > 0)
         {
             total += contractTotal;

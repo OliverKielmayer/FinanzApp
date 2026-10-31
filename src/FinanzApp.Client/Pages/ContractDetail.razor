@@ -16,10 +16,18 @@
             </span>
         </section>
 
+        @*
+            Der Betrag so, wie er vom Konto abgeht, und daneben die Monatszahl — aber nur, wenn
+            sie eine andere ist. „450,00 € vierteljährlich · 150,00 €/Monat" sagt beides; bei
+            einem monatlichen Vertrag stünde dieselbe Zahl zweimal.
+        *@
         <div class="detail-block">
             <span class="detail-label">Abschlag · Konto</span>
             <span class="detail-value num">
-                @State.Euro(contract.MonthlyAmount) monatlich
+                @State.Euro(contract.Amount) @PaymentIntervals.Label(contract.PaymentInterval)@(
+                    contract.PaymentInterval == PremiumInterval.Monthly
+                        ? string.Empty
+                        : $" · {State.Euro(contract.MonthlyAmount)}/Monat")
                 @(contract.AccountName is { Length: > 0 } account ? " · " + account : string.Empty)
             </span>
         </div>

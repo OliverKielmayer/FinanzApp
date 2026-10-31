@@ -657,7 +657,7 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
             e.Property(x => x.Name).HasMaxLength(120).IsRequired();
             e.Property(x => x.Provider).HasMaxLength(120).IsRequired();
             e.Property(x => x.ContractNumber).HasMaxLength(60);
-            e.Property(x => x.MonthlyAmount).HasConversion(MoneyConverter);
+            e.Property(x => x.Amount).HasConversion(MoneyConverter);
             e.HasOne(x => x.Property).WithMany(p => p.Contracts)
                 .HasForeignKey(x => x.PropertyId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Account).WithMany()

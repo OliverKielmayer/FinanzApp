@@ -304,7 +304,7 @@ public sealed class ReportService(
             zeilen.Add(new FixedCostRowDto
             {
                 Name = police.Name,
-                MonthlyAmount = PerMonth(police.Premium, police.PremiumInterval),
+                MonthlyAmount = PaymentIntervals.PerMonth(police.Premium, police.PremiumInterval),
 
                 // Ein kapitalbildender Beitrag fließt ab wie jeder andere, verschwindet aber
                 // nicht: er wird Vermögen. Ihn unter „Kündigungsfrist“ zu führen, hieße ihn
@@ -340,15 +340,6 @@ public sealed class ReportService(
             WithoutAmountCount = zeilen.Count - mitBetrag.Count,
         };
     }
-
-    /// <summary>Ein Beitrag auf den Monat gerechnet, egal in welchem Takt er fällt.</summary>
-    private static decimal PerMonth(decimal amount, PremiumInterval interval) => interval switch
-    {
-        PremiumInterval.Monthly => amount,
-        PremiumInterval.Quarterly => decimal.Round(amount / 3m, 2),
-        PremiumInterval.HalfYearly => decimal.Round(amount / 6m, 2),
-        _ => decimal.Round(amount / 12m, 2),
-    };
 
     /// <summary>
     /// Die Kündigungsfrist im Klartext.
@@ -578,7 +569,7 @@ public sealed class ReportService(
                 Label = vertrag.Name,
                 Source = vertrag.Provider,
                 Kind = PropertyCostKind.Expense,
-                YearAmount = decimal.Round(vertrag.MonthlyAmount * 12m, 2),
+                YearAmount = decimal.Round(vertrag.YearAmount, 2),
                 SharePercent = 0,
             });
         }
@@ -600,7 +591,7 @@ public sealed class ReportService(
                 // bei beiden.
                 Source = $"{police.Provider} · keinem Objekt zugeordnet",
                 Kind = PropertyCostKind.Expense,
-                YearAmount = decimal.Round(PerMonth(police.Premium, police.PremiumInterval) * 12m, 2),
+                YearAmount = decimal.Round(PaymentIntervals.PerYear(police.Premium, police.PremiumInterval), 2),
                 SharePercent = 0,
             });
         }

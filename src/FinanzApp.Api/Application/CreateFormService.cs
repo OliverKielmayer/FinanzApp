@@ -506,7 +506,8 @@ public sealed class CreateFormService(
                     ["name"] = x.Name,
                     ["provider"] = x.Provider,
                     ["number"] = x.ContractNumber,
-                    ["amount"] = Money(x.MonthlyAmount),
+                    ["amount"] = Money(x.Amount),
+                    ["rhythm"] = x.PaymentInterval.ToString(),
                     ["account"] = x.AccountId?.ToString(),
                     ["property"] = x.PropertyId?.ToString(),
                     ["objekt"] = x.PropertyRelated ? FlagOn : FlagOff,
@@ -767,7 +768,8 @@ public sealed class CreateFormService(
         contract.Name = Value(values, "name")!.Trim();
         contract.Provider = Value(values, "provider")!.Trim();
         contract.ContractNumber = Value(values, "number")?.Trim();
-        contract.MonthlyAmount = amount;
+        contract.Amount = amount;
+        contract.PaymentInterval = Rhythm(values, contract.PaymentInterval);
         contract.AccountId = ParseInt(Value(values, "account"));
         contract.PropertyId = ParseInt(Value(values, "property"));
         contract.PropertyRelated = Flagged(values, "objekt", fallback: contract.PropertyRelated);
@@ -1571,7 +1573,15 @@ public sealed class CreateFormService(
                     new() { Value = "Sonstiges", Label = "Sonstiges" },
                 ]),
                 Text("number", "Vertragsnummer", required: false),
-                Money("amount", "Abschlag", required: true, help: "Monatlicher Abschlag."),
+                Money("amount", "Betrag je Zahlung", required: true,
+                    help: "So, wie er vom Konto abgeht — nicht umgerechnet."),
+                Choice("rhythm", "Zahlungsweise", required: false,
+                [
+                    new() { Value = nameof(PremiumInterval.Monthly), Label = "monatlich" },
+                    new() { Value = nameof(PremiumInterval.Quarterly), Label = "vierteljährlich" },
+                    new() { Value = nameof(PremiumInterval.HalfYearly), Label = "halbjährlich" },
+                    new() { Value = nameof(PremiumInterval.Yearly), Label = "jährlich" },
+                ], defaultValue: nameof(PremiumInterval.Monthly)),
                 Reference("account", "Bankkonto", required: false, await AccountOptionsAsync(ct)),
                 Reference("property", "Immobilie", required: false, properties),
                 Flag("objekt", "Kosten zählen", "objektbezogen", "Lebenshaltung",
@@ -1604,7 +1614,8 @@ public sealed class CreateFormService(
             Name = name,
             Provider = provider,
             ContractNumber = Value(values, "number")?.Trim(),
-            MonthlyAmount = amount,
+            Amount = amount,
+            PaymentInterval = Rhythm(values, PremiumInterval.Monthly),
             AccountId = ParseInt(Value(values, "account")),
             PropertyId = ParseInt(Value(values, "property")),
             PropertyRelated = Flagged(values, "objekt", fallback: true),
@@ -1616,6 +1627,18 @@ public sealed class CreateFormService(
 
         return Ok(contract.Id, $"/vertraege/{contract.Id}");
     }
+
+    /// <summary>
+    /// Die gewählte Zahlungsweise. Ohne Angabe bleibt die bisherige stehen.
+    /// </summary>
+    /// <remarks>
+    /// Ein fehlender Wert darf nicht „monatlich“ bedeuten: Ein Formular, das das Feld nicht
+    /// mitschickt, machte sonst aus einer Jahresrechnung stillschweigend eine Monatsrechnung —
+    /// und zwölffachte sie in jeder Hochrechnung.
+    /// </remarks>
+    private static PremiumInterval Rhythm(
+        IReadOnlyDictionary<string, string?> values, PremiumInterval fallback)
+        => Enum.TryParse<PremiumInterval>(Value(values, "rhythm"), out var takt) ? takt : fallback;
 
     // ── Budget ─────────────────────────────────────────────────────────────────────────────
 

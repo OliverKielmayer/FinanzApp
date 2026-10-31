@@ -215,6 +215,9 @@ namespace FinanzApp.Api.Data.Migrations
                     b.Property<int?>("AccountId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<long>("Amount")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("Area")
                         .HasColumnType("INTEGER");
 
@@ -228,9 +231,6 @@ namespace FinanzApp.Api.Data.Migrations
                     b.Property<int>("HouseholdId")
                         .HasColumnType("INTEGER");
 
-                    b.Property<long>("MonthlyAmount")
-                        .HasColumnType("INTEGER");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(120)
@@ -241,6 +241,9 @@ namespace FinanzApp.Api.Data.Migrations
 
                     b.Property<DateOnly?>("NoticeToDate")
                         .HasColumnType("TEXT");
+
+                    b.Property<int>("PaymentInterval")
+                        .HasColumnType("INTEGER");
 
                     b.Property<int?>("PropertyId")
                         .HasColumnType("INTEGER");

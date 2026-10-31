@@ -126,7 +126,7 @@ public sealed class PropertyReportTests : IDisposable
         {
             Name = name,
             Provider = "Stadtwerke",
-            MonthlyAmount = monatlich,
+            Amount = monatlich,
             PropertyId = objekt,
             PropertyRelated = objektbezogen,
         });

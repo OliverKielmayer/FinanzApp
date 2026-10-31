@@ -290,6 +290,13 @@ public sealed record ContractDetailDto
     public required string Name { get; init; }
     public required string Provider { get; init; }
     public string? ContractNumber { get; init; }
+
+    /// <summary>Der Betrag je Zahlung, im Takt von <see cref="PaymentInterval"/>.</summary>
+    public required decimal Amount { get; init; }
+
+    public required PremiumInterval PaymentInterval { get; init; }
+
+    /// <summary>Derselbe Betrag auf den Monat — die Größe, in der Berichte vergleichen.</summary>
     public required decimal MonthlyAmount { get; init; }
     public string? AccountName { get; init; }
     public DateOnly? StartsOn { get; init; }

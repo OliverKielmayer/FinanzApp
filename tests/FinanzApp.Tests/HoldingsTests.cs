@@ -222,7 +222,7 @@ public sealed class HoldingsTests : IDisposable
         {
             context.Contracts.Add(new Contract
             {
-                Name = "Strom", Provider = "Stadtwerke", MonthlyAmount = 142.50m,
+                Name = "Strom", Provider = "Stadtwerke", Amount = 142.50m,
             });
             context.SaveChanges();
         }

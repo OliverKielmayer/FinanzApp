@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations.Schema;
 using FinanzApp.Shared.Contracts;
 
 namespace FinanzApp.Api.Data.Entities;
@@ -332,8 +333,34 @@ public class Contract : IHouseholdOwned
     public required string Provider { get; set; }
     public string? ContractNumber { get; set; }
 
-    /// <summary>Monatlicher Abschlag.</summary>
-    public decimal MonthlyAmount { get; set; }
+    /// <summary>
+    /// Der Betrag <b>je Zahlung</b>, im Takt von <see cref="PaymentInterval"/>.
+    /// </summary>
+    /// <remarks>
+    /// Er hieß einmal <c>MonthlyAmount</c> und war immer monatlich. Eine Grundsteuer kommt
+    /// vierteljährlich und eine Gebäudeversicherung jährlich; wer sie eintrug, musste sie selbst
+    /// durch drei oder durch zwölf teilen, und im Feld stand danach ein Betrag, den kein
+    /// Kontoauszug je zeigte.
+    /// </remarks>
+    public decimal Amount { get; set; }
+
+    /// <summary>In welchem Takt <see cref="Amount"/> fällig wird.</summary>
+    public PremiumInterval PaymentInterval { get; set; } = PremiumInterval.Monthly;
+
+    /// <summary>
+    /// Derselbe Betrag auf den Monat gerechnet — die Größe, in der Berichte vergleichen.
+    /// </summary>
+    /// <remarks>
+    /// Gerechnet und nicht gespeichert: Eine zweite gespeicherte Zahl liefe der ersten davon,
+    /// sobald jemand den Takt ändert. Sie ist für die Datenbank unsichtbar, damit keine Abfrage
+    /// versucht, sie in SQL zu übersetzen.
+    /// </remarks>
+    [NotMapped]
+    public decimal MonthlyAmount => PaymentIntervals.PerMonth(Amount, PaymentInterval);
+
+    /// <summary>Und auf das Jahr — aus dem Betrag je Zahlung, nicht aus der Monatszahl.</summary>
+    [NotMapped]
+    public decimal YearAmount => PaymentIntervals.PerYear(Amount, PaymentInterval);
 
     public int? AccountId { get; set; }
     public Account? Account { get; set; }
