@@ -193,6 +193,17 @@ public static class FinanzAppApiExtensions
     }
 
     /// <summary>
+    /// Dieselbe Erkennung für einen Beleg, der schon in der Ablage liegt.
+    /// </summary>
+    /// <remarks>
+    /// Was aus dem Scaneingang kommt, ist abgelegt und gelesen. Die Datei ein zweites Mal
+    /// hochzuladen, nur um ihre Zahlen zu bekommen, wäre Arbeit für nichts.
+    /// </remarks>
+    public static Task<ExtractedBillDto> ExtractBillFromDocumentAsync(
+        this FinanzAppApi api, int documentId, CancellationToken ct = default)
+        => api.GetAsync<ExtractedBillDto>($"api/health/extract/{documentId}", ct);
+
+    /// <summary>
     /// Der Steuerjahr-Bericht. Ohne Jahr das, für das es am meisten gibt.
     /// </summary>
     public static Task<TaxYearDto> GetTaxYearAsync(

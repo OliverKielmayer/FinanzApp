@@ -831,6 +831,25 @@ public sealed class DocumentService(
     }
 
     /// <summary>
+    /// Der gelesene Text eines Belegs.
+    /// </summary>
+    /// <remarks>
+    /// Drei Antworten und nicht zwei: <c>null</c> heißt „diesen Beleg gibt es nicht“ — die
+    /// Mandantenfilter gelten, fremde Haushalte sind schlicht nicht da. Die leere Zeichenkette
+    /// heißt „es gibt ihn, aber er trägt keinen Text“. Beides als <c>null</c> zu melden hieße,
+    /// einen stummen Scan für einen fehlenden Beleg auszugeben.
+    /// </remarks>
+    public async Task<string?> TextOfAsync(int documentId, CancellationToken ct = default)
+    {
+        var treffer = await db.Documents.AsNoTracking()
+            .Where(d => d.Id == documentId)
+            .Select(d => new { d.ContentText })
+            .FirstOrDefaultAsync(ct);
+
+        return treffer is null ? null : treffer.ContentText ?? string.Empty;
+    }
+
+    /// <summary>
     /// Stellt ein Dokument auf "nur ich" oder zurück auf den Haushalt.
     /// </summary>
     /// <remarks>

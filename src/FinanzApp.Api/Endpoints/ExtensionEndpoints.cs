@@ -259,6 +259,25 @@ public static class ExtensionEndpoints
             await using var content = file.OpenReadStream();
             return Results.Ok(await extractor.ExtractAsync(content, file.FileName, ct));
         }).RequireAuthorization(AuthPolicies.Write).DisableAntiforgery();
+
+        // Dieselbe Erkennung für einen Beleg, der schon abgelegt ist.
+        //
+        // Der Weg über die hochgeladene Datei setzt voraus, dass der Beleg noch beim Benutzer
+        // liegt. Was aus dem Scaneingang kommt, liegt aber längst in der Ablage und ist
+        // gelesen — dieselbe Datei ein zweites Mal hochzuladen, nur um ihre Zahlen zu
+        // bekommen, wäre Arbeit für nichts. Der gespeicherte Text genügt.
+        api.MapGet("/extract/{documentId:int}", async (
+            int documentId, DocumentService documents, CancellationToken ct) =>
+        {
+            // Holt den Text nach, falls er fehlt — ein Beleg kann abgelegt worden sein, bevor
+            // es eine Erkennung gab.
+            await documents.EnsureTextAsync(documentId, ct);
+
+            var text = await documents.TextOfAsync(documentId, ct);
+            return text is null
+                ? Results.NotFound()
+                : Results.Ok(BillTextReader.Read(text));
+        }).RequireAuthorization(AuthPolicies.Write);
     }
 
     /// <summary>Fahrzeuge — dieselbe Form wie Immobilien, weil es dieselbe Art Objekt ist.</summary>

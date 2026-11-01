@@ -16,8 +16,7 @@ public interface IBillTextExtractor
 }
 
 /// <summary>
-/// Erkennt nichts und sagt das auch. Der eingebaute Stand, solange keine Texterkennung
-/// angebunden ist.
+/// Erkennt nichts und sagt das auch. Bleibt als Rückfall, wo kein Lesen gewollt ist.
 /// </summary>
 public sealed class NoBillTextExtractor : IBillTextExtractor
 {
@@ -26,4 +25,21 @@ public sealed class NoBillTextExtractor : IBillTextExtractor
     public Task<ExtractedBillDto> ExtractAsync(
         Stream content, string fileName, CancellationToken ct = default)
         => Task.FromResult(Empty);
+}
+
+/// <summary>
+/// Liest den Beleg und dann seine Eckdaten.
+/// </summary>
+/// <remarks>
+/// <para>Zwei Schritte, die nichts voneinander wissen: Der <see cref="IPdfTextReader"/> macht
+/// aus einer Datei Text — Textebene, Bild, Erkennung, einerlei. <see cref="BillTextReader"/>
+/// macht aus Text Werte und kennt keine Dateien.</para>
+/// <para>Liegt keine Texterkennung an und ist der Beleg ein Bild, kommt kein Text und damit
+/// auch kein Wert. Die Maske bleibt leer und fragt — genau wie vorher.</para>
+/// </remarks>
+public sealed class ReadingBillTextExtractor(IPdfTextReader reader) : IBillTextExtractor
+{
+    public Task<ExtractedBillDto> ExtractAsync(
+        Stream content, string fileName, CancellationToken ct = default)
+        => Task.FromResult(BillTextReader.Read(reader.Read(content).PlainText));
 }
