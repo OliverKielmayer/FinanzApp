@@ -110,6 +110,19 @@ public sealed class DocumentService(
             Add(LinkTargetType.Property, row.Id, row.Name, HoldingMeta.ForProperty(row));
         }
 
+        // Konten.
+        //
+        // Verknüpfen und Beschriften konnte die Anwendung sie längst — nur gefunden wurden sie
+        // nicht, und damit war ein Bankschreiben im Scaneingang nicht zuzuordnen: Der Brief
+        // zur Freischaltung eines Verfahrens gehört an das Konto und an nichts sonst.
+        //
+        // Die Mandanten- und Freigabefilter gelten auch hier: Ein privates Konto des anderen
+        // Haushaltsmitglieds ist gar nicht erst in der Abfrage, also auch nicht im Vorschlag.
+        foreach (var row in await db.Accounts.AsNoTracking().ToListAsync(ct))
+        {
+            Add(LinkTargetType.Account, row.Id, row.Name, HoldingMeta.ForAccount(row));
+        }
+
         foreach (var row in await db.MedicalBills.AsNoTracking()
                      .Select(x => new { x.Id, x.Provider, x.BillNumber }).ToListAsync(ct))
         {
