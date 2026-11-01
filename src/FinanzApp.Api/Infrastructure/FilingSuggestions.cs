@@ -97,9 +97,20 @@ public static class FilingSuggestions
             Strong: ["steuerbescheid", "bescheid für", "festsetzung", "einkommensteuerbescheid"],
             Weak: ["finanzamt", "steuernummer", "veranlagung", "solidaritätszuschlag", "kirchensteuer"]),
 
+        // Ohne „brutto“ und „netto“. Sie standen hier und reichten zu zweit über die Schwelle —
+        // und sie stehen auf jeder Rechnung, die ihre Umsatzsteuer ausweist. Eine
+        // Schreinerrechnung und eine Sanitärrechnung wurden so beide zur Gehaltsabrechnung
+        // erklärt, ohne dass ein einziges Wort über Arbeitsentgelt auf dem Blatt stand.
+        //
+        // Was bleibt, benennt die Sache: Lohnsteuer und Sozialversicherung stehen auf keiner
+        // Händlerrechnung, und „Gesamtbrutto“ ist etwas anderes als „brutto“.
         new("Gehaltsabrechnung", DocumentArea.Work, "Gehaltsabrechnung",
             Strong: ["entgeltabrechnung", "gehaltsabrechnung", "verdienstabrechnung", "lohnabrechnung"],
-            Weak: ["lohnsteuer", "sozialversicherung", "brutto", "netto", "steuerklasse", "gesamtbrutto"]),
+            Weak:
+            [
+                "lohnsteuer", "sozialversicherung", "steuerklasse", "gesamtbrutto",
+                "sv-brutto", "nettoverdienst", "auszahlungsbetrag", "lohnart",
+            ]),
 
         new("Kontoauszug", DocumentArea.Finance, "Kontoauszug",
             Strong: ["kontoauszug", "auszug nr", "umsatzübersicht"],

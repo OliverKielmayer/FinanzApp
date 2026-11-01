@@ -117,7 +117,7 @@ public static class BillTextReader
     private static readonly string[] BetragWoerter =
     [
         "rechnungsbetrag", "zu zahlender betrag", "zahlbetrag", "endbetrag", "rechnungssumme",
-        "gesamtbetrag", "gesamtsumme", "bruttobetrag", "summe brutto",
+        "gesamtbetrag", "gesamtsumme", "bruttobetrag", "summe brutto", "gesamt brutto",
 
         // Händlerrechnungen stellen Netto und Brutto untereinander und nennen beide „Endsumme“.
         // Die ausdrückliche Brutto-Schreibweise steht deshalb vor der bloßen.
@@ -539,8 +539,28 @@ public static class BillTextReader
             }
         }
 
+        // Zuletzt die erste Zeile, die überhaupt einen Namen tragen kann.
+        //
+        // Ein Briefkopf bricht den Firmennamen gern über mehrere Zeilen um, und eine Erkennung
+        // liefert die Bruchstücke einzeln: „Die“, „Schreiner“, „Eberhard Gronbach“. Die erste
+        // davon ist kein Absender, sondern ein Artikel. Zwei Buchstaben und ein Artikel allein
+        // sagen nichts — die nächste Zeile ist die bessere Antwort und selten eine schlechtere.
+        foreach (var zeile in kopf)
+        {
+            var name = OhneAnschrift(zeile);
+            if (name.Length > 3 && !Fuellwort.IsMatch(name))
+            {
+                return (name, zeile);
+            }
+        }
+
         return (OhneAnschrift(kopf[0]), kopf[0]);
     }
+
+    /// <summary>Ein Wort, das allein auf einer Zeile keinen Absender ergibt.</summary>
+    private static readonly Regex Fuellwort =
+        new(@"^(?:der|die|das|den|dem|ihr|ihre|herr|frau|firma|seite)$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     /// <summary>
     /// Schneidet die Anschrift ab, die im Briefkopf oft in derselben Zeile steht.

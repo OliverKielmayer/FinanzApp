@@ -260,6 +260,46 @@ public sealed class BillTextReadingTests
         Assert.Contains("inkl", gelesen.GrossAmountSource!, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>„Gesamt brutto“ ist dieselbe Zeile wie „Summe brutto“.</summary>
+    /// <remarks>
+    /// Eine Handwerkerrechnung schrieb es so, und der Betrag blieb ungelesen, während die
+    /// Nettozeile darüber bereitstand. Die Sperre gegen Nettozeilen trägt auch hier.
+    /// </remarks>
+    [Fact]
+    public void Gesamt_brutto_wird_gelesen_und_gesamt_netto_nicht()
+    {
+        var gelesen = BillTextReader.Read("""
+            Musterschreinerei Eberhard Muster
+            Gesamt netto 500,35 €
+            zzgl. 19,0 % MWSt 95,07 €
+            Gesamt brutto 595,42 €
+            """);
+
+        Assert.Equal(595.42m, gelesen.GrossAmount);
+    }
+
+    /// <summary>
+    /// Ein Artikel am Zeilenanfang ist kein Absender.
+    /// </summary>
+    /// <remarks>
+    /// Ein Briefkopf bricht den Firmennamen über mehrere Zeilen um, und die Erkennung liefert
+    /// die Bruchstücke einzeln. Steht in der ersten „Die“, war der Absender bisher „Die“ —
+    /// die Zeile darunter ist die bessere Antwort und selten eine schlechtere.
+    /// </remarks>
+    [Fact]
+    public void Ein_Artikel_in_der_ersten_Zeile_wird_uebersprungen()
+    {
+        var gelesen = BillTextReader.Read("""
+            Die
+            Schreiner
+            Eberhard Muster
+            Werkstatt
+            Rechnungsbetrag: 595,42
+            """);
+
+        Assert.Equal("Schreiner", gelesen.Provider);
+    }
+
     /// <summary>Steht nur eine Endsumme da, ist sie es.</summary>
     [Fact]
     public void Eine_einzelne_Endsumme_zaehlt()

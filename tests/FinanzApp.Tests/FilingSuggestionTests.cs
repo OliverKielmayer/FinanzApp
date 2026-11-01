@@ -168,6 +168,46 @@ public sealed class FilingSuggestionTests
         Assert.Equal(DocumentArea.Finance, vorschlag.Value.Area);
     }
 
+    /// <summary>
+    /// „Brutto“ und „Netto“ machen aus einer Rechnung keine Gehaltsabrechnung.
+    /// </summary>
+    /// <remarks>
+    /// <para>Beide standen als schwache Wörter an der Gehaltsabrechnung und reichten zu zweit
+    /// über die Schwelle. Sie stehen aber auf jeder Rechnung, die ihre Umsatzsteuer ausweist —
+    /// eine Schreinerrechnung und eine Sanitärrechnung wurden so beide zur Gehaltsabrechnung
+    /// erklärt, ohne dass ein Wort über Arbeitsentgelt auf dem Blatt stand.</para>
+    /// <para>Das ist der teuerste Fehler, den ein Vorschlag machen kann: Er klingt sicher und
+    /// zeigt in einen Bereich, in dem niemand nach einer Handwerkerrechnung sucht.</para>
+    /// </remarks>
+    [Theory]
+    [InlineData("Gesamt netto 500,35\nzzgl. 19,0 % MwSt 95,07\nGesamt brutto 595,42")]
+    [InlineData("Summe Netto EUR 154,41\n19,00 % MwSt. EUR 29,34\nSumme Brutto EUR 183,75")]
+    public void Eine_Rechnung_mit_Brutto_und_Netto_ist_keine_Gehaltsabrechnung(string text)
+    {
+        var vorschlag = FilingSuggestions.For(text);
+
+        Assert.True(
+            vorschlag is null || vorschlag.Value.Label != "Gehaltsabrechnung",
+            $"Vorgeschlagen wurde „{vorschlag?.Label}“.");
+    }
+
+    /// <summary>Und die echte Gehaltsabrechnung wird weiter erkannt.</summary>
+    /// <remarks>
+    /// Lohnsteuer und Sozialversicherung stehen auf keiner Händlerrechnung, und
+    /// „Gesamtbrutto“ ist etwas anderes als „brutto“.
+    /// </remarks>
+    [Fact]
+    public void Eine_echte_Gehaltsabrechnung_wird_weiter_erkannt()
+    {
+        var vorschlag = FilingSuggestions.For(
+            "Musterwerk GmbH\nLohnsteuer 447,91\nSozialversicherung 367,88\n"
+            + "Steuerklasse 3\nGesamtbrutto 3.847,00");
+
+        Assert.NotNull(vorschlag);
+        Assert.Equal("Gehaltsabrechnung", vorschlag.Value.Label);
+        Assert.Equal(DocumentArea.Work, vorschlag.Value.Area);
+    }
+
     [Fact]
     public void Ohne_etwas_Genaueres_bleibt_die_allgemeine_Rechnung()
     {
