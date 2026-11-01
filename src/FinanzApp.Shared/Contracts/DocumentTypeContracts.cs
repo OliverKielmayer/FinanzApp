@@ -37,6 +37,16 @@ public sealed record DocumentTypeOverviewDto
 /// </param>
 public sealed record DocumentTypeNameRequest(string Name, DocumentArea Area = DocumentArea.Other);
 
+/// <summary>
+/// Der Bereich eines Typs, nachträglich.
+/// </summary>
+/// <remarks>
+/// Eigener Vertrag und nicht der Name-Vertrag mit gesetztem Bereich: Dessen <c>Area</c> hat eine
+/// Vorgabe, und ein Umbenennen, das sie mitschickt, schöbe den Typ stillschweigend nach
+/// „Sonstiges“. Zwei Absichten, zwei Verträge.
+/// </remarks>
+public sealed record DocumentTypeAreaRequest(DocumentArea Area);
+
 /// <summary>Was eine Änderung angerichtet hat — die Meldung nennt die Zahl.</summary>
 /// <param name="Name">Der betroffene Typ, nach der Änderung.</param>
 /// <param name="DocumentCount">Wie viele Dokumente ihn tragen.</param>

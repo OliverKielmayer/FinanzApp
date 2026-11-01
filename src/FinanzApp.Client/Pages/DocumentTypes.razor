@@ -105,10 +105,28 @@
                                 <button type="button" class="btn btn-secondary" disabled="@busy"
                                         @onclick="CancelDelete">Behalten</button>
                             }
+                            else if (moving == id)
+                            {
+                                @* Die Bereiche als Chipreihe — dieselbe Gestalt wie der Filter
+                                   oben, damit niemand zwei Arten lernt, einen Bereich zu wählen. *@
+                                @foreach (var eintrag in overview.Areas)
+                                {
+                                    @* „Alle“ trägt keinen Bereich und ist deshalb kein Ziel. *@
+                                    if (eintrag.Area is { } ziel && ziel != typ.Area)
+                                    {
+                                        <button type="button" class="chip" disabled="@busy"
+                                                @onclick="() => MoveAsync(id, ziel)">@eintrag.Label</button>
+                                    }
+                                }
+                                <button type="button" class="section-link"
+                                        @onclick="CancelMove">Abbrechen</button>
+                            }
                             else
                             {
                                 <button type="button" class="section-link"
                                         @onclick="() => StartEdit(typ)">Umbenennen</button>
+                                <button type="button" class="section-link"
+                                        @onclick="() => StartMove(id)">Bereich ändern</button>
                                 <button type="button" class="section-link"
                                         @onclick="() => AskDelete(id)">Löschen</button>
                             }
@@ -120,8 +138,10 @@
 
         <div class="tx-totals-note">
             Umbenennen wirkt auf alle Dokumente dieses Typs — sie tragen ihn über seine Kennung,
-            nicht über den Text. Löschen lässt die abgelegten Dokumente unverändert: sie behalten
-            ihren Typ und bleiben in der Suche, nur wird er nicht mehr gepflegt.
+            nicht über den Text. Ein geänderter Bereich zieht sie ebenfalls mit, Eintrag und
+            Datei: Eine Art ist eine Schublade, und wer sie verschiebt, verschiebt alles darin.
+            Löschen lässt die abgelegten Dokumente unverändert: sie behalten ihren Typ und
+            bleiben in der Suche, nur wird er nicht mehr gepflegt.
         </div>
 
         <div class="spacer"></div>
@@ -139,6 +159,9 @@
     private int? editing;
     private string draft = string.Empty;
     private int? pending;
+
+    /// <summary>Der Typ, dessen Bereich gerade gewählt wird.</summary>
+    private int? moving;
 
     protected override async Task LoadAsync() => data = await Api.GetDocumentTypesAsync();
 
@@ -213,6 +236,51 @@
         editing = null;
         draft = string.Empty;
     }
+
+    private void StartMove(int id)
+    {
+        moving = id;
+        editing = null;
+        pending = null;
+        problem = null;
+    }
+
+    private void CancelMove() => moving = null;
+
+    /// <summary>
+    /// Schiebt den Typ in einen anderen Bereich.
+    /// </summary>
+    /// <remarks>
+    /// Die Meldung nennt die Zahl der mitgezogenen Belege. Sie ist die eigentliche Auskunft:
+    /// Eine Art ist eine Schublade, und wer sie verschiebt, verschiebt alles darin.
+    /// </remarks>
+    private Task MoveAsync(int id, DocumentArea ziel) => RunAsync(async () =>
+    {
+        busy = true;
+        problem = null;
+
+        try
+        {
+            var ergebnis = await Api.MoveDocumentTypeAsync(id, ziel);
+
+            moving = null;
+            await LoadAsync();
+
+            Toasts.Show(ergebnis.DocumentCount == 0
+                ? $"„{ergebnis.Name}“ steht jetzt unter {AreaLabel(data!, ziel)}"
+                : $"„{ergebnis.Name}“ steht jetzt unter {AreaLabel(data!, ziel)} — "
+                  + $"{ergebnis.DocumentCount} "
+                  + $"{(ergebnis.DocumentCount == 1 ? "Beleg ist" : "Belege sind")} mitgezogen");
+        }
+        catch (ApiException ex)
+        {
+            problem = ex.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
 
     private Task RenameAsync(int id) => RunAsync(async () =>
     {

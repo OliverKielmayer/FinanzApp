@@ -342,6 +342,13 @@ public sealed class FinanzAppApi(HttpClient http)
         => SendAsync<DocumentTypeNameRequest, DocumentTypeChangeResultDto>(
             HttpMethod.Patch, $"api/document-types/{id}", new DocumentTypeNameRequest(name), ct);
 
+    /// <summary>Schiebt einen Typ in einen anderen Bereich — und seine Dokumente mit.</summary>
+    public Task<DocumentTypeChangeResultDto> MoveDocumentTypeAsync(
+        int id, DocumentArea area, CancellationToken ct = default)
+        => SendAsync<DocumentTypeAreaRequest, DocumentTypeChangeResultDto>(
+            HttpMethod.Patch, $"api/document-types/{id}/area",
+            new DocumentTypeAreaRequest(area), ct);
+
     public Task<DocumentTypeChangeResultDto> DeleteDocumentTypeAsync(
         int id, CancellationToken ct = default)
         => SendAsync<object?, DocumentTypeChangeResultDto>(

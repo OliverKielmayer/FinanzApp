@@ -14,7 +14,7 @@ namespace FinanzApp.Api.Application;
 /// Verwendungsnachweis. Ein Typ bestimmt den Ablagepfad-Vorschlag und was die Beleganalyse zu
 /// erkennen versucht; wer ihn ändert, greift in beides ein.
 /// </remarks>
-public sealed class DocumentTypeService(FinanzAppDbContext db)
+public sealed class DocumentTypeService(FinanzAppDbContext db, DocumentService documents)
 {
     /// <summary>Die Bereiche in der Reihenfolge der Chipreihe.</summary>
     private static readonly DocumentArea[] Areas =
@@ -103,6 +103,51 @@ public sealed class DocumentTypeService(FinanzAppDbContext db)
         await db.SaveChangesAsync(ct);
 
         return new DocumentTypeChangeResultDto(sauber, typ.Documents.Count);
+    }
+
+    /// <summary>
+    /// Verschiebt einen Typ in einen anderen Bereich — und seine Dokumente mit.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Bereich stand bisher seit dem Anlegen fest. Beim Anlegen setzt ihn aber der
+    /// Filter, der gerade oben steht, und wer danach merkt, dass eine Art woanders hingehört,
+    /// hatte nur die Wahl zwischen Stilllegen und Leben damit.</para>
+    /// <para><b>Die Dokumente ziehen mit, Eintrag und Datei.</b> Ein Typ, dessen Bereich sich
+    /// ändert, ohne dass seine Belege umziehen, erzeugt genau den Widerspruch, gegen den das
+    /// Umlegen gebaut ist: Der Eintrag sagt Wohnen, der Ordner sagt Sonstiges, und im
+    /// Dateimanager traut man dem Ordner.</para>
+    /// <para><b>Das wirkt auf alle Belege dieser Art</b> — auch auf die, die jemand nicht im
+    /// Sinn hatte. Eine Art ist eine Schublade und kein Einzelfall; wer nur einen Beleg
+    /// anderswo haben will, braucht eine eigene Art für ihn.</para>
+    /// </remarks>
+    public async Task<DocumentTypeChangeResultDto> MoveAsync(
+        int id, DocumentArea area, CancellationToken ct = default)
+    {
+        var typ = await Load(id, ct);
+
+        if (typ.Area == area)
+        {
+            return new DocumentTypeChangeResultDto(typ.Name, 0);
+        }
+
+        typ.Area = area;
+
+        foreach (var dokument in typ.Documents)
+        {
+            dokument.Area = area;
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        // Erst der Eintrag, dann die Datei: Das Umlegen liest das Dokument neu und schreibt
+        // seinen Pfad. Scheitert ein Verschieben auf der Platte, bleibt der Beleg liegen und
+        // meldet sich in der Dokumentliste — besser als ein Eintrag ohne Datei.
+        foreach (var dokument in typ.Documents)
+        {
+            await documents.RefileAsync(dokument.Id, area, null, ct);
+        }
+
+        return new DocumentTypeChangeResultDto(typ.Name, typ.Documents.Count);
     }
 
     /// <summary>

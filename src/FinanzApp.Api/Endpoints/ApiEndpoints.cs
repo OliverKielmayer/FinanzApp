@@ -142,6 +142,23 @@ public static class ApiEndpoints
             }
         }).RequireAuthorization(AuthPolicies.ManageUsers);
 
+        // Eigener Weg und nicht derselbe wie das Umbenennen: Der Name-Vertrag trägt einen
+        // vorbelegten Bereich, und ein Umbenennen, das ihn mitschickt, schöbe den Typ
+        // stillschweigend nach „Sonstiges“.
+        api.MapPatch("/document-types/{id:int}/area", async (
+            int id, DocumentTypeAreaRequest request, DocumentTypeService service,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(await service.MoveAsync(id, request.Area, ct));
+            }
+            catch (RuleViolationException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.ManageUsers);
+
         api.MapDelete("/document-types/{id:int}", async (
             int id, DocumentTypeService service, CancellationToken ct) =>
         {
