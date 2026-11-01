@@ -939,6 +939,9 @@ namespace FinanzApp.Api.Data.Migrations
                     b.Property<int>("HouseholdId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("IsDental")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
                         .HasColumnType("TEXT");
@@ -1098,6 +1101,9 @@ namespace FinanzApp.Api.Data.Migrations
                     b.Property<long?>("Deductible")
                         .HasColumnType("INTEGER");
 
+                    b.Property<decimal?>("DentalOwnSharePercent")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateOnly?>("EndsOn")
                         .HasColumnType("TEXT");
 
@@ -1129,6 +1135,12 @@ namespace FinanzApp.Api.Data.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<DateOnly?>("NoticeReminderOn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("OwnShareAnnualCap")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("OwnSharePercent")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("PolicyNumber")

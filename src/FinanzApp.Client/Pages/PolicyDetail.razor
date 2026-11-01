@@ -139,6 +139,31 @@
                 </div>
             }
 
+            @*
+                Die Regel, nach der die Anwendung den Eigenanteil einer Arztrechnung
+                vorschlägt. Sie steht hier, weil sie hierher gehört: Wer den Vorschlag im
+                Scaneingang prüft, soll nachsehen können, woher er stammt.
+            *@
+            @if (policy.OwnSharePercent is { } satz)
+            {
+                <div class="detail-block">
+                    <span class="detail-label">Eigenanteil je Rechnung</span>
+                    <span class="detail-value">
+                        @Prozent(satz)@(policy.OwnShareAnnualCap is { } deckel
+                            ? $" · höchstens {State.Euro0(deckel)} im Jahr"
+                            : " · ohne Jahresdeckel")
+                    </span>
+                </div>
+
+                @if (policy.DentalOwnSharePercent is { } zahnsatz)
+                {
+                    <div class="detail-block">
+                        <span class="detail-label">Davon Zahnbehandlung</span>
+                        <span class="detail-value">@Prozent(zahnsatz) · ohne Jahresdeckel</span>
+                    </div>
+                }
+            }
+
             <div class="detail-block">
                 <span class="detail-label">Zählt zum Vermögen</span>
                 <span class="detail-value">
@@ -455,6 +480,10 @@
 </AsyncView>
 
 @code {
+    /// <summary>Ein Prozentsatz ohne überflüssige Nullen: „20 %“, nicht „20,00 %“.</summary>
+    private static string Prozent(decimal satz)
+        => satz == Math.Truncate(satz) ? $"{satz:0} %" : $"{satz:0.##} %".Replace('.', ',');
+
     [Parameter] public int Id { get; set; }
 
     /// <summary>

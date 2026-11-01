@@ -51,6 +51,17 @@ public class MedicalBill : IHouseholdOwned
     /// <summary>Die Buchung, mit der der Eigenanteil bezahlt wurde.</summary>
     public int? OwnShareTransactionId { get; set; }
 
+    /// <summary>
+    /// Ob es eine Zahnbehandlung war.
+    /// </summary>
+    /// <remarks>
+    /// Nicht nur eine Kennzeichnung, sondern eine Rechengröße: Fällt Zahnbehandlung aus dem
+    /// Jahresdeckel der Selbstbeteiligung heraus, muss die Anwendung für jeden früheren
+    /// Vorgang wissen, ob er gegen den Deckel zählte. Ohne diese Angabe ließe sich der
+    /// verbleibende Rest nicht ausrechnen, sondern nur schätzen.
+    /// </remarks>
+    public bool IsDental { get; set; }
+
     public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; }
 
@@ -208,6 +219,37 @@ public class Policy : IHouseholdOwned
 
     /// <summary>Selbstbeteiligung.</summary>
     public decimal? Deductible { get; set; }
+
+    /// <summary>
+    /// Selbstbeteiligung in Prozent des Rechnungsbetrags.
+    /// </summary>
+    /// <remarks>
+    /// <para>Am Vertrag und nicht im Code: Zehn Prozent bis vierhundert Euro ist die Regel
+    /// eines bestimmten Tarifs, nicht die Regel der Welt. Ein zweiter Haushalt mit einem
+    /// anderen Tarif bekäme sonst eine falsche Zahl vorgelegt — und gerade die wäre glaubhaft,
+    /// weil sie von selbst dasteht.</para>
+    /// <para>Leer heißt: keine Regel bekannt, also kein Vorschlag. Die Maske bleibt bei null
+    /// und fragt.</para>
+    /// </remarks>
+    public decimal? OwnSharePercent { get; set; }
+
+    /// <summary>Höchstbetrag der Selbstbeteiligung im Kalenderjahr.</summary>
+    /// <remarks>
+    /// Leer heißt: ohne Deckel. Der Deckel gilt für das Kalenderjahr und zählt zusammen, was
+    /// in diesem Jahr schon angefallen ist — Zahnbehandlungen ausgenommen, die haben ihren
+    /// eigenen Satz.
+    /// </remarks>
+    public decimal? OwnShareAnnualCap { get; set; }
+
+    /// <summary>
+    /// Selbstbeteiligung bei Zahnbehandlung, in Prozent — ohne Deckel.
+    /// </summary>
+    /// <remarks>
+    /// Eigene Angabe, weil Zahnbehandlung in vielen Tarifen aus dem Jahresdeckel herausfällt:
+    /// Dort bleibt es bei dem Prozentsatz, egal wie viel schon angefallen ist. Leer heißt: Es
+    /// gilt die allgemeine Regel samt Deckel.
+    /// </remarks>
+    public decimal? DentalOwnSharePercent { get; set; }
 
     public string? Notes { get; set; }
 

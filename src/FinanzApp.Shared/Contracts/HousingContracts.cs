@@ -154,6 +154,15 @@ public sealed record PolicyDetailDto
     public decimal? SumInsured { get; init; }
     public decimal? Deductible { get; init; }
 
+    /// <summary>Selbstbeteiligung in Prozent des Rechnungsbetrags.</summary>
+    public decimal? OwnSharePercent { get; init; }
+
+    /// <summary>Höchstbetrag der Selbstbeteiligung im Kalenderjahr.</summary>
+    public decimal? OwnShareAnnualCap { get; init; }
+
+    /// <summary>Satz für Zahnbehandlung, ohne Deckel.</summary>
+    public decimal? DentalOwnSharePercent { get; init; }
+
     public string? AccountName { get; init; }
     public string? Notes { get; init; }
     public required IReadOnlyList<DocumentListItemDto> Documents { get; init; }
