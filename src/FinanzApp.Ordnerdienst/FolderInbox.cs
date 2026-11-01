@@ -3,6 +3,27 @@ using Microsoft.Extensions.Logging;
 namespace FinanzApp.Ordnerdienst;
 
 /// <summary>
+/// Warum eine Datei noch nicht hinausgeht.
+/// </summary>
+/// <remarks>
+/// Zwei Gründe, die gleich aussehen und es nicht sind. Eine Datei, die noch geschrieben wird,
+/// ist in Sekunden fertig; eine, die ein Programm offen hält, bleibt es, bis jemand das Programm
+/// schließt. Ein Dienst, der beide gleich behandelt, wartet im Sekundentakt auf etwas, das sich
+/// von allein nie ändert — und sagt dabei kein Wort.
+/// </remarks>
+public enum FileWait
+{
+    /// <summary>Fertig geschrieben und frei. Sie darf hinaus.</summary>
+    Ready,
+
+    /// <summary>Sie wächst noch, ist gerade erst aufgetaucht oder noch leer.</summary>
+    Settling,
+
+    /// <summary>Fertig geschrieben — aber ein anderes Programm hält sie offen.</summary>
+    Locked,
+}
+
+/// <summary>
 /// Der überwachte Ordner als Warteschlange.
 /// </summary>
 /// <remarks>
@@ -60,7 +81,7 @@ public sealed class FolderInbox(WatchOptions options, ILogger<FolderInbox> log)
     }
 
     /// <summary>
-    /// Ob die Datei fertig geschrieben ist.
+    /// Ob die Datei fertig geschrieben ist — und wenn nicht, woran es liegt.
     /// </summary>
     /// <remarks>
     /// <para>Zwei Proben, weil eine nicht reicht. Die erste: Größe und Änderungszeitpunkt haben
@@ -71,16 +92,20 @@ public sealed class FolderInbox(WatchOptions options, ILogger<FolderInbox> log)
     /// verlässliche Beweis, dass niemand mehr daran schreibt. Sie schlägt auch fehl, während ein
     /// Virenwächter mitliest — das kostet einen Durchgang und ist der geringere Preis gegenüber
     /// einem halben Dokument in der Ablage.</para>
+    /// <para><b>Die beiden Gründe werden unterschieden</b>, seit ein Bescheid eine halbe Stunde
+    /// im Ordner lag, während er in einem PDF-Programm offen war. Wer nur „noch nicht fertig“
+    /// weiß, kann weder etwas melden noch seinen Takt danach richten.</para>
+    /// <para>Eine Datei, die es nicht mehr gibt oder die noch leer ist, zählt als
+    /// <see cref="FileWait.Settling"/>: Länge 0 heißt, der Schreiber hat sie gerade erst
+    /// angelegt — sie ist noch keine Datei, sondern eine Ankündigung.</para>
     /// </remarks>
-    public bool IsSettled(string path, DateTime now)
+    public FileWait Inspect(string path, DateTime now)
     {
         var info = new FileInfo(path);
 
         if (!info.Exists || info.Length == 0)
         {
-            // Länge 0 heißt: der Schreiber hat die Datei gerade erst angelegt. Sie ist noch
-            // keine Datei, sondern eine Ankündigung.
-            return false;
+            return FileWait.Settling;
         }
 
         var jetzt = new Sighting(info.Length, info.LastWriteTimeUtc, now);
@@ -90,10 +115,15 @@ public sealed class FolderInbox(WatchOptions options, ILogger<FolderInbox> log)
             || vorher.Written != jetzt.Written)
         {
             sightings[path] = jetzt;
-            return false;
+            return FileWait.Settling;
         }
 
-        return now - vorher.Seen >= TimeSpan.FromSeconds(options.SettleSeconds) && IsFree(path);
+        if (now - vorher.Seen < TimeSpan.FromSeconds(options.SettleSeconds))
+        {
+            return FileWait.Settling;
+        }
+
+        return IsFree(path) ? FileWait.Ready : FileWait.Locked;
     }
 
     /// <summary>Vergisst, was über eine Datei bekannt war — sie ist aus dem Ordner heraus.</summary>

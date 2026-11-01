@@ -29,6 +29,24 @@ public sealed class FolderWorker(
     /// <summary>Wie oft eine Datei schon vorübergehend gescheitert ist.</summary>
     private readonly Dictionary<string, int> attempts = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Wie viele Durchgänge eine Datei schon übergangen wurde, weil sie belegt ist.</summary>
+    private readonly Dictionary<string, int> belegt = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Nach wie vielen Durchgängen eine belegte Datei gemeldet wird.</summary>
+    /// <remarks>
+    /// Nicht beim ersten: Ein Virenwächter liest kurz mit, und ein Scanner, der gerade schließt,
+    /// hält die Datei noch einen Moment. Eine Meldung darüber wäre Lärm. Was zählt, ist die
+    /// Sperre, die bleibt.
+    /// </remarks>
+    private const int MeldenNachDurchgaengen = 3;
+
+    /// <summary>Und danach alle wie viel Durchgänge erneut.</summary>
+    /// <remarks>
+    /// Eine einzige Zeile geht unter, eine Zeile je Durchgang ist Lärm. Beim eingestellten Takt
+    /// von einer Minute heißt das: eine Erinnerung etwa jede halbe Stunde.
+    /// </remarks>
+    private const int ErinnernAlleDurchgaenge = 30;
+
     private FileSystemWatcher? watcher;
     private volatile bool watcherBroken;
 
@@ -72,17 +90,24 @@ public sealed class FolderWorker(
     /// Ein Durchgang über alles, was im Ordner liegt.
     /// </summary>
     /// <returns>
-    /// Wie lange bis zum nächsten Durchgang gewartet wird. Wartet noch eine Datei darauf, fertig
-    /// geschrieben zu werden, ist das kurz — sonst der eingestellte Takt. Eine Datei, die gerade
-    /// hereinkommt, soll nicht eine Minute liegen, weil sie beim ersten Blick noch wuchs.
+    /// <para>Wie lange bis zum nächsten Durchgang gewartet wird. Wartet noch eine Datei darauf,
+    /// fertig geschrieben zu werden, ist das kurz — sonst der eingestellte Takt. Eine Datei, die
+    /// gerade hereinkommt, soll nicht eine Minute liegen, weil sie beim ersten Blick noch wuchs.</para>
+    /// <para><b>Eine belegte Datei verkürzt den Takt nicht.</b> Sie wird frei, wenn jemand ein
+    /// Programm schließt, und nicht in fünf Sekunden. Vorher zählte sie als wachsend — ein
+    /// Bescheid, der eine halbe Stunde in einem PDF-Programm offen lag, hat den Dienst so lange
+    /// im Sekundentakt denselben Ordner lesen lassen.</para>
     /// </returns>
     private async Task<TimeSpan> SweepAsync(CancellationToken ct)
     {
         var files = inbox.Waiting();
         if (files.Count == 0)
         {
+            belegt.Clear();
             return TimeSpan.FromSeconds(options.SweepSeconds);
         }
+
+        Vergessen(files);
 
         var wachsend = false;
 
@@ -90,11 +115,18 @@ public sealed class FolderWorker(
         {
             ct.ThrowIfCancellationRequested();
 
-            if (!inbox.IsSettled(path, DateTime.UtcNow))
+            switch (inbox.Inspect(path, DateTime.UtcNow))
             {
-                wachsend = true;
-                continue;
+                case FileWait.Settling:
+                    wachsend = true;
+                    continue;
+
+                case FileWait.Locked:
+                    Belegt(path);
+                    continue;
             }
+
+            belegt.Remove(path);
 
             if (TooBig(path) is { } zuGross)
             {
@@ -121,6 +153,56 @@ public sealed class FolderWorker(
         return wachsend
             ? TimeSpan.FromSeconds(Math.Max(1, Math.Min(options.SettleSeconds, options.SweepSeconds)))
             : TimeSpan.FromSeconds(options.SweepSeconds);
+    }
+
+    /// <summary>
+    /// Eine Datei, die ein anderes Programm offen hält — und irgendwann ein Wort darüber.
+    /// </summary>
+    /// <remarks>
+    /// <para>Das Übergehen selbst ist richtig: Eine Datei, an der noch jemand hängt, gehört nicht
+    /// halb in die Ablage. Falsch war, dass es stumm geschah. Ein Bescheid lag eine halbe Stunde
+    /// im Ordner, weil er in einem PDF-Programm offen war; im Protokoll stand ein laufender
+    /// Dienst und sonst nichts, und im Eingang stand nichts. Es gab nichts zu sehen und also
+    /// nichts zu tun.</para>
+    /// <para>Die Meldung sagt, was zu tun ist, und nicht, was der Dienst getan hat: Die Datei
+    /// schließen. Warnung und nicht Information — es wartet jemand.</para>
+    /// </remarks>
+    private void Belegt(string path)
+    {
+        var durchgaenge = belegt.GetValueOrDefault(path) + 1;
+        belegt[path] = durchgaenge;
+
+        var faellig = durchgaenge == MeldenNachDurchgaengen
+                      || (durchgaenge > MeldenNachDurchgaengen
+                          && (durchgaenge - MeldenNachDurchgaengen) % ErinnernAlleDurchgaenge == 0);
+
+        if (faellig)
+        {
+            log.LogWarning(
+                "{Datei} wird seit {Durchgaenge} Durchgängen übergangen: Ein anderes Programm "
+                + "hält sie offen. Sie bleibt liegen, bis sie dort geschlossen wird.",
+                Path.GetFileName(path), durchgaenge);
+        }
+    }
+
+    /// <summary>Vergisst die Zähler der Dateien, die nicht mehr im Ordner liegen.</summary>
+    /// <remarks>
+    /// Sonst wüchse die Liste mit jedem Scan, der je hier lag — und eine Datei gleichen Namens
+    /// käme mit dem Zählerstand ihrer Vorgängerin herein und meldete sich sofort.
+    /// </remarks>
+    private void Vergessen(IReadOnlyList<string> files)
+    {
+        if (belegt.Count == 0)
+        {
+            return;
+        }
+
+        var da = new HashSet<string>(files, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var weg in belegt.Keys.Where(p => !da.Contains(p)).ToList())
+        {
+            belegt.Remove(weg);
+        }
     }
 
     /// <summary>

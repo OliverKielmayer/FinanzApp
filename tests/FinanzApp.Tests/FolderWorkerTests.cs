@@ -1,4 +1,5 @@
 using FinanzApp.Ordnerdienst;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FinanzApp.Tests;
@@ -273,6 +274,132 @@ public sealed class FolderWorkerTests : IDisposable
 
         Assert.Equal(["halbfertig.tmp"], Waiting());
         Assert.Equal(["beleg.pdf"], Done());
+    }
+
+    // ── Was offen gehalten wird ────────────────────────────────────────────────────────────
+
+    /// <summary>Ein Protokoll, das mitschreibt — Warnungen und Fehler.</summary>
+    private sealed class Protokoll : ILogger<FolderWorker>
+    {
+        public List<string> Warnungen { get; } = [];
+
+        /// <summary>Wird bei jeder Warnung gesetzt — darauf wartet der Test.</summary>
+        public SemaphoreSlim Gewarnt { get; } = new(0);
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            if (logLevel < LogLevel.Warning)
+            {
+                return;
+            }
+
+            lock (Warnungen)
+            {
+                Warnungen.Add(formatter(state, exception));
+            }
+
+            Gewarnt.Release();
+        }
+    }
+
+    /// <summary>
+    /// Eine belegte Datei wird gemeldet, nicht stumm übergangen.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Fall stammt aus dem Betrieb: Ein Bescheid lag eine halbe Stunde im überwachten
+    /// Ordner und kam nicht herein, weil er in einem PDF-Programm offen war. Im Protokoll stand
+    /// ein laufender Dienst und sonst nichts, im Scaneingang stand nichts, und unter
+    /// „fehlgeschlagen“ lag nichts. Es gab nichts zu sehen und also nichts zu tun.</para>
+    /// <para>Das Übergehen bleibt richtig — eine Datei, an der noch jemand hängt, gehört nicht
+    /// halb in die Ablage. Nur stumm darf es nicht sein. Gemeldet wird erst nach ein paar
+    /// Durchgängen: Ein Virenwächter, der kurz mitliest, ist keine Nachricht wert.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Eine_belegte_Datei_wird_gemeldet_statt_stumm_uebergangen()
+    {
+        var path = Write("bescheid.pdf");
+        using var offen = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.None);
+
+        var gegenstelle = new Gegenstelle(new HandoverResult(HandoverStatus.Handed, "abgelegt"));
+        var protokoll = new Protokoll();
+        var options = Options();
+
+        var worker = new FolderWorker(
+            options,
+            new FolderInbox(options, NullLogger<FolderInbox>.Instance),
+            gegenstelle,
+            protokoll);
+
+        await worker.StartAsync(CancellationToken.None);
+
+        try
+        {
+            Assert.True(
+                await protokoll.Gewarnt.WaitAsync(TimeSpan.FromSeconds(15)),
+                "Der Dienst hat die belegte Datei stumm übergangen.");
+        }
+        finally
+        {
+            await worker.StopAsync(CancellationToken.None);
+            worker.Dispose();
+        }
+
+        Assert.Contains(
+            protokoll.Warnungen,
+            w => w.Contains("bescheid.pdf", StringComparison.Ordinal)
+                 && w.Contains("übergangen", StringComparison.Ordinal));
+
+        // Und übergeben wurde sie nicht — sie liegt noch da, wo sie lag.
+        Assert.Empty(gegenstelle.Angeboten);
+        Assert.Equal(["bescheid.pdf"], Waiting());
+        Assert.Empty(Failed());
+    }
+
+    /// <summary>Ist sie wieder frei, geht sie hinaus — ohne dass jemand etwas anstoßen muss.</summary>
+    [Fact]
+    public async Task Nach_dem_Schliessen_geht_die_Datei_hinaus()
+    {
+        var path = Write("bescheid.pdf");
+        var offen = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.None);
+
+        var gegenstelle = new Gegenstelle(new HandoverResult(HandoverStatus.Handed, "abgelegt"));
+        var protokoll = new Protokoll();
+        var options = Options();
+
+        var worker = new FolderWorker(
+            options,
+            new FolderInbox(options, NullLogger<FolderInbox>.Instance),
+            gegenstelle,
+            protokoll);
+
+        await worker.StartAsync(CancellationToken.None);
+
+        try
+        {
+            Assert.True(await protokoll.Gewarnt.WaitAsync(TimeSpan.FromSeconds(15)));
+
+            await offen.DisposeAsync();
+
+            Assert.True(
+                await gegenstelle.Angekommen.WaitAsync(TimeSpan.FromSeconds(15)),
+                "Nach dem Schließen kam die Datei nicht heraus.");
+
+            await Task.Delay(300);
+        }
+        finally
+        {
+            await worker.StopAsync(CancellationToken.None);
+            worker.Dispose();
+        }
+
+        Assert.Equal(["bescheid.pdf"], Done());
+        Assert.Empty(Waiting());
     }
 
     public void Dispose()

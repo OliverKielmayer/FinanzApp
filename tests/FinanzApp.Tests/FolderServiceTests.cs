@@ -61,7 +61,7 @@ public sealed class FolderServiceTests : IDisposable
         var inbox = Inbox();
         var path = Write("scan.pdf");
 
-        Assert.False(inbox.IsSettled(path, DateTime.UtcNow));
+        Assert.Equal(FileWait.Settling, inbox.Inspect(path, DateTime.UtcNow));
     }
 
     /// <summary>Unverändert und lange genug still: fertig.</summary>
@@ -72,8 +72,8 @@ public sealed class FolderServiceTests : IDisposable
         var path = Write("scan.pdf");
         var jetzt = DateTime.UtcNow;
 
-        Assert.False(inbox.IsSettled(path, jetzt));
-        Assert.True(inbox.IsSettled(path, jetzt.AddSeconds(10)));
+        Assert.Equal(FileWait.Settling, inbox.Inspect(path, jetzt));
+        Assert.Equal(FileWait.Ready, inbox.Inspect(path, jetzt.AddSeconds(10)));
     }
 
     /// <summary>
@@ -90,13 +90,13 @@ public sealed class FolderServiceTests : IDisposable
         var path = Write("scan.pdf", "Seite 1");
         var jetzt = DateTime.UtcNow;
 
-        Assert.False(inbox.IsSettled(path, jetzt));
+        Assert.Equal(FileWait.Settling, inbox.Inspect(path, jetzt));
 
         File.AppendAllText(path, "Seite 2");
-        Assert.False(inbox.IsSettled(path, jetzt.AddSeconds(10)));
+        Assert.Equal(FileWait.Settling, inbox.Inspect(path, jetzt.AddSeconds(10)));
 
         // Erst der Blick nach der Ruhe, gemessen ab der letzten Änderung.
-        Assert.True(inbox.IsSettled(path, jetzt.AddSeconds(20)));
+        Assert.Equal(FileWait.Ready, inbox.Inspect(path, jetzt.AddSeconds(20)));
     }
 
     /// <summary>Eine leere Datei ist noch keine Datei, sondern eine Ankündigung.</summary>
@@ -107,31 +107,53 @@ public sealed class FolderServiceTests : IDisposable
         var path = Write("scan.pdf", string.Empty);
         var jetzt = DateTime.UtcNow;
 
-        Assert.False(inbox.IsSettled(path, jetzt));
-        Assert.False(inbox.IsSettled(path, jetzt.AddSeconds(60)));
+        Assert.Equal(FileWait.Settling, inbox.Inspect(path, jetzt));
+        Assert.Equal(FileWait.Settling, inbox.Inspect(path, jetzt.AddSeconds(60)));
     }
 
     /// <summary>
-    /// Eine Datei, die noch jemand offen hält, gilt nicht als fertig.
+    /// Eine Datei, die noch jemand offen hält, ist belegt — und nicht etwa am Wachsen.
     /// </summary>
     /// <remarks>
-    /// Die zweite Probe, und die verlässlichere unter Windows: Größe und Zeitstempel stehen
+    /// <para>Die zweite Probe, und die verlässlichere unter Windows: Größe und Zeitstempel stehen
     /// still, während der Schreiber noch einen Block im Puffer hat. Ein offener Griff darauf
-    /// steht nicht still.
+    /// steht nicht still.</para>
+    /// <para>Dass die beiden Gründe auseinandergehalten werden, ist der Punkt. Eine wachsende
+    /// Datei ist in Sekunden fertig; eine belegte bleibt es, bis jemand ein Programm schließt.
+    /// Solange beides „noch nicht fertig“ hieß, fragte der Dienst im Sekundentakt nach und
+    /// meldete nie, worauf er wartet.</para>
     /// </remarks>
     [Fact]
-    public void Eine_belegte_Datei_gilt_nicht_als_fertig()
+    public void Eine_belegte_Datei_wird_als_belegt_erkannt()
     {
         var inbox = Inbox();
         var path = Write("scan.pdf");
         var jetzt = DateTime.UtcNow;
 
-        Assert.False(inbox.IsSettled(path, jetzt));
+        Assert.Equal(FileWait.Settling, inbox.Inspect(path, jetzt));
 
         using var offen = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.None);
 
         // Ruhe lange genug, Größe unverändert — und trotzdem nicht fertig.
-        Assert.False(inbox.IsSettled(path, jetzt.AddSeconds(60)));
+        Assert.Equal(FileWait.Locked, inbox.Inspect(path, jetzt.AddSeconds(60)));
+    }
+
+    /// <summary>Ist die Datei wieder frei, geht sie hinaus — ohne Zutun.</summary>
+    [Fact]
+    public void Eine_freigegebene_Datei_gilt_danach_als_fertig()
+    {
+        var inbox = Inbox();
+        var path = Write("scan.pdf");
+        var jetzt = DateTime.UtcNow;
+
+        Assert.Equal(FileWait.Settling, inbox.Inspect(path, jetzt));
+
+        using (new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.None))
+        {
+            Assert.Equal(FileWait.Locked, inbox.Inspect(path, jetzt.AddSeconds(60)));
+        }
+
+        Assert.Equal(FileWait.Ready, inbox.Inspect(path, jetzt.AddSeconds(70)));
     }
 
     // ── Was im Ordner liegt ────────────────────────────────────────────────────────────────
