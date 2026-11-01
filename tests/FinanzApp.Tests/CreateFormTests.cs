@@ -245,6 +245,56 @@ public sealed class CreateFormTests : IDisposable
         }
     }
 
+    // ── Der Mandant ────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Eine schreibberechtigte Person in einem Haushalt.</summary>
+    private static User Person(int haushalt, string name) => new()
+    {
+        HouseholdId = haushalt,
+        Name = name,
+        Email = $"{name.Replace(' ', '.').ToLowerInvariant()}@beispiel.test",
+        PasswordHash = "nicht-geprueft",
+        Role = HouseholdRole.Member,
+    };
+
+    /// <summary>
+    /// Die Beteiligten eines Objekts kommen nur aus dem eigenen Haushalt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Benutzer tragen keinen Mandantenfilter: Sie werden gebraucht, bevor ein Haushalt
+    /// feststeht, und ihre Abfragen müssen die Bedingung selbst mitbringen. Diese hier tat es
+    /// nicht — das Immobilienformular führte die Namen fremder Haushalte auf.</para>
+    /// <para>Die Anteilsfelder heißen nach der Benutzerkennung. Es war also nicht nur eine
+    /// Namensanzeige: Ein Eigentumsanteil wäre auf eine Person außerhalb des Haushalts buchbar
+    /// gewesen.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Die_Beteiligten_kommen_nur_aus_dem_eigenen_Haushalt()
+    {
+        // Zweimal anlegen: Der erste Haushalt bekommt Id 1 — dieselbe, auf die der
+        // Testkontext ohnehin sieht. Ohne den zweiten säße die „fremde“ Person im eigenen
+        // Haushalt, und der Test wäre grün, ohne etwas zu prüfen.
+        database.AddHousehold("Eigener Haushalt");
+        var fremder = database.AddHousehold("Fremder Haushalt");
+
+        Assert.NotEqual(database.HouseholdId, fremder);
+
+        using (var context = database.Context())
+        {
+            context.Users.Add(Person(database.HouseholdId, "Eigen Eins"));
+            context.Users.Add(Person(database.HouseholdId, "Eigen Zwei"));
+            context.Users.Add(Person(fremder, "Fremde Person"));
+            context.SaveChanges();
+        }
+
+        var form = await Service().GetFormAsync(CreateObjectType.Property);
+
+        Assert.NotNull(form);
+        Assert.Contains(form.Fields, f => f.Label.Contains("Eigen Eins", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            form.Fields, f => f.Label.Contains("Fremde Person", StringComparison.Ordinal));
+    }
+
     [Fact]
     public async Task Fahrzeug_verknuepft_die_Versicherung_statt_sie_zu_kopieren()
     {

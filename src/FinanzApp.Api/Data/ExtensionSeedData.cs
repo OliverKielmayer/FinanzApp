@@ -460,6 +460,7 @@ public static class ExtensionSeedData
         // dem Handoff — ohne ihn wäre der Ausgleichsstand im Beispiel immer null, und der
         // interessante Zustand nie zu sehen.
         var beteiligte = await db.Users.AsNoTracking()
+            .Where(u => u.HouseholdId == db.CurrentHouseholdId)
             .Where(u => u.Role == HouseholdRole.Owner || u.Role == HouseholdRole.Member)
             .OrderBy(u => u.Id)
             .Take(2)

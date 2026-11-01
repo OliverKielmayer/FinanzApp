@@ -1438,6 +1438,13 @@ public sealed class CreateFormService(
     /// </remarks>
     private async Task<List<User>> ShareUsersAsync(CancellationToken ct)
         => await db.Users.AsNoTracking()
+
+            // Benutzer tragen keinen Mandantenfilter — sie werden gebraucht, bevor ein Haushalt
+            // feststeht, und ihre Abfragen müssen die Bedingung deshalb selbst mitbringen.
+            // Diese hier tat es nicht: Das Anlegeformular führte die Namen fremder Haushalte
+            // auf, und die Anteilsfelder heißen nach der Benutzerkennung — ein Eigentumsanteil
+            // wäre auf eine Person außerhalb des Haushalts buchbar gewesen.
+            .Where(u => u.HouseholdId == db.CurrentHouseholdId)
             .Where(u => u.Role == HouseholdRole.Owner || u.Role == HouseholdRole.Member)
             .OrderBy(u => u.Id)
             .ToListAsync(ct);
