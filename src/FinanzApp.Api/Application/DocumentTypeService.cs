@@ -1,6 +1,7 @@
 using FinanzApp.Api.Data;
 using FinanzApp.Api.Data.Entities;
 using FinanzApp.Shared.Contracts;
+using FinanzApp.Shared.Formatting;
 using Microsoft.EntityFrameworkCore;
 
 namespace FinanzApp.Api.Application;
@@ -153,15 +154,5 @@ public sealed class DocumentTypeService(FinanzAppDbContext db)
         }
     }
 
-    public static string Label(DocumentArea area) => area switch
-    {
-        DocumentArea.Insurance => "Absicherung",
-        DocumentArea.Health => "Gesundheit",
-        DocumentArea.Housing => "Wohnen",
-        DocumentArea.Work => "Arbeit",
-        DocumentArea.Finance => "Finanzen",
-        DocumentArea.Vehicle => "Fahrzeuge",
-        DocumentArea.Personal => "Persönlich",
-        _ => "Sonstiges",
-    };
+    public static string Label(DocumentArea area) => DocumentAreaNames.Label(area);
 }

@@ -498,7 +498,7 @@ public sealed class DocumentScanService(
         //
         // Der Name ist der, aus dem die Ablage den Ordner bildet. Ein anderer legte denselben
         // Beleg je nach Weg in zwei verschiedene Ordner.
-        await documents.RefileAsync(dokument.Id, vertrag.Provider, ct);
+        await documents.RefileAsync(dokument.Id, dokument.Area, vertrag.Provider, ct);
 
         return new ScanResultDto
         {
@@ -726,7 +726,7 @@ public sealed class DocumentScanService(
         // über einem zugeordneten Beleg behauptet etwas, das nicht mehr stimmt. Der Name ist
         // der, aus dem die Ablage den Ordner bildet — ein anderer legte denselben Beleg je nach
         // Weg in zwei verschiedene Ordner.
-        await documents.RefileAsync(dokument.Id, depot.Name, ct);
+        await documents.RefileAsync(dokument.Id, dokument.Area, depot.Name, ct);
 
         var wert = decimal.Round(positionen.Sum(p => p.Value ?? p.Quantity * p.Price), 2);
 

@@ -658,10 +658,11 @@ public sealed class ScanIntakeTests : IDisposable
         var dokument = context.Documents.Single(d => d.Id == ergebnis.DocumentId);
         Assert.Equal(typ.Id, dokument.DocumentTypeId);
 
-        // Der Bereich folgt dem gewählten Typ: die Datei liegt weiter unter „Sonstiges“, gesucht
-        // und gefiltert wird aber nach dem Bereich.
+        // Der Bereich folgt dem gewählten Typ — und die Datei folgt dem Bereich. Hier stand
+        // einmal, sie bleibe unter „Sonstiges“ liegen; das war der Widerspruch, den dieser Weg
+        // erzeugte, und er fiel erst im Dateimanager auf.
         Assert.Equal(DocumentArea.Insurance, dokument.Area);
-        Assert.StartsWith("Sonstiges/", dokument.RelativePath, StringComparison.Ordinal);
+        Assert.StartsWith("Versicherungen/", dokument.RelativePath, StringComparison.Ordinal);
 
         Assert.Single(context.DocumentLinks.Where(l => l.DocumentId == ergebnis.DocumentId));
         Assert.Equal(0, (await eingang.GetAsync()).WaitingCount);

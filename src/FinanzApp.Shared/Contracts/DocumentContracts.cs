@@ -47,6 +47,17 @@ public sealed record DocumentPageDto
     /// hängt an einem Knopf: Ein Nachlauf ohne Auslöser wäre eine Funktion, die niemand findet.
     /// </remarks>
     public int WithoutTextCount { get; init; }
+
+    /// <summary>
+    /// Wie viele Dokumente an keinem Objekt hängen.
+    /// </summary>
+    /// <remarks>
+    /// Abgelegt, aber noch nicht eingeordnet. Die Zahl ist kein Mangel — manche Post hängt an
+    /// nichts und wird es nie —, sondern die Liste der Belege, bei denen noch etwas offen sein
+    /// <em>könnte</em>. Ohne sie verschwänden sie zwischen den anderen, und genau das war der
+    /// Grund, warum früher niemand ohne Objekt ablegen durfte.
+    /// </remarks>
+    public int WithoutLinkCount { get; init; }
 }
 
 public sealed record DocumentDetailDto

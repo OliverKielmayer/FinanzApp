@@ -41,14 +41,20 @@ public sealed class DocumentService(
             .Select(t => new DocumentTypeDto { Id = t.Id, Name = t.Name, Area = t.Area })
             .ToListAsync(ct);
 
+    /// <param name="withoutLink">
+    /// Nur Dokumente, die an keinem Objekt hängen. Der Filter für alles, was abgelegt wurde,
+    /// bevor sein Objekt existierte.
+    /// </param>
     public async Task<DocumentPageDto> GetPageAsync(
-        DocumentArea? area = null, string? search = null, CancellationToken ct = default)
+        DocumentArea? area = null, string? search = null, bool withoutLink = false,
+        CancellationToken ct = default)
     {
         var documents = await LoadAsync(ct);
         var imText = await TextHitsAsync(search, ct);
 
         var filtered = documents
             .Where(d => area is null || d.Area == area)
+            .Where(d => !withoutLink || d.LinkedLabel is null)
             .Where(d => string.IsNullOrWhiteSpace(search) || Matches(d, search, imText))
             .ToList();
 
@@ -58,6 +64,7 @@ public sealed class DocumentService(
             TotalCount = documents.Count,
             MissingFileCount = documents.Count(d => !d.FileExists),
             WithoutTextCount = await db.Documents.CountAsync(d => d.ContentText == null, ct),
+            WithoutLinkCount = documents.Count(d => d.LinkedLabel is null),
         };
     }
 
@@ -455,6 +462,17 @@ public sealed class DocumentService(
         document.UpdatedAt = clock.Now;
 
         await db.SaveChangesAsync(ct);
+
+        // Und die Datei hinterher, wenn der Bereich ein anderer geworden ist. Ohne das sagte
+        // der Eintrag „Wohnen“ und der Ordner weiter „Sonstiges“ — und wer im Dateimanager
+        // sucht, sucht am falschen Platz.
+        //
+        // <see cref="RefileAsync"/> fasst nur an, was noch unter „Unbekannt“ liegt. Ein Beleg,
+        // der schon bei seinem Objekt steht, bleibt also liegen: Dort hat eine Zuordnung ihn
+        // hingelegt, und eine geänderte Art ist kein Grund, eine eingerichtete Ablage
+        // umzubauen.
+        await RefileAsync(id, request.Area, null, ct);
+
         return await GetAsync(id, ct);
     }
 
@@ -565,42 +583,70 @@ public sealed class DocumentService(
     }
 
     /// <summary>
-    /// Holt einen Beleg aus dem Ordner <c>Unbekannt</c> heraus, sobald sein Objekt feststeht.
+    /// Legt einen Beleg dorthin, wo Bereich und Objekt ihn haben wollen.
     /// </summary>
     /// <remarks>
-    /// <para>Der Ablagepfad wird aus dem Objekt gebildet. Konnte die Einlieferung es nicht
-    /// bestimmen, steht dort <c>Unbekannt</c> — und dabei bliebe es für immer, obwohl der Beleg
-    /// im Scaneingang längst zugeordnet wurde. Der Ordner behauptete dann etwas, das nicht mehr
-    /// stimmt.</para>
-    /// <para><b>Nur diesen einen Ordner.</b> Kommt <c>Unbekannt</c> im Pfad nicht genau einmal
-    /// vor, liegt der Beleg dort, wo ein Mensch ihn haben wollte — und dann fasst ihn niemand
-    /// an. Was der Dienst selbst abgelegt hat, räumt er nach; eingerichtete Ablagen bleiben.</para>
+    /// <para><b>Der Bereich wandert mit.</b> Wer am Prüfplatz eine Art aus einem anderen Bereich
+    /// wählt, verschiebt den Beleg auch fachlich. Bliebe die Datei im alten Bereichsordner,
+    /// widersprächen sich Ablage und Eintrag — und der Dateimanager zeigte eine Wohnungssache
+    /// unter Sonstiges.</para>
+    /// <para><b>Das erste Segment ist der Bereich, und nur das wird ersetzt.</b> Was darunter
+    /// steht, hat die Einlieferung sich überlegt — <c>Kontoauszuege/2026</c>,
+    /// <c>Lebensversicherung/Musterkasse/2026</c> — und das bleibt. Ein Beleg, den die Erkennung
+    /// nicht einordnen konnte, liegt flach im Bereichsordner und zieht als Ganzes um.</para>
+    /// <para><b>Nur die eigene Ablage.</b> Steht vorn kein Bereichsordner, stammt der Pfad nicht
+    /// von hier — dann fasst ihn niemand an. Wer von Hand einsortiert hat, behält seine
+    /// Ordnung.</para>
+    /// <para><b><c>Unbekannt</c> weicht dem Objektnamen.</b> Die Leseregeln legen einen erkannten
+    /// Beleg ohne gefundenes Ziel unter diesem Namen ab; wird das Ziel nachgetragen, heißt der
+    /// Ordner danach so wie das Objekt. Ohne Objektnamen bleibt er stehen: Ein Beleg ohne Objekt
+    /// ist abgelegt und nicht zugeordnet, und der Ordner sagt dann genau das.</para>
     /// <para>Gibt den neuen Pfad zurück oder <c>null</c>, wenn nichts zu tun war.</para>
     /// </remarks>
     public async Task<string?> RefileAsync(
-        int documentId, string targetName, CancellationToken ct = default)
+        int documentId, DocumentArea area, string? targetName, CancellationToken ct = default)
     {
         var document = await db.Documents.FirstOrDefaultAsync(d => d.Id == documentId, ct);
+        if (document is null)
+        {
+            return null;
+        }
 
-        // Der Name zuerst, dann die Entschärfung: aus einem leeren Namen macht sie „Dokument“,
-        // und der Beleg läge danach in einem Ordner, den niemand so genannt hat.
-        if (document is null
-            || string.IsNullOrWhiteSpace(targetName)
-            || DocumentPathService.Sanitize(targetName) is not { Length: > 0 } ordner)
+        // Die Einlieferung legt einen unerkannten Beleg flach in den Bereichsordner ab —
+        // „Sonstiges/Scannen0042.pdf“, ohne Objektsegment. Genau dieser Fall kommt am Prüfplatz
+        // an, und an ihm hängt, ob der Bereichswechsel überhaupt etwas bewegt.
+        if (!DocumentPathService.IsFiledHere(document.RelativePath))
         {
             return null;
         }
 
         var segmente = document.RelativePath.Split('/');
 
-        if (segmente.Count(s => s == DocumentKind.UnknownTarget) != 1)
+        // Der Objektordner, falls die Erkennung einen offengelassen hat. Nicht genau einmal
+        // vorhanden heißt: Es gibt keinen eindeutigen, und dann wird auch keiner geraten. Vor
+        // dem Bereichsordner kann keiner stehen, deshalb zählt nur eine Stelle hinter der null.
+        var stelle = segmente.Count(s => s == DocumentKind.UnknownTarget) == 1
+            ? Array.IndexOf(segmente, DocumentKind.UnknownTarget)
+            : -1;
+
+        // Die Entschärfung macht aus einem leeren Namen „Dokument“, und der Beleg läge danach in
+        // einem Ordner, den niemand so genannt hat.
+        if (stelle > 0
+            && !string.IsNullOrWhiteSpace(targetName)
+            && DocumentPathService.Sanitize(targetName) is { Length: > 0 } ordner)
+        {
+            segmente[stelle] = ordner;
+        }
+
+        segmente[0] = DocumentPathService.FolderFor(area);
+
+        var ziel = string.Join('/', segmente);
+        if (ziel == document.RelativePath)
         {
             return null;
         }
 
-        segmente[Array.IndexOf(segmente, DocumentKind.UnknownTarget)] = ordner;
-
-        if (paths.Move(document.RelativePath, string.Join('/', segmente)) is not { } neu)
+        if (paths.Move(document.RelativePath, ziel) is not { } neu)
         {
             return null;
         }

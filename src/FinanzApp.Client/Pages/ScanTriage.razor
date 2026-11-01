@@ -291,8 +291,9 @@
                         else if (term.Trim().Length > 0 && hits.Count == 0)
                         {
                             <span class="meta">
-                                Kein Objekt passt zu „@term“. Gibt es das Objekt noch nicht, muss es
-                                zuerst angelegt werden — der Beleg bleibt bis dahin im Eingang.
+                                Kein Objekt passt zu „@term“. Der Beleg lässt sich trotzdem
+                                ablegen — er steht dann unter „ohne Objekt“ und kann später
+                                angehängt werden.
                             </span>
                         }
 
@@ -324,16 +325,27 @@
         </div>
 
         @*
-            Der Hauptschalter sagt, was als Nächstes kommt. „Zuordnen und weiter“ bei einem
-            Stapel, „Zuordnen und fertig“ beim letzten — wer liest, was er drückt, soll nicht
-            überrascht werden.
+            Der Hauptschalter sagt, was als Nächstes kommt — und was überhaupt geschieht.
+            „Zuordnen“ mit Objekt, „Ablegen“ ohne; „und weiter“ bei einem Stapel, „und fertig“
+            beim letzten. Wer liest, was er drückt, soll nicht überrascht werden: ein Beleg,
+            der nur abgelegt wird, soll nicht als zugeordnet angekündigt sein.
         *@
         <div class="triage-foot">
             <AuthorizeView Roles="Owner,Member" Context="schalter">
                 <button type="button" class="btn btn-primary" disabled="@(!CanAssign)"
                         @onclick="AssignAsync">
-                    @(NaechsterId is null ? "Zuordnen und fertig" : "Zuordnen und weiter")
+                    @(picked is null ? "Ablegen" : "Zuordnen")@(NaechsterId is null ? " und fertig" : " und weiter")
                 </button>
+
+                @* Was ohne Objekt geschieht, steht am Schalter und nicht in einer Meldung
+                   hinterher. Vorher entscheiden ist billiger als nachher suchen. *@
+                @if (picked is null && typeId is not null)
+                {
+                    <span class="triage-hint">
+                        Noch kein Objekt gewählt — der Beleg wird abgelegt und bleibt unter
+                        „ohne Objekt“ auffindbar.
+                    </span>
+                }
 
                 @if (beleg.ValuesHref is { Length: > 0 } pruefen)
                 {
@@ -778,15 +790,19 @@
     }
 
     /// <summary>
-    /// Ordnet zu und geht weiter.
+    /// Legt ab — mit Objekt, wenn eines gewählt ist — und geht weiter.
     /// </summary>
     /// <remarks>
-    /// Das Ziel steht vor dem Aufruf fest. Danach ist der Beleg aus dem Eingang verschwunden,
-    /// und „der nächste“ wäre aus einer Liste zu holen, in der er nicht mehr steht.
+    /// <para>Das Ziel steht vor dem Aufruf fest. Danach ist der Beleg aus dem Eingang
+    /// verschwunden, und „der nächste“ wäre aus einer Liste zu holen, in der er nicht mehr
+    /// steht.</para>
+    /// <para>Die Meldung nennt beim Namen, was geschehen ist. „Liegt jetzt bei X“ für einen
+    /// zugeordneten Beleg, „abgelegt, noch ohne Objekt“ für den anderen — eine Meldung, die
+    /// beides gleich nennt, verschweigt genau den Unterschied, auf den es ankommt.</para>
     /// </remarks>
     private async Task AssignAsync()
     {
-        if (Aktueller is not { } beleg || typeId is not { } type || picked is not { } ziel)
+        if (Aktueller is not { } beleg || typeId is not { } type)
         {
             return;
         }
@@ -801,11 +817,13 @@
                 new AssignScanInboxRequest
                 {
                     DocumentTypeId = type,
-                    TargetType = ziel.TargetType,
-                    TargetId = ziel.TargetId,
+                    TargetType = picked?.TargetType,
+                    TargetId = picked?.TargetId,
                 });
 
-            Toasts.Show($"{beleg.FileName} liegt jetzt bei {ziel.Label}.");
+            Toasts.Show(picked is { } ziel
+                ? $"{beleg.FileName} liegt jetzt bei {ziel.Label}."
+                : $"{beleg.FileName} ist abgelegt — noch ohne Objekt.");
 
             Navigation.NavigateTo(weiter is { } naechster
                 ? $"/scaneingang/{naechster}"

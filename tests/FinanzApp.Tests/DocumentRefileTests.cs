@@ -76,7 +76,7 @@ public sealed class DocumentRefileTests : IDisposable
         var id = Ablegen(alt);
 
         using var context = database.Context();
-        var neu = await Documents(context).RefileAsync(id, "Heidelberger Leben");
+        var neu = await Documents(context).RefileAsync(id, DocumentArea.Insurance, "Heidelberger Leben");
 
         Assert.Equal(
             "Versicherungen/Lebensversicherung/Heidelberger_Leben/2014/Statusreport_2014-07-31.pdf",
@@ -101,7 +101,7 @@ public sealed class DocumentRefileTests : IDisposable
         var id = Ablegen("Versicherungen/Lebensversicherung/Unbekannt/2014/beleg.pdf");
 
         using var context = database.Context();
-        await Documents(context).RefileAsync(id, "Heidelberger Leben");
+        await Documents(context).RefileAsync(id, DocumentArea.Insurance, "Heidelberger Leben");
 
         Assert.False(Directory.Exists(
             Path.Combine(root, "Versicherungen", "Lebensversicherung", "Unbekannt", "2014")));
@@ -126,7 +126,7 @@ public sealed class DocumentRefileTests : IDisposable
         var id = Ablegen("Versicherungen/Lebensversicherung/Unbekannt/2014/beleg.pdf");
 
         using var context = database.Context();
-        await Documents(context).RefileAsync(id, "Heidelberger Leben");
+        await Documents(context).RefileAsync(id, DocumentArea.Insurance, "Heidelberger Leben");
 
         Assert.True(Directory.Exists(
             Path.Combine(root, "Versicherungen", "Lebensversicherung", "Unbekannt")));
@@ -145,7 +145,7 @@ public sealed class DocumentRefileTests : IDisposable
         var id = Ablegen("Versicherungen/Lebensversicherung/Unbekannt/2014/beleg.pdf");
 
         using var context = database.Context();
-        var neu = await Documents(context).RefileAsync(id, "Heidelberger Leben");
+        var neu = await Documents(context).RefileAsync(id, DocumentArea.Insurance, "Heidelberger Leben");
 
         Assert.Equal(
             "Versicherungen/Lebensversicherung/Heidelberger_Leben/2014/beleg_1.pdf", neu);
@@ -169,7 +169,7 @@ public sealed class DocumentRefileTests : IDisposable
 
         using var context = database.Context();
 
-        Assert.Null(await Documents(context).RefileAsync(id, "Heidelberger Leben"));
+        Assert.Null(await Documents(context).RefileAsync(id, DocumentArea.Insurance, "Heidelberger Leben"));
         Assert.Equal(pfad, PathOf(id));
         Assert.True(Exists(pfad));
     }
@@ -183,7 +183,7 @@ public sealed class DocumentRefileTests : IDisposable
 
         using var context = database.Context();
 
-        Assert.Null(await Documents(context).RefileAsync(id, "Heidelberger Leben"));
+        Assert.Null(await Documents(context).RefileAsync(id, DocumentArea.Insurance, "Heidelberger Leben"));
         Assert.Equal(pfad, PathOf(id));
     }
 
@@ -201,20 +201,146 @@ public sealed class DocumentRefileTests : IDisposable
 
         using var context = database.Context();
 
-        Assert.Null(await Documents(context).RefileAsync(id, "Heidelberger Leben"));
+        Assert.Null(await Documents(context).RefileAsync(id, DocumentArea.Insurance, "Heidelberger Leben"));
         Assert.Equal(pfad, PathOf(id));
     }
 
-    /// <summary>Ein Name, von dem nichts Brauchbares übrig bleibt, verschiebt nichts.</summary>
+    /// <summary>
+    /// Ein Name, von dem nichts Brauchbares übrig bleibt, erfindet keinen Ordner.
+    /// </summary>
+    /// <remarks>
+    /// Die Entschärfung macht aus einem leeren Namen „Dokument“ — der Beleg läge danach in
+    /// einem Ordner, den niemand so genannt hat. Fehlt der Name, bleibt <c>Unbekannt</c>
+    /// stehen; am selben Bereich ist damit nichts zu tun.
+    /// </remarks>
     [Fact]
-    public async Task Ein_leerer_Name_verschiebt_nichts()
+    public async Task Ein_leerer_Name_erfindet_keinen_Ordner()
     {
         var pfad = "Versicherungen/Lebensversicherung/Unbekannt/2014/beleg.pdf";
         var id = Ablegen(pfad);
 
         using var context = database.Context();
 
-        Assert.Null(await Documents(context).RefileAsync(id, "   "));
+        Assert.Null(await Documents(context).RefileAsync(id, DocumentArea.Insurance, "   "));
+        Assert.Equal(pfad, PathOf(id));
+    }
+
+    // ── Und der Bereich ────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Der Bereichsordner wandert mit dem Bereich.
+    /// </summary>
+    /// <remarks>
+    /// Am Prüfplatz wird eine Art gewählt, und die bringt ihren Bereich mit. Die Erkennung
+    /// hatte vielleicht einen anderen geraten. Bliebe die Datei im alten Bereichsordner,
+    /// widersprächen sich Eintrag und Ablage: Die Liste zeigte den Beleg unter Wohnen, der
+    /// Dateimanager fände ihn unter Versicherungen.
+    /// </remarks>
+    [Fact]
+    public async Task Der_Bereichsordner_wandert_mit()
+    {
+        var id = Ablegen("Versicherungen/Unbekannt/beleg.pdf");
+
+        using var context = database.Context();
+        var neu = await Documents(context).RefileAsync(id, DocumentArea.Housing, "Haus Musterweg");
+
+        Assert.Equal("Wohnen/Haus_Musterweg/beleg.pdf", neu);
+        Assert.True(Exists(neu!));
+        Assert.False(Exists("Versicherungen/Unbekannt/beleg.pdf"));
+    }
+
+    /// <summary>
+    /// Ohne Objekt bleibt <c>Unbekannt</c> stehen — nur der Bereich zieht um.
+    /// </summary>
+    /// <remarks>
+    /// Der Fall eines Belegs, der abgelegt wird, bevor sein Objekt existiert. Der Ordner soll
+    /// dann sagen, was ist: Bereich bekannt, Objekt offen. Ein ausgedachter Objektordner wäre
+    /// die schlechtere Auskunft, weil er nach einer Zuordnung aussähe.
+    /// </remarks>
+    [Fact]
+    public async Task Ohne_Objekt_bleibt_Unbekannt_stehen()
+    {
+        var id = Ablegen("Versicherungen/Unbekannt/beleg.pdf");
+
+        using var context = database.Context();
+        var neu = await Documents(context).RefileAsync(id, DocumentArea.Housing, null);
+
+        Assert.Equal("Wohnen/Unbekannt/beleg.pdf", neu);
+        Assert.True(Exists(neu!));
+    }
+
+    // ── Und beim Ändern der Angaben ────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Wer die Art ändert, verschiebt den Beleg — die Datei geht mit.
+    /// </summary>
+    /// <remarks>
+    /// Am Dokument lassen sich Art und damit Bereich nachträglich korrigieren. Bliebe die
+    /// Datei liegen, sagte der Eintrag „Wohnen“ und der Ordner weiter „Versicherungen“. Der
+    /// Widerspruch fällt erst im Dateimanager auf, und dort traut man eher dem Ordner.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_geaenderter_Bereich_nimmt_die_Datei_mit()
+    {
+        var id = Ablegen("Versicherungen/Unbekannt/beleg.pdf");
+
+        using var context = database.Context();
+
+        await Documents(context).UpdateAsync(id, new UpdateDocumentRequest
+        {
+            Title = "Notarschreiben",
+            Area = DocumentArea.Housing,
+        });
+
+        Assert.Equal("Wohnen/Unbekannt/beleg.pdf", PathOf(id));
+        Assert.True(Exists("Wohnen/Unbekannt/beleg.pdf"));
+    }
+
+    /// <summary>
+    /// Ein zugeordneter Beleg nimmt sein Objekt in den neuen Bereich mit.
+    /// </summary>
+    /// <remarks>
+    /// <para>Hier stand einmal das Gegenteil: Ein Beleg, der schon bei seinem Objekt liegt,
+    /// bleibe liegen, eine geänderte Art sei kein Grund, eine eingerichtete Ablage umzubauen.
+    /// Das klang nach Behutsamkeit und war der Widerspruch selbst — der Eintrag sagte Wohnen,
+    /// der Ordner Versicherungen, und im Dateimanager traut man dem Ordner.</para>
+    /// <para>Eingerichtet hat diese Ablage niemand von Hand; sie stammt von der Einlieferung,
+    /// und was sie angelegt hat, hält sie auch in Ordnung. Der Objektordner überlebt den Umzug,
+    /// nur der Bereich davor wechselt. Eine fremde Ablage ist etwas anderes, und sie bleibt
+    /// unberührt — <see cref="Unbekannt_ganz_vorn_wird_nicht_angefasst"/>.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Ein_zugeordneter_Beleg_nimmt_sein_Objekt_mit()
+    {
+        var id = Ablegen("Versicherungen/Nordstern_Leben/beleg.pdf");
+
+        using var context = database.Context();
+
+        await Documents(context).UpdateAsync(id, new UpdateDocumentRequest
+        {
+            Title = "Notarschreiben",
+            Area = DocumentArea.Housing,
+        });
+
+        Assert.Equal("Wohnen/Nordstern_Leben/beleg.pdf", PathOf(id));
+        Assert.True(Exists("Wohnen/Nordstern_Leben/beleg.pdf"));
+        Assert.False(Exists("Versicherungen/Nordstern_Leben/beleg.pdf"));
+    }
+
+    /// <summary>Steht nichts vor <c>Unbekannt</c>, stammt der Pfad nicht aus dieser Ablage.</summary>
+    /// <remarks>
+    /// Das erste Segment ist immer der Bereichsordner. Liegt <c>Unbekannt</c> dort, hat ihn
+    /// nicht die Einlieferung vergeben — und dann wird der Pfad auch nicht umgebaut.
+    /// </remarks>
+    [Fact]
+    public async Task Unbekannt_ganz_vorn_wird_nicht_angefasst()
+    {
+        var pfad = "Unbekannt/beleg.pdf";
+        var id = Ablegen(pfad);
+
+        using var context = database.Context();
+
+        Assert.Null(await Documents(context).RefileAsync(id, DocumentArea.Housing, "Haus Musterweg"));
         Assert.Equal(pfad, PathOf(id));
     }
 

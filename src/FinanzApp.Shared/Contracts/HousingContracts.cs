@@ -512,17 +512,23 @@ public sealed record ScanInboxItemDto
 }
 
 /// <summary>
-/// Trägt Typ und Objekt an einem wartenden Beleg nach.
+/// Trägt Art und — wenn es sie schon gibt — das Objekt an einem wartenden Beleg nach.
 /// </summary>
 /// <remarks>
-/// Der Weg für alles, was die Erkennung nicht selbst hinbekommen hat. Beides zusammen in einem
-/// Aufruf, weil der Eingang beides zusammen verlangt: ein Beleg mit Typ, aber ohne Objekt wäre
-/// nach dem halben Weg immer noch nicht eingeordnet — und stünde nach einem gescheiterten
-/// zweiten Aufruf halb geändert da.
+/// <para>Der Weg für alles, was die Erkennung nicht selbst hinbekommen hat. In einem Aufruf,
+/// weil Art, Ablageordner und Dateiname zusammen gesetzt werden: nach einem gescheiterten
+/// zweiten Aufruf stünde der Beleg sonst halb geändert da.</para>
+/// <para><b>Das Objekt ist freiwillig.</b> Es gab Post, die vor ihrem Objekt ankommt — ein
+/// Notarschreiben zum Hauskauf, bevor das Haus angelegt ist —, und Post, die nie eines bekommt.
+/// Verlangte der Eingang beides, bliebe sie für immer im Eingang liegen; das war keine
+/// Sorgfalt, sondern eine Sackgasse. Ohne Objekt wird der Beleg abgelegt und gilt als
+/// bearbeitet, trägt aber sichtbar, dass er noch an nichts hängt.</para>
+/// <para>Beide Felder gelten gemeinsam: Eine Art ohne Kennung — oder umgekehrt — ist kein
+/// halbes Ziel, sondern ein Fehler.</para>
 /// </remarks>
 public sealed record AssignScanInboxRequest
 {
     public required int DocumentTypeId { get; init; }
-    public required LinkTargetType TargetType { get; init; }
-    public required int TargetId { get; init; }
+    public LinkTargetType? TargetType { get; init; }
+    public int? TargetId { get; init; }
 }

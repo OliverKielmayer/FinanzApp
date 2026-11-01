@@ -34,8 +34,10 @@ public static class ExtensionEndpoints
     {
         var api = app.MapGroup("/api/documents").WithTags("Dokumente").RequireAuthorization();
 
-        api.MapGet("/", async (DocumentArea? area, string? search, DocumentService service, CancellationToken ct)
-            => Results.Ok(await service.GetPageAsync(area, search, ct)));
+        api.MapGet("/", async (
+                DocumentArea? area, string? search, bool? ohneObjekt,
+                DocumentService service, CancellationToken ct)
+            => Results.Ok(await service.GetPageAsync(area, search, ohneObjekt ?? false, ct)));
 
         api.MapGet("/types", async (DocumentService service, CancellationToken ct)
             => Results.Ok(await service.GetTypesAsync(ct)));

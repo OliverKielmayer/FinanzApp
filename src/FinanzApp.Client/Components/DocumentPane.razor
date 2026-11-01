@@ -129,6 +129,63 @@
         </div>
 
         @*
+            Nachträglich ändern.
+
+            Art, Titel und Datum standen bisher fest, sobald ein Beleg abgelegt war: Der
+            Endpunkt dafür gab es, aufgerufen hat ihn keine Seite. Wer sich vergriffen hatte,
+            musste den Eintrag löschen und die Datei neu einlesen — das legt sie ein zweites
+            Mal ab. Eine Zuordnung, die sich nicht korrigieren lässt, wird beim Zuordnen
+            vorsichtig gemacht, und vorsichtig heißt hier: gar nicht.
+
+            Der Bereich steht nicht als eigenes Feld da. Er hängt an der Art, und zwei Felder,
+            die dasselbe sagen können, sagen irgendwann Verschiedenes.
+        *@
+        <AuthorizeView Roles="Owner,Member" Context="pflege">
+            @if (editing)
+            {
+                <div class="picker">
+                    <span class="label-strong">Art</span>
+                    <div class="chipcloud">
+                        @foreach (var art in types)
+                        {
+                            <button type="button" class="chip @(typeId == art.Id ? "active" : null)"
+                                    @onclick="() => typeId = art.Id">@art.Name</button>
+                        }
+                    </div>
+
+                    @if (SelectedType is { } gewaehlt)
+                    {
+                        <span class="create-help">Bereich: @AreaLabel(gewaehlt.Area)</span>
+                    }
+
+                    <div class="field">
+                        <label for="doc-title">Titel</label>
+                        <input id="doc-title" class="input" type="text" @bind="draftTitle" />
+                    </div>
+
+                    <div class="field">
+                        <label for="doc-date">Dokumentdatum</label>
+                        <input id="doc-date" class="input" type="date" @bind="draftDate" />
+                    </div>
+
+                    <div class="doc-actions">
+                        <button type="button" class="btn btn-primary" disabled="@busy"
+                                @onclick="SaveAsync">Übernehmen</button>
+                        <button type="button" class="btn btn-secondary" disabled="@busy"
+                                @onclick="@(() => editing = false)">Abbrechen</button>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="doc-actions">
+                    <button type="button" class="btn btn-secondary" disabled="@busy"
+                            @onclick="StartEdit">Angaben ändern</button>
+                </div>
+            }
+        </AuthorizeView>
+
+        @*
             Die Freigabe. Zwei Stufen genügen: Ein Konto kennt zusätzlich „namentlich“ und
             „Gemeinschaft“, aber beides beantwortet Fragen, die ein Dokument nicht stellt.
         *@
@@ -175,21 +232,65 @@
         {
             <div class="empty-area">
                 <span class="empty-area-text">
-                    Noch mit nichts verknüpft. Verknüpft wird sonst am Objekt — die Versicherung
-                    hängt ihr Dokument an.
+                    Noch mit nichts verknüpft. Manche Post hängt an nichts und wird es nie —
+                    ein Lieferschein etwa. Gibt es das Objekt, lässt es sich hier anhängen.
                 </span>
             </div>
         }
 
         @foreach (var link in document.Links)
         {
-            <button type="button" class="tap more-row" @onclick="() => OpenLink(link)">
-                <span class="stack">
+            <div class="more-row link-row">
+                <button type="button" class="tap stack" @onclick="() => OpenLink(link)">
                     <span class="more-label">@link.Label</span>
                     <span class="meta">@link.TargetLabel</span>
-                </span>
-            </button>
+                </button>
+
+                @* Nur die Verknüpfung geht, nicht das Dokument. Das steht am Knopf, damit
+                   niemand hier einen Löschknopf vermutet. *@
+                <AuthorizeView Roles="Owner,Member" Context="loesen">
+                    <button type="button" class="btn btn-ghost" disabled="@busy"
+                            title="Verknüpfung lösen — das Dokument bleibt"
+                            @onclick="() => UnlinkAsync(link)">Lösen</button>
+                </AuthorizeView>
+            </div>
         }
+
+        @*
+            Anhängen von hier aus. Bisher ging das nur am Objekt — wer vom Dokument kam,
+            musste wissen, wo das Gegenstück wohnt. Beim Beleg, der ohne Objekt abgelegt
+            wurde, ist das genau der Weg, den er braucht.
+        *@
+        <AuthorizeView Roles="Owner,Member" Context="anhaengen">
+            <div class="picker">
+                <span class="label-strong">Objekt anhängen</span>
+
+                <div class="searchbar">
+                    <input class="input" type="search" placeholder="Vertrag, Immobilie, Fahrzeug …"
+                           aria-label="Objekt suchen" value="@term" @oninput="OnSearchInput" />
+                </div>
+
+                @if (searching)
+                {
+                    <span class="meta">Wird gesucht …</span>
+                }
+                else if (term.Trim().Length > 1 && hits.Count == 0)
+                {
+                    <span class="meta">Kein Objekt passt zu „@term“.</span>
+                }
+
+                @foreach (var hit in hits)
+                {
+                    <button type="button" class="tap more-row" disabled="@busy"
+                            @onclick="() => LinkAsync(hit)">
+                        <span class="stack">
+                            <span class="more-label">@hit.Label</span>
+                            <span class="meta">@hit.TargetLabel · @hit.Subtitle</span>
+                        </span>
+                    </button>
+                }
+            </div>
+        </AuthorizeView>
 
         @* Gelöscht wird nur der Eintrag — die Datei bleibt liegen. Das steht auch so da,
            damit niemand einen Dateiverlust befürchtet, den es nicht gibt. *@
@@ -240,12 +341,218 @@
 
     private int loadedId;
 
+    // ── Angaben ändern ─────────────────────────────────────────────────────────────────────
+
+    private IReadOnlyList<DocumentTypeDto> types = [];
+    private bool editing;
+    private int? typeId;
+    private string draftTitle = string.Empty;
+    private DateOnly? draftDate;
+
+    private DocumentTypeDto? SelectedType => types.FirstOrDefault(t => t.Id == typeId);
+
+    // ── Objekt anhängen ────────────────────────────────────────────────────────────────────
+
+    private IReadOnlyList<ObjectHitDto> hits = [];
+    private string term = string.Empty;
+    private bool searching;
+    private CancellationTokenSource? debounce;
+
+    private static string AreaLabel(DocumentArea area) => DocumentAreaNames.Label(area);
+
     protected override async Task LoadAsync()
     {
         loadedId = Id;
         fixing = false;
         confirmingDelete = false;
+        editing = false;
+        term = string.Empty;
+        hits = [];
         data = await Api.GetDocumentAsync(Id);
+
+        // Einmal für die Lebensdauer der Komponente: Ab Tablet bleibt sie stehen und bekommt
+        // beim Blättern nur eine andere Id. Die Artenliste jedes Mal neu zu holen wäre eine
+        // Anfrage ohne neue Auskunft.
+        if (types.Count == 0)
+        {
+            types = await Api.GetAssignableDocumentTypesAsync();
+        }
+    }
+
+    private void StartEdit()
+    {
+        if (data is not { } dokument)
+        {
+            return;
+        }
+
+        typeId = dokument.DocumentTypeId;
+        draftTitle = dokument.Title;
+        draftDate = dokument.DocumentDate;
+        editing = true;
+    }
+
+    /// <summary>
+    /// Schreibt Art, Titel und Datum zurück.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die nicht gezeigten Felder werden mitgeschickt, wie sie sind. Der Endpunkt setzt
+    /// den ganzen Eintrag: Was fehlt, wird geleert — und dann hätte eine Titelkorrektur
+    /// klammheimlich Gültigkeit und Schlagworte gelöscht.</para>
+    /// <para>Der Bereich kommt aus der Art. Ohne Art bleibt er, wie er war: Ihn dann auf
+    /// „Sonstiges“ zu stellen wäre eine Aussage, die niemand getroffen hat.</para>
+    /// </remarks>
+    private Task SaveAsync() => RunAsync(async () =>
+    {
+        if (data is not { } dokument || string.IsNullOrWhiteSpace(draftTitle))
+        {
+            return;
+        }
+
+        busy = true;
+        try
+        {
+            await Api.UpdateDocumentAsync(Id, new UpdateDocumentRequest
+            {
+                Title = draftTitle.Trim(),
+                DocumentTypeId = typeId,
+                Area = SelectedType?.Area ?? dokument.Area,
+                Description = dokument.Description,
+                DocumentDate = draftDate,
+                ValidFrom = dokument.ValidFrom,
+                ValidUntil = dokument.ValidUntil,
+                Tags = dokument.Tags,
+            });
+
+            data = await Api.GetDocumentAsync(Id);
+            editing = false;
+            Toasts.Show("Angaben übernommen");
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    /// <summary>Hängt das Dokument an ein Objekt und lädt die Zeile neu.</summary>
+    private Task LinkAsync(ObjectHitDto treffer) => RunAsync(async () =>
+    {
+        busy = true;
+        try
+        {
+            await Api.LinkDocumentAsync(Id, treffer.TargetType, treffer.TargetId);
+            data = await Api.GetDocumentAsync(Id);
+            term = string.Empty;
+            hits = [];
+            Toasts.Show($"Hängt jetzt an {treffer.Label}.");
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message);
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    /// <summary>
+    /// Löst eine Verknüpfung. Die Datei bleibt, wo sie ist.
+    /// </summary>
+    /// <remarks>
+    /// Sie zurück nach <c>Unbekannt</c> zu schieben wäre die gründlichere Geste und die
+    /// schlechtere: Wer eine Verknüpfung löst, korrigiert meist eine Zuordnung und setzt
+    /// gleich die nächste. Die Datei zweimal zu verschieben verwirrt jeden, der nebenher den
+    /// Dateimanager offen hat.
+    /// </remarks>
+    private Task UnlinkAsync(DocumentLinkDto verknuepfung) => RunAsync(async () =>
+    {
+        busy = true;
+        try
+        {
+            await Api.UnlinkDocumentAsync(verknuepfung.Id);
+            data = await Api.GetDocumentAsync(Id);
+            Toasts.Show($"Verknüpfung zu {verknuepfung.Label} gelöst · Datei bleibt liegen");
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message);
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    /// <summary>
+    /// Sucht nach 250 ms Ruhe — dieselbe Wartezeit wie am Prüfplatz und in der Dokumentsuche.
+    /// </summary>
+    /// <remarks>
+    /// Jeder Anschlag eine Anfrage wäre nicht nur Last, sondern falsche Ergebnisse: die letzte
+    /// überholte die vorletzte.
+    /// </remarks>
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        term = e.Value?.ToString() ?? string.Empty;
+
+        debounce?.Cancel();
+        debounce?.Dispose();
+        debounce = new CancellationTokenSource();
+
+        var laufend = debounce.Token;
+
+        // Ein einzelnes Zeichen trifft halb Haushalt. Die Suche beginnt ab zwei.
+        if (term.Trim().Length < 2)
+        {
+            hits = [];
+            searching = false;
+            return;
+        }
+
+        searching = true;
+
+        try
+        {
+            await Task.Delay(250, laufend);
+
+            // Die Anfrage selbst läuft ohne Abbruchmarke: ein abgebrochener Aufruf käme als
+            // „Der Server hat nicht rechtzeitig geantwortet“ zurück, und das stimmte nicht —
+            // es hat nur jemand weitergetippt. Verworfen wird das Ergebnis, nicht die Anfrage.
+            var ergebnis = await Api.SearchDocumentsAsync(term.Trim());
+
+            if (laufend.IsCancellationRequested)
+            {
+                return;
+            }
+
+            // Was schon hängt, steht nicht noch einmal zur Auswahl.
+            var schon = data?.Links ?? [];
+            hits =
+            [
+                .. ergebnis.Objects.Where(o =>
+                    !schon.Any(l => l.TargetType == o.TargetType && l.TargetId == o.TargetId)),
+            ];
+
+            searching = false;
+            StateHasChanged();
+        }
+        catch (OperationCanceledException)
+        {
+            // Ein neuer Tastenanschlag hat diese Anfrage überholt. „Wird gesucht …“ bleibt
+            // stehen, weil die nächste Anfrage schon läuft.
+        }
+        catch (ApiException ex)
+        {
+            searching = false;
+            Toasts.Show(ex.Message);
+        }
+    }
+
+    public override void Dispose()
+    {
+        debounce?.Cancel();
+        debounce?.Dispose();
+        base.Dispose();
     }
 
     /// <summary>

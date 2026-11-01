@@ -263,6 +263,24 @@ public sealed class DocumentPathService
     };
 
     /// <summary>
+    /// Alle Bereichsordner — woran die Ablage ihre eigenen Pfade erkennt.
+    /// </summary>
+    /// <remarks>
+    /// Ein Pfad, dessen erstes Segment hier nicht vorkommt, stammt nicht aus dieser Ablage.
+    /// Dann fasst sie ihn auch nicht an: Wer von Hand einen Ordner eingerichtet hat, soll ihn
+    /// behalten, und ein Umbau würde die Datei dort wegnehmen, wo jemand sie haben wollte.
+    /// </remarks>
+    public static IReadOnlySet<string> AreaFolders { get; } =
+        Enum.GetValues<DocumentArea>().Select(FolderFor).ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>Ob dieser Pfad in einem Bereichsordner dieser Ablage liegt.</summary>
+    public static bool IsFiledHere(string relativePath)
+    {
+        var strich = relativePath.IndexOf('/');
+        return strich > 0 && AreaFolders.Contains(relativePath[..strich]);
+    }
+
+    /// <summary>
     /// Macht aus einem hochgeladenen Dateinamen einen, der gefahrlos im Dateisystem landen darf:
     /// ohne Verzeichnisanteile, ohne Sonderzeichen, mit Umlauten in Klarschrift.
     /// </summary>

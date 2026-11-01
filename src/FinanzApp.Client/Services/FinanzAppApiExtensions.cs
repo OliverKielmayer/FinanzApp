@@ -13,12 +13,18 @@ public static class FinanzAppApiExtensions
     // ── Dokumente ──────────────────────────────────────────────────────────────────────────
 
     public static Task<DocumentPageDto> GetDocumentsAsync(
-        this FinanzAppApi api, DocumentArea? area = null, string? search = null, CancellationToken ct = default)
+        this FinanzAppApi api, DocumentArea? area = null, string? search = null,
+        bool withoutLink = false, CancellationToken ct = default)
     {
         var query = new List<string>();
         if (area is { } value)
         {
             query.Add("area=" + value);
+        }
+
+        if (withoutLink)
+        {
+            query.Add("ohneObjekt=true");
         }
 
         if (!string.IsNullOrWhiteSpace(search))

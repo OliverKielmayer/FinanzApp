@@ -24,6 +24,18 @@
         <button type="button" class="chip @(area == option.Area ? "active" : null)"
                 @onclick="() => SwitchArea(option.Area)">@option.Label</button>
     }
+
+    @*
+        Der Filter für das, was abgelegt ist, aber an nichts hängt. Er steht neben den
+        Bereichen und nicht am Fuß der Liste: Es ist eine Sicht auf die Ablage, kein Hinweis
+        auf einen Fehler. Ohne Treffer gibt es ihn nicht — ein Filter, der immer auf eine
+        leere Liste führt, sieht aus wie ein Defekt.
+    *@
+    @if (withoutLinkCount > 0 || withoutLink)
+    {
+        <button type="button" class="chip @(withoutLink ? "active" : null)"
+                @onclick="ToggleWithoutLink">ohne Objekt <span class="num">@withoutLinkCount</span></button>
+    }
 </div>
 
 <AsyncView Loading="Loading" Error="@Error" Stale="HasLoadedOnce" Retry="ReloadAsync">
@@ -151,16 +163,26 @@
         Navigation.NavigateTo(next is null ? "/dokumente" : $"/dokumente/{next.Id}");
     }
 
+    /// <summary>
+    /// Die Chipreihe. Die Reihenfolge steht hier, die Namen kommen aus dem gemeinsamen Teil.
+    /// </summary>
+    /// <remarks>
+    /// Welcher Bereich zuerst kommt, ist eine Frage dieses Bildschirms. Wie er heißt, ist es
+    /// nicht — der Name muss überall derselbe sein.
+    /// </remarks>
     private static readonly (DocumentArea? Area, string Label)[] Areas =
     [
         (null, "Alle"),
-        (DocumentArea.Insurance, "Versicherung"),
-        (DocumentArea.Health, "Gesundheit"),
-        (DocumentArea.Housing, "Wohnen"),
-        (DocumentArea.Work, "Arbeit"),
-        (DocumentArea.Finance, "Finanzen"),
-        (DocumentArea.Vehicle, "Fahrzeuge"),
-        (DocumentArea.Personal, "Persönlich"),
+        .. new[]
+        {
+            DocumentArea.Insurance,
+            DocumentArea.Health,
+            DocumentArea.Housing,
+            DocumentArea.Work,
+            DocumentArea.Finance,
+            DocumentArea.Vehicle,
+            DocumentArea.Personal,
+        }.Select(a => ((DocumentArea?)a, DocumentAreaNames.Label(a))),
     ];
 
     private IReadOnlyList<DocumentListItemDto> documents = [];
@@ -171,6 +193,8 @@
     private bool reading;
 
     private DocumentArea? area;
+    private bool withoutLink;
+    private int withoutLinkCount;
     private string search = string.Empty;
     private CancellationTokenSource? debounce;
 
@@ -178,20 +202,36 @@
     {
         if (string.IsNullOrWhiteSpace(search))
         {
-            var page = await Api.GetDocumentsAsync(area);
+            var page = await Api.GetDocumentsAsync(area, withoutLink: withoutLink);
             documents = page.Items;
             objects = [];
             total = page.TotalCount;
             missing = page.MissingFileCount;
             withoutText = page.WithoutTextCount;
+            withoutLinkCount = page.WithoutLinkCount;
             return;
         }
 
+        // In der Suche wird derselbe Filter von Hand angelegt: Die Suche geht über Dokumente
+        // und Objekte zugleich und kennt die Seitenzahlen nicht. Die Zahl am Chip bleibt
+        // deshalb die der ungefilterten Ablage und wird hier nicht überschrieben — sie zählt
+        // den Bestand, nicht den Treffer.
         var result = await Api.SearchDocumentsAsync(search);
         documents = area is { } value ? [.. result.Documents.Where(d => d.Area == value)] : result.Documents;
+        if (withoutLink)
+        {
+            documents = [.. documents.Where(d => d.LinkedLabel is null)];
+        }
+
         objects = result.Objects;
         total = documents.Count;
         missing = documents.Count(d => !d.FileExists);
+    }
+
+    private Task ToggleWithoutLink()
+    {
+        withoutLink = !withoutLink;
+        return ReloadAsync();
     }
 
     /// <summary>

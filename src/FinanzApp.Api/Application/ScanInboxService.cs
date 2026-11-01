@@ -164,6 +164,13 @@ public sealed class ScanInboxService(FinanzAppDbContext db, DocumentService docu
             return false;
         }
 
+        // Art und Kennung gehören zusammen. Die halbe Angabe wäre ein Ziel, das es nicht gibt,
+        // und sie fiele erst beim Verknüpfen auf — da stünde der Typ schon.
+        if (request.TargetType is null != request.TargetId is null)
+        {
+            throw new ArgumentException("Ein Objekt braucht Art und Kennung — oder keines von beidem.");
+        }
+
         var typ = await db.DocumentTypes.FirstOrDefaultAsync(
                       t => t.Id == request.DocumentTypeId && !t.IsRetired, ct)
                   ?? throw new ArgumentException("Diesen Dokumenttyp gibt es nicht.");
@@ -176,7 +183,9 @@ public sealed class ScanInboxService(FinanzAppDbContext db, DocumentService docu
 
         // Erst verknüpfen, dann den Typ setzen: die Verknüpfung ist die Prüfung, ob es das Ziel
         // überhaupt gibt. Andersherum stünde nach einem falschen Ziel ein geänderter Typ da.
-        var verknuepfung = await documents.LinkAsync(item.DocumentId, request.TargetType, request.TargetId, ct);
+        var verknuepfung = request.TargetType is { } art && request.TargetId is { } ziel
+            ? await documents.LinkAsync(item.DocumentId, art, ziel, ct)
+            : null;
 
         dokument.DocumentTypeId = typ.Id;
         dokument.Area = typ.Area;
@@ -184,20 +193,23 @@ public sealed class ScanInboxService(FinanzAppDbContext db, DocumentService docu
         await db.SaveChangesAsync(ct);
 
         // Und die Datei hinterher: eine Einlieferung ohne erkanntes Objekt legt sie unter
-        // „Unbekannt“ ab. Bliebe sie dort, behauptete der Ordner nach dem Zuordnen etwas, das
-        // nicht mehr stimmt — und wer im Dateimanager sucht, fände den Beleg nicht bei seinem
-        // Vertrag.
-        if (verknuepfung is { Label.Length: > 0 } gefunden)
-        {
-            await documents.RefileAsync(item.DocumentId, gefunden.Label, ct);
+        // „Unbekannt“ ab, und die Art kann aus einem anderen Bereich kommen als die Erkennung
+        // geraten hatte. Bliebe die Datei liegen, behauptete der Ordner etwas, das nicht mehr
+        // stimmt — und wer im Dateimanager sucht, fände den Beleg nicht bei seinem Vertrag.
+        //
+        // Ohne Objekt bleibt „Unbekannt“ stehen und nur der Bereich wandert. Das ist keine
+        // halbe Ablage: Der Beleg liegt dann sichtbar dort, wo noch etwas offen ist.
+        var objekt = verknuepfung is { Label.Length: > 0 } gefunden ? gefunden.Label : null;
 
-            // Und der Name hinterher. Ein Scanner nennt jede Seite „Scannen0007“; nach dem
-            // Umlegen liegt sie zwar beim richtigen Vertrag, heißt aber weiter so — und im
-            // Dateimanager unterscheidet nichts die eine von der nächsten. Ein gepflegter Name
-            // bleibt unangetastet, dieselbe Regel wie beim Umlegen.
-            await documents.RenameIfScannedAsync(
-                item.DocumentId, typ.Name, gefunden.Label, dokument.DocumentDate, ct);
-        }
+        await documents.RefileAsync(item.DocumentId, typ.Area, objekt, ct);
+
+        // Und der Name hinterher. Ein Scanner nennt jede Seite „Scannen0007“; nach dem Umlegen
+        // liegt sie zwar am richtigen Ort, heißt aber weiter so — und im Dateimanager
+        // unterscheidet nichts die eine von der nächsten. Ohne Objekt trägt der Name immerhin
+        // Art und Datum. Ein gepflegter Name bleibt unangetastet, dieselbe Regel wie beim
+        // Umlegen.
+        await documents.RenameIfScannedAsync(
+            item.DocumentId, typ.Name, objekt ?? string.Empty, dokument.DocumentDate, ct);
 
         // Über dieselbe Schwelle wie jeder andere Beleg. Die Regel steht einmal, und sie gilt
         // auch für den Weg, der sie gerade erfüllt hat.
@@ -205,11 +217,15 @@ public sealed class ScanInboxService(FinanzAppDbContext db, DocumentService docu
     }
 
     /// <summary>
-    /// Nimmt einen Beleg aus dem Eingang — erst wenn er einem Objekt zugeordnet ist.
+    /// Nimmt einen Beleg aus dem Eingang — erst wenn er eine Art trägt.
     /// </summary>
     /// <remarks>
-    /// Die Prüfung liegt hier und nicht in der Oberfläche: ein Beleg ohne Verknüpfung ist nicht
-    /// eingeordnet, egal über welchen Weg jemand ihn wegräumen will.
+    /// <para>Die Prüfung liegt hier und nicht in der Oberfläche: ein Beleg ohne Art ist nicht
+    /// abgelegt, sondern nur weggeklickt, egal über welchen Weg jemand ihn wegräumen will.</para>
+    /// <para><b>Ein Objekt wird nicht verlangt.</b> Früher schon — und damit blieb jede Post
+    /// liegen, deren Objekt es noch nicht gab oder nie geben wird. Was sie braucht, ist ein
+    /// Ablageort und ein Name; woran sie hängt, kann nachgetragen werden und ist in der
+    /// Dokumentliste als offener Punkt zu sehen.</para>
     /// </remarks>
     public async Task<bool> FileAsync(int id, CancellationToken ct = default)
     {
@@ -221,9 +237,8 @@ public sealed class ScanInboxService(FinanzAppDbContext db, DocumentService docu
 
         var hasType = await db.Documents.AnyAsync(
             d => d.Id == item.DocumentId && d.DocumentTypeId != null, ct);
-        var hasLink = await db.DocumentLinks.AnyAsync(l => l.DocumentId == item.DocumentId, ct);
 
-        if (!hasType || !hasLink)
+        if (!hasType)
         {
             return false;
         }

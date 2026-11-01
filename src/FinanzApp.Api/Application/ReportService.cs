@@ -442,21 +442,7 @@ public sealed class ReportService(
     /// <summary>
     /// Der Bereich eines Vertrags im Klartext.
     /// </summary>
-    /// <remarks>
-    /// Bewusst nicht der Ordnername aus der Dokumentablage: der muss auf der Platte stabil
-    /// bleiben, diese Zeile darf jederzeit umformuliert werden.
-    /// </remarks>
-    private static string AreaLabel(DocumentArea area) => area switch
-    {
-        DocumentArea.Insurance => "Versicherung",
-        DocumentArea.Health => "Gesundheit",
-        DocumentArea.Housing => "Wohnen",
-        DocumentArea.Work => "Arbeit",
-        DocumentArea.Finance => "Finanzen",
-        DocumentArea.Vehicle => "Fahrzeuge",
-        DocumentArea.Personal => "Persönlich",
-        _ => "Sonstiges",
-    };
+    private static string AreaLabel(DocumentArea area) => DocumentAreaNames.Label(area);
 
     private static string Bound(decimal fix, decimal basis)
     {
