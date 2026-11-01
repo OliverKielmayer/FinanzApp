@@ -67,6 +67,32 @@ public static class FilingSuggestions
                      "monteurstunden"],
             Weak: ["monteur", "montage", "meisterbetrieb", "stundenlohn", "anfahrt", "material"]),
 
+        // Vor dem Steuerbescheid, und das ist der ganze Zweck der Stelle.
+        //
+        // „Grundsteuerbescheid“ enthält „steuerbescheid“, und ein Gebührenbescheid der Gemeinde
+        // trägt dieselben Amtswörter wie ein Bescheid vom Finanzamt — „Veranlagung“,
+        // „Festsetzung“, „Widerspruch“. Bei Gleichstand gewinnt die frühere Regel; hier gewinnt
+        // damit die Gemeinde. Das ist richtig so: Wasser, Abwasser, Müll und Grundsteuer sind
+        // Kosten, die am Haus hängen, und sie gehören zu den übrigen Wohnkosten und nicht zur
+        // Einkommensteuer.
+        //
+        // Die starken Wörter sind an einem echten Gebührenbescheid gewählt und nicht am
+        // Schreibtisch: „Niederschlagswasser“ und „Schmutzwasser“ stehen auf keiner Rechnung,
+        // die nicht von einer Gemeinde kommt.
+        new("Gebührenbescheid", DocumentArea.Housing, "Gebührenbescheid",
+            Strong:
+            [
+                "gebührenbescheid", "abgabenbescheid", "grundsteuerbescheid", "kommunalabgaben",
+                "niederschlagswasser", "schmutzwasser", "abwassergebühr", "abfallgebühr",
+                "müllgebühr",
+            ],
+            Weak:
+            [
+                "abwasser", "frischwasser", "grundgebühr", "verbrauchsgebühr", "wasserzins",
+                "zählerstand", "kubikmeter", "gemeindekasse", "stadtkasse", "buchungszeichen",
+                "veranlagung", "vorauszahlungsbescheid", "widerspruch", "abgaben",
+            ]),
+
         new("Steuerbescheid", DocumentArea.Finance, "Steuerbescheid",
             Strong: ["steuerbescheid", "bescheid für", "festsetzung", "einkommensteuerbescheid"],
             Weak: ["finanzamt", "steuernummer", "veranlagung", "solidaritätszuschlag", "kirchensteuer"]),

@@ -84,8 +84,12 @@
                 *@
                 @if (beleg.SuggestedType is { Length: > 0 } geraten)
                 {
+                    @* Ohne Artikel: „eine Gebührenbescheid“ stand hier, und ebenso „eine
+                       Kontoauszug“ und „eine Steuerbescheid“. Das Geschlecht steckt im Namen,
+                       den der Haushalt selbst vergibt — raten lässt es sich nicht, und ein
+                       falscher Artikel lässt den ganzen Satz nach Maschine klingen. *@
                     <div class="triage-hint">
-                        Dem Text nach eine <strong>@geraten</strong>, Ablage unter @beleg.SuggestedArea.
+                        Dem Text nach: <strong>@geraten</strong>, Ablage unter @beleg.SuggestedArea.
                         @if (!beleg.SuggestedTypeExists)
                         {
                             <text>

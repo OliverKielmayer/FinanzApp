@@ -106,6 +106,68 @@ public sealed class FilingSuggestionTests
         Assert.Equal("Arztrechnung", FilingSuggestions.For(text)!.Value.Label);
     }
 
+    /// <summary>
+    /// Ein Gebührenbescheid der Gemeinde gehört zu den Wohnkosten.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Fall stammt von einem echten Blatt, das ohne Vorschlag liegen blieb — und
+    /// schlimmer: Was die Regeln daraus machten, war „Steuerbescheid“, allein aus den beiden
+    /// Amtswörtern „Steuernummer“ und „Veranlagung“. Ein Wasserbescheid hat mit der
+    /// Einkommensteuer nichts zu tun; er gehört zu Strom, Handwerker und Darlehen ans Haus.</para>
+    /// <para>Text und Zahlen hier sind erfunden.</para>
+    /// </remarks>
+    [Fact]
+    public void Ein_Wasserbescheid_gehoert_zu_Wohnen()
+    {
+        var text = """
+            Gemeinde Musterbach — Gebührenbescheid
+            Veranlagung für das Jahr 2026
+            Buchungszeichen 1.2345.000111.2
+            Frischwasser  Grundgebühr          57,00 EUR
+            Schmutzwasser Verbrauchsgebühr    191,70 EUR
+            Niederschlagswasser                 68,30 EUR
+            Gegen diesen Bescheid kann Widerspruch erhoben werden.
+            """;
+
+        var vorschlag = FilingSuggestions.For(text);
+
+        Assert.NotNull(vorschlag);
+        Assert.Equal("Gebührenbescheid", vorschlag.Value.Label);
+        Assert.Equal(DocumentArea.Housing, vorschlag.Value.Area);
+    }
+
+    /// <summary>
+    /// „Grundsteuerbescheid“ enthält „Steuerbescheid“ — und gehört trotzdem ans Haus.
+    /// </summary>
+    /// <remarks>
+    /// Die Grundsteuer ist eine Last auf dem Grundstück und steht neben Müll und Wasser, nicht
+    /// neben der Einkommensteuer. Die Reihenfolge der Regeln entscheidet das: Bei Gleichstand
+    /// gewinnt die frühere, und die Gemeinde steht vor dem Finanzamt.
+    /// </remarks>
+    [Fact]
+    public void Ein_Grundsteuerbescheid_geht_nicht_ans_Finanzamt()
+    {
+        var vorschlag = FilingSuggestions.For(
+            "Grundsteuerbescheid 2026\nGemeindekasse Musterbach\nJahresbetrag 213,60 EUR");
+
+        Assert.NotNull(vorschlag);
+        Assert.Equal("Gebührenbescheid", vorschlag.Value.Label);
+        Assert.Equal(DocumentArea.Housing, vorschlag.Value.Area);
+    }
+
+    /// <summary>Und der echte Steuerbescheid bleibt beim Finanzamt.</summary>
+    [Fact]
+    public void Die_Gemeinde_nimmt_dem_Finanzamt_nichts_weg()
+    {
+        var vorschlag = FilingSuggestions.For(
+            "Einkommensteuerbescheid für 2025\nFinanzamt Musterstadt\n"
+            + "Steuernummer 11/222/33333\nSolidaritätszuschlag 0,00\nKirchensteuer 84,20");
+
+        Assert.NotNull(vorschlag);
+        Assert.Equal("Steuerbescheid", vorschlag.Value.Label);
+        Assert.Equal(DocumentArea.Finance, vorschlag.Value.Area);
+    }
+
     [Fact]
     public void Ohne_etwas_Genaueres_bleibt_die_allgemeine_Rechnung()
     {

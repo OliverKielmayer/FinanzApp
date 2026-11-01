@@ -65,6 +65,7 @@ public static class ExtensionSeedData
             ("Grundbuchauszug", DocumentArea.Housing),
             ("Energieausweis", DocumentArea.Housing),
             ("Stromrechnung", DocumentArea.Housing),
+            ("Gebührenbescheid", DocumentArea.Housing),
             ("Darlehensvertrag", DocumentArea.Finance),
             ("Bankdokument", DocumentArea.Finance),
             ("Arbeitsvertrag", DocumentArea.Work),
