@@ -112,7 +112,7 @@ public static class ScreenCatalog
         // Zeilen des Erfassen-Sheets, keine Navigationsziele mehr: der Nutzer sucht
         // die Tür, nicht das Dateiformat.
         new("/import", "Import", "Import­vorschau", IsDetail: true),
-        new("/scaneingang", "Eingang", "Scaneingang", IsDetail: true),
+        new("/scaneingang", "Eingang", "Scaneingang", IsDetail: true, DetailTitle: "Beleg prüfen"),
 
         // Zeilen der Einstellungen.
         new("/kategorien", "Ordnung", "Kategorien", IsDetail: true),

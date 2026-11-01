@@ -3730,6 +3730,84 @@ body {
   object-fit: contain;
 }
 
+/* -- Scaneingang: der Pruefplatz ----------------------------------------- */
+
+/*
+  Beleg und Entscheidung nebeneinander. Auf dem Telefon untereinander, der Beleg zuerst:
+  Wer zuordnet, muss zuerst lesen koennen.
+
+  Die Seite selbst bekommt mehr Hoehe als die Vorschau in der Dokumentliste. Dort ist sie ein
+  Beiwerk neben dem Text, hier ist sie die Arbeitsflaeche - eine Rechnung, von der nur das
+  Briefkopfdrittel zu sehen ist, beantwortet die Frage nicht, wozu sie gehoert.
+*/
+.triage {
+  display: grid;
+  gap: 4px;
+}
+
+.triage-paper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 0 16px 8px;
+}
+
+.triage-frame {
+  display: block;
+  width: 100%;
+  height: min(70vh, 760px);
+  min-height: 320px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider);
+}
+
+.triage-image {
+  display: block;
+  width: 100%;
+  max-height: min(70vh, 760px);
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider);
+  object-fit: contain;
+}
+
+.triage-form {
+  min-width: 0;
+}
+
+.triage-hint {
+  margin: 0 16px 4px;
+  padding: 10px 12px;
+  background: var(--color-accent-100);
+  border: 1px solid var(--color-divider);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.triage-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 16px;
+}
+
+.triage-foot .btn {
+  min-height: 46px;
+}
+
+@media (min-width: 900px) {
+  .triage {
+    grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr);
+    gap: 0;
+    align-items: start;
+  }
+
+  /* Rechts steht die Entscheidung; die Linie trennt sie vom Papier. */
+  .triage-form {
+    border-left: 1px solid var(--color-divider);
+  }
+}
+
 .doc-path {
   display: block;
   padding: 0 16px 12px;

@@ -1,0 +1,434 @@
+@page "/scaneingang/{Id:int}"
+@attribute [Authorize]
+@inherits AppPage
+
+@*
+    Der Prüfplatz: ein Beleg, groß, und daneben die Entscheidung.
+
+    Vorher waren Ansehen und Zuordnen zwei Orte. Wer wissen wollte, was auf einem Zettel steht,
+    tippte die Zeile an und stand im Dokumentbereich — wo sich nichts zuordnen lässt. Also
+    zurück, „Zuordnen“, und nun entscheiden, ohne den Beleg vor Augen zu haben. Bei sechs
+    Belegen am Stück ist das sechsmal derselbe Umweg, und beim sechsten rät man.
+
+    Hier steht beides nebeneinander, und „Zuordnen und weiter“ führt zum nächsten Wartenden.
+    Der Stapel ist die Einheit, nicht der einzelne Zettel.
+*@
+
+<PageTitle>Beleg prüfen — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Stale="HasLoadedOnce" Retry="ReloadAsync">
+    @if (Aktueller is { } beleg)
+    {
+        <section class="hero">
+            <span class="label-muted">Beleg @Platz von @Gesamt</span>
+            <span class="sheet-payee">@beleg.FileName</span>
+            <span class="meta">
+                @if (beleg.PageCount is { } seiten)
+                {
+                    <text>@seiten @(seiten == 1 ? "Seite" : "Seiten") · </text>
+                }
+                eingegangen @GermanFormat.Date(beleg.ArrivedOn)
+            </span>
+        </section>
+
+        <div class="triage">
+            @*
+                Die Datei selbst, so groß wie der Platz hergibt. Das ist der ganze Zweck dieser
+                Seite: Wer entscheidet, wohin ein Beleg gehört, muss ihn lesen können.
+            *@
+            <div class="triage-paper">
+                @switch (DocumentPreview.For(null, beleg.FileName))
+                {
+                    case DocumentPreviewKind.Frame:
+                        <iframe class="triage-frame" src="@DocumentPreview.FileUrl(beleg.DocumentId)"
+                                title="@($"Vorschau von {beleg.FileName}")"></iframe>
+                        break;
+
+                    case DocumentPreviewKind.Image:
+                        <img class="triage-image" src="@DocumentPreview.FileUrl(beleg.DocumentId)"
+                             alt="@($"Vorschau von {beleg.FileName}")" />
+                        break;
+
+                    default:
+                        <div class="doc-preview">
+                            Diese Dateiart lässt sich hier nicht anzeigen. Zuordnen geht trotzdem —
+                            und öffnen auch.
+                        </div>
+                        break;
+                }
+
+                <a class="section-link" href="@DocumentPreview.FileUrl(beleg.DocumentId)"
+                   target="_blank" rel="noopener">In eigenem Fenster öffnen</a>
+            </div>
+
+            <div class="triage-form">
+                @*
+                    Ansehen darf jeder, der den Haushalt sehen darf; zuordnen nur, wer schreiben
+                    darf. Die Rolle „ReadOnly“ ist für das Steuerbüro gedacht — es soll einen
+                    Beleg aufschlagen können, ohne ihn einsortieren zu dürfen. Stünde die ganze
+                    Seite unter Schreibrecht, wäre ihm der Beleg nicht mehr zugänglich, seit die
+                    Zeile im Eingang hierher führt.
+                *@
+                <AuthorizeView Roles="Owner,Member" Context="zuordnen">
+                    <NotAuthorized>
+                        <div class="triage-hint">
+                            Dieser Beleg lässt sich ansehen, aber nicht einordnen: Dafür fehlt
+                            das Schreibrecht im Haushalt. Er bleibt im Eingang stehen.
+                        </div>
+                    </NotAuthorized>
+                    <Authorized>
+                @*
+                    Was der Text vermuten lässt. Der Vorschlag steht nicht nur da — er ist im
+                    Typ schon gesetzt, sonst wäre er eine Auskunft zum Abtippen. Geändert wird
+                    er mit einem Tipp, und bestätigt wird ohnehin von Hand.
+                *@
+                @if (beleg.SuggestedType is { Length: > 0 } geraten)
+                {
+                    <div class="triage-hint">
+                        Dem Text nach eine <strong>@geraten</strong>, Ablage unter @beleg.SuggestedArea.
+                        @if (!beleg.SuggestedTypeExists)
+                        {
+                            <text>
+                                Diesen Dokumenttyp gibt es im Haushalt noch nicht —
+                                <a href="/dokumenttypen">jetzt anlegen</a>.
+                            </text>
+                        }
+                    </div>
+                }
+
+                <div class="picker">
+                    <span class="label-strong">Typ</span>
+                    @if (types.Count == 0)
+                    {
+                        <span class="meta">
+                            Es gibt noch keinen Dokumenttyp.
+                            <a href="/dokumenttypen">Hier lässt sich einer anlegen.</a>
+                        </span>
+                    }
+                    else
+                    {
+                        <div class="chipcloud">
+                            @foreach (var type in types)
+                            {
+                                <button type="button" class="chip @(typeId == type.Id ? "active" : null)"
+                                        @onclick="() => typeId = type.Id">@type.Name</button>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <div class="picker">
+                    <span class="label-strong">Objekt</span>
+
+                    @if (picked is { } gewaehlt)
+                    {
+                        @* Das Gewählte steht statt der Suche da: es ist die Antwort auf die Frage,
+                           und die Suchtreffer darunter wären nur noch Ablenkung. *@
+                        <button type="button" class="tap more-row open" @onclick="Reset">
+                            <span class="stack">
+                                <span class="more-label">@gewaehlt.Label</span>
+                                <span class="meta">@gewaehlt.TargetLabel · @gewaehlt.Subtitle</span>
+                            </span>
+                            <span class="tag tag-neutral">ändern</span>
+                        </button>
+                    }
+                    else
+                    {
+                        <div class="searchbar">
+                            <input class="input" type="search" placeholder="Vertrag, Immobilie, Fahrzeug …"
+                                   aria-label="Objekt suchen" value="@term" @oninput="OnSearchInput" />
+                        </div>
+
+                        @if (searching)
+                        {
+                            <span class="meta">Wird gesucht …</span>
+                        }
+                        else if (term.Trim().Length > 0 && hits.Count == 0)
+                        {
+                            <span class="meta">
+                                Kein Objekt passt zu „@term“. Gibt es das Objekt noch nicht, muss es
+                                zuerst angelegt werden — der Beleg bleibt bis dahin im Eingang.
+                            </span>
+                        }
+
+                        @foreach (var hit in hits)
+                        {
+                            <button type="button" class="tap more-row" @onclick="() => picked = hit">
+                                <span class="stack">
+                                    <span class="more-label">@hit.Label</span>
+                                    <span class="meta">@hit.TargetLabel · @hit.Subtitle</span>
+                                </span>
+                            </button>
+                        }
+                    }
+                </div>
+                    </Authorized>
+                </AuthorizeView>
+            </div>
+        </div>
+
+        @*
+            Der Hauptschalter sagt, was als Nächstes kommt. „Zuordnen und weiter“ bei einem
+            Stapel, „Zuordnen und fertig“ beim letzten — wer liest, was er drückt, soll nicht
+            überrascht werden.
+        *@
+        <div class="triage-foot">
+            <AuthorizeView Roles="Owner,Member" Context="schalter">
+                <button type="button" class="btn btn-primary" disabled="@(!CanAssign)"
+                        @onclick="AssignAsync">
+                    @(NaechsterId is null ? "Zuordnen und fertig" : "Zuordnen und weiter")
+                </button>
+
+                @if (beleg.ValuesHref is { Length: > 0 } pruefen)
+                {
+                    <button type="button" class="btn btn-ghost" disabled="@busy"
+                            @onclick="@(() => Navigation.NavigateTo(pruefen))">
+                        @(beleg.ValuesLabel ?? "Werte lesen")
+                    </button>
+                }
+            </AuthorizeView>
+
+            @* Blättern und zurück sind kein Schreiben — die stehen jedem offen. *@
+            @if (NaechsterId is { } weiter)
+            {
+                <button type="button" class="btn btn-secondary" disabled="@busy"
+                        @onclick="@(() => Navigation.NavigateTo($"/scaneingang/{weiter}"))">
+                    Überspringen
+                </button>
+            }
+
+            <button type="button" class="btn btn-ghost" disabled="@busy"
+                    @onclick="@(() => Navigation.NavigateTo("/scaneingang"))">
+                Zum Eingang
+            </button>
+        </div>
+
+        <div class="spacer"></div>
+    }
+    else if (HasLoadedOnce)
+    {
+        @*
+            Der Beleg ist weg — zugeordnet, weggeräumt oder gelöscht, womöglich in einem anderen
+            Fenster. Eine leere Seite ließe raten; dieser Satz sagt, was passiert ist.
+        *@
+        <div class="empty-area">
+            <span class="empty-area-title">Dieser Beleg wartet nicht mehr</span>
+            <span class="empty-area-text">
+                Er ist zugeordnet oder weggeräumt worden. Im Eingang steht, was noch offen ist.
+            </span>
+            <button type="button" class="btn btn-primary"
+                    @onclick="@(() => Navigation.NavigateTo("/scaneingang"))">Zum Eingang</button>
+        </div>
+    }
+</AsyncView>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private ScanInboxDto? data;
+    private IReadOnlyList<DocumentTypeDto> types = [];
+
+    private int? typeId;
+    private ObjectHitDto? picked;
+    private IReadOnlyList<ObjectHitDto> hits = [];
+    private string term = string.Empty;
+    private bool searching;
+    private bool busy;
+
+    /// <summary>Für welchen Beleg der Vorschlag schon eingesetzt wurde.</summary>
+    /// <remarks>
+    /// Ohne diese Marke setzte jedes Neuzeichnen den Typ zurück auf den Vorschlag — und eine
+    /// Auswahl, die sich von selbst rückgängig macht, ist schlimmer als keine Vorbelegung.
+    /// </remarks>
+    private int? vorbelegtFuer;
+
+    private CancellationTokenSource? debounce;
+
+    private ScanInboxItemDto? Aktueller
+        => data?.Items.FirstOrDefault(i => i.Id == Id);
+
+    private int Platz
+        => data is null ? 0 : data.Items.ToList().FindIndex(i => i.Id == Id) + 1;
+
+    private int Gesamt => data?.Items.Count ?? 0;
+
+    /// <summary>
+    /// Der nächste wartende Beleg — der danach, sonst der davor, sonst keiner.
+    /// </summary>
+    /// <remarks>
+    /// Beim letzten Beleg eines Stapels zurück an den Anfang zu springen hieße, von vorn
+    /// anzufangen. Dann lieber zurück in den Eingang: dort steht, was übrig ist.
+    /// </remarks>
+    private int? NaechsterId
+    {
+        get
+        {
+            if (data is null)
+            {
+                return null;
+            }
+
+            var liste = data.Items;
+            var hier = liste.ToList().FindIndex(i => i.Id == Id);
+
+            return hier >= 0 && hier + 1 < liste.Count ? liste[hier + 1].Id : null;
+        }
+    }
+
+    private bool CanAssign => !busy && typeId is not null && picked is not null;
+
+    protected override async Task LoadAsync()
+    {
+        data = await Api.GetScanInboxAsync();
+        types = await Api.GetAssignableDocumentTypesAsync();
+
+        Vorbelegen();
+    }
+
+    /// <summary>
+    /// Setzt den vorgeschlagenen Typ ein, wenn es ihn gibt.
+    /// </summary>
+    /// <remarks>
+    /// Das Ziel ist, dass der Benutzer möglichst wenig entscheiden muss. Ein Vorschlag, der
+    /// danebensteht und abgetippt werden will, erreicht das nicht — er muss im Feld stehen.
+    /// Bestätigt wird er trotzdem von Hand: Ohne Objekt geht ohnehin nichts weiter.
+    /// </remarks>
+    private void Vorbelegen()
+    {
+        if (vorbelegtFuer == Id || Aktueller is not { } beleg)
+        {
+            return;
+        }
+
+        vorbelegtFuer = Id;
+        typeId = null;
+        Reset();
+
+        if (beleg.SuggestedType is not { Length: > 0 } geraten || !beleg.SuggestedTypeExists)
+        {
+            return;
+        }
+
+        typeId = types
+            .FirstOrDefault(t => string.Equals(t.Name, geraten, StringComparison.OrdinalIgnoreCase))
+            ?.Id;
+    }
+
+    private void Reset()
+    {
+        picked = null;
+        term = string.Empty;
+        hits = [];
+    }
+
+    /// <summary>
+    /// Sucht nach 250 ms Ruhe. Dieselbe Wartezeit wie in der Dokumentsuche — jeder Anschlag
+    /// wäre eine Anfrage, und die letzte überholte die vorletzte.
+    /// </summary>
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        term = e.Value?.ToString() ?? string.Empty;
+
+        debounce?.Cancel();
+        debounce?.Dispose();
+        debounce = new CancellationTokenSource();
+
+        var laufend = debounce.Token;
+
+        // Ein einzelnes Zeichen trifft halb Haushalt. Die Suche beginnt ab zwei.
+        if (term.Trim().Length < 2)
+        {
+            hits = [];
+            searching = false;
+            return;
+        }
+
+        searching = true;
+
+        try
+        {
+            await Task.Delay(250, laufend);
+
+            // Die Anfrage selbst läuft ohne Abbruchmarke: ein abgebrochener Aufruf käme als
+            // „Der Server hat nicht rechtzeitig geantwortet“ zurück, und das stimmte nicht —
+            // es hat nur jemand weitergetippt. Verworfen wird deshalb das Ergebnis, nicht die
+            // Anfrage.
+            var result = await Api.SearchDocumentsAsync(term.Trim());
+
+            if (laufend.IsCancellationRequested)
+            {
+                return;
+            }
+
+            hits = result.Objects;
+            searching = false;
+            StateHasChanged();
+        }
+        catch (OperationCanceledException)
+        {
+            // Ein neuer Tastenanschlag hat diese Anfrage überholt. „Wird gesucht …“ bleibt
+            // stehen, weil die nächste Anfrage schon läuft.
+        }
+        catch (ApiException ex)
+        {
+            searching = false;
+            Toasts.Show(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Ordnet zu und geht weiter.
+    /// </summary>
+    /// <remarks>
+    /// Das Ziel steht vor dem Aufruf fest. Danach ist der Beleg aus dem Eingang verschwunden,
+    /// und „der nächste“ wäre aus einer Liste zu holen, in der er nicht mehr steht.
+    /// </remarks>
+    private async Task AssignAsync()
+    {
+        if (Aktueller is not { } beleg || typeId is not { } type || picked is not { } ziel)
+        {
+            return;
+        }
+
+        var weiter = NaechsterId;
+        busy = true;
+
+        try
+        {
+            await Api.AssignScanInboxAsync(
+                beleg.Id,
+                new AssignScanInboxRequest
+                {
+                    DocumentTypeId = type,
+                    TargetType = ziel.TargetType,
+                    TargetId = ziel.TargetId,
+                });
+
+            Toasts.Show($"{beleg.FileName} liegt jetzt bei {ziel.Label}.");
+
+            Navigation.NavigateTo(weiter is { } naechster
+                ? $"/scaneingang/{naechster}"
+                : "/scaneingang");
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    /// <summary>
+    /// Die laufende Suche abbrechen. Ohne das liefe nach dem Weiterspringen noch eine Anfrage
+    /// und schriebe ihr Ergebnis in eine Komponente, die es nicht mehr gibt.
+    /// </summary>
+    public override void Dispose()
+    {
+        debounce?.Cancel();
+        debounce?.Dispose();
+
+        base.Dispose();
+    }
+}
