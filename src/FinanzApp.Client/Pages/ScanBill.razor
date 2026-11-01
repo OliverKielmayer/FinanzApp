@@ -85,13 +85,14 @@
             </div>
             <div class="field">
                 <label for="bill-gross">Betrag (€)</label>
+                @* Mit Punkt, sonst bleibt das Feld leer — siehe Zahl(). *@
                 <input id="bill-gross" class="input" type="number" step="0.01" min="0"
-                       value="@gross" @oninput="e => gross = Parse(e.Value)" />
+                       value="@Zahl(gross)" @oninput="e => gross = Parse(e.Value)" />
             </div>
             <div class="field">
                 <label for="bill-own">Eigenanteil (€)</label>
                 <input id="bill-own" class="input" type="number" step="0.01" min="0"
-                       value="@ownShare" @oninput="e => ownShare = Parse(e.Value)" />
+                       value="@Zahl(ownShare)" @oninput="e => ownShare = Parse(e.Value)" />
             </div>
         </div>
 
@@ -195,6 +196,17 @@
             billDate = parsed;
         }
     }
+
+    /// <summary>
+    /// Ein Betrag, wie ein Zahlenfeld im Browser ihn versteht: mit Punkt.
+    /// </summary>
+    /// <remarks>
+    /// Mit deutschem Komma lehnt das Feld den Wert ab und steht leer da, während im
+    /// Hintergrund eine Zahl steht. Fiel erst auf, als die Erkennung anfing, Beträge zu
+    /// liefern — vorher war das Feld immer 0 und die 0 rendert in jeder Kultur gleich.
+    /// </remarks>
+    private static string Zahl(decimal wert)
+        => wert.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     private static decimal Parse(object? value)
         => decimal.TryParse(

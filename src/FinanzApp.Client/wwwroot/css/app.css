@@ -3784,6 +3784,19 @@ body {
   line-height: 1.45;
 }
 
+/*
+  Woher ein gelesener Wert stammt. Klein und unter dem Feld: Es ist ein Beleg fuer die Zahl
+  darueber und kein eigener Inhalt. Lange Zeilen brechen um, statt die Spalte zu sprengen.
+*/
+.read-from {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--color-neutral-600);
+  overflow-wrap: anywhere;
+}
+
 .triage-foot {
   display: flex;
   flex-wrap: wrap;

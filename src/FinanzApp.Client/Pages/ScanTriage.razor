@@ -136,33 +136,94 @@
 
                             Also wird der Vorgang hier angelegt, mit dem Beleg vor Augen.
                         *@
+                        @*
+                            Gelesen und nicht geraten — und jedes Feld sagt, woraus.
+
+                            Ein Betrag mit seiner Quellzeile ist in einer Sekunde geprüft; einer
+                            ohne ist eine Behauptung, die niemand mehr nachsieht. Bei einer
+                            Erstattung wandert er in eine Forderung gegen die Kasse, also steht
+                            die Zeile dabei.
+                        *@
+                        @if (liest)
+                        {
+                            <span class="meta">Der Beleg wird gelesen …</span>
+                        }
+                        else if (gelesen is { HasContent: true })
+                        {
+                            <div class="triage-hint">
+                                Aus dem Beleg gelesen. Unter jedem Feld steht die Zeile, aus der
+                                der Wert stammt — bitte einmal dagegenhalten.
+                            </div>
+                        }
+                        else if (gelesen is not null)
+                        {
+                            <div class="triage-hint">
+                                Aus diesem Beleg war nichts zu lesen — keine der üblichen
+                                Beschriftungen steht darauf. Die Werte bitte eintragen.
+                            </div>
+                        }
+
                         <div class="auth-form">
                             <div class="field">
                                 <label for="neu-provider">Rechnungssteller</label>
                                 <input id="neu-provider" class="input" placeholder="z. B. Dr. Meyer, Zahnarzt"
                                        value="@provider"
                                        @oninput="e => provider = e.Value?.ToString() ?? string.Empty" />
+                                @if (gelesen?.ProviderSource is { Length: > 0 } q1)
+                                {
+                                    <span class="read-from">gelesen aus: @q1</span>
+                                }
                             </div>
                             <div class="field">
                                 <label for="neu-datum">Rechnungsdatum</label>
                                 <input id="neu-datum" class="input" type="date"
                                        value="@billDate.ToString("yyyy-MM-dd")" @onchange="OnBillDateChanged" />
+                                @if (gelesen?.BillDateSource is { Length: > 0 } q2)
+                                {
+                                    <span class="read-from">gelesen aus: @q2</span>
+                                }
+                                else
+                                {
+                                    <span class="read-from">nicht gelesen — Eingangsdatum des Belegs</span>
+                                }
                             </div>
                             <div class="field">
                                 <label for="neu-nummer">Rechnungsnummer</label>
                                 <input id="neu-nummer" class="input" placeholder="z. B. R-2026-114"
                                        value="@billNumber"
                                        @oninput="e => billNumber = e.Value?.ToString() ?? string.Empty" />
+                                @if (gelesen?.BillNumberSource is { Length: > 0 } q3)
+                                {
+                                    <span class="read-from">gelesen aus: @q3</span>
+                                }
                             </div>
                             <div class="field">
                                 <label for="neu-brutto">Betrag (€)</label>
+                                @*
+                                    Unveränderliche Kultur und nicht die deutsche: Ein
+                                    Zahlenfeld im Browser kennt nur den Punkt. Mit einem
+                                    Komma stand das Feld leer da — während im Hintergrund der
+                                    gelesene Betrag lag, die erwartete Erstattung damit rechnete und der
+                                    Schalter frei war. Ein Betrag, den man nicht sieht und
+                                    trotzdem anlegt, ist schlimmer als gar keiner.
+                                *@
                                 <input id="neu-brutto" class="input" type="number" step="0.01" min="0"
-                                       value="@gross" @oninput="e => gross = Parse(e.Value)" />
+                                       value="@Zahl(gross)" @oninput="e => gross = Parse(e.Value)" />
+                                @if (gelesen?.GrossAmountSource is { Length: > 0 } q4)
+                                {
+                                    <span class="read-from">gelesen aus: @q4</span>
+                                }
                             </div>
                             <div class="field">
                                 <label for="neu-eigen">Eigenanteil (€)</label>
                                 <input id="neu-eigen" class="input" type="number" step="0.01" min="0"
-                                       value="@ownShare" @oninput="e => ownShare = Parse(e.Value)" />
+                                       value="@Zahl(ownShare)" @oninput="e => ownShare = Parse(e.Value)" />
+                                @*
+                                    Hier steht nie etwas Gelesenes. Wie viel die Kasse übernimmt,
+                                    entscheidet die Kasse — auf ihrer Abrechnung, nicht auf dieser
+                                    Rechnung.
+                                *@
+                                <span class="read-from">steht nicht auf der Rechnung</span>
                             </div>
                         </div>
 
@@ -323,6 +384,11 @@
     // ── Eine Arztrechnung, die es noch nicht gibt ──────────────────────────────────────────
 
     private bool anlegen;
+    private bool liest;
+
+    /// <summary>Was aus dem Beleg gelesen wurde — mit den Zeilen, aus denen es stammt.</summary>
+    private ExtractedBillDto? gelesen;
+
     private string provider = string.Empty;
     private string billNumber = string.Empty;
     private DateOnly billDate;
@@ -423,6 +489,7 @@
         term = string.Empty;
         hits = [];
         anlegen = false;
+        gelesen = null;
     }
 
     /// <summary>
@@ -434,7 +501,7 @@
     /// Beleg daneben sagt, was wirklich drauf steht. Rechnungssteller und Betrag bleiben leer;
     /// sie zu raten hieße, eine Zahl zu erfinden, die anschließend niemand mehr prüft.
     /// </remarks>
-    private void BeginBill()
+    private async Task BeginBill()
     {
         if (Aktueller is not { } beleg)
         {
@@ -442,11 +509,38 @@
         }
 
         anlegen = true;
+        liest = true;
+        gelesen = null;
+
         provider = string.Empty;
         billNumber = string.Empty;
         billDate = beleg.ArrivedOn;
         gross = 0m;
         ownShare = 0m;
+
+        try
+        {
+            var werte = await Api.ExtractBillFromDocumentAsync(beleg.DocumentId);
+            gelesen = werte;
+
+            // Nur übernehmen, was gelesen wurde. Ein nicht gefundenes Feld bleibt auf seiner
+            // Vorgabe stehen und fragt — eine Null im Betragsfeld sähe aus wie ein Ergebnis.
+            provider = werte.Provider ?? string.Empty;
+            billNumber = werte.BillNumber ?? string.Empty;
+            billDate = werte.BillDate ?? beleg.ArrivedOn;
+            gross = werte.GrossAmount ?? 0m;
+        }
+        catch (ApiException ex)
+        {
+            // Das Lesen ist eine Erleichterung und keine Bedingung. Scheitert es, bleibt die
+            // Maske leer und der Vorgang lässt sich trotzdem anlegen.
+            gelesen = null;
+            Toasts.Show(ex.Message);
+        }
+        finally
+        {
+            liest = false;
+        }
     }
 
     private void OnBillDateChanged(ChangeEventArgs e)
@@ -456,6 +550,12 @@
             billDate = parsed;
         }
     }
+
+    /// <summary>
+    /// Ein Betrag, wie ein Zahlenfeld im Browser ihn versteht: mit Punkt.
+    /// </summary>
+    private static string Zahl(decimal wert)
+        => wert.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     private static decimal Parse(object? value)
         => decimal.TryParse(
