@@ -182,6 +182,7 @@ builder.Services.AddScoped<TaskService>();
 builder.Services.AddScoped<MedicalBillService>();
 builder.Services.AddScoped<PolicyService>();
 builder.Services.AddScoped<VehicleService>();
+builder.Services.AddScoped<PurchaseService>();
 builder.Services.AddScoped<ScanInboxService>();
 builder.Services.AddScoped<CreateFormService>();
 builder.Services.AddScoped<ParticipationService>();

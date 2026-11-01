@@ -30,7 +30,9 @@ public sealed class CreateFormTests : IDisposable
             new PdfPigTextReader(),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<DocumentService>.Instance);
 
-        return new CreateFormService(context, clock, documents, new NoPolicyDocumentAnalyzer());
+        return new CreateFormService(
+            context, clock, documents, new ObjectLabelService(context),
+            new NoPolicyDocumentAnalyzer());
     }
 
     [Fact]
@@ -293,6 +295,62 @@ public sealed class CreateFormTests : IDisposable
         Assert.Contains(form.Fields, f => f.Label.Contains("Eigen Eins", StringComparison.Ordinal));
         Assert.DoesNotContain(
             form.Fields, f => f.Label.Contains("Fremde Person", StringComparison.Ordinal));
+    }
+
+    // ── Was angelegt wurde ─────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Das Ergebnis sagt, was entstanden ist: Zielart und Name.
+    /// </summary>
+    /// <remarks>
+    /// Für den Prüfplatz, der gleich einen Beleg daran hängt. Ohne diese Angabe müsste er aus
+    /// dem Objekttyp auf die Zielart schließen und den Namen aus den eingetippten Feldern
+    /// zusammensuchen — zwei Annahmen über etwas, das der Server gerade geschrieben hat.
+    /// </remarks>
+    [Fact]
+    public async Task Das_Ergebnis_nennt_Zielart_und_Namen()
+    {
+        var ergebnis = await Service().CreateAsync(CreateObjectType.Protection,
+            new Dictionary<string, string?>
+            {
+                ["kind"] = nameof(PolicyKind.HouseholdContents),
+                ["provider"] = "Musterkasse",
+                ["premium"] = "156",
+            });
+
+        Assert.True(ergebnis.Ok);
+        Assert.Equal(LinkTargetType.Policy, ergebnis.LinkTarget);
+        Assert.False(string.IsNullOrWhiteSpace(ergebnis.Label));
+    }
+
+    /// <summary>
+    /// Ein Budget bekommt keine Zielart — daran hängt kein Beleg.
+    /// </summary>
+    /// <remarks>
+    /// Eine erfundene Zielart wäre schlimmer als keine: Der Prüfplatz böte das Budget zum
+    /// Anhängen an, und die Verknüpfung liefe beim Speichern ins Leere.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_Budget_ist_kein_Verknuepfungsziel()
+    {
+        int kategorieId;
+        using (var context = database.Context())
+        {
+            var kategorie = new Category { Name = "Haushalt", Direction = CategoryDirection.Expense };
+            context.Categories.Add(kategorie);
+            context.SaveChanges();
+            kategorieId = kategorie.Id;
+        }
+
+        var ergebnis = await Service().CreateAsync(CreateObjectType.Budget,
+            new Dictionary<string, string?>
+            {
+                ["category"] = kategorieId.ToString(),
+                ["amount"] = "400",
+            });
+
+        Assert.True(ergebnis.Ok);
+        Assert.Null(ergebnis.LinkTarget);
     }
 
     [Fact]

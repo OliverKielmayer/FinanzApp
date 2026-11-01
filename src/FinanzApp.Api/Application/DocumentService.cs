@@ -130,6 +130,13 @@ public sealed class DocumentService(
             Add(LinkTargetType.Account, row.Id, row.Name, HoldingMeta.ForAccount(row));
         }
 
+        // Anschaffungen: Wer einen Lieferschein in der Hand hält, sucht nach dem Gerät, nicht
+        // nach einer Vertragsnummer.
+        foreach (var row in await db.Purchases.AsNoTracking().ToListAsync(ct))
+        {
+            Add(LinkTargetType.Purchase, row.Id, row.Name, HoldingMeta.ForPurchase(row));
+        }
+
         foreach (var row in await db.MedicalBills.AsNoTracking()
                      .Select(x => new { x.Id, x.Provider, x.BillNumber }).ToListAsync(ct))
         {

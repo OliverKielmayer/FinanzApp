@@ -15,6 +15,9 @@ public enum CreateObjectType
 
     /// <summary>Darlehen. Es steht unter Finanzierungen, hat aber seinen eigenen Anlegeweg.</summary>
     Loan = 9,
+
+    /// <summary>Anschaffung — ein Gegenstand, an dem Lieferschein, Rechnung und Garantie hängen.</summary>
+    Purchase = 10,
 }
 
 /// <summary>Wie ein Feld einzugeben ist. Bestimmt allein die Darstellung, nicht die Bedeutung.</summary>
@@ -159,6 +162,21 @@ public sealed record CreateResultDto
 
     /// <summary>Wohin nach dem Anlegen gesprungen wird.</summary>
     public string? Route { get; init; }
+
+    /// <summary>
+    /// Das neue Objekt als Verknüpfungsziel — Art und Name.
+    /// </summary>
+    /// <remarks>
+    /// Für den Aufrufer, der gleich etwas daran hängen will: Am Prüfplatz wird ein Objekt
+    /// angelegt, weil ein Beleg dazu daliegt, und der Beleg soll unmittelbar danach daran
+    /// hängen. Ohne diese Angabe müsste der Client aus dem Objekttyp auf die Zielart schließen
+    /// und den Namen aus den eingetippten Feldern zusammensuchen — zwei Annahmen über etwas,
+    /// das der Server gerade selbst geschrieben hat.
+    /// </remarks>
+    public LinkTargetType? LinkTarget { get; init; }
+
+    /// <summary>Name des neuen Objekts, wie ihn die Anwendung sonst auch zeigt.</summary>
+    public string? Label { get; init; }
 }
 
 // ── Police / Beleg einlesen ─────────────────────────────────────────────────

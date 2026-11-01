@@ -1,0 +1,110 @@
+@page "/anschaffungen/{Id:int}"
+@attribute [Authorize]
+@inherits AppPage
+
+<PageTitle>@(data?.Name ?? "Anschaffung") — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Stale="HasLoadedOnce" Retry="ReloadAsync">
+    @if (data is { } purchase)
+    {
+        <section class="hero">
+            @* Ohne Preis steht hier der Name groß. Eine Null stünde für „kostenlos“, und ein
+               Strich sähe aus wie ein Fehler. *@
+            @if (purchase.Price is { } preis)
+            {
+                <span class="label-muted">Kaufpreis</span>
+                <span class="hero-value medium num">@State.Euro0(preis)</span>
+                <span class="loan-sub">@purchase.Name</span>
+            }
+            else
+            {
+                <span class="label-muted">Anschaffung</span>
+                <span class="sheet-payee">@purchase.Name</span>
+                <span class="meta">Kein Kaufpreis hinterlegt</span>
+            }
+        </section>
+
+        <div class="detail-block">
+            <span class="detail-label">Gekauft</span>
+            <span class="detail-value">@Describe(purchase)</span>
+        </div>
+
+        <div class="detail-block">
+            <span class="detail-label">Garantie</span>
+            <span class="detail-value">@Warranty(purchase)</span>
+        </div>
+
+        @if (purchase.Note is { Length: > 0 } notiz)
+        {
+            <div class="detail-block">
+                <span class="detail-label">Notiz</span>
+                <span class="detail-value">@notiz</span>
+            </div>
+        }
+
+        <div class="list-head">
+            <span class="label-strong">Dokumente</span>
+            <span class="list-count num">@purchase.Documents.Count</span>
+        </div>
+
+        @if (purchase.Documents.Count == 0)
+        {
+            <div class="empty-area">
+                <span class="empty-area-text">
+                    Kein Beleg hinterlegt. Ein Lieferschein oder eine Rechnung wird im
+                    Scaneingang zugeordnet — oder am Dokument selbst angehängt.
+                </span>
+            </div>
+        }
+
+        @foreach (var document in purchase.Documents)
+        {
+            <button type="button" class="tap doc-row @(document.FileExists ? null : "missing")"
+                    @onclick="@(() => Navigation.NavigateTo($"/dokumente/{document.Id}"))">
+                <span class="stack">
+                    <span class="doc-name">@document.FileName</span>
+                    <span class="doc-meta">@(document.FileExists ? document.TypeName : "Datei nicht gefunden")</span>
+                </span>
+            </button>
+        }
+
+        <AuthorizeView Roles="Owner,Member">
+            <div class="doc-actions">
+                <button type="button" class="btn btn-secondary"
+                        @onclick="@(() => Navigation.NavigateTo($"/bearbeiten/purchase/{Id}"))">
+                    Angaben ändern
+                </button>
+            </div>
+        </AuthorizeView>
+
+        <div class="spacer"></div>
+    }
+</AsyncView>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private PurchaseDetailDto? data;
+
+    protected override async Task LoadAsync() => data = await Api.GetPurchaseAsync(Id);
+
+    private static string Describe(PurchaseDetailDto purchase)
+        => purchase.Vendor is { Length: > 0 } haendler
+            ? $"{GermanFormat.Date(purchase.PurchaseDate)} · {haendler}"
+            : GermanFormat.Date(purchase.PurchaseDate);
+
+    /// <summary>
+    /// Die Garantiezeile.
+    /// </summary>
+    /// <remarks>
+    /// Ohne Frist steht „nicht hinterlegt“ da und nicht „abgelaufen“. Das eine ist eine
+    /// fehlende Angabe, das andere eine Auskunft — und nach der richtet sich jemand, der
+    /// überlegt, ob sich eine Reklamation noch lohnt.
+    /// </remarks>
+    private static string Warranty(PurchaseDetailDto purchase)
+        => purchase.WarrantyUntil is { } bis
+            ? purchase.WarrantyRunning is true
+                ? $"läuft bis {GermanFormat.Date(bis)}"
+                : $"abgelaufen am {GermanFormat.Date(bis)}"
+            : "nicht hinterlegt";
+}

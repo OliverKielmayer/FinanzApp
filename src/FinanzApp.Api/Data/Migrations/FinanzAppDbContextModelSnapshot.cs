@@ -1367,6 +1367,50 @@ namespace FinanzApp.Api.Data.Migrations
                     b.ToTable("PropertyShares");
                 });
 
+            modelBuilder.Entity("FinanzApp.Api.Data.Entities.Purchase", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("HouseholdId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("Price")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateOnly>("PurchaseDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Vendor")
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly?>("WarrantyUntil")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HouseholdId", "Name");
+
+                    b.ToTable("Purchases");
+                });
+
             modelBuilder.Entity("FinanzApp.Api.Data.Entities.Quote", b =>
                 {
                     b.Property<int>("Id")

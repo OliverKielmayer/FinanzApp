@@ -10,6 +10,16 @@ namespace FinanzApp.Client.Services;
 /// </summary>
 public static class FinanzAppApiExtensions
 {
+    // ── Anschaffungen ──────────────────────────────────────────────────────────────────────
+
+    public static Task<IReadOnlyList<PurchaseListItemDto>> GetPurchasesAsync(
+        this FinanzAppApi api, CancellationToken ct = default)
+        => api.GetAsync<IReadOnlyList<PurchaseListItemDto>>("api/purchases", ct);
+
+    public static Task<PurchaseDetailDto> GetPurchaseAsync(
+        this FinanzAppApi api, int id, CancellationToken ct = default)
+        => api.GetAsync<PurchaseDetailDto>($"api/purchases/{id}", ct);
+
     // ── Dokumente ──────────────────────────────────────────────────────────────────────────
 
     public static Task<DocumentPageDto> GetDocumentsAsync(

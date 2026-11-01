@@ -31,7 +31,9 @@ public sealed class PolicyEditTests : IDisposable
             context, TestDatabase.PathService(root), new ObjectLabelService(context), clock,
             new PdfPigTextReader(), NullLogger<DocumentService>.Instance);
 
-        return new CreateFormService(context, clock, documents, new NoPolicyDocumentAnalyzer());
+        return new CreateFormService(
+            context, clock, documents, new ObjectLabelService(context),
+            new NoPolicyDocumentAnalyzer());
     }
 
     private static Dictionary<string, string?> Vertrag(string? basis, string? bonus, string? wert) => new()

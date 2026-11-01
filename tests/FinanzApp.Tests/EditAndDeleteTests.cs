@@ -30,7 +30,9 @@ public sealed class EditAndDeleteTests : IDisposable
             context, paths, new ObjectLabelService(context), clock,
             new PdfPigTextReader(), NullLogger<DocumentService>.Instance);
 
-        return new CreateFormService(context, clock, documents, new NoPolicyDocumentAnalyzer());
+        return new CreateFormService(
+            context, clock, documents, new ObjectLabelService(context),
+            new NoPolicyDocumentAnalyzer());
     }
 
     private int AddPolicy(string name, PolicyKind kind, string provider, bool capital = false)

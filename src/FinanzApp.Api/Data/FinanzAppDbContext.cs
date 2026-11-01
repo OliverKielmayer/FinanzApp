@@ -50,6 +50,7 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
     public DbSet<SecurityState> SecurityStates => Set<SecurityState>();
 
     public DbSet<DocumentType> DocumentTypes => Set<DocumentType>();
+    public DbSet<Purchase> Purchases => Set<Purchase>();
     public DbSet<Document> Documents => Set<Document>();
     public DbSet<DocumentLink> DocumentLinks => Set<DocumentLink>();
     public DbSet<MedicalBill> MedicalBills => Set<MedicalBill>();
@@ -422,6 +423,19 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
             // Die Versicherung wird verknüpft, nicht besessen — sie überlebt das Fahrzeug.
             e.HasOne(x => x.Policy).WithMany()
                 .HasForeignKey(x => x.PolicyId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        b.Entity<Purchase>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(120).IsRequired();
+            e.Property(x => x.Vendor).HasMaxLength(120);
+            e.Property(x => x.Note).HasMaxLength(500);
+
+            // Dieselbe Regel wie überall: Beträge liegen als Cent in einem long. SQLite kennt
+            // keinen dezimalen Typ, und als TEXT wären Summen und Sortierungen in SQL falsch.
+            e.Property(x => x.Price).HasConversion(NullableMoneyConverter);
+
+            e.HasIndex(x => new { x.HouseholdId, x.Name });
         });
 
         b.Entity<ScanInboxItem>(e =>

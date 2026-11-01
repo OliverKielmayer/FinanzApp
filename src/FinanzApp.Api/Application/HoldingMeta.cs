@@ -80,6 +80,19 @@ public static class HoldingMeta
     /// Die Fahrzeugliste zeigt „VW Passat · HD-AB 123“ als Titel. Das Kennzeichen hier noch
     /// einmal zu nennen hieße, dieselbe Angabe zweimal in dieselbe Zeile zu setzen.
     /// </remarks>
+    /// <summary>
+    /// Eine Anschaffung — Händler, Kaufdatum, Garantie.
+    /// </summary>
+    /// <remarks>
+    /// Der Preis steht nicht dabei. Er gehört rechts an die Zeile, wo „Beträge verbergen“ ihn
+    /// maskiert; hier noch einmal genannt, käme er an der Maskierung vorbei.
+    /// </remarks>
+    public static string ForPurchase(Purchase purchase)
+        => Join(
+            purchase.Vendor,
+            $"gekauft {GermanFormat.Date(purchase.PurchaseDate)}",
+            purchase.WarrantyUntil is { } bis ? $"Garantie bis {GermanFormat.Date(bis)}" : null);
+
     public static string ForVehicle(Vehicle vehicle)
         => Join(
             vehicle.Usage,

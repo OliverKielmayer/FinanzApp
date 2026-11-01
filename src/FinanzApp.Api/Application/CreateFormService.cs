@@ -25,6 +25,7 @@ public sealed class CreateFormService(
     FinanzAppDbContext db,
     IClock clock,
     DocumentService documents,
+    ObjectLabelService labels,
     IPolicyDocumentAnalyzer analyzer)
 {
     /// <summary>
@@ -77,6 +78,7 @@ public sealed class CreateFormService(
             CreateObjectType.Contract => await ContractFormAsync(ct),
             CreateObjectType.Budget => await BudgetFormAsync(ct),
             CreateObjectType.Vehicle => await VehicleFormAsync(ct),
+            CreateObjectType.Purchase => PurchaseForm(),
             CreateObjectType.Employment => EmploymentForm(),
             CreateObjectType.Loan => LoanForm(),
             _ => null,
@@ -101,7 +103,7 @@ public sealed class CreateFormService(
             }
         }
 
-        return type switch
+        var ergebnis = type switch
         {
             CreateObjectType.Account => await CreateAccountAsync(values, ct),
             CreateObjectType.Depot => await CreateDepotAsync(values, ct),
@@ -111,11 +113,58 @@ public sealed class CreateFormService(
             CreateObjectType.Contract => await CreateContractAsync(values, ct),
             CreateObjectType.Budget => await CreateBudgetAsync(values, ct),
             CreateObjectType.Vehicle => await CreateVehicleAsync(values, ct),
+            CreateObjectType.Purchase => await CreatePurchaseAsync(values, ct),
             CreateObjectType.Employment => await CreateEmploymentAsync(values, ct),
             CreateObjectType.Loan => await CreateLoanAsync(values, ct),
             _ => Fail(null, "Diesen Objekttyp gibt es noch nicht."),
         };
+
+        return await MitZielAsync(type, ergebnis, ct);
     }
+
+    /// <summary>
+    /// Trägt am Ergebnis nach, was gerade entstanden ist: Zielart und Name.
+    /// </summary>
+    /// <remarks>
+    /// Hier und nicht in den zehn Anlegemethoden. Die geben alle über dieselbe kleine Hilfe
+    /// zurück, die den Namen nicht kennt; ihn durch zehn Methoden zu fädeln hieße, zehnmal
+    /// dasselbe zu vergessen zu können.
+    /// </remarks>
+    private async Task<CreateResultDto> MitZielAsync(
+        CreateObjectType type, CreateResultDto ergebnis, CancellationToken ct)
+    {
+        if (ergebnis is not { Ok: true, Id: { } id } || Zielart(type) is not { } ziel)
+        {
+            return ergebnis;
+        }
+
+        return ergebnis with
+        {
+            LinkTarget = ziel,
+            Label = await labels.ResolveAsync(ziel, id, ct),
+        };
+    }
+
+    /// <summary>
+    /// Welche Verknüpfungsart ein Anlegeweg hervorbringt.
+    /// </summary>
+    /// <remarks>
+    /// <c>null</c> für Wege, an die sich nichts hängen lässt: Ein Budget ist eine Vorgabe und
+    /// kein Gegenstand, an dem ein Beleg hinge.
+    /// </remarks>
+    private static LinkTargetType? Zielart(CreateObjectType type) => type switch
+    {
+        CreateObjectType.Account => LinkTargetType.Account,
+        CreateObjectType.Depot => LinkTargetType.Portfolio,
+        CreateObjectType.Pension or CreateObjectType.Protection => LinkTargetType.Policy,
+        CreateObjectType.Property => LinkTargetType.Property,
+        CreateObjectType.Contract => LinkTargetType.Contract,
+        CreateObjectType.Vehicle => LinkTargetType.Vehicle,
+        CreateObjectType.Purchase => LinkTargetType.Purchase,
+        CreateObjectType.Employment => LinkTargetType.EmploymentContract,
+        CreateObjectType.Loan => LinkTargetType.Loan,
+        _ => null,
+    };
 
     // ── Bearbeiten und Löschen ──────────────────────────────────────────────
 
@@ -151,6 +200,7 @@ public sealed class CreateFormService(
             CreateObjectType.Contract => await UpdateContractAsync(id, values, ct),
             CreateObjectType.Budget => await UpdateBudgetAsync(id, values, ct),
             CreateObjectType.Vehicle => await UpdateVehicleAsync(id, values, ct),
+            CreateObjectType.Purchase => await UpdatePurchaseAsync(id, values, ct),
             CreateObjectType.Employment => await UpdateEmploymentAsync(id, values, ct),
             CreateObjectType.Loan => await UpdateLoanAsync(id, values, ct),
             _ => Fail(null, "Diesen Objekttyp gibt es noch nicht."),
@@ -170,6 +220,8 @@ public sealed class CreateFormService(
             CreateObjectType.Contract => await DeleteSimpleAsync(db.Contracts, id, "Vertrag gelöscht", "/wohnen", ct),
             CreateObjectType.Budget => await DeleteSimpleAsync(db.Budgets, id, "Budget gelöscht", "/budgets", ct),
             CreateObjectType.Vehicle => await DeleteSimpleAsync(db.Vehicles, id, "Fahrzeug gelöscht", "/fahrzeuge", ct),
+            CreateObjectType.Purchase => await DeleteSimpleAsync(
+                db.Purchases, id, "Anschaffung gelöscht", "/anschaffungen", ct),
             CreateObjectType.Employment => await DeleteSimpleAsync(
                 db.Employments, id, "Arbeitsverhältnis gelöscht", "/arbeit", ct),
 
@@ -355,6 +407,20 @@ public sealed class CreateFormService(
             case CreateObjectType.Vehicle:
                 return Impact("Fahrzeug löschen",
                     "Die Kostenübersicht entfällt. Versicherung und Dokumente bleiben.");
+
+            case CreateObjectType.Purchase:
+            {
+                // Die Dokumente bleiben — aber ihre Verknüpfung nicht, und das ist der
+                // eigentliche Verlust: Der Lieferschein liegt danach wieder ohne Objekt da.
+                var belege = await db.DocumentLinks.CountAsync(
+                    l => l.TargetType == LinkTargetType.Purchase && l.TargetId == id, ct);
+
+                return Impact("Anschaffung löschen",
+                    belege == 0
+                        ? "Es hängt kein Beleg daran."
+                        : $"{belege} {(belege == 1 ? "Beleg bleibt" : "Belege bleiben")} erhalten, "
+                          + $"{(belege == 1 ? "steht" : "stehen")} danach aber ohne Objekt da.");
+            }
 
             case CreateObjectType.Employment:
             {
@@ -573,6 +639,20 @@ public sealed class CreateFormService(
                     ["first"] = Iso(x.FirstRegistration),
                     ["mileage"] = x.Mileage?.ToString(),
                     ["policy"] = x.PolicyId?.ToString(),
+                };
+            }
+
+            case CreateObjectType.Purchase:
+            {
+                var x = await db.Purchases.AsNoTracking().FirstOrDefaultAsync(y => y.Id == id, ct);
+                return x is null ? null : new()
+                {
+                    ["name"] = x.Name,
+                    ["purchase"] = Iso(x.PurchaseDate),
+                    ["vendor"] = x.Vendor,
+                    ["price"] = x.Price is { } preis ? Money(preis) : null,
+                    ["warranty"] = Iso(x.WarrantyUntil),
+                    ["note"] = x.Note,
                 };
             }
 
@@ -1750,6 +1830,86 @@ public sealed class CreateFormService(
     }
 
     // ── Fahrzeug ───────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Das Formular einer Anschaffung.
+    /// </summary>
+    /// <remarks>
+    /// Fünf Felder, von denen zwei Pflicht sind. Was ein Lieferschein hergibt, steht darauf:
+    /// was es ist, wann es kam, von wem, was es kostete. Die Garantiefrist wird gefragt und
+    /// nicht gerechnet — zwei Jahre sind die Regel, aber Verlängerungen und Gebrauchtkäufe
+    /// sind es auch, und eine gerechnete Frist sähe aus wie eine abgelesene.
+    /// </remarks>
+    private static CreateFormDto PurchaseForm() => new()
+    {
+        Type = CreateObjectType.Purchase,
+        Kicker = "Neu",
+        Title = "Anschaffung anlegen",
+        SubmitLabel = "Anschaffung anlegen",
+        Hint = "Für Gegenstände, an denen Papiere hängen: Lieferschein, Rechnung, Garantiekarte.",
+        Fields =
+        [
+            Text("name", "Bezeichnung", required: true, placeholder: "z. B. Waschmaschine"),
+            Date("purchase", "Kaufdatum", required: true),
+            Text("vendor", "Händler", required: false, placeholder: "z. B. Musterelektro"),
+            Money("price", "Kaufpreis", required: false),
+            Date("warranty", "Garantie bis", required: false,
+                help: "Steht auf dem Beleg. Ungerechnet — eine gerechnete Frist sähe aus wie eine abgelesene."),
+            Text("note", "Notiz", required: false),
+        ],
+    };
+
+    private async Task<CreateResultDto> CreatePurchaseAsync(
+        IReadOnlyDictionary<string, string?> values, CancellationToken ct)
+    {
+        if (ParseDate(Value(values, "purchase")) is not { } gekauft)
+        {
+            return Fail("purchase", "Kaufdatum ist kein Datum");
+        }
+
+        var purchase = new Purchase
+        {
+            Name = Value(values, "name")!.Trim(),
+            PurchaseDate = gekauft,
+            Vendor = Value(values, "vendor")?.Trim(),
+            Price = ParseMoney(Value(values, "price")),
+            WarrantyUntil = ParseDate(Value(values, "warranty")),
+            Note = Value(values, "note")?.Trim(),
+            CreatedAt = clock.Now,
+            UpdatedAt = clock.Now,
+        };
+
+        db.Purchases.Add(purchase);
+        await db.SaveChangesAsync(ct);
+
+        return Ok(purchase.Id, $"/anschaffungen/{purchase.Id}");
+    }
+
+    private async Task<CreateResultDto> UpdatePurchaseAsync(
+        int id, IReadOnlyDictionary<string, string?> values, CancellationToken ct)
+    {
+        var purchase = await db.Purchases.FirstOrDefaultAsync(p => p.Id == id, ct);
+        if (purchase is null)
+        {
+            return Fail(null, "Diese Anschaffung gibt es nicht mehr.");
+        }
+
+        if (ParseDate(Value(values, "purchase")) is not { } gekauft)
+        {
+            return Fail("purchase", "Kaufdatum ist kein Datum");
+        }
+
+        purchase.Name = Value(values, "name")!.Trim();
+        purchase.PurchaseDate = gekauft;
+        purchase.Vendor = Value(values, "vendor")?.Trim();
+        purchase.Price = ParseMoney(Value(values, "price"));
+        purchase.WarrantyUntil = ParseDate(Value(values, "warranty"));
+        purchase.Note = Value(values, "note")?.Trim();
+        purchase.UpdatedAt = clock.Now;
+
+        await db.SaveChangesAsync(ct);
+        return Ok(purchase.Id, $"/anschaffungen/{purchase.Id}");
+    }
 
     private async Task<CreateFormDto> VehicleFormAsync(CancellationToken ct)
     {

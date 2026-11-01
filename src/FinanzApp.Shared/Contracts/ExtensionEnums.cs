@@ -103,6 +103,9 @@ public enum LinkTargetType
 
     /// <summary>Ein abgelegter Beleg.</summary>
     Document = 14,
+
+    /// <summary>Ein gekaufter Gegenstand — Gerät, Möbel, Einrichtung.</summary>
+    Purchase = 15,
 }
 
 /// <summary>

@@ -1,0 +1,81 @@
+@page "/anschaffungen"
+@attribute [Authorize]
+@inherits AppPage
+
+<PageTitle>Anschaffungen — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Stale="HasLoadedOnce" Retry="ReloadAsync">
+    @if (purchases.Count == 0)
+    {
+        <div class="empty-area">
+            <span class="empty-area-title">Noch keine Anschaffung</span>
+            <span class="empty-area-text">
+                Der Platz für gekaufte Gegenstände, an denen Papiere hängen: Lieferschein,
+                Rechnung, Garantiekarte. Sie gehören an kein Konto und an keinen Vertrag —
+                sie gehören an das Gerät.
+            </span>
+        </div>
+    }
+
+    @foreach (var purchase in purchases)
+    {
+        <button type="button" class="tap contract-row"
+                @onclick="@(() => Navigation.NavigateTo($"/anschaffungen/{purchase.Id}"))">
+            <span class="stack">
+                <span class="contract-name">@purchase.Name</span>
+                <span class="meta">@Meta(purchase)</span>
+            </span>
+            <span class="stack-end">
+                @* Ohne Preis bleibt die Stelle leer. Eine Null stünde für „kostenlos“. *@
+                @if (purchase.Price is { } preis)
+                {
+                    <span class="contract-amount num">@State.Euro0(preis)</span>
+                }
+                <EditLink Type="purchase" Id="purchase.Id" />
+            </span>
+        </button>
+    }
+
+    <AddRow Route="/neu/purchase" Label="Anschaffung anlegen" />
+
+    <div class="spacer"></div>
+</AsyncView>
+
+@code {
+    private IReadOnlyList<PurchaseListItemDto> purchases = [];
+
+    protected override async Task LoadAsync() => purchases = await Api.GetPurchasesAsync();
+
+    /// <summary>
+    /// Die Zeile unter dem Namen: Händler, Kaufdatum, Garantie, Belege.
+    /// </summary>
+    /// <remarks>
+    /// Die Garantie steht nur dabei, wenn eine Frist hinterlegt ist. „Keine Garantie“ wäre eine
+    /// Auskunft, die niemand gegeben hat — fehlt die Frist, ist sie unbekannt und nicht abgelaufen.
+    /// </remarks>
+    private static string Meta(PurchaseListItemDto purchase)
+    {
+        var teile = new List<string>();
+
+        if (purchase.Vendor is { Length: > 0 } haendler)
+        {
+            teile.Add(haendler);
+        }
+
+        teile.Add($"gekauft {GermanFormat.Date(purchase.PurchaseDate)}");
+
+        if (purchase.WarrantyUntil is { } bis)
+        {
+            teile.Add(purchase.WarrantyRunning is true
+                ? $"Garantie bis {GermanFormat.Date(bis)}"
+                : $"Garantie abgelaufen {GermanFormat.Date(bis)}");
+        }
+
+        if (purchase.DocumentCount > 0)
+        {
+            teile.Add($"{purchase.DocumentCount} {(purchase.DocumentCount == 1 ? "Beleg" : "Belege")}");
+        }
+
+        return string.Join(" · ", teile);
+    }
+}

@@ -640,6 +640,50 @@ public class Vehicle : IHouseholdOwned
 }
 
 /// <summary>
+/// Eine Anschaffung: ein gekaufter Gegenstand, an dem seine Papiere hängen.
+/// </summary>
+/// <remarks>
+/// <para>Es gab eine Lücke zwischen den Objekten. Ein Lieferschein für eine Einbauküche oder
+/// ein Haushaltsgroßgerät gehört an keinen Vertrag, an kein Konto und an keine Immobilie — er
+/// gehört an das Gerät. Ohne diesen Platz landete er entweder im Nirgendwo oder, schlimmer, an
+/// irgendetwas Naheliegendem.</para>
+/// <para>Bewusst schmal gehalten: Name, Kaufdatum, Preis, Händler, Garantie. Was darüber
+/// hinausgeht — Abschreibung, Seriennummern, Wartungsintervalle — wäre eine
+/// Inventarverwaltung, und die hat niemand verlangt. Die Garantiefrist steht dabei, weil sie
+/// der Grund ist, warum man einen Lieferschein überhaupt aufhebt.</para>
+/// </remarks>
+public class Purchase : IHouseholdOwned
+{
+    public int Id { get; set; }
+    public int HouseholdId { get; set; }
+
+    public required string Name { get; set; }
+
+    public DateOnly PurchaseDate { get; set; }
+
+    /// <summary>Kaufpreis. <c>null</c>, wenn er nicht bekannt ist — geraten wird er nicht.</summary>
+    public decimal? Price { get; set; }
+
+    /// <summary>Händler oder Lieferant.</summary>
+    public string? Vendor { get; set; }
+
+    /// <summary>
+    /// Ende der Garantie oder Gewährleistung.
+    /// </summary>
+    /// <remarks>
+    /// Nicht aus dem Kaufdatum gerechnet: Zwei Jahre sind die Regel, aber Verlängerungen,
+    /// Herstellergarantien und Gebrauchtkäufe sind es auch. Eine gerechnete Frist sähe aus wie
+    /// eine abgelesene, und danach richtet sich jemand.
+    /// </remarks>
+    public DateOnly? WarrantyUntil { get; set; }
+
+    public string? Note { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}
+
+/// <summary>
 /// Ein Beleg im Posteingang — eingescannt, aber noch nicht eingeordnet.
 /// </summary>
 /// <remarks>

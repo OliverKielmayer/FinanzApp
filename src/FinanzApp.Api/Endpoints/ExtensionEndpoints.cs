@@ -23,6 +23,7 @@ public static class ExtensionEndpoints
         MapPolicies(app);
         MapCreate(app);
         MapVehicles(app);
+        MapPurchases(app);
         MapScanInbox(app);
         MapScan(app);
         MapHousing(app);
@@ -343,6 +344,21 @@ public static class ExtensionEndpoints
         {
             return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
         }
+    }
+
+    /// <summary>Anschaffungen — der Platz für Lieferscheine, Rechnungen und Garantiekarten.</summary>
+    private static void MapPurchases(IEndpointRouteBuilder app)
+    {
+        var api = app.MapGroup("/api/purchases").WithTags("Anschaffungen").RequireAuthorization();
+
+        api.MapGet("/", async (PurchaseService service, CancellationToken ct)
+            => Results.Ok(await service.GetListAsync(ct)));
+
+        api.MapGet("/{id:int}", async (int id, PurchaseService service, CancellationToken ct) =>
+        {
+            var purchase = await service.GetAsync(id, ct);
+            return purchase is null ? Results.NotFound() : Results.Ok(purchase);
+        });
     }
 
     private static void MapVehicles(IEndpointRouteBuilder app)
