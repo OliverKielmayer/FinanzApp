@@ -61,6 +61,7 @@ public static class ExtensionSeedData
             ("Beitragsanpassung", DocumentArea.Insurance),
             ("Arztrechnung", DocumentArea.Health),
             ("PKV-Abrechnung", DocumentArea.Health),
+            ("Lieferschein Gerät", DocumentArea.Health),
             ("Kaufvertrag", DocumentArea.Housing),
             ("Grundbuchauszug", DocumentArea.Housing),
             ("Energieausweis", DocumentArea.Housing),

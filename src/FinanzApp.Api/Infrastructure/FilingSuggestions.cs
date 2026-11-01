@@ -123,6 +123,30 @@ public static class FilingSuggestions
             Weak: ["versicherungsnummer", "beitragsrechnung", "versicherungsjahr", "tarif",
                    "versicherungsbeginn"]),
 
+        // Der Lieferschein eines Geräts — und nur der.
+        //
+        // Eine allgemeine Lieferschein-Regel gibt es bewusst nicht: „Lieferschein“ steht auch
+        // auf Rechnungen, als „Lieferscheinnr.“, und eine Regel mit diesem starken Wort nähme
+        // der Rechnung ihre Belege weg. Geprüft an drei echten Blättern — einer Gerätelieferung,
+        // einem Baustofflieferschein und einer Händlerrechnung: Das Wort allein steht auf allen
+        // dreien und unterscheidet nichts.
+        //
+        // Was eine Gerätelieferung von beiden trennt, ist die Rückverfolgbarkeit. Chargen,
+        // Seriennummern, Warenempfänger, Versandstelle: Das sind die Spuren regulierter Ware,
+        // und auf den anderen beiden Blättern kam keines davon vor. Die starken Wörter decken
+        // andere Lieferanten ab, die ihre Ware ausdrücklich benennen.
+        //
+        // Keine Krankheitsbezeichnung in der Liste. Sie wäre für die Erkennung nicht nötig —
+        // die Spurwörter allein tragen den Vorschlag —, und sie stünde in einem öffentlichen
+        // Quelltext neben dem Namen dessen, der ihn pflegt.
+        new("Lieferschein Gerät", DocumentArea.Health, "Lieferschein Gerät",
+            Strong: ["medizinprodukt", "hilfsmittel", "therapiegerät", "beatmungsgerät"],
+            Weak:
+            [
+                "chargen", "seriennum", "lieferscheinnummer", "lieferscheindatum",
+                "warenempfänger", "versandstelle",
+            ]),
+
         // Zuletzt und nur, wenn nichts Genaueres greift.
         //
         // Die schwachen Wörter sind an einer eingescannten Rechnung gewählt und nicht am

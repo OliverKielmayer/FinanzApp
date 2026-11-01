@@ -208,6 +208,83 @@ public sealed class FilingSuggestionTests
         Assert.Equal(DocumentArea.Work, vorschlag.Value.Area);
     }
 
+    // ── Der Lieferschein eines Geräts ──────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Eine Gerätelieferung wird an ihrer Rückverfolgbarkeit erkannt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Chargen, Seriennummern, Warenempfänger, Versandstelle — die Spuren regulierter
+    /// Ware. Preise stehen auf so einem Blatt gar nicht, und das Wort „Lieferschein“ allein
+    /// unterscheidet nichts: Es steht auch auf Baustofflieferscheinen und auf Rechnungen.</para>
+    /// <para>Der Text ist erfunden, in der Gestalt eines echten.</para>
+    /// </remarks>
+    [Fact]
+    public void Eine_Geraetelieferung_wird_als_solche_vorgeschlagen()
+    {
+        var vorschlag = FilingSuggestions.For("""
+            Musterversorgung GmbH — LIEFERSCHEIN
+            Lieferscheinnummer MS-00041
+            Versandstelle Zentrallager          Warenempfänger Max Mustermann
+            Pos  Bezeichnung                    Bes.Mg  Gelief.Mg  ME
+            1    Maske Gr. M                        1         1    ST
+                 Chargen: ST-MUSTER-1
+                 Seriennum:
+            2    Standardfilter                     1         1    PAK
+            Lieferscheindatum  14. Juli 2026
+            """);
+
+        Assert.NotNull(vorschlag);
+        Assert.Equal("Lieferschein Gerät", vorschlag.Value.Label);
+        Assert.Equal(DocumentArea.Health, vorschlag.Value.Area);
+    }
+
+    /// <summary>
+    /// Ein Baustofflieferschein ist keine Gerätelieferung.
+    /// </summary>
+    /// <remarks>
+    /// Beide heißen oben „Lieferschein“. Nur das eine Blatt führt Chargen und Seriennummern —
+    /// und deshalb steht das Wort selbst in keiner Regel.
+    /// </remarks>
+    [Fact]
+    public void Ein_Baustofflieferschein_ist_keine_Geraetelieferung()
+    {
+        var vorschlag = FilingSuggestions.For("""
+            Musterholz Säge- und Hobelwerk
+            LIEFERSCHEIN Nr. 00077123
+            Kunden-Nr. 31475          Auftrags-Nr. 01099887
+            Datum 03.06.2026          Versandart Selbstabholung
+            Pos  Bezeichnung                 Menge  EH
+            1    Sockelleisten Eiche          14    St.
+            2    Vinylboden                  120    St.
+            """);
+
+        Assert.True(
+            vorschlag is null || vorschlag.Value.Label != "Lieferschein Gerät",
+            $"Vorgeschlagen wurde „{vorschlag?.Label}“.");
+    }
+
+    /// <summary>
+    /// Eine Rechnung mit „Lieferscheinnr.“ bleibt eine Rechnung.
+    /// </summary>
+    /// <remarks>
+    /// Der Grund, warum es keine allgemeine Lieferschein-Regel gibt: Händlerrechnungen nennen
+    /// die Nummer des Lieferscheins, und eine Regel auf das Wort nähme der Rechnung ihre Belege.
+    /// </remarks>
+    [Fact]
+    public void Eine_Rechnung_mit_Lieferscheinnummer_bleibt_eine_Rechnung()
+    {
+        var vorschlag = FilingSuggestions.For("""
+            Musterelektro Handels GmbH
+            Rechnung Nr.: VR5000012345
+            Lieferscheinnr. VL5000098765
+            Zahlbar sofort. Gesamtbetrag inkl. MwSt
+            """);
+
+        Assert.NotNull(vorschlag);
+        Assert.Equal("Rechnung", vorschlag.Value.Label);
+    }
+
     [Fact]
     public void Ohne_etwas_Genaueres_bleibt_die_allgemeine_Rechnung()
     {
