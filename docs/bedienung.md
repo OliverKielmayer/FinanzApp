@@ -268,7 +268,7 @@ gesucht wurde. Die App sieht nie über den Haushalt hinaus, in dem Sie gerade an
 wer zwei Haushalte führt, prüft als Erstes, ob er im richtigen steht.
 
 Gibt es einen Vertrag mit **denselben Ziffern**, steht er in derselben Meldung. Das ist der
-häufigste Fall: der Beleg nennt „R-77001122-04“, im Vertrag steht „77001122-04“. Zugeordnet wird
+häufigste Fall: der Beleg nennt „R-10020030-04“, im Vertrag steht „10020030-04“. Zugeordnet wird
 Zeichen für Zeichen — tragen Sie die Nummer am Vertrag so ein, wie der Beleg sie nennt, und der
 Beleg findet ihn beim nächsten Blick. Zuordnen lässt sich ein Beleg auch von Hand, im
 Scaneingang.

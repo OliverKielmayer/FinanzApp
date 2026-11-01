@@ -94,7 +94,7 @@ public sealed class HoldingsTests : IDisposable
         using var context = database.Context();
         context.Policies.Add(new Policy
         {
-            Name = name, Provider = "Allianz", Premium = beitrag,
+            Name = name, Provider = "Musterschutz", Premium = beitrag,
             PremiumInterval = PremiumInterval.Monthly, IsCapitalForming = kapitalbildend,
             CurrentValue = kapitalbildend ? 20_000m : null,
             ValuationDate = kapitalbildend ? new DateOnly(2025, 12, 31) : null,
@@ -333,7 +333,7 @@ public sealed class HoldingsTests : IDisposable
 
         // Art und Anbieter stehen da; Nummer, Ende, Frist und Notiz sind leer und fehlen
         // darum — ohne Trennzeichen, das ins Leere zeigt.
-        Assert.Equal("Haftpflicht · Allianz", meta);
+        Assert.Equal("Haftpflicht · Musterschutz", meta);
         Assert.DoesNotContain("ohne", meta);
         Assert.DoesNotContain("· ·", meta);
         Assert.False(meta.EndsWith('·'));

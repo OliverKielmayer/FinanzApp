@@ -310,7 +310,7 @@ unter Absicherung.
 
 Findet die Analyse kein Zielobjekt, nennt die Meldung die gesuchte Nummer, **den Haushalt** und
 — wenn es einen gibt — das Objekt mit **denselben Ziffern**. Verglichen wird dafür auf die Ziffern
-herunter: „R-77001122-04“ auf dem Papier und „77001122-04“ im Vertrag treffen sich dabei. Genannt
+herunter: „R-10020030-04“ auf dem Papier und „10020030-04“ im Vertrag treffen sich dabei. Genannt
 wird er und nicht zugeordnet: das R steht bei diesem Absender für die geförderte Tranche desselben
 Stammvertrags, es kann beide geben, und ein Beleg am falschen Vertrag ist von allen möglichen
 Fehlern der teuerste.
@@ -555,7 +555,7 @@ Zwei Regeln stecken im Datenmodell:
    wollte, ließe das Pflichtfeld leer.
 2. **Ein gepflegter Name wird nie neu zusammengesetzt.** Beim Anlegen wird er abgeleitet, beim
    Bearbeiten nie wieder — sonst würde aus „Risikoleben“ beim bloßen Öffnen und Speichern
-   „Risikoleben Hannoversche“.
+   „Risikoleben Musterstädter“.
 
 Gelöscht wird zweistufig, ohne Systemdialog, und die Folgen werden **gezählt**, nicht behauptet:
 „3 Buchungen hängen an diesem Konto — sie bleiben erhalten und werden auf ‚Ohne Konto‘ gesetzt.“
@@ -614,10 +614,10 @@ Schreibweisen, alle in derselben Datei; der Klinikbeleg trägt hier einen
 erfundenen Namen, seine Form ist unverändert:
 
 ```
-Setzer 24/7 Vell./Wolpertshausen/DE 31.12.2025 um 19:08:01 Uhr
+Setzer 24/7 Vell./Musterhausen/DE 31.12.2025 um 19:08:01 Uhr
 Muster Klinikum Landkrei/Am Musterweg 1/Musterstad/D08.03.2026 / 11:20 Ortszeit
-NYX.DeinAutomat/Diakoniestrasse/SchwaebischHa/DE/0 16.01.2026 / 16:01 Ortszeit
-KJNUUX Ihr Einkauf bei EDEKA Möller vom 30.12.2025 EREF: T005115664
+NYX.DeinAutomat/Musterstrasse/Musterstadt/DE/0 16.01.2026 / 16:01 Ortszeit
+KJNUUX Ihr Einkauf bei Markt Mustermann vom 30.12.2025 EREF: T000111222
 ```
 
 Geschnitten wird am Datum und sonst nirgends — Ladennamen enthalten selbst Schrägstriche

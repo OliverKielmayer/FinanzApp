@@ -56,9 +56,9 @@ public sealed class EditAndDeleteTests : IDisposable
     [Fact]
     public async Task Ein_gepflegter_Name_ueberlebt_Oeffnen_und_Speichern()
     {
-        // Genau der Fall aus dem Handoff: aus „Risikoleben“ darf nicht „Risikoleben Hannoversche“
+        // Genau der Fall aus dem Handoff: aus „Risikoleben“ darf nicht „Risikoleben Musterstädter“
         // werden, bloß weil jemand das Formular geöffnet und gespeichert hat.
-        var id = AddPolicy("Risikoleben", PolicyKind.TermLife, "Hannoversche");
+        var id = AddPolicy("Risikoleben", PolicyKind.TermLife, "Musterstädter");
 
         var form = await Service().GetFormAsync(CreateObjectType.Protection, id);
         Assert.NotNull(form);
@@ -80,13 +80,13 @@ public sealed class EditAndDeleteTests : IDisposable
     [Fact]
     public async Task Werte_kommen_aus_den_Rohfeldern_nicht_aus_der_Anzeigezeile()
     {
-        var id = AddPolicy("Risikoleben", PolicyKind.TermLife, "Hannoversche");
+        var id = AddPolicy("Risikoleben", PolicyKind.TermLife, "Musterstädter");
 
         var form = await Service().GetFormAsync(CreateObjectType.Protection, id);
 
         // Der Versicherer steht nirgends im Namen — wer ihn dort herausparsen wollte, ließe das
         // Pflichtfeld leer.
-        Assert.Equal("Hannoversche", form!.Values["provider"]);
+        Assert.Equal("Musterstädter", form!.Values["provider"]);
         Assert.Equal(nameof(PolicyKind.TermLife), form.Values["kind"]);
     }
 
@@ -209,7 +209,7 @@ public sealed class EditAndDeleteTests : IDisposable
     [Fact]
     public async Task Ein_geloeschter_Kfz_Vertrag_nimmt_das_Fahrzeug_nicht_mit()
     {
-        var policyId = AddPolicy("Kfz WGV", PolicyKind.Vehicle, "WGV");
+        var policyId = AddPolicy("Kfz MGV", PolicyKind.Vehicle, "MGV");
 
         using (var context = database.Context())
         {

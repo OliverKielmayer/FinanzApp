@@ -17,7 +17,7 @@ public sealed class PolicyTests
         var policy = new Policy
         {
             Name = "Risikoleben",
-            Provider = "Heidelberger Leben",
+            Provider = "Musterleben",
             Kind = PolicyKind.TermLife,
             IsCapitalForming = false,
             CurrentValue = 250000m,
@@ -32,8 +32,8 @@ public sealed class PolicyTests
     {
         var policy = new Policy
         {
-            Name = "Heidelberger Leben",
-            Provider = "Heidelberger Leben",
+            Name = "Musterleben",
+            Provider = "Musterleben",
             Kind = PolicyKind.CapitalLife,
             IsCapitalForming = true,
             CurrentValue = 20481.52m,

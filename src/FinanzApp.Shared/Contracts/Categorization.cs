@@ -37,7 +37,7 @@ public static class Categorization
         }
 
         // An der Wortgrenze, nicht mitten im Wort. „R + V Lebensversicherung“ ergibt das Muster
-        // „R“; ohne diese Prüfung finge es Rundfunk, REWE, Restaurant und die Raiffeisenbank
+        // „R“; ohne diese Prüfung finge es Rundfunk, REWE, Restaurant und die Musterbank
         // gleich mit ein — an echten Bankdaten sofort nachweisbar.
         return wer.Length == muster.Length || wer[muster.Length] == ' ';
     }

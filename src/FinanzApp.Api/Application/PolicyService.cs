@@ -320,7 +320,7 @@ public sealed class PolicyService(FinanzAppDbContext db, DocumentService documen
     /// <para>Gesucht wird in Verwendungszweck, Buchungstext und Empfänger — die Nummer steht je
     /// nach Bank an verschiedenen Stellen. Verglichen wird <em>normalisiert</em>: Groß- und
     /// Kleinschreibung, Leerzeichen, Punkte, Schräg- und Bindestriche fallen weg, weil
-    /// „77001122-01“ und „77001122 01“ dieselbe Nummer sind.</para>
+    /// „10020030-01“ und „10020030 01“ dieselbe Nummer sind.</para>
     /// <para>Die Zahlungen bleiben Buchungen und werden nicht ein zweites Mal geführt.</para>
     /// </remarks>
     private async Task<IReadOnlyList<LinkedPaymentDto>> LoadPaymentsAsync(
@@ -379,7 +379,7 @@ public sealed class PolicyService(FinanzAppDbContext db, DocumentService documen
     /// Eine Nummer ohne ihre Schreibweise.
     /// </summary>
     /// <remarks>
-    /// „77001122-01“, „77001122 01“ und „77001122/01“ sind dieselbe Vertragsnummer. Ohne diesen
+    /// „10020030-01“, „10020030 01“ und „10020030/01“ sind dieselbe Vertragsnummer. Ohne diesen
     /// Schritt fände die Zuordnung nur die eine Schreibweise, die die Bank gerade verwendet.
     /// </remarks>
     /// <summary>

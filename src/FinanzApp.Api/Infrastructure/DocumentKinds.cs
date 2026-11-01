@@ -356,7 +356,7 @@ public sealed record DocumentKind
 /// </summary>
 /// <remarks>
 /// Beide Datensätze sind an den echten PDFs des Nutzers entstanden, nicht an Beispielen: an
-/// einem Statusreport der Heidelberger Leben zum 31.07.2025 und an einer Quartalsaufstellung der
+/// einem Statusreport der Musterleben zum 31.07.2025 und an einer Quartalsaufstellung der
 /// Baader Bank zum 30.06.2026.
 /// </remarks>
 public static class DocumentKindLibrary

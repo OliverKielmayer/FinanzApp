@@ -31,10 +31,10 @@ public sealed class DocumentKindTests
     {
         List<PdfLine> zeilen =
         [
-            Line(1, "Nordstern Lebensversicherung AG"),
+            Line(1, "Nordmuster Lebensversicherung AG"),
             Line(1, "Hamburg, 12.08.2025"),
             Line(1, "Seite 1 von 3"),
-            Line(1, "Versicherungsnummer:", "77001122-01"),
+            Line(1, "Versicherungsnummer:", "10020030-01"),
             Line(1, "Versicherungsnehmer:", "Erika Mustermann"),
             Line(1, "hiermit übersenden wir Ihnen den jährlichen Statusreport zum Vertragsstand Ihrer"),
             Line(1, "Ihr Vertragsstand zum 31.07.2025"),
@@ -163,10 +163,10 @@ public sealed class DocumentKindTests
 
         List<PdfLine> zeilen =
         [
-            Line(1, "Nordstern Lebensversicherung AG"),
+            Line(1, "Nordmuster Lebensversicherung AG"),
             Line(1, "Hamburg, 05.03.2025"),
             Line(1, "Seite 1 von 3"),
-            Line(1, "Versicherungsnummer:", "77001122-02"),
+            Line(1, "Versicherungsnummer:", "10020030-02"),
             Line(1, "Versicherungsnehmer:", "Erika Mustermann"),
             Line(1, $"Ihr Statusreport zum {stichtag}"),
             Line(1, "hiermit übersenden wir Ihnen den Statusreport zum Stand Ihrer fondsgebundenen"),
@@ -448,8 +448,8 @@ public sealed class DocumentKindTests
     {
         var werte = Read(DocumentKindLibrary.Statusreport, Statusreport());
 
-        Assert.Equal("77001122-01", werte["vertragsnummer"].Raw);
-        Assert.Equal("Nordstern Lebensversicherung AG", werte["absender"].Raw);
+        Assert.Equal("10020030-01", werte["vertragsnummer"].Raw);
+        Assert.Equal("Nordmuster Lebensversicherung AG", werte["absender"].Raw);
     }
 
     // ── Statusreport fondsgebunden ─────────────────────────────────────────────────────────
@@ -809,9 +809,9 @@ public sealed class DocumentKindTests
     {
         List<PdfLine> zeilen =
         [
-            Line(1, "Nordstern Lebensversicherung AG"),
+            Line(1, "Nordmuster Lebensversicherung AG"),
             Line(1, "Hamburg, 11.04.2026"),
-            Line(1, "Versicherungsnummer:", "R-77001122-04"),
+            Line(1, "Versicherungsnummer:", "R-10020030-04"),
             Line(1, "Versicherungsnehmer:", "Erika Mustermann"),
             Line(1, "Ihr Statusreport zum 31.12.2025"),
             Line(1, "hiermit übersenden wir Ihnen den jährlichen Statusreport zum Vertragsstand Ihrer"),
@@ -911,7 +911,7 @@ public sealed class DocumentKindTests
         Assert.Equal(11300.00m, werte["gebildetesKapital"].Number);
         Assert.True(werte["gebildetesKapital"].Rule.Soft);
 
-        Assert.Equal("R-77001122-04", werte["vertragsnummer"].Raw);
+        Assert.Equal("R-10020030-04", werte["vertragsnummer"].Raw);
         Assert.Equal(new DateOnly(2025, 12, 31), werte["stichtag"].Date);
 
         Assert.Equal(3, gelesen.Proofs.Count);
@@ -1286,8 +1286,8 @@ public sealed class DocumentKindTests
     {
         var inhalt = Content(
         [
-            Line(1, "Nordstern Lebensversicherung AG"),
-            Line(1, "Versicherungsnummer:", "77001122-02"),
+            Line(1, "Nordmuster Lebensversicherung AG"),
+            Line(1, "Versicherungsnummer:", "10020030-02"),
             Line(1, "hiermit übersenden wir Ihnen den Statusreport zum Stand Ihrer fondsgebundenen"),
             Line(1, "Ihr Vertragsstand zum 31.12.2023"),
             Line(1, "Beitragssumme (entspricht den über die Laufzeit", "39 415.80 EUR"),
@@ -1542,8 +1542,8 @@ public sealed class DocumentKindTests
     {
         var verlesen = Content(
         [
-            Line(1, "Nordstern Lebensversicherung AG"),
-            Line(1, "Versicherungsnummer:", "77001122-02"),
+            Line(1, "Nordmuster Lebensversicherung AG"),
+            Line(1, "Versicherungsnummer:", "10020030-02"),
             Line(1, "Ihr Statusreport zum 31,12.2023"),
             Line(1, "Ihr Vortragsstand zum 31.12.2023"),
             Line(2, "Fondsübersicht"),

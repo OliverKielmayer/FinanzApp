@@ -25,7 +25,7 @@ Zum Handoff [`design-handoff-erweiterung/handoff.md`](design-handoff-erweiterung
 | `GermanFormat`, Cent-Konverter | Beträge und Datumsangaben bleiben einheitlich |
 
 **Zwei Versicherungsbegriffe, die nicht dasselbe sind.** Der Bestand kennt `InsurancePolicy` als
-*Vermögenswert* (Heidelberger Leben, Rückkaufswert 84.900 €, speist die Dashboard-Kachel). Der
+*Vermögenswert* (Musterleben, Rückkaufswert 84.900 €, speist die Dashboard-Kachel). Der
 Handoff meint mit „Versicherungen“ *Verträge* (Hausrat, Haftpflicht, Kfz, Risikoleben) mit Beitrag,
 Frist und Dokumenten. Das sind verschiedene Dinge — die Ziel­typenliste des Handoffs führt
 `Insurance` und `LifeInsurance` deshalb getrennt. Neue Entität `Insurance`, bestehende bleibt.

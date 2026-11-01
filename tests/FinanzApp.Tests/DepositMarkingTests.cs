@@ -56,7 +56,7 @@ public sealed class DepositMarkingTests : IDisposable
 
         var privat = new Account
         {
-            Name = "Oli Giro", ShortName = "Oli", BankName = "Raiffeisenbank",
+            Name = "Oli Giro", ShortName = "Oli", BankName = "Musterbank",
             Kind = AccountKind.Checking, BalanceAsOf = new DateOnly(2026, 9, 15),
             OwnerUserId = oliver,
         };

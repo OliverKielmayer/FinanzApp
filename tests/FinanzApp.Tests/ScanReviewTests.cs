@@ -39,10 +39,10 @@ public sealed class ScanReviewTests : IDisposable
         var vertrag = new Policy
         {
             Name = "Muster bestpartner classic",
-            Provider = "Nordstern Leben",
+            Provider = "Nordmuster Leben",
             Kind = PolicyKind.CapitalLife,
             IsCapitalForming = true,
-            PolicyNumber = "77001122-01",
+            PolicyNumber = "10020030-01",
         };
 
         context.Policies.Add(vertrag);
@@ -112,8 +112,8 @@ public sealed class ScanReviewTests : IDisposable
     /// Die Vertragsnummer. Eine, die der Bestand nicht kennt, legt den Beleg unter „Unbekannt“
     /// ab — der Fall, um den es beim Umlegen geht.
     /// </param>
-    private static PdfContent Statusreport(string nummer = "77001122-01") => Content(
-        Line(1, "Nordstern Lebensversicherung AG"),
+    private static PdfContent Statusreport(string nummer = "10020030-01") => Content(
+        Line(1, "Nordmuster Lebensversicherung AG"),
         Line(1, "Hamburg, 12.08.2025"),
         Line(1, "Versicherungsnummer:", nummer),
         Line(1, "hiermit übersenden wir Ihnen den jährlichen Statusreport"),
@@ -235,7 +235,7 @@ public sealed class ScanReviewTests : IDisposable
             var prüfschritt = await Scans(Statusreport(), context).ReviewAsync(eingeliefert.DocumentId);
 
             Assert.Equal(eingeliefert.DocumentId, prüfschritt.DocumentId);
-            Assert.Equal("Nordstern Leben", prüfschritt.TargetName);
+            Assert.Equal("Nordmuster Leben", prüfschritt.TargetName);
             Assert.Null(prüfschritt.Blocker);
             Assert.NotEmpty(prüfschritt.Fields);
             Assert.All(prüfschritt.Proofs, p => Assert.True(p.Passed));

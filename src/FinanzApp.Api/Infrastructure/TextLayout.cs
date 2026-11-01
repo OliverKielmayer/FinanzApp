@@ -130,7 +130,7 @@ public static class TextLayout
     /// Geschützte Leerzeichen weg, Trennstriche am Wortende weg.
     /// </summary>
     /// <remarks>
-    /// Der Statusreport der Heidelberger trennt am Zeilenende nicht mit einem Bindestrich,
+    /// Der Statusreport der Musterleben trennt am Zeilenende nicht mit einem Bindestrich,
     /// sondern mit dem Nicht-Zeichen <c>U+00AC</c> — siebzehnmal im Dokument. Bliebe es stehen,
     /// hieße das Wort „Ge¬“ und keine Suche fände es. Nur am Wortende entfernt: mitten im Text
     /// wäre ein <c>¬</c> ein Zeichen und keine Trennung.

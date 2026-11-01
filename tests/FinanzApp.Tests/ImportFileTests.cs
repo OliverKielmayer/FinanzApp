@@ -38,7 +38,7 @@ public sealed class ImportFileTests : IDisposable
         };
         var andere = new Account
         {
-            Name = "Raiffeisenbank Giro", ShortName = "Raiffeisen", BankName = "Raiffeisenbank",
+            Name = "Musterbank Giro", ShortName = "Raiffeisen", BankName = "Musterbank",
             Kind = AccountKind.Checking, Iban = "DE12 6706 2366 0009 1140 07",
             BalanceAsOf = new DateOnly(2026, 8, 26),
         };

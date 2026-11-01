@@ -47,15 +47,15 @@ public sealed class PolicyValueImportTests : IDisposable
     private static readonly string[] Sheet =
     [
         Header,
-        "\"Konten & Kreditkarten\";\"Girokonto\";\"?\";\"\";\"Raiffeisenbank Grüntal\";"
+        "\"Konten & Kreditkarten\";\"Girokonto\";\"?\";\"\";\"Musterbank Grüntal\";"
         + "\"Max Mustermann\";\"manuell erfasst\";\"\";\"\";\"3.150,00\";\"\";\"01.11.2023\";\"\"",
-        "\"Depots\";\"Wertpapierdepot\";\"1009944110\";\"\";\"FFB\";\"Max Mustermann\";"
+        "\"Depots\";\"Wertpapierdepot\";\"1002003004\";\"\";\"FFB\";\"Max Mustermann\";"
         + "\"manuell erfasst\";\"\";\"250,00\";\"27.310,00\";\"\";\"30.09.2023\";\"\"",
-        "\"Lebens- und Rentenversicherungen\";\"Lebensversicherung\";\"77001122-01\";\"\";"
-        + "\"Heidelberger Lebensversicherung AG\";\"Max Mustermann\";\"\";\"\";\"198,40\";"
+        "\"Lebens- und Rentenversicherungen\";\"Lebensversicherung\";\"10020030-01\";\"\";"
+        + "\"Musterleben Lebensversicherung AG\";\"Max Mustermann\";\"\";\"\";\"198,40\";"
         + "\"24.318,60\";\"\";\"31.07.2026\";\"\"",
-        "\"Lebens- und Rentenversicherungen\";\"Rentenversicherung\";\"R-77001122-04\";\"\";"
-        + "\"Heidelberger Lebensversicherung AG\";\"Max Mustermann\";\"\";\"\";\"74,20\";"
+        "\"Lebens- und Rentenversicherungen\";\"Rentenversicherung\";\"R-10020030-04\";\"\";"
+        + "\"Musterleben Lebensversicherung AG\";\"Max Mustermann\";\"\";\"\";\"74,20\";"
         + "\"15.902,80\";\"\";\"31.07.2026\";\"\"",
     ];
 
@@ -86,17 +86,17 @@ public sealed class PolicyValueImportTests : IDisposable
 
         Assert.Equal(4, zeilen.Count);
 
-        var police = zeilen.Single(z => z.ContractNumber == "77001122-01");
+        var police = zeilen.Single(z => z.ContractNumber == "10020030-01");
         Assert.Equal(24318.60m, police.Value);
         Assert.Equal(198.40m, police.MonthlyRate);
         Assert.Equal(new DateOnly(2026, 7, 31), police.AsOf);
-        Assert.Equal("Heidelberger Lebensversicherung AG", police.Company);
+        Assert.Equal("Musterleben Lebensversicherung AG", police.Company);
         Assert.Null(police.Problem);
 
         // Das Konto trägt „?“ als Nummer. Durchgereicht träfe dieser Platzhalter beim nächsten
         // Import eine andere Zeile mit demselben Zeichen.
         var konto = zeilen.Single(z => z.Category.StartsWith("Konten"));
-        Assert.Equal("Raiffeisenbank Grüntal", konto.Company);
+        Assert.Equal("Musterbank Grüntal", konto.Company);
         Assert.Empty(konto.ContractNumber);
         Assert.Equal("ohne Vertragsnummer", konto.Problem);
     }
@@ -108,8 +108,8 @@ public sealed class PolicyValueImportTests : IDisposable
         var zeilen = await new AssetSheetParser()
             .ParseAsync(Stream(new UTF8Encoding(encoderShouldEmitUTF8Identifier: true)), "historie.csv");
 
-        Assert.Equal("Raiffeisenbank Grüntal", zeilen.Single(z => z.Category.StartsWith("Konten")).Company);
-        Assert.Equal(24318.60m, zeilen.Single(z => z.ContractNumber == "77001122-01").Value);
+        Assert.Equal("Musterbank Grüntal", zeilen.Single(z => z.Category.StartsWith("Konten")).Company);
+        Assert.Equal(24318.60m, zeilen.Single(z => z.ContractNumber == "10020030-01").Value);
     }
 
     /// <summary>Eine Orderdatei ist auch semikolongetrennt — und trotzdem keine Übersicht.</summary>
@@ -140,11 +140,11 @@ public sealed class PolicyValueImportTests : IDisposable
 
         context.Policies.Add(new Policy
         {
-            Name = "Heidelberger Leben 01",
-            Provider = "Heidelberger Leben",
+            Name = "Musterleben 01",
+            Provider = "Musterleben",
             Kind = PolicyKind.CapitalLife,
             IsCapitalForming = true,
-            PolicyNumber = "77001122-01",
+            PolicyNumber = "10020030-01",
         });
 
         context.SaveChanges();
@@ -157,20 +157,20 @@ public sealed class PolicyValueImportTests : IDisposable
         Assert.Equal(2, vorschau.Skipped.Count);
         Assert.Null(vorschau.Blocker);
 
-        var getroffen = vorschau.Contracts.Single(c => c.ContractNumber == "77001122-01");
+        var getroffen = vorschau.Contracts.Single(c => c.ContractNumber == "10020030-01");
         Assert.Equal(PolicyValueAction.Match, getroffen.Action);
         Assert.NotNull(getroffen.PolicyId);
         Assert.Equal(1, getroffen.NewCount);
         Assert.True(getroffen.PreSelected);
 
-        var anzulegen = vorschau.Contracts.Single(c => c.ContractNumber == "R-77001122-04");
+        var anzulegen = vorschau.Contracts.Single(c => c.ContractNumber == "R-10020030-04");
         Assert.Equal(PolicyValueAction.Create, anzulegen.Action);
         Assert.Equal(PolicyKind.Pension, anzulegen.SuggestedKind);
-        Assert.Equal("Heidelberger Lebensversicherung AG R-77001122-04", anzulegen.SuggestedName);
+        Assert.Equal("Musterleben Lebensversicherung AG R-10020030-04", anzulegen.SuggestedName);
 
         // Das Depot hat eine Nummer und einen Wert und ist trotzdem kein Vorsorgevertrag. Der
         // Grund steht dabei, samt dem Weg dorthin.
-        var depot = vorschau.Skipped.Single(s => s.Label.Contains("1009944110"));
+        var depot = vorschau.Skipped.Single(s => s.Label.Contains("1002003004"));
         Assert.Contains("Depots", depot.Reason);
     }
 
@@ -197,7 +197,7 @@ public sealed class PolicyValueImportTests : IDisposable
 
         var vertrag = await context.Policies
             .Include(p => p.Reports)
-            .SingleAsync(p => p.PolicyNumber == "77001122-01");
+            .SingleAsync(p => p.PolicyNumber == "10020030-01");
 
         Assert.Equal(PolicyKind.CapitalLife, vertrag.Kind);
         Assert.True(vertrag.IsCapitalForming);
@@ -263,7 +263,7 @@ public sealed class PolicyValueImportTests : IDisposable
         var zweites = await FileAsync(context, berichtigt, "berichtigt.csv");
         var vorschau = await dienst.PreviewAsync(zweites);
 
-        var betroffen = vorschau.Contracts.Single(c => c.ContractNumber == "77001122-01");
+        var betroffen = vorschau.Contracts.Single(c => c.ContractNumber == "10020030-01");
         Assert.Equal(1, betroffen.ChangedCount);
         Assert.Equal(24318.60m, Assert.Single(betroffen.Stands).Previous);
 
@@ -273,7 +273,7 @@ public sealed class PolicyValueImportTests : IDisposable
 
         var vertrag = await context.Policies
             .Include(p => p.Reports)
-            .SingleAsync(p => p.PolicyNumber == "77001122-01");
+            .SingleAsync(p => p.PolicyNumber == "10020030-01");
 
         Assert.Single(vertrag.Reports);
         Assert.Equal(24900m, vertrag.CurrentValue);
@@ -298,8 +298,8 @@ public sealed class PolicyValueImportTests : IDisposable
         string[] historie =
         [
             Header,
-            Zeile("77001122-01", "Lebensversicherung", "20.415,30", "31.12.2023"),
-            Zeile("77001122-01", "Lebensversicherung", "21.006,45", "31.12.2024"),
+            Zeile("10020030-01", "Lebensversicherung", "20.415,30", "31.12.2023"),
+            Zeile("10020030-01", "Lebensversicherung", "21.006,45", "31.12.2024"),
         ];
 
         var dokument = await FileAsync(context, historie, "historie.csv");
@@ -310,7 +310,7 @@ public sealed class PolicyValueImportTests : IDisposable
 
         var vertrag = await context.Policies
             .Include(p => p.Reports)
-            .SingleAsync(p => p.PolicyNumber == "77001122-01");
+            .SingleAsync(p => p.PolicyNumber == "10020030-01");
 
         Assert.Equal(3, vertrag.Reports.Count);
         Assert.Equal(24318.60m, vertrag.CurrentValue);
@@ -345,11 +345,11 @@ public sealed class PolicyValueImportTests : IDisposable
                 var tag = DateTime.DaysInMonth(jahr, monat);
                 erwartet = 10000m + ((jahr - 2005) * 12) + monat;
 
-                zeilen.Add(Zeile("77001122-01", "Lebensversicherung",
+                zeilen.Add(Zeile("10020030-01", "Lebensversicherung",
                     erwartet.ToString("N2", System.Globalization.CultureInfo.GetCultureInfo("de-DE")),
                     $"{tag:00}.{monat:00}.{jahr}"));
 
-                zeilen.Add(Zeile("77001122-03", "Rentenversicherung", "5.000,00",
+                zeilen.Add(Zeile("10020030-03", "Rentenversicherung", "5.000,00",
                     $"{tag:00}.{monat:00}.{jahr}"));
             }
         }
@@ -367,12 +367,12 @@ public sealed class PolicyValueImportTests : IDisposable
         var stände = zeilen.Count - 1;
         Assert.Equal(stände, await context.PolicyReports.CountAsync());
 
-        var vertrag = await context.Policies.SingleAsync(p => p.PolicyNumber == "77001122-01");
+        var vertrag = await context.Policies.SingleAsync(p => p.PolicyNumber == "10020030-01");
         Assert.Equal(erwartet, vertrag.CurrentValue);
         Assert.Equal(new DateOnly(2026, 7, 31), vertrag.ValuationDate);
 
         // Der zweite Vertrag führt seine eigene Reihe mit seinem eigenen Wert.
-        var zweiter = await context.Policies.SingleAsync(p => p.PolicyNumber == "77001122-03");
+        var zweiter = await context.Policies.SingleAsync(p => p.PolicyNumber == "10020030-03");
         Assert.Equal(5000m, zweiter.CurrentValue);
     }
 
@@ -392,8 +392,8 @@ public sealed class PolicyValueImportTests : IDisposable
         string[] doppelt =
         [
             Header,
-            Zeile("77001122-01", "Lebensversicherung", "24.000,00", "31.07.2026"),
-            Zeile("77001122-01", "Lebensversicherung", "24.318,60", "31.07.2026"),
+            Zeile("10020030-01", "Lebensversicherung", "24.000,00", "31.07.2026"),
+            Zeile("10020030-01", "Lebensversicherung", "24.318,60", "31.07.2026"),
         ];
 
         var dienst = Service(context);
@@ -407,7 +407,7 @@ public sealed class PolicyValueImportTests : IDisposable
 
         Assert.Equal(1, await context.PolicyReports.CountAsync());
         Assert.Equal(24318.60m,
-            (await context.Policies.SingleAsync(p => p.PolicyNumber == "77001122-01")).CurrentValue);
+            (await context.Policies.SingleAsync(p => p.PolicyNumber == "10020030-01")).CurrentValue);
     }
 
     /// <summary>
@@ -430,8 +430,8 @@ public sealed class PolicyValueImportTests : IDisposable
         var dienst = Service(context);
 
         // Die Historie: Stände ohne Beitrag. Die Monatsdatei: ein Stand mit Beitrag.
-        string[] historie = [Header, OhneRate("77001122-01", "21.006,45", "31.12.2024")];
-        string[] monat = [Header, Zeile("77001122-01", "Lebensversicherung", "24.318,60", "31.07.2026")];
+        string[] historie = [Header, OhneRate("10020030-01", "21.006,45", "31.12.2024")];
+        string[] monat = [Header, Zeile("10020030-01", "Lebensversicherung", "24.318,60", "31.07.2026")];
 
         var reihenfolge = historieZuerst ? new[] { historie, monat } : [monat, historie];
         var nummer = 0;
@@ -449,7 +449,7 @@ public sealed class PolicyValueImportTests : IDisposable
             await dienst.ConfirmAsync(Alle(vorschau));
         }
 
-        var vertrag = await context.Policies.SingleAsync(p => p.PolicyNumber == "77001122-01");
+        var vertrag = await context.Policies.SingleAsync(p => p.PolicyNumber == "10020030-01");
 
         Assert.Equal(198.40m, vertrag.Premium);
         Assert.Equal(PremiumInterval.Monthly, vertrag.PremiumInterval);
@@ -460,7 +460,7 @@ public sealed class PolicyValueImportTests : IDisposable
         string[] erhoeht =
         [
             Header,
-            Zeile("77001122-01", "Lebensversicherung", "24.900,00", "31.08.2026")
+            Zeile("10020030-01", "Lebensversicherung", "24.900,00", "31.08.2026")
                 .Replace("\"198,40\"", "\"205,00\""),
         ];
 
@@ -488,15 +488,15 @@ public sealed class PolicyValueImportTests : IDisposable
         context.Policies.Add(new Policy
         {
             Name = "Risikoleben",
-            Provider = "Heidelberger Leben",
+            Provider = "Musterleben",
             Kind = PolicyKind.TermLife,
             IsCapitalForming = false,
-            PolicyNumber = "77001122-01",
+            PolicyNumber = "10020030-01",
         });
 
         context.SaveChanges();
 
-        string[] eine = [Header, Zeile("77001122-01", "Lebensversicherung", "24.318,60", "31.07.2026")];
+        string[] eine = [Header, Zeile("10020030-01", "Lebensversicherung", "24.318,60", "31.07.2026")];
         var vorschau = await Service(context).PreviewAsync(await FileAsync(context, eine));
 
         Assert.Empty(vorschau.Contracts);
@@ -509,7 +509,7 @@ public sealed class PolicyValueImportTests : IDisposable
     /// </summary>
     /// <remarks>
     /// „80 511623094“ steht im Vertrag vielleicht ohne Leerzeichen. Der Bindestrich dagegen
-    /// trennt bei „77001122-01“ sieben Verträge voneinander — ohne ihn fielen sie zusammen, und
+    /// trennt bei „10020030-01“ sieben Verträge voneinander — ohne ihn fielen sie zusammen, und
     /// sieben Verläufe würden einer.
     /// </remarks>
     [Fact]
@@ -519,8 +519,8 @@ public sealed class PolicyValueImportTests : IDisposable
 
         context.Policies.Add(new Policy
         {
-            Name = "RuV Rente",
-            Provider = "RuV",
+            Name = "MuV Rente",
+            Provider = "MuV",
             Kind = PolicyKind.Pension,
             IsCapitalForming = true,
             PolicyNumber = "80511623094",
@@ -532,8 +532,8 @@ public sealed class PolicyValueImportTests : IDisposable
         [
             Header,
             Zeile("80 511623094", "Rentenversicherung", "18.740,00", "31.12.2025"),
-            Zeile("77001122-01", "Lebensversicherung", "24.318,60", "31.07.2026"),
-            Zeile("77001122-02", "Lebensversicherung", "51.320,00", "31.07.2026"),
+            Zeile("10020030-01", "Lebensversicherung", "24.318,60", "31.07.2026"),
+            Zeile("10020030-02", "Lebensversicherung", "51.320,00", "31.07.2026"),
         ];
 
         var vorschau = await Service(context).PreviewAsync(await FileAsync(context, zeilen));
@@ -541,8 +541,8 @@ public sealed class PolicyValueImportTests : IDisposable
         Assert.Equal(PolicyValueAction.Match,
             vorschau.Contracts.Single(c => c.ContractNumber == "80 511623094").Action);
 
-        // Die beiden Heidelberger unterscheiden sich nur hinter dem Bindestrich und bleiben zwei.
-        Assert.Equal(2, vorschau.Contracts.Count(c => c.ContractNumber.StartsWith("77001122-")));
+        // Die beiden Musterleben unterscheiden sich nur hinter dem Bindestrich und bleiben zwei.
+        Assert.Equal(2, vorschau.Contracts.Count(c => c.ContractNumber.StartsWith("10020030-")));
     }
 
     // ── Einlieferung ───────────────────────────────────────────────────────────────────────
@@ -562,11 +562,11 @@ public sealed class PolicyValueImportTests : IDisposable
 
         context.Policies.Add(new Policy
         {
-            Name = "Heidelberger Leben 01",
-            Provider = "Heidelberger Leben",
+            Name = "Musterleben 01",
+            Provider = "Musterleben",
             Kind = PolicyKind.CapitalLife,
             IsCapitalForming = true,
-            PolicyNumber = "77001122-01",
+            PolicyNumber = "10020030-01",
         });
 
         context.SaveChanges();
@@ -606,7 +606,7 @@ public sealed class PolicyValueImportTests : IDisposable
 
         Assert.Empty((await new ScanInboxService(context, Documents(context), clock).GetAsync()).Items);
         Assert.Equal(24318.60m,
-            (await context.Policies.SingleAsync(p => p.PolicyNumber == "77001122-01")).CurrentValue);
+            (await context.Policies.SingleAsync(p => p.PolicyNumber == "10020030-01")).CurrentValue);
     }
 
     // ── Aufbau ─────────────────────────────────────────────────────────────────────────────
@@ -630,7 +630,7 @@ public sealed class PolicyValueImportTests : IDisposable
     /// <summary>Eine Zeile der Übersicht, wie die Datei sie schreibt.</summary>
     private static string Zeile(string nummer, string art, string wert, string stand)
         => $"\"Lebens- und Rentenversicherungen\";\"{art}\";\"{nummer}\";\"\";"
-           + $"\"Heidelberger Lebensversicherung AG\";\"Max Mustermann\";\"\";\"\";\"198,40\";"
+           + $"\"Musterleben Lebensversicherung AG\";\"Max Mustermann\";\"\";\"\";\"198,40\";"
            + $"\"{wert}\";\"\";\"{stand}\";\"\"";
 
     /// <summary>Dieselbe Zeile ohne Beitrag — so sieht die umgewandelte Historie aus.</summary>

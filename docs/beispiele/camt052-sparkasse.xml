@@ -96,7 +96,7 @@
             <Amt Ccy="EUR">98.90</Amt>
             <CdtDbtInd>DBIT</CdtDbtInd>
             <RltdPties>
-              <Cdtr><Nm>Stadtwerke Heidelberg</Nm></Cdtr>
+              <Cdtr><Nm>Stadtwerke Musterstadt</Nm></Cdtr>
             </RltdPties>
             <RmtInf><Ustrd>Abschlag Strom 08/2026</Ustrd></RmtInf>
           </TxDtls>

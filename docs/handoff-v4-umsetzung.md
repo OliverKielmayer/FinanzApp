@@ -387,7 +387,7 @@ gegen dieselbe Liste wie beim Anlegen.
 
 **Die Regel, die eine frühere Entscheidung korrigiert.** Der Handoff warnt ausdrücklich davor,
 einen gepflegten Objektnamen beim Bearbeiten neu aus Art und Anbieter zusammenzusetzen — sonst
-wird aus „Risikoleben“ beim bloßen Öffnen und Speichern „Risikoleben Hannoversche“. Genau das
+wird aus „Risikoleben“ beim bloßen Öffnen und Speichern „Risikoleben Musterstädter“. Genau das
 hätte mein `CreatePolicyAsync` getan. Der Name wird jetzt beim **Anlegen** abgeleitet und beim
 **Bearbeiten** nie wieder: dafür gibt es dort das Feld `displayName`, das es im Anlegeformular
 nicht gibt. Ein Test hält den Fall fest.

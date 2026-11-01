@@ -29,7 +29,7 @@ public sealed class PolicyPaymentTests : IDisposable
 
         var giro = new Account
         {
-            Name = "Raiffeisen Giro", ShortName = "Raiffeisen", BankName = "Raiffeisenbank",
+            Name = "Raiffeisen Giro", ShortName = "Raiffeisen", BankName = "Musterbank",
             Kind = AccountKind.Checking, BalanceAsOf = new DateOnly(2026, 1, 1),
         };
 
@@ -103,11 +103,11 @@ public sealed class PolicyPaymentTests : IDisposable
     [Fact]
     public async Task Zugeordnet_wird_ueber_die_Nummer_nicht_ueber_den_Namen()
     {
-        var eins = Policy("Kapital-LV", "Heidelberger Leben", "77001122-01", 212m);
-        var zwei = Policy("Risikoleben", "Heidelberger Leben", "77001122-02", 42m);
+        var eins = Policy("Kapital-LV", "Musterleben", "10020030-01", 212m);
+        var zwei = Policy("Risikoleben", "Musterleben", "10020030-02", 42m);
 
-        Booking("Heidelberger Leben Beitrag", 212m, "BEITRAG 08/2026 VERTRAG 77001122-01");
-        Booking("Heidelberger Leben Beitrag", 42m, "BEITRAG 08/2026 VERTRAG 77001122-02");
+        Booking("Musterleben Beitrag", 212m, "BEITRAG 08/2026 VERTRAG 10020030-01");
+        Booking("Musterleben Beitrag", 42m, "BEITRAG 08/2026 VERTRAG 10020030-02");
 
         var ersterVertrag = await Service().GetAsync(eins);
         var zweiterVertrag = await Service().GetAsync(zwei);
@@ -123,17 +123,17 @@ public sealed class PolicyPaymentTests : IDisposable
     /// Die Schreibweise der Nummer ist gleichgültig.
     /// </summary>
     /// <remarks>
-    /// „77001122-01“, „77001122 01“ und „77001122/01“ sind dieselbe Nummer. Ohne Normalisierung
+    /// „10020030-01“, „10020030 01“ und „10020030/01“ sind dieselbe Nummer. Ohne Normalisierung
     /// fände die Zuordnung nur die eine Schreibweise, die die Bank gerade verwendet.
     /// </remarks>
     [Theory]
-    [InlineData("BEITRAG VERTRAG 77001122-01")]
-    [InlineData("BEITRAG VERTRAG 77001122 01")]
-    [InlineData("BEITRAG VERTRAG 77001122/01")]
-    [InlineData("beitrag vertrag 7700112201")]
+    [InlineData("BEITRAG VERTRAG 10020030-01")]
+    [InlineData("BEITRAG VERTRAG 10020030 01")]
+    [InlineData("BEITRAG VERTRAG 10020030/01")]
+    [InlineData("beitrag vertrag 1002003001")]
     public async Task Die_Schreibweise_der_Nummer_ist_gleichgueltig(string zweck)
     {
-        var id = Policy("Kapital-LV", "Heidelberger Leben", "77001122-01", 212m);
+        var id = Policy("Kapital-LV", "Musterleben", "10020030-01", 212m);
         Booking("Irgendein Empfänger", 212m, zweck);
 
         Assert.Single((await Service().GetAsync(id))!.Payments);
@@ -143,19 +143,19 @@ public sealed class PolicyPaymentTests : IDisposable
     [Fact]
     public async Task Die_Nummer_zaehlt_auch_ausserhalb_des_Verwendungszwecks()
     {
-        var id = Policy("Kapital-LV", "Heidelberger Leben", "77001122-01", 212m);
-        Booking("Heidelberger", 212m, zweck: null, text: "DAUERAUFTRAG 77001122-01");
+        var id = Policy("Kapital-LV", "Musterleben", "10020030-01", 212m);
+        Booking("Musterleben", 212m, zweck: null, text: "DAUERAUFTRAG 10020030-01");
 
         var zahlung = Assert.Single((await Service().GetAsync(id))!.Payments);
-        Assert.Equal("Vertragsnummer 77001122-01 im Buchungstext", zahlung.MatchReason);
+        Assert.Equal("Vertragsnummer 10020030-01 im Buchungstext", zahlung.MatchReason);
     }
 
     /// <summary>Ohne Nummer am Vertrag gibt es keine Zuordnung — und keine geratene.</summary>
     [Fact]
     public async Task Ohne_Vertragsnummer_wird_nichts_zugeordnet()
     {
-        var id = Policy("Kapital-LV", "Heidelberger Leben", nummer: null, 212m);
-        Booking("Heidelberger Leben Beitrag", 212m, "BEITRAG 08/2026");
+        var id = Policy("Kapital-LV", "Musterleben", nummer: null, 212m);
+        Booking("Musterleben Beitrag", 212m, "BEITRAG 08/2026");
 
         Assert.Empty((await Service().GetAsync(id))!.Payments);
     }
@@ -164,8 +164,8 @@ public sealed class PolicyPaymentTests : IDisposable
     [Fact]
     public async Task Ein_passender_Betrag_allein_ordnet_nichts_zu()
     {
-        var id = Policy("Kapital-LV", "Heidelberger Leben", "77001122-01", 212m);
-        Booking("Heidelberger Leben Beitrag", 212m, "BEITRAG 08/2026 VERTRAG 99999999-99");
+        var id = Policy("Kapital-LV", "Musterleben", "10020030-01", 212m);
+        Booking("Musterleben Beitrag", 212m, "BEITRAG 08/2026 VERTRAG 99999999-99");
 
         Assert.Empty((await Service().GetAsync(id))!.Payments);
     }
@@ -182,13 +182,13 @@ public sealed class PolicyPaymentTests : IDisposable
     [Fact]
     public async Task Jede_Zeile_nennt_ihren_Grund_und_den_Zweck()
     {
-        var id = Policy("Kapital-LV", "Heidelberger Leben", "77001122-01", 212m);
-        Booking("Heidelberger Leben Beitrag", 212m, "BEITRAG 08/2026 VERTRAG 77001122-01 KAPITAL-LV");
+        var id = Policy("Kapital-LV", "Musterleben", "10020030-01", 212m);
+        Booking("Musterleben Beitrag", 212m, "BEITRAG 08/2026 VERTRAG 10020030-01 KAPITAL-LV");
 
         var zahlung = Assert.Single((await Service().GetAsync(id))!.Payments);
 
-        Assert.Equal("Vertragsnummer 77001122-01 im Verwendungszweck", zahlung.MatchReason);
-        Assert.Equal("BEITRAG 08/2026 VERTRAG 77001122-01 KAPITAL-LV", zahlung.Reference);
+        Assert.Equal("Vertragsnummer 10020030-01 im Verwendungszweck", zahlung.MatchReason);
+        Assert.Equal("BEITRAG 08/2026 VERTRAG 10020030-01 KAPITAL-LV", zahlung.Reference);
     }
 
     /// <summary>
@@ -201,8 +201,8 @@ public sealed class PolicyPaymentTests : IDisposable
     [Fact]
     public async Task Ein_abweichender_Betrag_bleibt_zugeordnet()
     {
-        var id = Policy("Kapital-LV", "Heidelberger Leben", "77001122-01", 42m);
-        Booking("Heidelberger Leben Beitrag", 212m, "BEITRAG 08/2026 VERTRAG 77001122-01");
+        var id = Policy("Kapital-LV", "Musterleben", "10020030-01", 42m);
+        Booking("Musterleben Beitrag", 212m, "BEITRAG 08/2026 VERTRAG 10020030-01");
 
         var zahlung = Assert.Single((await Service().GetAsync(id))!.Payments);
 

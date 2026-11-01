@@ -542,7 +542,7 @@ public static class BillTextReader
         // Zuletzt die erste Zeile, die überhaupt einen Namen tragen kann.
         //
         // Ein Briefkopf bricht den Firmennamen gern über mehrere Zeilen um, und eine Erkennung
-        // liefert die Bruchstücke einzeln: „Die“, „Schreiner“, „Eberhard Gronbach“. Die erste
+        // liefert die Bruchstücke einzeln: „Die“, „Schreiner“, „Eberhard Muster“. Die erste
         // davon ist kein Absender, sondern ein Artikel. Zwei Buchstaben und ein Artikel allein
         // sagen nichts — die nächste Zeile ist die bessere Antwort und selten eine schlechtere.
         foreach (var zeile in kopf)

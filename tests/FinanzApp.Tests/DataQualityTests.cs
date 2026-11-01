@@ -152,7 +152,7 @@ public sealed class DataQualityTests : IDisposable
             context.Policies.AddRange(
                 new Policy
                 {
-                    Name = "Kapital-LV", Provider = "Allianz", Premium = 0m,
+                    Name = "Kapital-LV", Provider = "Musterschutz", Premium = 0m,
                     IsCapitalForming = true, Kind = PolicyKind.CapitalLife,
                 },
                 new Policy

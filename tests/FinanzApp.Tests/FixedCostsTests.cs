@@ -62,7 +62,7 @@ public sealed class FixedCostsTests : IDisposable
         using var context = database.Context();
         context.Policies.Add(new Policy
         {
-            Name = name, Provider = "Allianz", Premium = beitrag, PremiumInterval = takt,
+            Name = name, Provider = "Musterschutz", Premium = beitrag, PremiumInterval = takt,
             IsCapitalForming = kapitalbildend, NoticePeriodMonths = fristMonate,
             NoticeReminderOn = erinnerung, EndsOn = ende, Kind = PolicyKind.Liability,
         });
@@ -322,7 +322,7 @@ public sealed class FixedCostsTests : IDisposable
     {
         var depot = Depot("finanzen.net ZERO");
         Position(depot, "Vanguard FTSE All-World", 100m, 120m, 10000m);
-        Position(depot, "Allianz SE", 10m, 300m, 4000m);
+        Position(depot, "Musterschutz SE", 10m, 300m, 4000m);
 
         var gv = await Service().GetPortfolioGainAsync();
 

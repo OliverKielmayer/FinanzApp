@@ -164,7 +164,7 @@ public sealed class ImportTests : IDisposable
         {
             var other = new Account
             {
-                Name = "Raiffeisenbank Giro", ShortName = "Raiffeisen", BankName = "Raiffeisenbank",
+                Name = "Musterbank Giro", ShortName = "Raiffeisen", BankName = "Musterbank",
                 Kind = AccountKind.Checking, BalanceAsOf = new DateOnly(2026, 8, 23),
             };
             context.Accounts.Add(other);

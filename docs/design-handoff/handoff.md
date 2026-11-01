@@ -85,7 +85,7 @@ Kicker „Übersicht", Titel „Vermögen".
 Kicker „Finanzen", Titel „Konten & Buchungen".
 
 - **Suchzeile**: `.input` „Buchungen durchsuchen" (`flex:1`, min-height 42) + `.btn-secondary` „Reset". Filtert Buchungen live über Empfänger und Kategorie (case-insensitive Substring).
-- **Kontoliste**: je Zeile `padding 13px 16px`, 1px Unterlinie, links Kontoname (15px/600) über IBAN bzw. Zinsinfo (11px neutral-600), rechts Saldo (15px/800 tabular) über Aktualität (11px). Beispieldaten: Sparkasse Giro `DE44 6725 0020 0034 8891 02` — 4.812,60 €; Raiffeisenbank Giro `DE12 6706 2366 0009 1140 07` — 1.947,35 €; Tagesgeld Raiffeisen (2,35 % · Zinsen 98,12 € YTD) — 50.000,00 €.
+- **Kontoliste**: je Zeile `padding 13px 16px`, 1px Unterlinie, links Kontoname (15px/600) über IBAN bzw. Zinsinfo (11px neutral-600), rechts Saldo (15px/800 tabular) über Aktualität (11px). Beispieldaten: Sparkasse Giro `DE44 6725 0020 0034 8891 02` — 4.812,60 €; Musterbank Giro `DE12 6706 2366 0009 1140 07` — 1.947,35 €; Tagesgeld Raiffeisen (2,35 % · Zinsen 98,12 € YTD) — 50.000,00 €.
 - **Abschnittskopf** „Buchungen" mit Zähler „7 von 7".
 - **Triage-Banner** (nur wenn unkategorisierte Buchungen existieren): `margin 0 16px 10px`, `padding 12px 14px`, Fläche `--color-accent-100`, links 2px Akzentbalken, Text „N Buchungen ohne Kategorie" (13px/600, accent-800) + „Jetzt zuordnen", rechts Pfeil „→" (18px/800 accent). Tap öffnet das Kategorie-Sheet für die erste unkategorisierte Buchung.
 - **Buchungsliste**: je Zeile `padding 11px 16px`, 1px Unterlinie, drei Spalten: Datum (11px, Breite 36px, tabular), Mitte Empfänger (14px/600, einzeilig mit Ellipsis) über Chip-Reihe, rechts Betrag (14px/600 tabular; Einnahmen `--color-accent-700`, Ausgaben `--color-text`, Vorzeichen `+`/`−`). Chips: `.tag-neutral` bei gesetzter Kategorie, `.tag-accent` bei „Nicht zugeordnet", `.tag-outline` bei „Umbuchung"; daneben Kontokürzel (10px). Tap öffnet das Kategorie-Sheet.
@@ -117,7 +117,7 @@ Kicker „Investments", Titel „Depot".
 
 - **Hero**: „Depotwert · finanzen.net ZERO" über 38px/800-Wert `132.480,00 €`, darunter „+18.940,20 € G/V" (accent-700) und „+16,7 % · TTWROR 9,8 % p. a." (neutral-700).
 - **Depotentwicklung**: Chart wie Dashboard, `viewBox 0 0 358 84`, Kopfzeile rechts mit Kursstand „Kurse: 22.08.2026, 17:35" (wichtig: sichtbarer Zeitstempel, weil Kursdaten aus einem austauschbaren Provider stammen und veralten können).
-- **Positionen**: je Zeile Name (14px/600, Ellipsis) + Wert (14px/800 tabular); Metazeile 11px mit „412 St. · 118,40 € · IE00BK5BQT80" links und Performance rechts (600, accent-700 positiv, neutral-700 negativ). Beispiele: Vanguard FTSE All-World, iShares Core MSCI World, Xtrackers MSCI EM, Allianz SE.
+- **Positionen**: je Zeile Name (14px/600, Ellipsis) + Wert (14px/800 tabular); Metazeile 11px mit „412 St. · 118,40 € · IE00BK5BQT80" links und Performance rechts (600, accent-700 positiv, neutral-700 negativ). Beispiele: Vanguard FTSE All-World, iShares Core MSCI World, Xtrackers MSCI EM, Musterschutz SE.
 
 ### 6. Darlehen (aus Dashboard/Mehr erreichbar)
 
@@ -129,7 +129,7 @@ Kopf: Dateiname „camt053_2026-08.xml · Sparkasse · 41 Datensätze" plus Tags
 
 ### 8. Mehr / Sammelseite
 
-Zeilenliste (`padding 15px 16px`, 1px Unterlinie): Label (15px/600) über Untertitel (11px), rechts Wert (14px/600 tabular neutral-700). Einträge: Lebensversicherungen (Heidelberger Leben · Rückkaufswert 01.07.2026 · 84.900 €), Darlehen (Rate 1.180 € · −148.300 €), Datenimport (CSV & CAMT · 2 Profile), Auswertungen, Kategorien & Regeln (24 Kategorien · 11 Regeln), Sicherheit (2FA aktiv · Backup 23.08.2026 03:00).
+Zeilenliste (`padding 15px 16px`, 1px Unterlinie): Label (15px/600) über Untertitel (11px), rechts Wert (14px/600 tabular neutral-700). Einträge: Lebensversicherungen (Musterleben · Rückkaufswert 01.07.2026 · 84.900 €), Darlehen (Rate 1.180 € · −148.300 €), Datenimport (CSV & CAMT · 2 Profile), Auswertungen, Kategorien & Regeln (24 Kategorien · 11 Regeln), Sicherheit (2FA aktiv · Backup 23.08.2026 03:00).
 
 ---
 

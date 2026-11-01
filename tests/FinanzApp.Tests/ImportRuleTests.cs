@@ -249,7 +249,7 @@ public sealed class ImportRuleTests : IDisposable
         await Service().CommitAsync(new ImportCommitRequest
         {
             PreviewId = preview.Id, AccountId = account, Indexes = [],
-            Choices = [new ImportCategoryChoice("Stadtwerke Heidelberg", lebensmittel, RememberRule: true)],
+            Choices = [new ImportCategoryChoice("Stadtwerke Musterstadt", lebensmittel, RememberRule: true)],
         });
 
         // Dieselbe Firma, wie eine Bank sie schreiben koennte.
@@ -263,7 +263,7 @@ public sealed class ImportRuleTests : IDisposable
     /// </summary>
     /// <remarks>
     /// An echten Bankdaten aufgefallen: „R + V LEBENSVERSICHERUNG“ ergibt als erstes Wort das
-    /// Muster „R“. Ohne Wortgrenze fing das Rundfunk, REWE, das Restaurant und die Raiffeisenbank
+    /// Muster „R“. Ohne Wortgrenze fing das Rundfunk, REWE, das Restaurant und die Musterbank
     /// gleich mit ein — eine einzige gemerkte Regel hätte den halben Auszug falsch zugeordnet.
     /// </remarks>
     [Theory]

@@ -92,7 +92,7 @@ public sealed class DocumentPathService
     /// </summary>
     /// <param name="subFolder">
     /// Vorgeschlagener Unterordner unterhalb des Bereichs, etwa
-    /// <c>Lebensversicherung/Heidelberger Leben/2025</c>. Jedes Segment wird entschärft; leere
+    /// <c>Lebensversicherung/Musterleben/2025</c>. Jedes Segment wird entschärft; leere
     /// Angabe legt direkt in den Bereichsordner.
     /// </param>
     /// <param name="preferredName">

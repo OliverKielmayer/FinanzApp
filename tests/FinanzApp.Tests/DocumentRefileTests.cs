@@ -76,10 +76,10 @@ public sealed class DocumentRefileTests : IDisposable
         var id = Ablegen(alt);
 
         using var context = database.Context();
-        var neu = await Documents(context).RefileAsync(id, DocumentArea.Insurance, "Heidelberger Leben");
+        var neu = await Documents(context).RefileAsync(id, DocumentArea.Insurance, "Musterleben");
 
         Assert.Equal(
-            "Versicherungen/Lebensversicherung/Heidelberger_Leben/2014/Statusreport_2014-07-31.pdf",
+            "Versicherungen/Lebensversicherung/Musterleben/2014/Statusreport_2014-07-31.pdf",
             neu);
 
         Assert.Equal(neu, PathOf(id));
@@ -101,7 +101,7 @@ public sealed class DocumentRefileTests : IDisposable
         var id = Ablegen("Versicherungen/Lebensversicherung/Unbekannt/2014/beleg.pdf");
 
         using var context = database.Context();
-        await Documents(context).RefileAsync(id, DocumentArea.Insurance, "Heidelberger Leben");
+        await Documents(context).RefileAsync(id, DocumentArea.Insurance, "Musterleben");
 
         Assert.False(Directory.Exists(
             Path.Combine(root, "Versicherungen", "Lebensversicherung", "Unbekannt", "2014")));
@@ -126,7 +126,7 @@ public sealed class DocumentRefileTests : IDisposable
         var id = Ablegen("Versicherungen/Lebensversicherung/Unbekannt/2014/beleg.pdf");
 
         using var context = database.Context();
-        await Documents(context).RefileAsync(id, DocumentArea.Insurance, "Heidelberger Leben");
+        await Documents(context).RefileAsync(id, DocumentArea.Insurance, "Musterleben");
 
         Assert.True(Directory.Exists(
             Path.Combine(root, "Versicherungen", "Lebensversicherung", "Unbekannt")));
@@ -139,16 +139,16 @@ public sealed class DocumentRefileTests : IDisposable
     [Fact]
     public async Task Ein_belegter_Name_im_Ziel_wird_nicht_ueberschrieben()
     {
-        var besetzt = "Versicherungen/Lebensversicherung/Heidelberger_Leben/2014/beleg.pdf";
+        var besetzt = "Versicherungen/Lebensversicherung/Musterleben/2014/beleg.pdf";
         Ablegen(besetzt);
 
         var id = Ablegen("Versicherungen/Lebensversicherung/Unbekannt/2014/beleg.pdf");
 
         using var context = database.Context();
-        var neu = await Documents(context).RefileAsync(id, DocumentArea.Insurance, "Heidelberger Leben");
+        var neu = await Documents(context).RefileAsync(id, DocumentArea.Insurance, "Musterleben");
 
         Assert.Equal(
-            "Versicherungen/Lebensversicherung/Heidelberger_Leben/2014/beleg_1.pdf", neu);
+            "Versicherungen/Lebensversicherung/Musterleben/2014/beleg_1.pdf", neu);
 
         Assert.True(Exists(besetzt));
         Assert.True(Exists(neu!));
@@ -169,7 +169,7 @@ public sealed class DocumentRefileTests : IDisposable
 
         using var context = database.Context();
 
-        Assert.Null(await Documents(context).RefileAsync(id, DocumentArea.Insurance, "Heidelberger Leben"));
+        Assert.Null(await Documents(context).RefileAsync(id, DocumentArea.Insurance, "Musterleben"));
         Assert.Equal(pfad, PathOf(id));
         Assert.True(Exists(pfad));
     }
@@ -183,7 +183,7 @@ public sealed class DocumentRefileTests : IDisposable
 
         using var context = database.Context();
 
-        Assert.Null(await Documents(context).RefileAsync(id, DocumentArea.Insurance, "Heidelberger Leben"));
+        Assert.Null(await Documents(context).RefileAsync(id, DocumentArea.Insurance, "Musterleben"));
         Assert.Equal(pfad, PathOf(id));
     }
 
@@ -201,7 +201,7 @@ public sealed class DocumentRefileTests : IDisposable
 
         using var context = database.Context();
 
-        Assert.Null(await Documents(context).RefileAsync(id, DocumentArea.Insurance, "Heidelberger Leben"));
+        Assert.Null(await Documents(context).RefileAsync(id, DocumentArea.Insurance, "Musterleben"));
         Assert.Equal(pfad, PathOf(id));
     }
 
@@ -312,7 +312,7 @@ public sealed class DocumentRefileTests : IDisposable
     [Fact]
     public async Task Ein_zugeordneter_Beleg_nimmt_sein_Objekt_mit()
     {
-        var id = Ablegen("Versicherungen/Nordstern_Leben/beleg.pdf");
+        var id = Ablegen("Versicherungen/Nordmuster_Leben/beleg.pdf");
 
         using var context = database.Context();
 
@@ -322,9 +322,9 @@ public sealed class DocumentRefileTests : IDisposable
             Area = DocumentArea.Housing,
         });
 
-        Assert.Equal("Wohnen/Nordstern_Leben/beleg.pdf", PathOf(id));
-        Assert.True(Exists("Wohnen/Nordstern_Leben/beleg.pdf"));
-        Assert.False(Exists("Versicherungen/Nordstern_Leben/beleg.pdf"));
+        Assert.Equal("Wohnen/Nordmuster_Leben/beleg.pdf", PathOf(id));
+        Assert.True(Exists("Wohnen/Nordmuster_Leben/beleg.pdf"));
+        Assert.False(Exists("Versicherungen/Nordmuster_Leben/beleg.pdf"));
     }
 
     /// <summary>Steht nichts vor <c>Unbekannt</c>, stammt der Pfad nicht aus dieser Ablage.</summary>
@@ -363,8 +363,8 @@ public sealed class DocumentRefileTests : IDisposable
         {
             var vertrag = new Policy
             {
-                Name = "Heidelberger Leben",
-                Provider = "Heidelberger Leben",
+                Name = "Musterleben",
+                Provider = "Musterleben",
                 Kind = PolicyKind.CapitalLife,
                 IsCapitalForming = true,
             };
@@ -404,7 +404,7 @@ public sealed class DocumentRefileTests : IDisposable
         var neu = PathOf(id);
 
         Assert.Equal(
-            "Versicherungen/Lebensversicherung/Heidelberger_Leben/2014/Statusreport_2014-07-31.pdf",
+            "Versicherungen/Lebensversicherung/Musterleben/2014/Statusreport_2014-07-31.pdf",
             neu);
 
         Assert.True(Exists(neu));

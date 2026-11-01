@@ -108,12 +108,12 @@ public sealed class HoldingMetaTests : IDisposable
     {
         var police = new Policy
         {
-            Name = "Haftpflicht", Provider = "Allianz", Kind = PolicyKind.Liability,
+            Name = "Haftpflicht", Provider = "Musterschutz", Kind = PolicyKind.Liability,
         };
 
         var meta = HoldingMeta.ForProtection(police);
 
-        Assert.Equal("Haftpflicht · Allianz", meta);
+        Assert.Equal("Haftpflicht · Musterschutz", meta);
         Assert.DoesNotContain("· ·", meta);
         Assert.False(meta.StartsWith('·') || meta.EndsWith('·'));
     }

@@ -188,7 +188,7 @@ public sealed class CreateFormTests : IDisposable
         await Service().CreateAsync(CreateObjectType.Protection, new Dictionary<string, string?>
         {
             ["kind"] = nameof(PolicyKind.TermLife),
-            ["provider"] = "Heidelberger Leben",
+            ["provider"] = "Musterleben",
             ["premium"] = "42",
             ["interval"] = nameof(PremiumInterval.Monthly),
 
@@ -363,8 +363,8 @@ public sealed class CreateFormTests : IDisposable
             {
                 Kind = PolicyKind.Vehicle,
                 IsCapitalForming = false,
-                Name = "Kfz WGV",
-                Provider = "WGV",
+                Name = "Kfz MGV",
+                Provider = "MGV",
                 Premium = 618m,
                 PremiumInterval = PremiumInterval.Yearly,
             };
@@ -500,7 +500,7 @@ public sealed class CreateFormTests : IDisposable
         Dictionary<string, string?> Vertrag(string nummer) => new()
         {
             ["kind"] = nameof(PolicyKind.CapitalLife),
-            ["provider"] = "Heidelberger Leben",
+            ["provider"] = "Musterleben",
             ["number"] = nummer,
             ["premium"] = "212",
             ["value"] = "10.000",
@@ -511,7 +511,7 @@ public sealed class CreateFormTests : IDisposable
         Assert.True((await Service().CreateAsync(CreateObjectType.Pension, Vertrag("LV-2"))).Ok);
 
         using var context = database.Context();
-        Assert.Equal(2, context.Policies.Count(p => p.Provider == "Heidelberger Leben"));
+        Assert.Equal(2, context.Policies.Count(p => p.Provider == "Musterleben"));
     }
 
     /// <summary>
@@ -527,7 +527,7 @@ public sealed class CreateFormTests : IDisposable
         Dictionary<string, string?> Police() => new()
         {
             ["kind"] = nameof(PolicyKind.Vehicle),
-            ["provider"] = "Allianz",
+            ["provider"] = "Musterschutz",
             ["number"] = "KFZ-4711",
             ["premium"] = "78,40",
         };

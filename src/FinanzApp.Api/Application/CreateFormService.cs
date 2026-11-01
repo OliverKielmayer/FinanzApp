@@ -69,7 +69,7 @@ public sealed class CreateFormService(
             DeleteImpact = impact,
 
             // Ein gepflegter Name wird beim Bearbeiten nicht neu zusammengesetzt — sonst würde
-            // aus „Risikoleben“ beim bloßen Öffnen und Speichern „Risikoleben Hannoversche“.
+            // aus „Risikoleben“ beim bloßen Öffnen und Speichern „Risikoleben Musterstädter“.
             // Deshalb gibt es die Bezeichnung hier als echtes Feld.
             Fields = NameField(type) is { } name ? [name, .. form.Fields] : form.Fields,
         };
@@ -343,7 +343,7 @@ public sealed class CreateFormService(
     /// <summary>
     /// Die Bezeichnung gibt es nur im Bearbeiten-Formular. Beim Anlegen wird sie abgeleitet, beim
     /// Bearbeiten nie wieder — sonst überschriebe ein bloßes Öffnen und Speichern einen
-    /// gepflegten Namen: aus „Risikoleben“ würde „Risikoleben Hannoversche“.
+    /// gepflegten Namen: aus „Risikoleben“ würde „Risikoleben Musterstädter“.
     /// </summary>
     private static CreateFieldDto? NameField(CreateObjectType type) => type switch
     {
@@ -1695,7 +1695,7 @@ public sealed class CreateFormService(
             SubmitLabel = "Vertrag anlegen",
             Fields =
             [
-                Text("provider", "Anbieter", required: true, placeholder: "z. B. Stadtwerke Heidelberg"),
+                Text("provider", "Anbieter", required: true, placeholder: "z. B. Stadtwerke Musterstadt"),
                 Choice("name", "Art", required: true,
                 [
                     new() { Value = "Strom", Label = "Strom" },

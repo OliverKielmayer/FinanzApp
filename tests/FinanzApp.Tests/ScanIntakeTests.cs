@@ -36,10 +36,10 @@ public sealed class ScanIntakeTests : IDisposable
         var vertrag = new Policy
         {
             Name = "Muster bestpartner classic",
-            Provider = "Nordstern Leben",
+            Provider = "Nordmuster Leben",
             Kind = PolicyKind.CapitalLife,
             IsCapitalForming = true,
-            PolicyNumber = "77001122-01",
+            PolicyNumber = "10020030-01",
         };
 
         context.Policies.Add(vertrag);
@@ -116,9 +116,9 @@ public sealed class ScanIntakeTests : IDisposable
 
     /// <summary>Ein Statusreport im Aufbau des Originals, mit erfundenen Zahlen.</summary>
     private static PdfContent Statusreport() => Content(
-        Line(1, "Nordstern Lebensversicherung AG"),
+        Line(1, "Nordmuster Lebensversicherung AG"),
         Line(1, "Hamburg, 12.08.2025"),
-        Line(1, "Versicherungsnummer:", "77001122-01"),
+        Line(1, "Versicherungsnummer:", "10020030-01"),
         Line(1, "hiermit übersenden wir Ihnen den jährlichen Statusreport"),
         Line(1, "Ihr Vertragsstand zum 31.07.2025"),
         Line(2, "Wert der Versicherung"),
@@ -128,9 +128,9 @@ public sealed class ScanIntakeTests : IDisposable
 
     /// <summary>Ein fondsgebundener Statusreport, im Aufbau des Originals.</summary>
     private static PdfContent FundStatusreport() => Content(
-        Line(1, "Nordstern Lebensversicherung AG"),
+        Line(1, "Nordmuster Lebensversicherung AG"),
         Line(1, "Hamburg, 05.03.2025"),
-        Line(1, "Versicherungsnummer:", "77001122-02"),
+        Line(1, "Versicherungsnummer:", "10020030-02"),
         Line(1, "hiermit übersenden wir Ihnen den Statusreport zum Stand Ihrer fondsgebundenen"),
         Line(1, "Ihr Vertragsstand zum 31.12.2024"),
         Line(2, "Fondsübersicht"),
@@ -207,7 +207,7 @@ public sealed class ScanIntakeTests : IDisposable
         Assert.Null(ergebnis.Missing);
         Assert.Equal(DocumentArea.Insurance, ergebnis.Area);
         Assert.Equal(DocumentKindLibrary.Statusreport.Label, ergebnis.TypeName);
-        Assert.Equal("Nordstern Leben", ergebnis.TargetName);
+        Assert.Equal("Nordmuster Leben", ergebnis.TargetName);
         Assert.Equal("Vertrag", ergebnis.TargetNoun);
 
         using var context = database.Context();
@@ -240,7 +240,7 @@ public sealed class ScanIntakeTests : IDisposable
         Assert.Equal(1, eingang.WaitingCount);
         Assert.Equal(ergebnis.DocumentId, eintrag.DocumentId);
         Assert.True(eintrag.Recognised);
-        Assert.Equal("Nordstern Leben", eintrag.Sender);
+        Assert.Equal("Nordmuster Leben", eintrag.Sender);
     }
 
     // ── Was nicht geht, wartet sichtbar ────────────────────────────────────────────────────
@@ -261,7 +261,7 @@ public sealed class ScanIntakeTests : IDisposable
         Assert.Equal(ScanIntakeOutcome.Waiting, ergebnis.Outcome);
         Assert.Null(ergebnis.TypeName);
         Assert.NotNull(ergebnis.Missing);
-        Assert.Equal("Nordstern Leben", ergebnis.TargetName);
+        Assert.Equal("Nordmuster Leben", ergebnis.TargetName);
 
         // Genannt wird der Typ, den die Art nennt — der ist kurz und passt für mehrere Arten.
         // Die lange Bezeichnung hier stünde als Aufforderung, das Falsche anzulegen.
@@ -297,10 +297,10 @@ public sealed class ScanIntakeTests : IDisposable
             context.Policies.Add(new Policy
             {
                 Name = "Muster topinvest",
-                Provider = "Nordstern Leben",
+                Provider = "Nordmuster Leben",
                 Kind = PolicyKind.CapitalLife,
                 IsCapitalForming = true,
-                PolicyNumber = "77001122-02",
+                PolicyNumber = "10020030-02",
             });
 
             context.SaveChanges();
@@ -589,9 +589,9 @@ public sealed class ScanIntakeTests : IDisposable
         await TakeInAsync(Statusreport());
 
         var vorjahr = Content(
-            Line(1, "Nordstern Lebensversicherung AG"),
+            Line(1, "Nordmuster Lebensversicherung AG"),
             Line(1, "Hamburg, 12.08.2024"),
-            Line(1, "Versicherungsnummer:", "77001122-01"),
+            Line(1, "Versicherungsnummer:", "10020030-01"),
             Line(1, "hiermit übersenden wir Ihnen den jährlichen Statusreport"),
             Line(1, "Ihr Vertragsstand zum 31.07.2024"),
             Line(2, "Wert der Versicherung"),

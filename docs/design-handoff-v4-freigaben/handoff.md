@@ -66,7 +66,7 @@ Die vorherige Sammelkategorie „Versicherungen" ist aufgeteilt — Entscheidung
 
 Technisch **ein** Objektmodell mit Flag `kapitalbildend`, zwei Einstiege — keine doppelte Verwaltung. Ein Risikoleben-Vertrag darf nie im Nettovermögen erscheinen. Die Kfz-Versicherung erscheint unter Absicherung **und** auf der Fahrzeugseite als verknüpfter Vertrag (wie der Stromvertrag an der Immobilie). Krankenversicherung bleibt Absicherung, ihre Erstattungen laufen in Gesundheit.
 
-Beispieldaten im Prototyp (aus der echten Ablage des Nutzers abgeleitet): Vorsorge = Heidelberger Leben 20.481,52 € (Stand 31.07.2025), Raiffeisenbank LV, Riester Musterkasse, Bausparen BSK SHA (zuteilungsreif, als Frist markiert) → 58.940 €. Absicherung = 8 Verträge → 12.330 €/Jahr.
+Beispieldaten im Prototyp (aus der echten Ablage des Nutzers abgeleitet): Vorsorge = Musterleben 20.481,52 € (Stand 31.07.2025), Musterbank LV, Riester Musterkasse, Bausparen BSK MST (zuteilungsreif, als Frist markiert) → 58.940 €. Absicherung = 8 Verträge → 12.330 €/Jahr.
 
 ## 5. Zwei neue Objekttypen
 
@@ -145,7 +145,7 @@ Zwei Regeln, die sich daraus ergeben:
 1. **Keine Metadaten aus Anzeigetexten parsen.** Ein Vertragsname wie „Risikoleben" hat keinen Versicherer im Namen; ein aus dem Text geratener Wert lässt das Pflichtfeld leer und macht das Formular unbenutzbar.
 2. **Relative Angaben nie einfrieren.** „Kündigung in 18 Tagen" ist eine Berechnung aus dem Vertragsende, kein gespeicherter Text — gespeichert wird das Datum.
 
-Ein gepflegter Objektname wird beim Bearbeiten **nicht** neu aus Art + Anbieter zusammengesetzt (sonst wird aus „Risikoleben" beim bloßen Öffnen und Speichern „Risikoleben Hannoversche").
+Ein gepflegter Objektname wird beim Bearbeiten **nicht** neu aus Art + Anbieter zusammengesetzt (sonst wird aus „Risikoleben" beim bloßen Öffnen und Speichern „Risikoleben Musterstädter").
 
 ## 6c. Kontofreigaben im Haushalt (neu)
 

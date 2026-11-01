@@ -70,18 +70,18 @@ public sealed class ScannedNameTests : IDisposable
     [Fact]
     public async Task Ein_Scannername_wird_durch_Typ_Objekt_und_Datum_ersetzt()
     {
-        var id = Beleg("Versicherungen/Allianz/Scannen0007.pdf", new DateOnly(2026, 9, 30));
+        var id = Beleg("Versicherungen/Musterschutz/Scannen0007.pdf", new DateOnly(2026, 9, 30));
 
-        var ziel = await Dienst().RenameIfScannedAsync(id, "Beitragsrechnung", "Allianz",
+        var ziel = await Dienst().RenameIfScannedAsync(id, "Beitragsrechnung", "Musterschutz",
             new DateOnly(2026, 9, 30));
 
-        Assert.Equal("Versicherungen/Allianz/Beitragsrechnung_Allianz_2026-09-30.pdf", ziel);
+        Assert.Equal("Versicherungen/Musterschutz/Beitragsrechnung_Musterschutz_2026-09-30.pdf", ziel);
         Assert.Equal(ziel, PfadVon(id));
 
         // Und die Datei liegt wirklich dort.
         Assert.True(File.Exists(Path.Combine(root,
-            "Versicherungen", "Allianz", "Beitragsrechnung_Allianz_2026-09-30.pdf")));
-        Assert.False(File.Exists(Path.Combine(root, "Versicherungen", "Allianz", "Scannen0007.pdf")));
+            "Versicherungen", "Musterschutz", "Beitragsrechnung_Musterschutz_2026-09-30.pdf")));
+        Assert.False(File.Exists(Path.Combine(root, "Versicherungen", "Musterschutz", "Scannen0007.pdf")));
     }
 
     /// <summary>Der Ordner bleibt, wo er ist — umbenannt wird, nicht verschoben.</summary>

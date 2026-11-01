@@ -35,10 +35,10 @@ public sealed class DocumentScanTests : IDisposable
         var vertrag = new Policy
         {
             Name = "Muster bestpartner classic",
-            Provider = "Nordstern Leben",
+            Provider = "Nordmuster Leben",
             Kind = PolicyKind.CapitalLife,
             IsCapitalForming = true,
-            PolicyNumber = "77001122-01",
+            PolicyNumber = "10020030-01",
         };
 
         var depot = new Depot { Name = "Musterdepot", Broker = "Musterbank", Number = "9988776655" };
@@ -99,9 +99,9 @@ public sealed class DocumentScanTests : IDisposable
     /// <summary>Ein Statusreport mit erfundenen Zahlen, im Aufbau des Originals.</summary>
     private static PdfContent Statusreport(string rueckkauf = "12.345,67", string gesamt = "13.580,23")
         => Content(
-            Line(1, "Nordstern Lebensversicherung AG"),
+            Line(1, "Nordmuster Lebensversicherung AG"),
             Line(1, "Hamburg, 12.08.2025"),
-            Line(1, "Versicherungsnummer:", "77001122-01"),
+            Line(1, "Versicherungsnummer:", "10020030-01"),
             Line(1, "hiermit übersenden wir Ihnen den jährlichen Statusreport"),
             Line(1, "Ihr Vertragsstand zum 31.07.2025"),
             Line(1, "Leistung im Erlebensfall zum Ablauf 01.08.2031"),
@@ -194,7 +194,7 @@ public sealed class DocumentScanTests : IDisposable
         var vorschlag = await AnalyseAsync(Statusreport());
 
         Assert.Equal(vertragId, vorschlag.TargetId);
-        Assert.Equal("Nordstern Leben", vorschlag.TargetName);
+        Assert.Equal("Nordmuster Leben", vorschlag.TargetName);
         Assert.Null(vorschlag.Blocker);
     }
 
@@ -226,7 +226,7 @@ public sealed class DocumentScanTests : IDisposable
         var vorschlag = await AnalyseAsync(Statusreport());
 
         Assert.Equal(
-            "Versicherungen/Lebensversicherung/Nordstern_Leben/2025/Statusreport_2025-07-31.pdf",
+            "Versicherungen/Lebensversicherung/Nordmuster_Leben/2025/Statusreport_2025-07-31.pdf",
             vorschlag.RelativePath);
 
         Assert.True(File.Exists(Path.Combine(root, vorschlag.RelativePath.Replace('/', Path.DirectorySeparatorChar))));
@@ -577,7 +577,7 @@ public sealed class DocumentScanTests : IDisposable
         Assert.Contains("Kein Vertrag gefunden", vorschlag.Blocker);
 
         // Die gesuchte Nummer steht in der Meldung: mit ihr weiß der Nutzer, was zu tun ist.
-        Assert.Contains("77001122-01", vorschlag.Blocker);
+        Assert.Contains("10020030-01", vorschlag.Blocker);
         Assert.Contains("Unbekannt", vorschlag.RelativePath);
     }
 
@@ -585,8 +585,8 @@ public sealed class DocumentScanTests : IDisposable
     /// Die Meldung nennt den Vertrag, der dieselben Ziffern trägt.
     /// </summary>
     /// <remarks>
-    /// <para>Der Fall aus dem Betrieb: der Riester-Statusreport nennt „R-77001122-04“, im
-    /// Vertrag stand „77001122-04“. Alle Werte waren gelesen, der Knopf war tot, und die Meldung
+    /// <para>Der Fall aus dem Betrieb: der Riester-Statusreport nennt „R-10020030-04“, im
+    /// Vertrag stand „10020030-04“. Alle Werte waren gelesen, der Knopf war tot, und die Meldung
     /// las sich wie „diesen Vertrag gibt es nicht“ — während er einen Bindestrich entfernt
     /// dastand.</para>
     /// <para>Genannt und <b>nicht zugeordnet</b>: das R steht bei diesem Absender für die
@@ -598,9 +598,9 @@ public sealed class DocumentScanTests : IDisposable
     {
         using (var context = database.Context())
         {
-            // Der Beleg nennt 77001122-01, der Vertrag trägt dieselbe Nummer mit einem
+            // Der Beleg nennt 10020030-01, der Vertrag trägt dieselbe Nummer mit einem
             // Buchstaben davor: dieselben Ziffern, andere Schreibweise.
-            context.Policies.Single(p => p.Id == vertragId).PolicyNumber = "R-77001122-01";
+            context.Policies.Single(p => p.Id == vertragId).PolicyNumber = "R-10020030-01";
             context.SaveChanges();
         }
 
@@ -608,7 +608,7 @@ public sealed class DocumentScanTests : IDisposable
 
         Assert.Null(vorschlag.TargetId);
         Assert.Contains("denselben Ziffern", vorschlag.Blocker);
-        Assert.Contains("R-77001122-01", vorschlag.Blocker);
+        Assert.Contains("R-10020030-01", vorschlag.Blocker);
     }
 
     /// <summary>
@@ -686,7 +686,7 @@ public sealed class DocumentScanTests : IDisposable
         }
 
         var ohneNummer = Content(
-            Line(1, "Nordstern Lebensversicherung AG"),
+            Line(1, "Nordmuster Lebensversicherung AG"),
             Line(1, "Hamburg, 12.08.2025"),
             Line(1, "hiermit übersenden wir Ihnen den jährlichen Statusreport"),
             Line(1, "Ihr Vertragsstand zum 31.07.2025"),
@@ -1122,7 +1122,7 @@ public sealed class DocumentScanTests : IDisposable
             var vertrag = new Policy
             {
                 Name = "Risikoleben",
-                Provider = "Nordstern Leben",
+                Provider = "Nordmuster Leben",
                 Kind = PolicyKind.TermLife,
                 IsCapitalForming = false,
                 PolicyNumber = "77009999-01",
@@ -1134,7 +1134,7 @@ public sealed class DocumentScanTests : IDisposable
         }
 
         var beleg = Content(
-            Line(1, "Nordstern Lebensversicherung AG"),
+            Line(1, "Nordmuster Lebensversicherung AG"),
             Line(1, "Hamburg, 12.08.2025"),
             Line(1, "Versicherungsnummer:", "77009999-01"),
             Line(1, "hiermit übersenden wir Ihnen den jährlichen Statusreport"),

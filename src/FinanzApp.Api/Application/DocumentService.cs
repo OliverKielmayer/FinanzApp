@@ -228,7 +228,7 @@ public sealed class DocumentService(
     /// </summary>
     /// <param name="subFolder">
     /// Vorgeschlagene Ablageschublade unterhalb des Bereichs, etwa
-    /// <c>Lebensversicherung/Heidelberger Leben/2025</c>. Ohne Angabe direkt in den Bereich.
+    /// <c>Lebensversicherung/Musterleben/2025</c>. Ohne Angabe direkt in den Bereich.
     /// </param>
     /// <param name="preferredName">
     /// Vorgeschlagener Dateiname ohne Erweiterung. Ohne Angabe bleibt der hochgeladene.

@@ -67,7 +67,7 @@ public sealed class CamtParserTests
     {
         var statement = await ExampleAsync();
 
-        var stadtwerke = statement.Records.Single(r => r.Payee == "Stadtwerke Heidelberg");
+        var stadtwerke = statement.Records.Single(r => r.Payee == "Stadtwerke Musterstadt");
         var telekom = statement.Records.Single(r => r.Payee == "Telekom Deutschland");
 
         Assert.Equal(-98.90m, stadtwerke.Amount);
@@ -142,7 +142,7 @@ public sealed class CamtParserTests
     /// „NONREF“ ist keine Referenz, sondern der Vermerk, dass es keine gibt.
     /// </summary>
     /// <remarks>
-    /// Aufgefallen an acht Tagesauszügen der Sparkasse Schwäbisch Hall: jeder trug
+    /// Aufgefallen an acht Tagesauszügen der Sparkasse Musterstadt: jeder trug
     /// <c>AcctSvcrRef=NONREF</c>. Damit bekamen alle acht dieselbe Importreferenz, und sobald
     /// einer eingelesen war, meldete die Vorschau die übrigen sieben als „vorhanden“ — sieben
     /// echte Buchungen, die sich nicht mehr importieren ließen.
@@ -284,12 +284,12 @@ public sealed class CamtParserTests
     /// — ist die echte.
     /// </remarks>
     [Theory]
-    [InlineData("Setzer 24/7 Vell./Wolpertshausen/DE 31.12.2025 um 19:08:01 Uhr 682/228/ECTL/",
-        "Lastschrift aus Kartenzahlung", "Setzer 24/7 Vell./Wolpertshausen")]
+    [InlineData("Setzer 24/7 Vell./Musterhausen/DE 31.12.2025 um 19:08:01 Uhr 682/228/ECTL/",
+        "Lastschrift aus Kartenzahlung", "Setzer 24/7 Vell./Musterhausen")]
     [InlineData("Muster Klinikum Landkrei/Am Musterweg 1/Musterstad/D08.03.2026 / 11:20 Ortszeit",
         "DZ BANK AG", "Muster Klinikum Landkrei/Am Musterweg 1/Musterstad")]
-    [InlineData("NYX.DeinAutomat/Diakoniestrasse/SchwaebischHa/DE/0 16.01.2026 / 16:01 Ortszeit",
-        "DZ BANK AG", "NYX.DeinAutomat/Diakoniestrasse/SchwaebischHa")]
+    [InlineData("NYX.DeinAutomat/Musterstrasse/Musterstadt/DE/0 16.01.2026 / 16:01 Ortszeit",
+        "DZ BANK AG", "NYX.DeinAutomat/Musterstrasse/Musterstadt")]
     public async Task Bei_einer_Kartenzahlung_zaehlt_der_Laden_aus_dem_Zweck(
         string zweck, string glaeubiger, string erwartet)
     {
@@ -342,7 +342,7 @@ public sealed class CamtParserTests
     /// Ein Name, der den Tag der Buchung trägt, ist keiner.
     /// </summary>
     /// <remarks>
-    /// Manche Häuser schreiben „Ihr Einkauf bei EDEKA Möller vom 30.12.2025“. Bliebe das Datum
+    /// Manche Häuser schreiben „Ihr Einkauf bei Markt Mustermann vom 30.12.2025“. Bliebe das Datum
     /// stehen, wäre jeder Einkauf ein eigener Empfänger — in einer echten Datei wären aus einer
     /// Gruppe mit 42 Sätzen 42 Gruppen geworden, und dieselbe Frage wäre 42-mal gestellt worden.
     /// </remarks>
@@ -350,11 +350,11 @@ public sealed class CamtParserTests
     public async Task Ein_angehaengtes_Datum_gehoert_nicht_in_den_Namen()
     {
         var erste = await ParseAsync(Karte(
-            "KJNUUX Ihr Einkauf bei EDEKA Möller vom 30.12.2025 EREF: T005115664 MREF: 101", "EDEKABANK AG"));
+            "KJNUUX Ihr Einkauf bei Markt Mustermann vom 30.12.2025 EREF: T000111222 MREF: 101", "EDEKABANK AG"));
         var zweite = await ParseAsync(Karte(
-            "CKVW1R Ihr Einkauf bei EDEKA Möller vom 31.12.2025 EREF: T005130842 MREF: 101", "EDEKABANK AG"));
+            "CKVW1R Ihr Einkauf bei Markt Mustermann vom 31.12.2025 EREF: T005130842 MREF: 101", "EDEKABANK AG"));
 
-        Assert.Equal("EDEKA Möller", erste.Records.Single().Payee);
+        Assert.Equal("Markt Mustermann", erste.Records.Single().Payee);
         Assert.Equal(erste.Records.Single().Payee, zweite.Records.Single().Payee);
     }
 

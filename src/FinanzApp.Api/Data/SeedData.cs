@@ -18,7 +18,7 @@ namespace FinanzApp.Api.Data;
 /// wurden angepasst; die Kopfzahlen haben Vorrang, weil sie auf mehreren Screens auftauchen:</para>
 /// <list type="bullet">
 ///   <item>Die vier Depotpositionen summieren sich im Handoff auf 132.440,22 €, der Depotwert steht
-///   dort mit 132.480,00 €. Die Position „Allianz SE“ ist deshalb hier 46 St. zu 342,55 € statt
+///   dort mit 132.480,00 €. Die Position „Musterschutz SE“ ist deshalb hier 46 St. zu 342,55 € statt
 ///   52 St. zu 302,26 €.</item>
 ///   <item>Die Einstandswerte, die die Positionsrenditen des Handoffs ergäben, summieren sich nicht
 ///   auf den ausgewiesenen G/V von +18.940,20 €. Der Einstand des Xtrackers trägt hier die
@@ -41,7 +41,7 @@ public static class SeedData
     private static readonly Dictionary<string, decimal> TargetBalances = new()
     {
         ["Sparkasse Giro"] = 4812.60m,
-        ["Raiffeisenbank Giro"] = 1947.35m,
+        ["Musterbank Giro"] = 1947.35m,
         ["Tagesgeld Raiffeisen"] = 50000.00m,
     };
 
@@ -257,7 +257,7 @@ public static class SeedData
             account.OwnerUserId = oliver.Id;
         }
 
-        if (accounts.TryGetValue("Raiffeisenbank Giro", out var privat))
+        if (accounts.TryGetValue("Musterbank Giro", out var privat))
         {
             privat.Sharing = AccountSharing.Private;
         }
@@ -297,13 +297,13 @@ public static class SeedData
             },
             new()
             {
-                Name = "Raiffeisenbank Giro", ShortName = "Raiffeisenbank", BankName = "Raiffeisenbank",
+                Name = "Musterbank Giro", ShortName = "Musterbank", BankName = "Musterbank",
                 Kind = AccountKind.Checking, Iban = "DE12 6706 2366 0009 1140 07",
                 BalanceAsOf = Today,
             },
             new()
             {
-                Name = "Tagesgeld Raiffeisen", ShortName = "Tagesgeld", BankName = "Raiffeisenbank",
+                Name = "Tagesgeld Raiffeisen", ShortName = "Tagesgeld", BankName = "Musterbank",
                 Kind = AccountKind.Savings, InterestRatePercent = 2.35m, InterestYearToDate = 98.12m,
                 BalanceAsOf = new DateOnly(2026, 8, 19),
             },
@@ -360,19 +360,19 @@ public static class SeedData
             (21, "Shell Tankstelle", null, "Sparkasse Giro", -84.10m),
             (20, "Stadtwerke Strom", "Wohnen", "Sparkasse Giro", -96.00m),
             (19, "Umbuchung → Tagesgeld", null, "Sparkasse Giro", -1500.00m),
-            (18, "Heidelberger Leben Beitrag", "Versicherung", "Raiffeisenbank Giro", -212.00m),
-            (15, "PAYPAL .PAYCOMET SL", null, "Raiffeisenbank Giro", -39.99m),
+            (18, "Musterleben Beitrag", "Versicherung", "Musterbank Giro", -212.00m),
+            (15, "PAYPAL .PAYCOMET SL", null, "Musterbank Giro", -39.99m),
             (1, "Gehalt EWV", "+Gehalt", "Sparkasse Giro", 5240.00m),
 
             // Weitere Buchungen des Monats, damit Budgetauslastung und Monatssummen aufgehen.
-            (19, "Zahnarzt Dr. Weber", "Gesundheit", "Raiffeisenbank Giro", -187.60m),
+            (19, "Zahnarzt Dr. Weber", "Gesundheit", "Musterbank Giro", -187.60m),
             (18, "Spende Tierheim", "Sonstiges", "Sparkasse Giro", -80.00m),
-            (17, "KFZ-Versicherung Allianz", "Versicherung", "Raiffeisenbank Giro", -78.40m),
-            (16, "Karlstorbahnhof Kino", "Freizeit", "Raiffeisenbank Giro", -28.00m),
+            (17, "KFZ-Versicherung Musterschutz", "Versicherung", "Musterbank Giro", -78.40m),
+            (16, "Karlstorbahnhof Kino", "Freizeit", "Musterbank Giro", -28.00m),
             (15, "Telekom Internet und Mobilfunk", "Wohnen", "Sparkasse Giro", -59.90m),
             (14, "EDEKA Neckargemünd", "Lebensmittel", "Sparkasse Giro", -87.20m),
             (13, "ARAL Tankstelle", "Auto", "Sparkasse Giro", -92.30m),
-            (12, "Fitnessstudio Beitrag", "Freizeit", "Raiffeisenbank Giro", -49.90m),
+            (12, "Fitnessstudio Beitrag", "Freizeit", "Musterbank Giro", -49.90m),
             (11, "Apotheke am Markt", "Gesundheit", "Sparkasse Giro", -34.80m),
             (10, "Amazon Bestellung", "Sonstiges", "Sparkasse Giro", -62.71m),
             (9, "REWE Markt Heidelberg", "Lebensmittel", "Sparkasse Giro", -64.15m),
@@ -447,7 +447,7 @@ public static class SeedData
             ("ARAL", "Auto"),
             ("Stadtwerke", "Wohnen"),
             ("Telekom", "Wohnen"),
-            ("Heidelberger Leben", "Versicherung"),
+            ("Musterleben", "Versicherung"),
             ("Apotheke", "Gesundheit"),
             ("Amazon", "Sonstiges"),
             ("Drogeriemarkt dm", "Sonstiges"),
@@ -477,7 +477,7 @@ public static class SeedData
             ("Vanguard FTSE All-World", "IE00BK5BQT80", 412m, 118.40m, 40182.70m),
             ("iShares Core MSCI World", "IE00B4L5Y983", 386m, 102.15m, 33386.03m),
             ("Xtrackers MSCI EM", "IE00BTJRMP35", 540m, 52.80m, 23925.96m),
-            ("Allianz SE", "DE0008404005", 46m, 342.55m, 16045.11m),
+            ("Musterschutz SE", "DE0008404005", 46m, 342.55m, 16045.11m),
         ];
 
         foreach (var row in rows)
@@ -516,8 +516,8 @@ public static class SeedData
             {
                 Kind = PolicyKind.CapitalLife,
                 IsCapitalForming = true,
-                Name = "Heidelberger Leben",
-                Provider = "Heidelberger Leben",
+                Name = "Musterleben",
+                Provider = "Musterleben",
                 Notes = "MLP bestpartner classic",
 
                 // Über die Vertragsnummer findet der Beleg-Scan sein Ziel — ohne sie könnte ein
@@ -545,8 +545,8 @@ public static class SeedData
             {
                 Kind = PolicyKind.CapitalLife,
                 IsCapitalForming = true,
-                Name = "Raiffeisenbank LV",
-                Provider = "Raiffeisenbank",
+                Name = "Musterbank LV",
+                Provider = "Musterbank",
                 Notes = "Ablauf 2034",
                 PolicyNumber = "RB-2019-8842",
                 Premium = 85m,
@@ -586,8 +586,8 @@ public static class SeedData
             {
                 Kind = PolicyKind.BuildingSociety,
                 IsCapitalForming = true,
-                Name = "Bausparen BSK SHA",
-                Provider = "Bausparkasse Schwäbisch Hall",
+                Name = "Bausparen BSK MST",
+                Provider = "Bausparkasse Musterstadt",
                 Notes = "Zuteilung möglich",
                 PolicyNumber = "BSH 7712 4409",
                 Premium = 120m,
@@ -636,7 +636,7 @@ public static class SeedData
     {
         db.ImportProfiles.AddRange(
             new ImportProfile { Name = "Sparkasse Standard", BankName = "Sparkasse", Format = "CAMT.053" },
-            new ImportProfile { Name = "Raiffeisenbank Umsätze", BankName = "Raiffeisenbank", Format = "CSV" });
+            new ImportProfile { Name = "Musterbank Umsätze", BankName = "Musterbank", Format = "CSV" });
     }
 
     private static void SeedSnapshots(FinanzAppDbContext db, Dictionary<string, Account> accounts, Depot depot)

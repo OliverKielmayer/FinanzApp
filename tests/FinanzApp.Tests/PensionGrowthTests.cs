@@ -155,16 +155,16 @@ public sealed class PensionGrowthTests : IDisposable
     [Fact]
     public async Task Buchungen_mit_der_Vertragsnummer_werden_gemessen()
     {
-        var id = Vertrag("Mit Buchungen", beitrag: 100m, nummer: "77001122-03");
+        var id = Vertrag("Mit Buchungen", beitrag: 100m, nummer: "10020030-03");
         Stand(id, "2025-12-31", 10_000m);
         Stand(id, "2026-03-31", 10_500m);
 
         // Vor dem Zeitraum, damit die Buchungen ihn abdecken.
-        Beitrag("2025-12-01", 100m, "Beitrag 77001122-03 12/25");
+        Beitrag("2025-12-01", 100m, "Beitrag 10020030-03 12/25");
 
-        Beitrag("2026-01-02", 100m, "Beitrag 77001122-03 01/26");
-        Beitrag("2026-02-02", 100m, "Beitrag 77001122-03 02/26");
-        Beitrag("2026-03-02", 100m, "Beitrag 77001122-03 03/26");
+        Beitrag("2026-01-02", 100m, "Beitrag 10020030-03 01/26");
+        Beitrag("2026-02-02", 100m, "Beitrag 10020030-03 02/26");
+        Beitrag("2026-03-02", 100m, "Beitrag 10020030-03 03/26");
 
         var zeile = Assert.Single((await Dienst().GetAsync()).Rows);
 
@@ -178,18 +178,18 @@ public sealed class PensionGrowthTests : IDisposable
     /// Die Nummer wird normalisiert verglichen.
     /// </summary>
     /// <remarks>
-    /// „77001122-03“ und „77001122 03“ sind dieselbe Nummer. Banken schreiben sie je nach
+    /// „10020030-03“ und „10020030 03“ sind dieselbe Nummer. Banken schreiben sie je nach
     /// Zahlungsweg verschieden, und ein Vergleich, der daran scheitert, findet nichts.
     /// </remarks>
     [Fact]
     public async Task Die_Nummer_wird_normalisiert_verglichen()
     {
-        var id = Vertrag("Mit Schreibweisen", beitrag: 100m, nummer: "77001122-03");
+        var id = Vertrag("Mit Schreibweisen", beitrag: 100m, nummer: "10020030-03");
         Stand(id, "2025-12-31", 10_000m);
         Stand(id, "2026-02-28", 10_300m);
-        Beitrag("2025-12-01", 100m, "Beitrag 77001122 03");
-        Beitrag("2026-01-02", 100m, "BEITRAG 77001122 03 JAN");
-        Beitrag("2026-02-02", 100m, "Beitrag 77001122.03 Feb");
+        Beitrag("2025-12-01", 100m, "Beitrag 10020030 03");
+        Beitrag("2026-01-02", 100m, "BEITRAG 10020030 03 JAN");
+        Beitrag("2026-02-02", 100m, "Beitrag 10020030.03 Feb");
 
         var zeile = Assert.Single((await Dienst().GetAsync()).Rows);
 
@@ -208,13 +208,13 @@ public sealed class PensionGrowthTests : IDisposable
     [Fact]
     public async Task Decken_die_Buchungen_den_Zeitraum_nicht_ab_gibt_es_keine_gemessene_Zahl()
     {
-        var id = Vertrag("Alte Reihe", beitrag: 100m, nummer: "77001122-03");
+        var id = Vertrag("Alte Reihe", beitrag: 100m, nummer: "10020030-03");
         Stand(id, "2024-12-31", 8_000m);
         Stand(id, "2026-09-30", 11_000m);
 
         // Erste Buchung liegt lange nach dem Beginn des Zeitraums.
-        Beitrag("2026-01-02", 100m, "Beitrag 77001122-03");
-        Beitrag("2026-02-02", 100m, "Beitrag 77001122-03");
+        Beitrag("2026-01-02", 100m, "Beitrag 10020030-03");
+        Beitrag("2026-02-02", 100m, "Beitrag 10020030-03");
 
         var zeile = Assert.Single((await Dienst().GetAsync()).Rows);
 

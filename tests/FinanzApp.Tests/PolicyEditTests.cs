@@ -39,8 +39,8 @@ public sealed class PolicyEditTests : IDisposable
     private static Dictionary<string, string?> Vertrag(string? basis, string? bonus, string? wert) => new()
     {
         ["kind"] = nameof(PolicyKind.CapitalLife),
-        ["provider"] = "Alte Leipziger",
-        ["number"] = "77001122-01",
+        ["provider"] = "Erste Musterkasse",
+        ["number"] = "10020030-01",
         ["baseValue"] = basis,
         ["accruedBonus"] = bonus,
         ["value"] = wert,
@@ -159,7 +159,7 @@ public sealed class PolicyEditTests : IDisposable
             CreateObjectType.Pension, Vertrag("18.373,87", "2.107,65", wert: null));
 
         var korrigiert = Vertrag("18.400,00", "2.107,65", wert: null);
-        korrigiert["displayName"] = "Alte Leipziger";
+        korrigiert["displayName"] = "Erste Musterkasse";
         await Service().UpdateAsync(CreateObjectType.Pension, angelegt.Id!.Value, korrigiert);
 
         using (var nachKorrektur = database.Context())
@@ -169,7 +169,7 @@ public sealed class PolicyEditTests : IDisposable
         }
 
         var naechstesJahr = Vertrag("19.900,00", "2.480,00", wert: null);
-        naechstesJahr["displayName"] = "Alte Leipziger";
+        naechstesJahr["displayName"] = "Erste Musterkasse";
         naechstesJahr["asOf"] = "2026-07-31";
         await Service().UpdateAsync(CreateObjectType.Pension, angelegt.Id!.Value, naechstesJahr);
 

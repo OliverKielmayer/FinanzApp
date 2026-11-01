@@ -103,13 +103,13 @@ public static class ExtensionSeedData
             ("Krankenversicherung", "Krankenversicherung Musterkasse", "Musterkasse", PolicyKind.Health,
                 "PKV · Erstattungen unter Gesundheit", 742m, PremiumInterval.Monthly,
                 new DateOnly(2016, 1, 1), null, 3, null),
-            ("Kfz", "Kfz WGV", "WGV", PolicyKind.Vehicle,
+            ("Kfz", "Kfz MGV", "MGV", PolicyKind.Vehicle,
                 "L-2905 · Wechselfrist 30.11.2026", 618m, PremiumInterval.Yearly,
                 new DateOnly(2021, 1, 1), new DateOnly(2026, 12, 31), 1, null),
-            ("Berufsunfähigkeit", "Berufsunfähigkeit", "Alte Leipziger",
+            ("Berufsunfähigkeit", "Berufsunfähigkeit", "Erste Musterkasse",
                 PolicyKind.DisabilityInsurance, "BU-Rente 3.871,36 € monatlich", 118m,
                 PremiumInterval.Monthly, new DateOnly(2017, 9, 1), null, 1, null),
-            ("Risikoleben", "Risikoleben", "Heidelberger Leben", PolicyKind.TermLife,
+            ("Risikoleben", "Risikoleben", "Musterleben", PolicyKind.TermLife,
                 "kein Rückkaufswert", 42m, PremiumInterval.Monthly,
                 new DateOnly(2020, 7, 1), null, 1, 250000m),
             ("Wohngebäude", "Wohngebäude", "HUK-Coburg", PolicyKind.Building,
@@ -184,7 +184,7 @@ public static class ExtensionSeedData
             => categories.FirstOrDefault(c => c.Name == name && c.Direction == direction)?.Id;
 
         var sparkasse = accounts["Sparkasse Giro"].Id;
-        var raiffeisen = accounts["Raiffeisenbank Giro"].Id;
+        var raiffeisen = accounts["Musterbank Giro"].Id;
 
         // Monat -> (Lebensmittel, Freizeit, Auto). Freizeit liegt bewusst dauerhaft über dem
         // Budget von 200 €, damit das Sparpotential eine echte Überschreitung findet.
@@ -220,8 +220,8 @@ public static class ExtensionSeedData
             Add(1, "Miete Wohnung Heidelberg", "Wohnen", CategoryDirection.Expense, -1480m, sparkasse);
             Add(1, "Nebenkosten Hausgeld", "Wohnen", CategoryDirection.Expense, -245m, sparkasse);
             Add(15, "Telekom Internet und Mobilfunk", "Wohnen", CategoryDirection.Expense, -59.90m, sparkasse);
-            Add(17, "KFZ-Versicherung Allianz", "Versicherung", CategoryDirection.Expense, -78.40m, raiffeisen);
-            Add(18, "Heidelberger Leben Beitrag", "Versicherung", CategoryDirection.Expense, -212m, raiffeisen);
+            Add(17, "KFZ-Versicherung Musterschutz", "Versicherung", CategoryDirection.Expense, -78.40m, raiffeisen);
+            Add(18, "Musterleben Beitrag", "Versicherung", CategoryDirection.Expense, -212m, raiffeisen);
             Add(10, "REWE Markt Heidelberg", "Lebensmittel", CategoryDirection.Expense, -month.Food, sparkasse);
             Add(12, "Freizeit und Kultur", "Freizeit", CategoryDirection.Expense, -month.Leisure, sparkasse);
             Add(13, "ARAL Tankstelle", "Auto", CategoryDirection.Expense, -month.Car, sparkasse);
@@ -308,20 +308,20 @@ public static class ExtensionSeedData
                 -Jahr(1380m, 1420m, 1480m), sparkasse);
             Add(15, "Telekom Internet und Mobilfunk", "Wohnen", CategoryDirection.Expense,
                 -Jahr(54.90m, 54.90m, 59.90m), sparkasse);
-            Add(17, "KFZ-Versicherung Allianz", "Versicherung", CategoryDirection.Expense,
+            Add(17, "KFZ-Versicherung Musterschutz", "Versicherung", CategoryDirection.Expense,
                 -Jahr(72.40m, 75.40m, 78.40m), raiffeisen);
             // Vier Verträge, vier Beiträge, jeder mit seiner Nummer im Verwendungszweck —
             // sonst ließe sich die Zuordnung über die Nummer nirgends ansehen.
-            Add(18, "Heidelberger Leben Beitrag", "Versicherung", CategoryDirection.Expense,
+            Add(18, "Musterleben Beitrag", "Versicherung", CategoryDirection.Expense,
                 -212m, raiffeisen,
                 $"BEITRAG {monat:MM/yyyy} VERTRAG LV-4471-01 KAPITALLEBENSVERSICHERUNG");
-            Add(18, "Raiffeisenbank Lebensversicherung", "Versicherung", CategoryDirection.Expense,
+            Add(18, "Musterbank Lebensversicherung", "Versicherung", CategoryDirection.Expense,
                 -85m, raiffeisen,
                 $"MONATSBEITRAG {monat:MM/yyyy} POLICE RB-2019-8842");
             Add(20, "Musterkasse Riesterrente", "Versicherung", CategoryDirection.Expense,
                 -162.75m, sparkasse,
                 $"RIESTER EIGENBEITRAG {monat:MM/yyyy} VERTRAG DB-RI-330914");
-            Add(20, "Bausparkasse Schwaebisch Hall", "Versicherung", CategoryDirection.Expense,
+            Add(20, "Bausparkasse Musterstadt", "Versicherung", CategoryDirection.Expense,
                 -120m, sparkasse,
                 $"BAUSPARBEITRAG BSH 7712 4409 {monat:MM/yyyy}");
             Add(5, "Streaming Abo", "Sonstiges", CategoryDirection.Expense,
@@ -490,9 +490,9 @@ public static class ExtensionSeedData
         (string Name, string Provider, string? Number, decimal Monthly, int NoticeWeeks,
             DateOnly? NoticeTo, bool PropertyRelated)[] contracts =
         [
-            ("Strom", "Stadtwerke Heidelberg", "SW-993 210", 142.50m, 6, new DateOnly(2027, 3, 31), true),
+            ("Strom", "Stadtwerke Musterstadt", "SW-993 210", 142.50m, 6, new DateOnly(2027, 3, 31), true),
             ("Internet", "Telekom", "DTAG-40 118", 39.99m, 12, new DateOnly(2027, 6, 30), false),
-            ("Wasser", "Stadtwerke Heidelberg", "SW-771 004", 38.00m, 6, new DateOnly(2027, 3, 31), true),
+            ("Wasser", "Stadtwerke Musterstadt", "SW-771 004", 38.00m, 6, new DateOnly(2027, 3, 31), true),
             ("Abfallentsorgung", "Stadt Heidelberg", "AE-2019-118", 24.50m, 8, new DateOnly(2026, 12, 31), true),
             ("Heizungswartung", "Sanitär Brenner", "HW-556", 18.00m, 4, new DateOnly(2026, 10, 31), true),
             ("Schornsteinfeger", "Bezirk Heidelberg Nord", null, 9.50m, 0, null, true),

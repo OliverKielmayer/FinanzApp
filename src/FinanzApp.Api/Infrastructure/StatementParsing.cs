@@ -425,7 +425,7 @@ public sealed class CamtStatementParser : IStatementParser
     /// Streicht ein angehängtes Buchungsdatum aus dem Namen.
     /// </summary>
     /// <remarks>
-    /// Manche Häuser schreiben <c>Ihr Einkauf bei EDEKA Möller vom 30.12.2025</c>. Bliebe das
+    /// Manche Häuser schreiben <c>Ihr Einkauf bei Markt Mustermann vom 30.12.2025</c>. Bliebe das
     /// Datum stehen, wäre jeder Einkauf ein eigener Empfänger — aus einer Gruppe mit 42 Sätzen
     /// würden 42 Gruppen, und der Nutzer beantwortete zweiundvierzigmal dieselbe Frage. Ein Name,
     /// der den Tag der Buchung trägt, ist keiner.
@@ -446,9 +446,9 @@ public sealed class CamtStatementParser : IStatementParser
     /// </summary>
     /// <remarks>
     /// Drei Schreibweisen sind in einer einzigen Bankdatei belegt:
-    /// <c>…/Wolpertshausen/DE 31.12.2025 um 19:08:01 Uhr</c>,
+    /// <c>…/Musterhausen/DE 31.12.2025 um 19:08:01 Uhr</c>,
     /// <c>…/Schwaebisch H/D02.01.2026 / 18:58 Ortszeit</c> und
-    /// <c>…/SchwaebischHa/DE/0 16.01.2026 / 16:01 Ortszeit</c>. Sie unterscheiden sich allein
+    /// <c>…/Musterstadt/DE/0 16.01.2026 / 16:01 Ortszeit</c>. Sie unterscheiden sich allein
     /// zwischen Ort und Datum — dort wird geschnitten und sonst nirgends.
     /// </remarks>
     private static readonly Regex CardPurpose = new(
@@ -527,7 +527,7 @@ public sealed class CamtStatementParser : IStatementParser
     /// Platzhalter, die wie eine Kennung aussehen.
     /// </summary>
     /// <remarks>
-    /// <para><c>NONREF</c> fehlte hier. Acht Tagesauszüge der Sparkasse Schwäbisch Hall trugen es
+    /// <para><c>NONREF</c> fehlte hier. Acht Tagesauszüge der Sparkasse Musterstadt trugen es
     /// alle, bekamen damit dieselbe Importreferenz, und sobald einer eingelesen war, meldete die
     /// Vorschau die übrigen sieben als „vorhanden“ — sieben echte Buchungen, die sich nicht mehr
     /// importieren ließen. Ein Platzhalter, den man für eine Kennung hält, ist schlimmer als gar
