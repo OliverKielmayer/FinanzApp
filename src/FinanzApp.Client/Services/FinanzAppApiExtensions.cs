@@ -199,9 +199,9 @@ public static class FinanzAppApiExtensions
     /// Was aus dem Scaneingang kommt, ist abgelegt und gelesen. Die Datei ein zweites Mal
     /// hochzuladen, nur um ihre Zahlen zu bekommen, wäre Arbeit für nichts.
     /// </remarks>
-    public static Task<ExtractedBillDto> ExtractBillFromDocumentAsync(
+    public static Task<BillPrefillDto> ExtractBillFromDocumentAsync(
         this FinanzAppApi api, int documentId, CancellationToken ct = default)
-        => api.GetAsync<ExtractedBillDto>($"api/health/extract/{documentId}", ct);
+        => api.GetAsync<BillPrefillDto>($"api/health/extract/{documentId}", ct);
 
     /// <summary>
     /// Der Steuerjahr-Bericht. Ohne Jahr das, für das es am meisten gibt.

@@ -3784,6 +3784,22 @@ body {
   line-height: 1.45;
 }
 
+/* Ein beschriftetes Kaestchen in einer Zeile - die Beschriftung schaltet mit. */
+.switch-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  cursor: pointer;
+}
+
+.switch-row input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--color-accent);
+}
+
 /*
   Woher ein gelesener Wert stammt. Klein und unter dem Feld: Es ist ein Beleg fuer die Zahl
   darueber und kein eigener Inhalt. Lange Zeilen brechen um, statt die Spalte zu sprengen.

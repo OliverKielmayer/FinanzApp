@@ -117,6 +117,20 @@ public static class BillTextReader
         new(@"\b(?:g?gmbh|mbh|aktiengesellschaft|e\.\s?v\.|gbr|ohg|kgaa|kg|ag|se)\b",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    /// <summary>
+    /// Woran eine Zahnbehandlung zu erkennen ist.
+    /// </summary>
+    /// <remarks>
+    /// Die GOZ ist der sicherste Marker: Die Gebührenordnung für Zahnärzte steht auf jeder
+    /// zahnärztlichen Liquidation und auf keiner anderen. „Zahn“ allein wäre zu grob — es
+    /// steckt auch in Namen und Anschriften.
+    /// </remarks>
+    private static readonly string[] Zahnwoerter =
+    [
+        "goz", "gebührenordnung für zahnärzte", "zahnarzt", "zahnärzt", "zahnmedizin",
+        "zahnbehandlung", "zahnersatz", "kieferorthopäd", "kieferchirurg", "dentalhygien",
+    ];
+
     /// <summary>Betriebsarten — der Rückfall, wenn keine Rechtsform dasteht.</summary>
     private static readonly string[] Betriebsarten =
     [
@@ -149,9 +163,12 @@ public static class BillTextReader
         var (nummer, nummerZeile) = Nummer(zeilen);
         var (datum, datumZeile) = Rechnungsdatum(zeilen);
         var (absender, absenderZeile) = Absender(zeilen);
+        var (zahn, zahnZeile) = Zahnbehandlung(zeilen);
 
         return new ExtractedBillDto
         {
+            IsDental = zahn,
+            IsDentalSource = zahnZeile,
             HasContent = betrag is not null || nummer is not null
                          || datum is not null || absender is not null,
             Provider = absender,
@@ -167,6 +184,25 @@ public static class BillTextReader
             // trägt, steht auf der Abrechnung der Kasse und nicht hier — und wäre geraten.
             OwnShare = null,
         };
+    }
+
+    /// <summary>
+    /// Ob der Text eine Zahnbehandlung nennt — und in welcher Zeile.
+    /// </summary>
+    private static (bool Wert, string? Zeile) Zahnbehandlung(string[] zeilen)
+    {
+        foreach (var zeile in zeilen)
+        {
+            foreach (var wort in Zahnwoerter)
+            {
+                if (zeile.Contains(wort, StringComparison.OrdinalIgnoreCase))
+                {
+                    return (true, zeile);
+                }
+            }
+        }
+
+        return (false, null);
     }
 
     /// <summary>

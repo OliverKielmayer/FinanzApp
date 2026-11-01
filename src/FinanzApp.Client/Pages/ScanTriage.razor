@@ -208,22 +208,41 @@
                                     trotzdem anlegt, ist schlimmer als gar keiner.
                                 *@
                                 <input id="neu-brutto" class="input" type="number" step="0.01" min="0"
-                                       value="@Zahl(gross)" @oninput="e => gross = Parse(e.Value)" />
+                                       value="@Zahl(gross)" @oninput="OnGrossInput" />
                                 @if (gelesen?.GrossAmountSource is { Length: > 0 } q4)
                                 {
                                     <span class="read-from">gelesen aus: @q4</span>
                                 }
                             </div>
+                            @*
+                                Zahnbehandlung ist keine Nebensächlichkeit, sondern eine
+                                Rechengröße: Sie fällt aus dem Jahresdeckel heraus. Deshalb ein
+                                Schalter und keine stille Annahme — gelesen wird er aus dem
+                                Text, entschieden wird er hier.
+                            *@
+                            <div class="field">
+                                <label class="switch-row" for="neu-zahn">
+                                    <input id="neu-zahn" type="checkbox" checked="@zahn"
+                                           @onchange="OnDentalChanged" />
+                                    <span>Zahnbehandlung</span>
+                                </label>
+                                @if (gelesen?.IsDentalSource is { Length: > 0 } q5)
+                                {
+                                    <span class="read-from">gelesen aus: @q5</span>
+                                }
+                            </div>
+
                             <div class="field">
                                 <label for="neu-eigen">Eigenanteil (€)</label>
                                 <input id="neu-eigen" class="input" type="number" step="0.01" min="0"
-                                       value="@Zahl(ownShare)" @oninput="e => ownShare = Parse(e.Value)" />
+                                       value="@Zahl(ownShare)" @oninput="OnOwnShareInput" />
                                 @*
-                                    Hier steht nie etwas Gelesenes. Wie viel die Kasse übernimmt,
-                                    entscheidet die Kasse — auf ihrer Abrechnung, nicht auf dieser
-                                    Rechnung.
+                                    Nicht vom Beleg, sondern aus dem Vertrag — und die Rechnung
+                                    dahinter steht dabei. Ein Eigenanteil, der von selbst
+                                    dasteht, muss sagen, woher er kommt; sonst übernimmt man
+                                    ihn ungeprüft in eine Forderung gegen die Kasse.
                                 *@
-                                <span class="read-from">steht nicht auf der Rechnung</span>
+                                <span class="read-from">@EigenanteilGrund</span>
                             </div>
                         </div>
 
@@ -395,6 +414,26 @@
     private decimal gross;
     private decimal ownShare;
 
+    /// <summary>Ob der Beleg eine Zahnbehandlung ist — gelesen, aber umschaltbar.</summary>
+    private bool zahn;
+
+    /// <summary>Die Selbstbeteiligungsregel des Vertrags, so weit gepflegt.</summary>
+    private OwnShareRuleDto? regel;
+
+    /// <summary>
+    /// Ob jemand den Eigenanteil von Hand gesetzt hat.
+    /// </summary>
+    /// <remarks>
+    /// Dann wird er nicht mehr überschrieben, wenn sich der Betrag ändert — ein Wert, der sich
+    /// unter den Fingern zurücksetzt, ist schlimmer als keiner. Das Umschalten von
+    /// „Zahnbehandlung“ hebt die Marke wieder auf: Dort ändert sich die Regel selbst, nicht
+    /// nur ihre Eingangsgröße.
+    /// </remarks>
+    private bool eigenanteilVonHand;
+
+    /// <summary>Die Begründung unter dem Eigenanteil.</summary>
+    private string EigenanteilGrund { get; set; } = "steht nicht auf der Rechnung";
+
     /// <summary>Was nach dem Eigenanteil offen bleibt — dieselbe Rechnung wie am Vorgang.</summary>
     private decimal Erwartet => Math.Max(0m, gross - ownShare);
 
@@ -511,36 +550,93 @@
         anlegen = true;
         liest = true;
         gelesen = null;
+        regel = null;
 
         provider = string.Empty;
         billNumber = string.Empty;
         billDate = beleg.ArrivedOn;
         gross = 0m;
         ownShare = 0m;
+        zahn = false;
+        eigenanteilVonHand = false;
+        EigenanteilGrund = "steht nicht auf der Rechnung";
 
         try
         {
-            var werte = await Api.ExtractBillFromDocumentAsync(beleg.DocumentId);
-            gelesen = werte;
+            var antwort = await Api.ExtractBillFromDocumentAsync(beleg.DocumentId);
+            gelesen = antwort.Bill;
+            regel = antwort.OwnShare;
 
             // Nur übernehmen, was gelesen wurde. Ein nicht gefundenes Feld bleibt auf seiner
             // Vorgabe stehen und fragt — eine Null im Betragsfeld sähe aus wie ein Ergebnis.
-            provider = werte.Provider ?? string.Empty;
-            billNumber = werte.BillNumber ?? string.Empty;
-            billDate = werte.BillDate ?? beleg.ArrivedOn;
-            gross = werte.GrossAmount ?? 0m;
+            provider = antwort.Bill.Provider ?? string.Empty;
+            billNumber = antwort.Bill.BillNumber ?? string.Empty;
+            billDate = antwort.Bill.BillDate ?? beleg.ArrivedOn;
+            gross = antwort.Bill.GrossAmount ?? 0m;
+            zahn = antwort.Bill.IsDental;
+
+            Eigenanteil();
         }
         catch (ApiException ex)
         {
             // Das Lesen ist eine Erleichterung und keine Bedingung. Scheitert es, bleibt die
             // Maske leer und der Vorgang lässt sich trotzdem anlegen.
             gelesen = null;
+            regel = null;
             Toasts.Show(ex.Message);
         }
         finally
         {
             liest = false;
         }
+    }
+
+    /// <summary>
+    /// Schlägt den Eigenanteil aus der Vertragsregel vor.
+    /// </summary>
+    /// <remarks>
+    /// Gerechnet wird mit derselben Funktion wie auf dem Server — die Regel steht im
+    /// gemeinsamen Teil, damit sie nicht an zwei Orten auseinanderläuft. Was von Hand gesetzt
+    /// wurde, bleibt stehen; die Begründung sagt dann, was die Regel ergeben hätte.
+    /// </remarks>
+    private void Eigenanteil()
+    {
+        var rat = OwnShareRule.For(gross, zahn, regel);
+        EigenanteilGrund = rat.Reason;
+
+        if (eigenanteilVonHand || rat.Amount is not { } vorschlag)
+        {
+            return;
+        }
+
+        ownShare = vorschlag;
+    }
+
+    private void OnGrossInput(ChangeEventArgs e)
+    {
+        gross = Parse(e.Value);
+        Eigenanteil();
+    }
+
+    private void OnOwnShareInput(ChangeEventArgs e)
+    {
+        ownShare = Parse(e.Value);
+        eigenanteilVonHand = true;
+    }
+
+    /// <summary>
+    /// „Zahnbehandlung“ umgeschaltet.
+    /// </summary>
+    /// <remarks>
+    /// Hier ändert sich die Regel selbst und nicht nur ihre Eingangsgröße — deshalb gilt auch
+    /// ein von Hand gesetzter Eigenanteil nicht mehr. Wer ihn trotzdem will, trägt ihn danach
+    /// wieder ein.
+    /// </remarks>
+    private void OnDentalChanged(ChangeEventArgs e)
+    {
+        zahn = e.Value is true;
+        eigenanteilVonHand = false;
+        Eigenanteil();
     }
 
     private void OnBillDateChanged(ChangeEventArgs e)
@@ -598,6 +694,7 @@
                 GrossAmount = gross,
                 OwnShare = ownShare,
                 ExpectedReimbursement = Erwartet,
+                IsDental = zahn,
             });
 
             await Api.AssignScanInboxAsync(

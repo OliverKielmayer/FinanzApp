@@ -74,6 +74,11 @@ public sealed record CreateMedicalBillRequest
 
     /// <summary>Dokument, das beim Scannen entstanden ist.</summary>
     public int? DocumentId { get; init; }
+
+    /// <summary>
+    /// Ob es eine Zahnbehandlung war — sie zählt nicht gegen den Jahresdeckel.
+    /// </summary>
+    public bool IsDental { get; init; }
 }
 
 public sealed record AdvanceMedicalBillRequest
@@ -143,4 +148,34 @@ public sealed record ExtractedBillDto
 
     /// <summary>Die Zeile, aus der <see cref="GrossAmount"/> stammt.</summary>
     public string? GrossAmountSource { get; init; }
+
+    /// <summary>
+    /// Ob der Text auf eine Zahnbehandlung hindeutet.
+    /// </summary>
+    /// <remarks>
+    /// Keine Nebensächlichkeit: Fällt Zahnbehandlung aus dem Jahresdeckel der
+    /// Selbstbeteiligung heraus, hängt der vorgeschlagene Eigenanteil daran. Deshalb mit
+    /// Quellzeile wie jeder andere gelesene Wert — und in der Maske zum Umschalten.
+    /// </remarks>
+    public bool IsDental { get; init; }
+
+    /// <summary>Die Zeile, aus der <see cref="IsDental"/> stammt.</summary>
+    public string? IsDentalSource { get; init; }
+}
+
+/// <summary>
+/// Was die Maske für einen neuen Erstattungsvorgang vorschlagen kann.
+/// </summary>
+/// <remarks>
+/// Zwei Quellen, die nichts voneinander wissen: Aus dem Beleg kommt, was draufsteht; aus dem
+/// Vertrag kommt die Selbstbeteiligung. Getrennt gehalten, weil sie getrennt stimmen oder
+/// fehlen können — ein lesbarer Beleg ohne gepflegte Regel ist genauso üblich wie umgekehrt.
+/// </remarks>
+public sealed record BillPrefillDto
+{
+    /// <summary>Was im Beleg steht.</summary>
+    public required ExtractedBillDto Bill { get; init; }
+
+    /// <summary>Die Selbstbeteiligungsregel; <c>null</c>, wenn keine gepflegt ist.</summary>
+    public OwnShareRuleDto? OwnShare { get; init; }
 }

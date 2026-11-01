@@ -104,6 +104,7 @@ public sealed class MedicalBillService(
             ExpectedReimbursement = expected,
             Status = MedicalBillStatus.Recorded,
             Notes = request.Notes,
+            IsDental = request.IsDental,
             CreatedAt = clock.Now,
         };
 
@@ -116,6 +117,55 @@ public sealed class MedicalBillService(
         }
 
         return (await GetAsync(bill.Id, ct))!;
+    }
+
+    /// <summary>
+    /// Die Selbstbeteiligungsregel des Haushalts und was in einem Jahr schon angefallen ist.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die Regel steht am Krankenversicherungsvertrag und nicht im Code: Zehn Prozent bis
+    /// vierhundert Euro ist die Regel eines Tarifs, nicht die der Welt. Ist keiner gepflegt,
+    /// kommt <c>null</c> zurück und die Maske schlägt nichts vor.</para>
+    /// <para><b>Zahnbehandlungen zählen nicht mit.</b> Wo sie aus dem Deckel herausfallen,
+    /// dürfen sie ihn auch nicht aufbrauchen — sonst wäre er nach zwei Zahnarztrechnungen
+    /// erschöpft, ohne dass je etwas darauf gezahlt wurde.</para>
+    /// <para>Das Jahr kommt von außen, weil es das Jahr der Rechnung ist und nicht das
+    /// heutige. Eine im Dezember eingereichte Rechnung vom Januar zählt gegen den Deckel des
+    /// Januars.</para>
+    /// </remarks>
+    public async Task<OwnShareRuleDto?> OwnShareRuleAsync(int year, CancellationToken ct = default)
+    {
+        var vertrag = await db.Policies.AsNoTracking()
+            .Where(p => p.Kind == PolicyKind.Health && p.OwnSharePercent != null)
+            .OrderBy(p => p.Id)
+            .Select(p => new
+            {
+                p.Name,
+                p.OwnSharePercent,
+                p.OwnShareAnnualCap,
+                p.DentalOwnSharePercent,
+            })
+            .FirstOrDefaultAsync(ct);
+
+        if (vertrag is null)
+        {
+            return null;
+        }
+
+        var von = new DateOnly(year, 1, 1);
+        var bis = new DateOnly(year, 12, 31);
+
+        var verbraucht = await db.MedicalBills.AsNoTracking()
+            .Where(b => !b.IsDental && b.BillDate >= von && b.BillDate <= bis)
+            .SumAsync(b => (decimal?)b.OwnShare, ct) ?? 0m;
+
+        return new OwnShareRuleDto(
+            vertrag.OwnSharePercent,
+            vertrag.OwnShareAnnualCap,
+            vertrag.DentalOwnSharePercent,
+            verbraucht,
+            year,
+            vertrag.Name);
     }
 
     /// <summary>Setzt den Vorgang auf die nächste Station und hält den Zeitpunkt fest.</summary>

@@ -267,16 +267,30 @@ public static class ExtensionEndpoints
         // gelesen — dieselbe Datei ein zweites Mal hochzuladen, nur um ihre Zahlen zu
         // bekommen, wäre Arbeit für nichts. Der gespeicherte Text genügt.
         api.MapGet("/extract/{documentId:int}", async (
-            int documentId, DocumentService documents, CancellationToken ct) =>
+            int documentId, DocumentService documents, MedicalBillService bills, IClock clock,
+            CancellationToken ct) =>
         {
             // Holt den Text nach, falls er fehlt — ein Beleg kann abgelegt worden sein, bevor
             // es eine Erkennung gab.
             await documents.EnsureTextAsync(documentId, ct);
 
             var text = await documents.TextOfAsync(documentId, ct);
-            return text is null
-                ? Results.NotFound()
-                : Results.Ok(BillTextReader.Read(text));
+            if (text is null)
+            {
+                return Results.NotFound();
+            }
+
+            var gelesen = BillTextReader.Read(text);
+
+            // Der Deckel gilt je Kalenderjahr, und zwar dem der Rechnung. Steht keins im
+            // Beleg, bleibt das laufende — dasselbe, was die Maske als Datum vorgibt.
+            var jahr = gelesen.BillDate?.Year ?? clock.Now.Year;
+
+            return Results.Ok(new BillPrefillDto
+            {
+                Bill = gelesen,
+                OwnShare = await bills.OwnShareRuleAsync(jahr, ct),
+            });
         }).RequireAuthorization(AuthPolicies.Write);
     }
 
