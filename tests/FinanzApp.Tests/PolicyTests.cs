@@ -49,7 +49,7 @@ public sealed class PolicyTests
         var policy = new Policy
         {
             Name = "Neuer Vertrag",
-            Provider = "Debeka",
+            Provider = "Musterkasse",
             Kind = PolicyKind.Riester,
             IsCapitalForming = true,
         };

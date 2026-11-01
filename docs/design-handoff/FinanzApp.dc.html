@@ -127,7 +127,7 @@ a{color:#ec3013}a:hover{color:#ae1800}
               <sc-if value="{{ isNewHousehold }}">
                 <div class="field" style="margin-top:14px">
                   <label>Name des Haushalts</label>
-                  <input class="input" placeholder="z. B. Haushalt Kielmayer" value="{{ household }}" onChange="{{ onHousehold }}" style="min-height:44px">
+                  <input class="input" placeholder="z. B. Haushalt Mustermann" value="{{ household }}" onChange="{{ onHousehold }}" style="min-height:44px">
                 </div>
               </sc-if>
               <span style="display:block;font-size:11px;color:var(--color-neutral-600);margin-top:10px">{{ householdHint }}</span>
@@ -701,7 +701,7 @@ class Component extends DCLogic {
   state = {
     screen: 'dash', prev: 'dash', drawerOpen: false,
     auth: 'login', user: null, mail: '', pass: '', stayIn: true,
-    regName: '', invite: '', hhMode: 'Beitreten', household: 'Haushalt Kielmayer', hide: false, query: '', note: '',
+    regName: '', invite: '', hhMode: 'Beitreten', household: 'Haushalt Mustermann', hide: false, query: '', note: '',
     digits: '', kind: 'Ausgabe', cat: null, acct: 'Sparkasse Giro', step: 1,
     sheetId: null, ruleOn: true, toast: '', period: 'Monat',
     tx: [
@@ -749,10 +749,10 @@ class Component extends DCLogic {
     const dash = this.props.dashLayout || 'Kacheln';
     const flow = this.props.entryFlow || 'Schritte';
     const hide = s.hide;
-    const household = s.household || 'Haushalt Kielmayer';
+    const household = s.household || 'Haushalt Mustermann';
     const people = [
-      { name: 'Oliver W.', mail: 'oliver@haushalt-kielmayer.de', role: 'Inhaber', seen: 'zuletzt aktiv: heute, 08:24' },
-      { name: 'Sabine K.', mail: 'sabine@haushalt-kielmayer.de', role: 'Mitglied', seen: 'zuletzt aktiv: gestern, 21:05' },
+      { name: 'Oliver W.', mail: 'oliver@haushalt-mustermann.de', role: 'Inhaber', seen: 'zuletzt aktiv: heute, 08:24' },
+      { name: 'Sabine K.', mail: 'sabine@haushalt-mustermann.de', role: 'Mitglied', seen: 'zuletzt aktiv: gestern, 21:05' },
       { name: 'Steuerbüro Haas', mail: 'kanzlei@haas-stb.de', role: 'Lesezugriff', seen: 'zuletzt aktiv: 01.08.2026' },
     ];
     const pwScore = Math.min(4, Math.floor(s.pass.length / 3));

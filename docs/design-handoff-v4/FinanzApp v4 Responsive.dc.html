@@ -140,7 +140,7 @@ a{color:var(--color-accent-700)}a:hover{color:var(--color-accent-800)}
               <sc-if value="{{ isNewHousehold }}">
                 <div class="field" style="margin-top:14px">
                   <label>Name des Haushalts</label>
-                  <input class="input" placeholder="z. B. Haushalt Kielmayer" value="{{ household }}" onChange="{{ onHousehold }}" style="min-height:44px">
+                  <input class="input" placeholder="z. B. Haushalt Mustermann" value="{{ household }}" onChange="{{ onHousehold }}" style="min-height:44px">
                 </div>
               </sc-if>
               <span style="display:block;font-size:11px;color:var(--color-neutral-600);margin-top:10px">{{ householdHint }}</span>
@@ -1801,7 +1801,7 @@ class Component extends DCLogic {
       { name: 'Wohngebäude', meta: 'Haus Birkenstetter Straße 10', amount: 412, cycle: 'jährlich' },
       { name: 'Kfz WGV', meta: 'L-2905 · Wechselfrist 30.11.2026', amount: 618, cycle: 'jährlich', to: 'vehicle' },
       { name: 'Rechtsschutz', meta: 'bis 31.05.2027', amount: 231, cycle: 'jährlich' },
-      { name: 'Krankenversicherung Debeka', meta: 'PKV · Erstattungen unter Gesundheit', amount: 742, cycle: 'monatlich', to: 'pkv' },
+      { name: 'Krankenversicherung Musterkasse', meta: 'PKV · Erstattungen unter Gesundheit', amount: 742, cycle: 'monatlich', to: 'pkv' },
     ],
     propertiesX: [{ name: 'Haus Birkenstetter Straße 10', meta: 'Haus · Kauf 2019 · 142 m²', value: 395000, main: true }],
     contractsX: [
@@ -1814,7 +1814,7 @@ class Component extends DCLogic {
     pensionsX: [
       { name: 'Heidelberger Leben', meta: 'Kapital-LV · MLP bestpartner classic', value: 20481.52, asOf: 'Stand 07/2025', to: 'insurance' },
       { name: 'Raiffeisenbank LV', meta: 'Kapital-LV · Ablauf 2034', value: 14208, asOf: 'Stand 12/2025' },
-      { name: 'Riester Debeka', meta: 'Riester-Rente · Zulagen 2025 gebucht', value: 11930.40, asOf: 'Stand 12/2025' },
+      { name: 'Riester Musterkasse', meta: 'Riester-Rente · Zulagen 2025 gebucht', value: 11930.40, asOf: 'Stand 12/2025' },
       { name: 'Bausparen BSK SHA', meta: 'Bausparvertrag · Zuteilung möglich', value: 12320.08, asOf: 'Stand 12/2025', urgent: true },
     ],
     vehiclesX: [
@@ -1829,8 +1829,8 @@ class Component extends DCLogic {
     ],
     selTx: [], entrySheet: false, caseFilter: 'Offen', docFilter: 'Alle', docQuery: '', docId: 'police',
     scanStep: 1, scanPages: 0, pkvStep: 1, liqTab: 'Jetzt', invoicePaid: false, docFixed: false,
-    auth: 'login', user: 'Oliver W.', mail: 'oliver@haushalt-kielmayer.de', pass: '', stayIn: true,
-    regName: '', invite: '', hhMode: 'Beitreten', household: 'Haushalt Kielmayer', hide: false, query: '', note: '',
+    auth: 'login', user: 'Oliver W.', mail: 'oliver@haushalt-mustermann.de', pass: '', stayIn: true,
+    regName: '', invite: '', hhMode: 'Beitreten', household: 'Haushalt Mustermann', hide: false, query: '', note: '',
     digits: '', kind: 'Ausgabe', cat: null, acct: 'Sparkasse Giro', step: 1,
     sheetId: null, bulk: false, ruleOn: true, toast: '', period: 'Monat',
     txAcct: 'Alle', txCat: 'Alle', txType: 'Alle', showSums: true,
@@ -1915,10 +1915,10 @@ class Component extends DCLogic {
     const dash = this.props.dashLayout || 'Kacheln';
     const flow = this.props.entryFlow || 'Schritte';
     const hide = s.hide;
-    const household = s.household || 'Haushalt Kielmayer';
+    const household = s.household || 'Haushalt Mustermann';
     const people = [
-      { name: 'Oliver W.', mail: 'oliver@haushalt-kielmayer.de', role: 'Inhaber', seen: 'zuletzt aktiv: heute, 08:24' },
-      { name: 'Sabine K.', mail: 'sabine@haushalt-kielmayer.de', role: 'Mitglied', seen: 'zuletzt aktiv: gestern, 21:05' },
+      { name: 'Oliver W.', mail: 'oliver@haushalt-mustermann.de', role: 'Inhaber', seen: 'zuletzt aktiv: heute, 08:24' },
+      { name: 'Sabine K.', mail: 'sabine@haushalt-mustermann.de', role: 'Mitglied', seen: 'zuletzt aktiv: gestern, 21:05' },
       { name: 'Steuerbüro Haas', mail: 'kanzlei@haas-stb.de', role: 'Lesezugriff', seen: 'zuletzt aktiv: 01.08.2026' },
     ];
     const pwScore = Math.min(4, Math.floor(s.pass.length / 3));
@@ -2275,7 +2275,7 @@ class Component extends DCLogic {
       ],
       flows: [
         { name: 'Wohnen', amount: mask(eur0(1480)), pct: '100%', meta: '41 % · Darlehen, Energie', color: 'var(--color-neutral-800)' },
-        { name: 'Gesundheit', amount: mask(eur0(912)), pct: '62%', meta: '25 % · PKV Debeka 742 € + Eigenanteile 170 €', color: 'var(--color-neutral-800)' },
+        { name: 'Gesundheit', amount: mask(eur0(912)), pct: '62%', meta: '25 % · PKV Musterkasse 742 € + Eigenanteile 170 €', color: 'var(--color-neutral-800)' },
         { name: 'Lebensmittel', amount: mask(eur0(412)), pct: '28%', meta: '11 % · Budget 500 €', color: 'var(--color-neutral-800)' },
         { name: 'Absicherung', amount: mask(eur0(286)), pct: '19%', meta: '8 % · Risikoleben, BU, Sach- und Kfz-Verträge', color: 'var(--color-neutral-800)' },
         { name: 'Fahrzeuge', amount: mask(eur0(286)), pct: '19%', meta: '8 % · Steuer, Werkstatt, Kraftstoff', color: 'var(--color-neutral-800)' },

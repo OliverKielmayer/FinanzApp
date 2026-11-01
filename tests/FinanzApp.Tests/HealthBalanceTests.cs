@@ -51,7 +51,7 @@ public sealed class HealthBalanceTests : IDisposable
 
         context.Policies.Add(new Policy
         {
-            Name = "Krankenversicherung", Provider = "Debeka",
+            Name = "Krankenversicherung", Provider = "Musterkasse",
             Kind = PolicyKind.Health, IsCapitalForming = false,
             Premium = beitrag, PremiumInterval = takt,
         });

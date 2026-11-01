@@ -46,7 +46,7 @@ public static class SeedData
     };
 
     /// <summary>Name des Demo-Haushalts.</summary>
-    public const string DemoHouseholdName = "Haushalt Kielmayer";
+    public const string DemoHouseholdName = "Haushalt Mustermann";
 
     /// <summary>
     /// Passwort aller drei Demo-Benutzer.
@@ -116,9 +116,9 @@ public static class SeedData
     {
         (string Name, string Email, HouseholdRole Role, DateTime LastSeen)[] rows =
         [
-            ("Oliver W.", "oliver@haushalt-kielmayer.de", HouseholdRole.Owner,
+            ("Oliver W.", "oliver@haushalt-mustermann.de", HouseholdRole.Owner,
                 new DateTime(2026, 8, 23, 8, 24, 0, DateTimeKind.Local)),
-            ("Sabine K.", "sabine@haushalt-kielmayer.de", HouseholdRole.Member,
+            ("Sabine K.", "sabine@haushalt-mustermann.de", HouseholdRole.Member,
                 new DateTime(2026, 8, 22, 21, 5, 0, DateTimeKind.Local)),
             ("Steuerbüro Haas", "kanzlei@haas-stb.de", HouseholdRole.ReadOnly,
                 new DateTime(2026, 8, 1, 10, 12, 0, DateTimeKind.Local)),
@@ -563,8 +563,8 @@ public static class SeedData
             {
                 Kind = PolicyKind.Riester,
                 IsCapitalForming = true,
-                Name = "Riester Debeka",
-                Provider = "Debeka",
+                Name = "Riester Musterkasse",
+                Provider = "Musterkasse",
                 Notes = "Zulagen 2025 gebucht",
                 PolicyNumber = "DB-RI-330914",
                 Premium = 162.75m,

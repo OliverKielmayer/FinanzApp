@@ -74,8 +74,8 @@
           <TxDtls>
             <Refs><EndToEndId>LOHN-2026-08</EndToEndId></Refs>
             <RltdPties>
-              <Dbtr><Nm>Kielmayer Systemtechnik GmbH</Nm></Dbtr>
-              <Cdtr><Nm>Oliver Kielmayer</Nm></Cdtr>
+              <Dbtr><Nm>Mustermann Systemtechnik GmbH</Nm></Dbtr>
+              <Cdtr><Nm>Max Mustermann</Nm></Cdtr>
             </RltdPties>
             <RmtInf><Ustrd>Gehalt August 2026</Ustrd></RmtInf>
           </TxDtls>

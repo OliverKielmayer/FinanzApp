@@ -45,7 +45,7 @@ public sealed class CamtParserTests
         // Der Betrag steht in der Datei immer ohne Vorzeichen — die Richtung trägt CdtDbtInd.
         // Wer das übersieht, bucht jede Abbuchung als Eingang.
         var rewe = statement.Records.Single(r => r.Payee == "REWE Markt Heidelberg");
-        var lohn = statement.Records.Single(r => r.Payee.StartsWith("Kielmayer", StringComparison.Ordinal));
+        var lohn = statement.Records.Single(r => r.Payee.StartsWith("Mustermann", StringComparison.Ordinal));
 
         Assert.Equal(-68.42m, rewe.Amount);
         Assert.Equal(2480.00m, lohn.Amount);
@@ -57,9 +57,9 @@ public sealed class CamtParserTests
         var statement = await ExampleAsync();
 
         // Die Datei nennt beide Seiten. Immer den Gläubiger zu nehmen ergäbe hier den eigenen
-        // Namen — in der Liste stünde dann "Oliver Kielmayer" als Empfänger des eigenen Gehalts.
-        Assert.Contains(statement.Records, r => r.Payee == "Kielmayer Systemtechnik GmbH");
-        Assert.DoesNotContain(statement.Records, r => r.Payee == "Oliver Kielmayer");
+        // Namen — in der Liste stünde dann "Max Mustermann" als Empfänger des eigenen Gehalts.
+        Assert.Contains(statement.Records, r => r.Payee == "Mustermann Systemtechnik GmbH");
+        Assert.DoesNotContain(statement.Records, r => r.Payee == "Max Mustermann");
     }
 
     [Fact]
@@ -279,13 +279,15 @@ public sealed class CamtParserTests
     /// unter „PAYONE GmbH“ und „Lastschrift aus Kartenzahlung“ — zwei Namen, die nichts über den
     /// Einkauf sagen. Der Laden steht im Verwendungszweck.
     ///
-    /// Die drei Schreibweisen stammen alle aus derselben Datei.
+    /// Die drei Schreibweisen stammen alle aus derselben Datei. Beim Klinikbeleg stehen
+    /// erfundene Namen; die Form — Schrägstriche, abgeschnittene Wörter, Datumsanhang
+    /// — ist die echte.
     /// </remarks>
     [Theory]
     [InlineData("Setzer 24/7 Vell./Wolpertshausen/DE 31.12.2025 um 19:08:01 Uhr 682/228/ECTL/",
         "Lastschrift aus Kartenzahlung", "Setzer 24/7 Vell./Wolpertshausen")]
-    [InlineData("DIAK Klinikum Landkrei/Am Mutterhaus 1/Schwaebisch H/D02.01.2026 / 18:58 Ortszeit",
-        "DZ BANK AG", "DIAK Klinikum Landkrei/Am Mutterhaus 1/Schwaebisch H")]
+    [InlineData("Muster Klinikum Landkrei/Am Musterweg 1/Musterstad/D08.03.2026 / 11:20 Ortszeit",
+        "DZ BANK AG", "Muster Klinikum Landkrei/Am Musterweg 1/Musterstad")]
     [InlineData("NYX.DeinAutomat/Diakoniestrasse/SchwaebischHa/DE/0 16.01.2026 / 16:01 Ortszeit",
         "DZ BANK AG", "NYX.DeinAutomat/Diakoniestrasse/SchwaebischHa")]
     public async Task Bei_einer_Kartenzahlung_zaehlt_der_Laden_aus_dem_Zweck(
@@ -368,7 +370,7 @@ public sealed class CamtParserTests
     [Fact]
     public async Task Der_Buchungstext_der_Bank_wird_mitgefuehrt()
     {
-        var statement = await ParseAsync(Karte("Miete August", "Heike Immel")
+        var statement = await ParseAsync(Karte("Miete August", "Erika Musterfrau")
             .Replace("</Ntry>", "<AddtlNtryInf>Dauerauftrag</AddtlNtryInf></Ntry>"));
 
         Assert.Equal("Dauerauftrag", statement.Records.Single().Details?.BookingText);

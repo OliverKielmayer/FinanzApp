@@ -98,7 +98,7 @@ public static class ExtensionSeedData
             decimal Premium, PremiumInterval Interval, DateOnly? Starts, DateOnly? Ends,
             int NoticeMonths, decimal? SumInsured)[] rows =
         [
-            ("Krankenversicherung", "Krankenversicherung Debeka", "Debeka", PolicyKind.Health,
+            ("Krankenversicherung", "Krankenversicherung Musterkasse", "Musterkasse", PolicyKind.Health,
                 "PKV · Erstattungen unter Gesundheit", 742m, PremiumInterval.Monthly,
                 new DateOnly(2016, 1, 1), null, 3, null),
             ("Kfz", "Kfz WGV", "WGV", PolicyKind.Vehicle,
@@ -316,7 +316,7 @@ public static class ExtensionSeedData
             Add(18, "Raiffeisenbank Lebensversicherung", "Versicherung", CategoryDirection.Expense,
                 -85m, raiffeisen,
                 $"MONATSBEITRAG {monat:MM/yyyy} POLICE RB-2019-8842");
-            Add(20, "Debeka Riesterrente", "Versicherung", CategoryDirection.Expense,
+            Add(20, "Musterkasse Riesterrente", "Versicherung", CategoryDirection.Expense,
                 -162.75m, sparkasse,
                 $"RIESTER EIGENBEITRAG {monat:MM/yyyy} VERTRAG DB-RI-330914");
             Add(20, "Bausparkasse Schwaebisch Hall", "Versicherung", CategoryDirection.Expense,
@@ -886,7 +886,7 @@ public static class ExtensionSeedData
         (string File, string Sender, int Pages, bool Recognised, int DaysAgo)[] rows =
         [
             ("Beitragsanpassung_2027.pdf", "HUK-Coburg", 2, true, 1),
-            ("Abrechnung_Debeka_08.pdf", "Debeka", 4, true, 2),
+            ("Abrechnung_Musterkasse_08.pdf", "Musterkasse", 4, true, 2),
             ("Scan_20260820_0001.pdf", null!, 1, false, 3),
             ("Scan_20260819_0007.pdf", null!, 6, false, 4),
         ];

@@ -50,7 +50,7 @@ public sealed class FolderWorkerTests : IDisposable
     private WatchOptions Options(int maxMegabytes = 25, int maxAttempts = 5) => new()
     {
         WatchFolder = root,
-        Email = "dienst@haushalt-kielmayer.de",
+        Email = "dienst@haushalt-mustermann.de",
         Password = "geheim",
         Extensions = [".pdf"],
 

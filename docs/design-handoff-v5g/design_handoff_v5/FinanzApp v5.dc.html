@@ -142,7 +142,7 @@ a{color:var(--color-accent-700)}a:hover{color:var(--color-accent-800)}
               <sc-if value="{{ isNewHousehold }}">
                 <div class="field" style="margin-top:14px">
                   <label>Name des Haushalts</label>
-                  <input class="input" placeholder="z. B. Haushalt Kielmayer" value="{{ household }}" onChange="{{ onHousehold }}" style="min-height:44px">
+                  <input class="input" placeholder="z. B. Haushalt Mustermann" value="{{ household }}" onChange="{{ onHousehold }}" style="min-height:44px">
                 </div>
               </sc-if>
               <span style="display:block;font-size:11px;color:var(--color-neutral-600);margin-top:10px">{{ householdHint }}</span>
@@ -3193,7 +3193,7 @@ class Component extends DCLogic {
       { name: 'Wohngebäude', note: 'Haus Birkenstetter Straße 10', amount: 412, cycle: 'jährlich', keepName: true, f: { art: 'Wohngebäude', versicherer: 'WGV', beitrag: '412,00', intervall: 'jährlich', frist: '3 Monate' } },
       { name: 'Kfz WGV', note: 'L-2905 · Wechselfrist 30.11.2026', amount: 618, cycle: 'jährlich', to: 'vehicle', f: { art: 'Kfz', versicherer: 'WGV', beitrag: '618,00', intervall: 'jährlich', frist: '1 Monat' } },
       { name: 'Rechtsschutz', note: '', amount: 231, cycle: 'jährlich', f: { art: 'Rechtsschutz', versicherer: 'ARAG', beitrag: '231,00', intervall: 'jährlich', ende: '31.05.2027', frist: '3 Monate' } },
-      { name: 'Krankenversicherung Debeka', note: 'PKV · Erstattungen unter Gesundheit', amount: 742, cycle: 'monatlich', to: 'pkv', keepName: true, f: { art: 'Krankenversicherung', versicherer: 'Debeka', beitrag: '742,00', intervall: 'monatlich', frist: '3 Monate' } },
+      { name: 'Krankenversicherung Musterkasse', note: 'PKV · Erstattungen unter Gesundheit', amount: 742, cycle: 'monatlich', to: 'pkv', keepName: true, f: { art: 'Krankenversicherung', versicherer: 'Musterkasse', beitrag: '742,00', intervall: 'monatlich', frist: '3 Monate' } },
     ],
     propertiesX: [{ name: 'Haus Birkenstetter Straße 10', note: '142 m²', value: 395000, main: true, f: { bez: 'Haus Birkenstetter Straße 10', adresse: 'Birkenstetter Straße 10, Bühlerzell', typ: 'Haus', kauf: '2019 · 340.000', markt: '395.000', darlehen: 'Sparkasse · 148.300 €' } }],
     contractsX: [
@@ -3206,7 +3206,7 @@ class Component extends DCLogic {
     pensionsX: [
       { name: 'Heidelberger Leben', note: 'MLP bestpartner classic', value: 20481.52, asOf: 'Stand 07/2025', to: 'insurance', f: { art: 'Kapital-LV', versicherer: 'Heidelberger Leben', nummer: '77001122-01', wert: '20.481,52', stichtag: '07/2025', ablauf: '01.08.2031' } },
       { name: 'Raiffeisenbank LV', note: '', value: 14208, asOf: 'Stand 12/2025', f: { art: 'Kapital-LV', versicherer: 'Raiffeisenbank LV', wert: '14.208,00', stichtag: '12/2025', ablauf: '2034' } },
-      { name: 'Riester Debeka', note: 'Zulagen 2025 gebucht', value: 11930.40, asOf: 'Stand 12/2025', f: { art: 'Riester', versicherer: 'Riester Debeka', wert: '11.930,40', stichtag: '12/2025' } },
+      { name: 'Riester Musterkasse', note: 'Zulagen 2025 gebucht', value: 11930.40, asOf: 'Stand 12/2025', f: { art: 'Riester', versicherer: 'Riester Musterkasse', wert: '11.930,40', stichtag: '12/2025' } },
       { name: 'Bausparen BSK SHA', note: 'Zuteilung möglich', value: 12320.08, asOf: 'Stand 12/2025', urgent: true, f: { art: 'Bausparen', versicherer: 'Bausparen BSK SHA', wert: '12.320,08', stichtag: '12/2025' } },
     ],
     vehiclesX: [
@@ -3221,8 +3221,8 @@ class Component extends DCLogic {
     ],
     selTx: [], entrySheet: false, caseFilter: 'Offen', docFilter: 'Alle', docQuery: '', docId: 'police',
     scanStep: 1, scanPages: 0, pkvStep: 1, liqTab: 'Jetzt', invoicePaid: false, docFixed: false,
-    auth: 'login', user: 'Oliver W.', mail: 'oliver@haushalt-kielmayer.de', pass: '', stayIn: true,
-    regName: '', invite: '', hhMode: 'Beitreten', household: 'Haushalt Kielmayer', hide: false, query: '', note: '',
+    auth: 'login', user: 'Oliver W.', mail: 'oliver@haushalt-mustermann.de', pass: '', stayIn: true,
+    regName: '', invite: '', hhMode: 'Beitreten', household: 'Haushalt Mustermann', hide: false, query: '', note: '',
     digits: '', kind: 'Ausgabe', cat: null, acct: 'Sparkasse Giro', step: 1,
     sheetId: null, bulk: false, ruleOn: true, toast: '', period: 'Monat',
     txAcct: 'Alle', txCat: 'Alle', txType: 'Alle', showSums: true,
@@ -3399,10 +3399,10 @@ class Component extends DCLogic {
     const dash = this.props.dashLayout || 'Kacheln';
     const flow = this.props.entryFlow || 'Schritte';
     const hide = s.hide;
-    const household = s.household || 'Haushalt Kielmayer';
+    const household = s.household || 'Haushalt Mustermann';
     const people = [
-      { name: 'Oliver W.', mail: 'oliver@haushalt-kielmayer.de', role: 'Inhaber', seen: 'zuletzt aktiv: heute, 08:24' },
-      { name: 'Sabine K.', mail: 'sabine@haushalt-kielmayer.de', role: 'Mitglied', seen: 'zuletzt aktiv: gestern, 21:05' },
+      { name: 'Oliver W.', mail: 'oliver@haushalt-mustermann.de', role: 'Inhaber', seen: 'zuletzt aktiv: heute, 08:24' },
+      { name: 'Sabine K.', mail: 'sabine@haushalt-mustermann.de', role: 'Mitglied', seen: 'zuletzt aktiv: gestern, 21:05' },
       { name: 'Steuerbüro Haas', mail: 'kanzlei@haas-stb.de', role: 'Lesezugriff', seen: 'zuletzt aktiv: 01.08.2026' },
     ];
     const pwScore = Math.min(4, Math.floor(s.pass.length / 3));
@@ -3892,10 +3892,10 @@ class Component extends DCLogic {
     const txYear = s.txYear || '2025';
     const TAXPOS = {
       '2025': [
-        { grp: 'vorsorge', label: 'Krankenversicherung Debeka · Beiträge', amount: 8904, doc: '12 Beitragsrechnungen', ok: true, to: 'protection' },
+        { grp: 'vorsorge', label: 'Krankenversicherung Musterkasse · Beiträge', amount: 8904, doc: '12 Beitragsrechnungen', ok: true, to: 'protection' },
         { grp: 'vorsorge', label: 'Berufsunfähigkeit Alte Leipziger', amount: 1416, doc: 'Beitragsrechnung 2025', ok: true, to: 'protection' },
         { grp: 'vorsorge', label: 'Risikoleben Hannoversche', amount: 504, doc: 'Beitragsrechnung 2025', ok: true, to: 'protection' },
-        { grp: 'vorsorge', label: 'Riester Debeka · Eigenbeitrag', amount: 1200, doc: 'Anbieterbescheinigung', ok: false, to: 'pension' },
+        { grp: 'vorsorge', label: 'Riester Musterkasse · Eigenbeitrag', amount: 1200, doc: 'Anbieterbescheinigung', ok: false, to: 'pension' },
         { grp: 'handwerk', label: 'Heizungswartung Grau', amount: 189, doc: 'Rechnung 03/2025', ok: true, to: 'property' },
         { grp: 'handwerk', label: 'Schornsteinfeger', amount: 96, doc: 'Rechnung 09/2025', ok: true, to: 'property' },
         { grp: 'handwerk', label: 'Gartenpflege Frühjahr', amount: 340, doc: 'Handwerkerrechnung', ok: false, to: 'property' },
@@ -3903,13 +3903,13 @@ class Component extends DCLogic {
         { grp: 'werbung', label: 'Beitrag Berufsverband', amount: 180, doc: 'Buchung 02/2025', ok: true, to: 'accounts' },
       ],
       '2024': [
-        { grp: 'vorsorge', label: 'Krankenversicherung Debeka · Beiträge', amount: 8544, doc: '12 Beitragsrechnungen', ok: true, to: 'protection' },
+        { grp: 'vorsorge', label: 'Krankenversicherung Musterkasse · Beiträge', amount: 8544, doc: '12 Beitragsrechnungen', ok: true, to: 'protection' },
         { grp: 'vorsorge', label: 'Berufsunfähigkeit Alte Leipziger', amount: 1416, doc: 'Beitragsrechnung 2024', ok: true, to: 'protection' },
         { grp: 'handwerk', label: 'Heizungswartung Grau', amount: 182, doc: 'Rechnung 04/2024', ok: true, to: 'property' },
         { grp: 'werbung', label: 'Beitrag Berufsverband', amount: 180, doc: 'Buchung 02/2024', ok: true, to: 'accounts' },
       ],
       '2026': [
-        { grp: 'vorsorge', label: 'Krankenversicherung Debeka · Beiträge', amount: 5936, doc: '8 Beitragsrechnungen · Jahr läuft', ok: true, to: 'protection' },
+        { grp: 'vorsorge', label: 'Krankenversicherung Musterkasse · Beiträge', amount: 5936, doc: '8 Beitragsrechnungen · Jahr läuft', ok: true, to: 'protection' },
         { grp: 'handwerk', label: 'Heizungswartung', amount: 0, doc: 'für 2026 fällig, noch nicht erfasst', ok: false, to: 'property', pending: true },
       ],
     };
@@ -4453,7 +4453,7 @@ class Component extends DCLogic {
       ],
       flows: [
         { name: 'Wohnen', amount: mask(eur0(1480)), pct: '100%', meta: '41 % · Darlehen, Energie', color: 'var(--color-neutral-800)' },
-        { name: 'Gesundheit', amount: mask(eur0(912)), pct: '62%', meta: '25 % · PKV Debeka 742 € + Eigenanteile 170 €', color: 'var(--color-neutral-800)' },
+        { name: 'Gesundheit', amount: mask(eur0(912)), pct: '62%', meta: '25 % · PKV Musterkasse 742 € + Eigenanteile 170 €', color: 'var(--color-neutral-800)' },
         { name: 'Lebensmittel', amount: mask(eur0(412)), pct: '28%', meta: '11 % · Budget 500 €', color: 'var(--color-neutral-800)' },
         { name: 'Absicherung', amount: mask(eur0(286)), pct: '19%', meta: '8 % · Risikoleben, BU, Sach- und Kfz-Verträge', color: 'var(--color-neutral-800)' },
         { name: 'Fahrzeuge', amount: mask(eur0(286)), pct: '19%', meta: '8 % · Steuer, Werkstatt, Kraftstoff', color: 'var(--color-neutral-800)' },

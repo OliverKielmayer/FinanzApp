@@ -126,7 +126,7 @@ public sealed class ImportFileTests : IDisposable
         Assert.Equal(0, result.ForcedDuplicates);
 
         using var context = database.Context();
-        var lohn = context.Transactions.Single(t => t.Payee == "Kielmayer Systemtechnik GmbH");
+        var lohn = context.Transactions.Single(t => t.Payee == "Mustermann Systemtechnik GmbH");
         var rewe = context.Transactions.Single(t => t.Payee == "REWE Markt Heidelberg");
 
         Assert.Equal(TransactionKind.Income, lohn.Kind);

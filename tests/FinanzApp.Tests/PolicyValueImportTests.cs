@@ -48,14 +48,14 @@ public sealed class PolicyValueImportTests : IDisposable
     [
         Header,
         "\"Konten & Kreditkarten\";\"Girokonto\";\"?\";\"\";\"Raiffeisenbank Grüntal\";"
-        + "\"Oliver Kielmayer\";\"manuell erfasst\";\"\";\"\";\"3.150,00\";\"\";\"01.11.2023\";\"\"",
-        "\"Depots\";\"Wertpapierdepot\";\"1009944110\";\"\";\"FFB\";\"Oliver Kielmayer\";"
+        + "\"Max Mustermann\";\"manuell erfasst\";\"\";\"\";\"3.150,00\";\"\";\"01.11.2023\";\"\"",
+        "\"Depots\";\"Wertpapierdepot\";\"1009944110\";\"\";\"FFB\";\"Max Mustermann\";"
         + "\"manuell erfasst\";\"\";\"250,00\";\"27.310,00\";\"\";\"30.09.2023\";\"\"",
         "\"Lebens- und Rentenversicherungen\";\"Lebensversicherung\";\"77001122-01\";\"\";"
-        + "\"Heidelberger Lebensversicherung AG\";\"Oliver Kielmayer\";\"\";\"\";\"198,40\";"
+        + "\"Heidelberger Lebensversicherung AG\";\"Max Mustermann\";\"\";\"\";\"198,40\";"
         + "\"24.318,60\";\"\";\"31.07.2026\";\"\"",
         "\"Lebens- und Rentenversicherungen\";\"Rentenversicherung\";\"R-77001122-04\";\"\";"
-        + "\"Heidelberger Lebensversicherung AG\";\"Oliver Kielmayer\";\"\";\"\";\"74,20\";"
+        + "\"Heidelberger Lebensversicherung AG\";\"Max Mustermann\";\"\";\"\";\"74,20\";"
         + "\"15.902,80\";\"\";\"31.07.2026\";\"\"",
     ];
 
@@ -630,7 +630,7 @@ public sealed class PolicyValueImportTests : IDisposable
     /// <summary>Eine Zeile der Übersicht, wie die Datei sie schreibt.</summary>
     private static string Zeile(string nummer, string art, string wert, string stand)
         => $"\"Lebens- und Rentenversicherungen\";\"{art}\";\"{nummer}\";\"\";"
-           + $"\"Heidelberger Lebensversicherung AG\";\"Oliver Kielmayer\";\"\";\"\";\"198,40\";"
+           + $"\"Heidelberger Lebensversicherung AG\";\"Max Mustermann\";\"\";\"\";\"198,40\";"
            + $"\"{wert}\";\"\";\"{stand}\";\"\"";
 
     /// <summary>Dieselbe Zeile ohne Beitrag — so sieht die umgewandelte Historie aus.</summary>

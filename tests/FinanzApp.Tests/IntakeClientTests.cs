@@ -92,7 +92,7 @@ public sealed class IntakeClientTests : IDisposable
         {
             WatchFolder = root,
             BaseAddress = "http://localhost:5222/",
-            Email = "dienst@haushalt-kielmayer.de",
+            Email = "dienst@haushalt-mustermann.de",
             Password = "geheim",
         };
 
@@ -210,7 +210,7 @@ public sealed class IntakeClientTests : IDisposable
         var ergebnis = await client.HandOverAsync(Write(), CancellationToken.None);
 
         Assert.Equal(HandoverStatus.Blocked, ergebnis.Status);
-        Assert.Contains("dienst@haushalt-kielmayer.de", ergebnis.Message);
+        Assert.Contains("dienst@haushalt-mustermann.de", ergebnis.Message);
         Assert.Contains("Zugang unbekannt.", ergebnis.Message);
 
         // Kein zweiter Anlauf und keine Einlieferung.

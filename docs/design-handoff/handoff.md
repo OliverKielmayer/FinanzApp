@@ -242,7 +242,7 @@ Die Drawer-Variante zeigt im Kopf Benutzername und Haushalt statt der früheren 
 - **Mandantentrennung**: jede Abfrage filtert auf den Haushalt des angemeldeten Benutzers — als globaler Query-Filter im `DbContext`, nicht je Service. Ohne das wird aus dem Mehrbenutzerbetrieb ein Datenleck.
 - **Neue Endpunkte**: Anmelden, Abmelden, Registrieren, Reset anfordern und einlösen, Mitglieder lesen, Einladung erzeugen und einlösen, Rolle ändern, Sitzungen widerrufen.
 - Alle bestehenden Endpunkte werden geschützt (`Program.cs`, `Endpoints/ApiEndpoints.cs`). Rollenprüfung serverseitig, nicht nur im Client: Lesezugriff darf schreibende Endpunkte nicht aufrufen können.
-- Beispieldaten: die drei Profile (Oliver W. / Inhaber, Sabine K. / Mitglied, Steuerbüro Haas / Lesezugriff) gehören in `SeedData` desselben Haushalts „Haushalt Kielmayer".
+- Beispieldaten: die drei Profile (Oliver W. / Inhaber, Sabine K. / Mitglied, Steuerbüro Haas / Lesezugriff) gehören in `SeedData` desselben Haushalts „Haushalt Mustermann".
 
 
 ---

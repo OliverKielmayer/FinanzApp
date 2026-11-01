@@ -30,7 +30,7 @@ public sealed class FolderServiceTests : IDisposable
         options = new WatchOptions
         {
             WatchFolder = root,
-            Email = "dienst@haushalt-kielmayer.de",
+            Email = "dienst@haushalt-mustermann.de",
             Password = "geheim",
             Extensions = [".pdf", ".jpg"],
             SettleSeconds = 5,

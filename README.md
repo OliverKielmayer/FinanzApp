@@ -53,13 +53,13 @@ dotnet test
 
 ### Demo-Zugänge
 
-Alle drei Benutzer des Haushalts *Haushalt Kielmayer* teilen das Passwort
+Alle drei Benutzer des Haushalts *Haushalt Mustermann* teilen das Passwort
 `Demo-Haushalt-2026!`:
 
 | E-Mail | Rolle | Was er darf |
 | --- | --- | --- |
-| `oliver@haushalt-kielmayer.de` | Inhaber | alles, inklusive Benutzerverwaltung und Einladungen |
-| `sabine@haushalt-kielmayer.de` | Mitglied | alle Daten ändern, keine Benutzerverwaltung |
+| `oliver@haushalt-mustermann.de` | Inhaber | alles, inklusive Benutzerverwaltung und Einladungen |
+| `sabine@haushalt-mustermann.de` | Mitglied | alle Daten ändern, keine Benutzerverwaltung |
 | `kanzlei@haas-stb.de` | Lesezugriff | nur ansehen — kein Erfassen, keine Kategorieauswahl, kein Import |
 
 > Diese Konten und ihr Passwort stehen im Quelltext, damit die Vorführung ohne Einrichtung läuft.
@@ -610,11 +610,12 @@ An einer echten Bankdatei mit 459 Umsätzen geprüft. Bei Kartenzahlungen und ü
 Zahlungsdienstleister steht im Gläubigerfeld nicht der Laden, sondern der Acquirer
 („PAYONE GmbH“, „DZ BANK AG“, „EDEKABANK AG“) oder ein Platzhalter
 („Lastschrift aus Kartenzahlung“). Der Laden steht im Verwendungszweck — in mehreren
-Schreibweisen, alle in derselben Datei:
+Schreibweisen, alle in derselben Datei; der Klinikbeleg trägt hier einen
+erfundenen Namen, seine Form ist unverändert:
 
 ```
 Setzer 24/7 Vell./Wolpertshausen/DE 31.12.2025 um 19:08:01 Uhr
-DIAK Klinikum Landkrei/Am Mutterhaus 1/Schwaebisch H/D02.01.2026 / 18:58 Ortszeit
+Muster Klinikum Landkrei/Am Musterweg 1/Musterstad/D08.03.2026 / 11:20 Ortszeit
 NYX.DeinAutomat/Diakoniestrasse/SchwaebischHa/DE/0 16.01.2026 / 16:01 Ortszeit
 KJNUUX Ihr Einkauf bei EDEKA Möller vom 30.12.2025 EREF: T005115664
 ```

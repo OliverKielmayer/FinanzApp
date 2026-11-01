@@ -11,8 +11,8 @@ Drei Zugänge des Demo-Haushalts, alle mit dem Passwort `Demo-Haushalt-2026!`:
 
 | E-Mail | Rolle | Darf |
 | --- | --- | --- |
-| `oliver@haushalt-kielmayer.de` | Inhaber | alles, dazu Benutzer verwalten und einladen |
-| `sabine@haushalt-kielmayer.de` | Mitglied | alle Daten ändern, keine Benutzerverwaltung |
+| `oliver@haushalt-mustermann.de` | Inhaber | alles, dazu Benutzer verwalten und einladen |
+| `sabine@haushalt-mustermann.de` | Mitglied | alle Daten ändern, keine Benutzerverwaltung |
 | `kanzlei@haas-stb.de` | Lesezugriff | nur ansehen |
 
 - **Angemeldet bleiben** hält die Sitzung über das Schließen des Browsers hinaus. Ohne den Haken
