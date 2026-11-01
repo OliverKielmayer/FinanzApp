@@ -120,7 +120,72 @@
                 <div class="picker">
                     <span class="label-strong">Objekt</span>
 
-                    @if (picked is { } gewaehlt)
+                    @if (anlegen)
+                    {
+                        @*
+                            Die fehlende Tür.
+
+                            Eine Arztrechnung gehört an einen Erstattungsvorgang — Betrag,
+                            Eigenanteil, was die Kasse noch schuldet. Den gibt es beim ersten
+                            Beleg naturgemäß noch nicht, und bisher führte der einzige Weg
+                            dahin über „Beleg scannen“ unter Gesundheit: denselben Zettel ein
+                            zweites Mal einlesen, obwohl er hier schon abgelegt und gelesen
+                            daliegt. Wer das einmal gemacht hat, hängt die Rechnung beim
+                            nächsten Mal an den Krankenversicherungsvertrag, weil das schneller
+                            geht — und dann steht sie am Vertrag statt an ihrer Erstattung.
+
+                            Also wird der Vorgang hier angelegt, mit dem Beleg vor Augen.
+                        *@
+                        <div class="auth-form">
+                            <div class="field">
+                                <label for="neu-provider">Rechnungssteller</label>
+                                <input id="neu-provider" class="input" placeholder="z. B. Dr. Meyer, Zahnarzt"
+                                       value="@provider"
+                                       @oninput="e => provider = e.Value?.ToString() ?? string.Empty" />
+                            </div>
+                            <div class="field">
+                                <label for="neu-datum">Rechnungsdatum</label>
+                                <input id="neu-datum" class="input" type="date"
+                                       value="@billDate.ToString("yyyy-MM-dd")" @onchange="OnBillDateChanged" />
+                            </div>
+                            <div class="field">
+                                <label for="neu-nummer">Rechnungsnummer</label>
+                                <input id="neu-nummer" class="input" placeholder="z. B. R-2026-114"
+                                       value="@billNumber"
+                                       @oninput="e => billNumber = e.Value?.ToString() ?? string.Empty" />
+                            </div>
+                            <div class="field">
+                                <label for="neu-brutto">Betrag (€)</label>
+                                <input id="neu-brutto" class="input" type="number" step="0.01" min="0"
+                                       value="@gross" @oninput="e => gross = Parse(e.Value)" />
+                            </div>
+                            <div class="field">
+                                <label for="neu-eigen">Eigenanteil (€)</label>
+                                <input id="neu-eigen" class="input" type="number" step="0.01" min="0"
+                                       value="@ownShare" @oninput="e => ownShare = Parse(e.Value)" />
+                            </div>
+                        </div>
+
+                        <div class="detail-block">
+                            <span class="detail-label">Erwartete Erstattung</span>
+                            <span class="detail-value num">@State.Euro(Erwartet)</span>
+                        </div>
+
+                        <span class="meta">
+                            Der Eigenanteil zählt als Ausgabe, nicht als offene Forderung. Offen
+                            bleibt nur die erwartete Erstattung.
+                        </span>
+
+                        <div class="actions">
+                            <button type="button" class="btn btn-primary" disabled="@(!KannAnlegen)"
+                                    @onclick="CreateBillAndAssignAsync">
+                                Anlegen und zuordnen
+                            </button>
+                            <button type="button" class="btn btn-ghost" disabled="@busy"
+                                    @onclick="@(() => anlegen = false)">Zurück zur Suche</button>
+                        </div>
+                    }
+                    else if (picked is { } gewaehlt)
                     {
                         @* Das Gewählte steht statt der Suche da: es ist die Antwort auf die Frage,
                            und die Suchtreffer darunter wären nur noch Ablenkung. *@
@@ -159,6 +224,17 @@
                                     <span class="meta">@hit.TargetLabel · @hit.Subtitle</span>
                                 </span>
                             </button>
+                        }
+
+                        @*
+                            Steht der Beleg unter Gesundheit, fehlt sein Objekt fast immer — ein
+                            Erstattungsvorgang entsteht erst mit der ersten Rechnung. Der Schalter
+                            steht deshalb hier und nicht hinter einer Fehlersuche.
+                        *@
+                        @if (IstGesundheit)
+                        {
+                            <button type="button" class="btn btn-secondary" disabled="@busy"
+                                    @onclick="BeginBill">Neue Arztrechnung anlegen</button>
                         }
                     }
                 </div>
@@ -244,6 +320,33 @@
 
     private CancellationTokenSource? debounce;
 
+    // ── Eine Arztrechnung, die es noch nicht gibt ──────────────────────────────────────────
+
+    private bool anlegen;
+    private string provider = string.Empty;
+    private string billNumber = string.Empty;
+    private DateOnly billDate;
+    private decimal gross;
+    private decimal ownShare;
+
+    /// <summary>Was nach dem Eigenanteil offen bleibt — dieselbe Rechnung wie am Vorgang.</summary>
+    private decimal Erwartet => Math.Max(0m, gross - ownShare);
+
+    /// <summary>
+    /// Ob der gewählte Typ in den Gesundheitsbereich gehört.
+    /// </summary>
+    /// <remarks>
+    /// Am Typ und nicht am Namen: „Arztrechnung“ kann im Haushalt anders heißen, der Bereich
+    /// steht am Typ fest. Ohne gewählten Typ ist die Frage offen, und dann steht der Schalter
+    /// auch nicht da.
+    /// </remarks>
+    private bool IstGesundheit
+        => types.FirstOrDefault(t => t.Id == typeId)?.Area == DocumentArea.Health;
+
+    private bool KannAnlegen
+        => !busy && typeId is not null && provider.Trim().Length > 0
+           && gross > 0m && ownShare >= 0m && ownShare <= gross;
+
     private ScanInboxItemDto? Aktueller
         => data?.Items.FirstOrDefault(i => i.Id == Id);
 
@@ -319,6 +422,107 @@
         picked = null;
         term = string.Empty;
         hits = [];
+        anlegen = false;
+    }
+
+    /// <summary>
+    /// Öffnet das Formular für einen neuen Erstattungsvorgang.
+    /// </summary>
+    /// <remarks>
+    /// Das Rechnungsdatum startet auf dem Eingangsdatum des Belegs und nicht auf heute: Post
+    /// liegt selten lange. Es ist trotzdem geraten — deshalb steht es als Feld da, und der
+    /// Beleg daneben sagt, was wirklich drauf steht. Rechnungssteller und Betrag bleiben leer;
+    /// sie zu raten hieße, eine Zahl zu erfinden, die anschließend niemand mehr prüft.
+    /// </remarks>
+    private void BeginBill()
+    {
+        if (Aktueller is not { } beleg)
+        {
+            return;
+        }
+
+        anlegen = true;
+        provider = string.Empty;
+        billNumber = string.Empty;
+        billDate = beleg.ArrivedOn;
+        gross = 0m;
+        ownShare = 0m;
+    }
+
+    private void OnBillDateChanged(ChangeEventArgs e)
+    {
+        if (DateOnly.TryParse(e.Value?.ToString(), out var parsed))
+        {
+            billDate = parsed;
+        }
+    }
+
+    private static decimal Parse(object? value)
+        => decimal.TryParse(
+            value?.ToString(),
+            System.Globalization.NumberStyles.Any,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var parsed)
+            ? parsed
+            : 0m;
+
+    /// <summary>
+    /// Legt den Erstattungsvorgang an und ordnet den Beleg daran zu.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Zwei Aufrufe und kein <c>DocumentId</c> beim Anlegen.</b> Der Anlege-Aufruf
+    /// kann den Beleg selbst verknüpfen — dann hinge er am Vorgang, stünde aber weiter ohne Typ
+    /// im Eingang. Das Zuordnen macht beides und mehr: Es setzt den Typ, legt die Datei in den
+    /// richtigen Ordner um und benennt sie nach ihrem Inhalt. Beides zusammen ergäbe zwei
+    /// Verknüpfungen auf dasselbe Ziel.</para>
+    /// <para>Scheitert das Zuordnen, steht der Vorgang trotzdem — angelegt ist angelegt. Der
+    /// Beleg bleibt dann im Eingang, und das Objekt findet sich jetzt über die Suche.</para>
+    /// </remarks>
+    private async Task CreateBillAndAssignAsync()
+    {
+        if (Aktueller is not { } beleg || typeId is not { } type)
+        {
+            return;
+        }
+
+        var weiter = NaechsterId;
+        busy = true;
+
+        try
+        {
+            var vorgang = await Api.CreateMedicalBillAsync(new CreateMedicalBillRequest
+            {
+                Provider = provider.Trim(),
+                BillDate = billDate,
+                BillNumber = string.IsNullOrWhiteSpace(billNumber) ? null : billNumber.Trim(),
+                GrossAmount = gross,
+                OwnShare = ownShare,
+                ExpectedReimbursement = Erwartet,
+            });
+
+            await Api.AssignScanInboxAsync(
+                beleg.Id,
+                new AssignScanInboxRequest
+                {
+                    DocumentTypeId = type,
+                    TargetType = LinkTargetType.MedicalBill,
+                    TargetId = vorgang.Id,
+                });
+
+            Toasts.Show($"{beleg.FileName} liegt jetzt bei {vorgang.Provider}.");
+
+            Navigation.NavigateTo(weiter is { } naechster
+                ? $"/scaneingang/{naechster}"
+                : "/scaneingang");
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message);
+        }
+        finally
+        {
+            busy = false;
+        }
     }
 
     /// <summary>
