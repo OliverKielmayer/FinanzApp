@@ -124,4 +124,23 @@ public sealed record ExtractedBillDto
 
     /// <summary>Ob überhaupt etwas erkannt wurde.</summary>
     public required bool HasContent { get; init; }
+
+    // ── Woher die Werte stammen ───────────────────────────────────────────────────────────
+    //
+    // Jeder gelesene Wert bringt seine Zeile mit. Das ist der Unterschied zwischen Lesen und
+    // Raten: Ein Betrag mit Quelle ist in einer Sekunde geprüft; einer ohne ist eine
+    // Behauptung, die niemand mehr nachsieht. Bei einer Erstattung ist das die falsche Stelle
+    // dafür — die Zahl wandert in eine Forderung gegen die Kasse.
+
+    /// <summary>Die Zeile, aus der <see cref="Provider"/> stammt.</summary>
+    public string? ProviderSource { get; init; }
+
+    /// <summary>Die Zeile, aus der <see cref="BillDate"/> stammt.</summary>
+    public string? BillDateSource { get; init; }
+
+    /// <summary>Die Zeile, aus der <see cref="BillNumber"/> stammt.</summary>
+    public string? BillNumberSource { get; init; }
+
+    /// <summary>Die Zeile, aus der <see cref="GrossAmount"/> stammt.</summary>
+    public string? GrossAmountSource { get; init; }
 }

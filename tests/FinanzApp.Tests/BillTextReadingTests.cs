@@ -1,0 +1,203 @@
+using FinanzApp.Api.Infrastructure;
+
+namespace FinanzApp.Tests;
+
+/// <summary>
+/// Die Eckdaten einer Rechnung aus ihrem Text.
+/// </summary>
+/// <remarks>
+/// <para>Der Unterschied zwischen Lesen und Raten ist hier die Beschriftung: Ein Betrag gilt,
+/// weil „Rechnungsbetrag“ danebensteht, und nicht, weil er unten rechts steht. Was keine
+/// Beschriftung trägt, bleibt leer — ein leeres Feld fragt, ein falsch gefülltes antwortet.</para>
+/// <para>Die Belege hier sind erfunden, in der Gestalt echter: dieselben Beschriftungen,
+/// dieselben Kästen, dieselben Macken der Texterkennung — aber ausgedachte Namen und Zahlen.</para>
+/// </remarks>
+public sealed class BillTextReadingTests
+{
+    [Fact]
+    public void Eine_beschriftete_Rechnung_gibt_alle_vier_Werte_her()
+    {
+        var gelesen = BillTextReader.Read("""
+            Musterstädter Klinikum gGmbH
+            Musterstraße 10, 12345 Musterstadt
+            Rechnungsnummer: 4711
+            Rechnungsdatum: 04.11.2026
+            Pos Bezeichnung Betrag
+            1 Untersuchung 318,40
+            Rechnungsbetrag: 318,40
+            """);
+
+        Assert.True(gelesen.HasContent);
+        Assert.Equal("Musterstädter Klinikum gGmbH", gelesen.Provider);
+        Assert.Equal("4711", gelesen.BillNumber);
+        Assert.Equal(new DateOnly(2026, 11, 4), gelesen.BillDate);
+        Assert.Equal(318.40m, gelesen.GrossAmount);
+    }
+
+    /// <summary>Jeder Wert nennt die Zeile, aus der er stammt.</summary>
+    /// <remarks>
+    /// Ohne Quelle ist ein gelesener Betrag eine Behauptung, die niemand mehr nachsieht. Bei
+    /// einer Erstattung wandert er in eine Forderung gegen die Kasse — die falsche Stelle für
+    /// ein ungeprüftes Ergebnis.
+    /// </remarks>
+    [Fact]
+    public void Jeder_Wert_nennt_seine_Zeile()
+    {
+        var gelesen = BillTextReader.Read("""
+            Musterpraxis Dr. Mustermann GbR
+            Rechnungsnummer: 4711
+            Rechnungsbetrag: 318,40
+            """);
+
+        Assert.Contains("4711", gelesen.BillNumberSource);
+        Assert.Contains("Rechnungsbetrag", gelesen.GrossAmountSource);
+        Assert.Contains("Musterpraxis", gelesen.ProviderSource);
+    }
+
+    /// <summary>
+    /// Steht die Beschriftung als Spaltenkopf da, trägt die Zeile darunter die Werte.
+    /// </summary>
+    /// <remarks>
+    /// Ein Kasten „R-Nummer/Debitor · R-Datum“ mit den Werten darunter ist auf Klinikrechnungen
+    /// die Regel. Der Schrägstrich trennt Rechnungsnummer und Debitorennummer; gemeint ist die
+    /// erste.
+    /// </remarks>
+    [Fact]
+    public void Ein_Spaltenkopf_traegt_seine_Werte_in_der_Zeile_darunter()
+    {
+        var gelesen = BillTextReader.Read("""
+            Musterstädter Klinikum gGmbH
+            Bei Zahlung und Schriftverkehr bitte angeben:
+            R-Nummer/Debitor R-Datum
+            4711/880022 04.11.2026
+            Rechnungsbetrag: 318,40
+            """);
+
+        Assert.Equal("4711", gelesen.BillNumber);
+        Assert.Equal(new DateOnly(2026, 11, 4), gelesen.BillDate);
+    }
+
+    /// <summary>
+    /// Ein Fließsatz ist kein Spaltenkopf — unter ihm steht die Bank, nicht der Wert.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Fall stammt von einem echten Laborbeleg. „Bitte überweisen Sie den
+    /// Rechnungsbetrag unter Angabe der Rechnungsnummer auf unser Konto.“ enthält beide
+    /// Beschriftungen und keinen einzigen Wert; darunter stand die Bankverbindung. Eine Regel,
+    /// die blind die nächste Zeile nimmt, las daraus die Rechnungsnummer <c>DE88</c>.</para>
+    /// <para><b>Eine falsch gelesene Nummer ist schlimmer als keine.</b> Keine fragt; eine
+    /// falsche steht am Vorgang und wird beim Einreichen zurückgewiesen.</para>
+    /// </remarks>
+    [Fact]
+    public void Aus_einem_Fliesssatz_wird_keine_IBAN_zur_Rechnungsnummer()
+    {
+        var gelesen = BillTextReader.Read("""
+            Musterlabor MVZ GmbH
+            Bitte überweisen Sie den Rechnungsbetrag unter Angabe der Rechnungsnummer auf unser Konto.
+            Musterbank, Musterlabor MVZ GmbH IBAN: DE02 1234 5678 9012 3456 78, BIC: MUSTDE66XXX
+            """);
+
+        Assert.Null(gelesen.BillNumber);
+    }
+
+    /// <summary>
+    /// Ein Punkt neben einer Währung ist ein Komma.
+    /// </summary>
+    /// <remarks>
+    /// „EUR 12.34“ stand so auf einem Beleg — die Erkennung hatte das Komma als Punkt gelesen.
+    /// Nur unmittelbar neben der Währung: Sonst wäre „1.234“ plötzlich 1,23 und ein
+    /// vierstelliger Betrag zu einem einstelligen geworden.
+    /// </remarks>
+    [Theory]
+    [InlineData("Rechnungsbetrag EUR 12.34", 12.34)]
+    [InlineData("Rechnungsbetrag 12.34 EUR", 12.34)]
+    [InlineData("Rechnungsbetrag: 1.234,56", 1234.56)]
+    public void Ein_Punkt_neben_der_Waehrung_ist_ein_Komma(string zeile, double erwartet)
+        => Assert.Equal((decimal)erwartet, BillTextReader.Read("Musterlabor GmbH\n" + zeile).GrossAmount);
+
+    /// <summary>
+    /// Die Rechnungsnummer wird auch gefunden, wenn der Scan das Wort zerlegt hat.
+    /// </summary>
+    /// <remarks>
+    /// Auf dem Blatt stand groß „RECHNUNG Nr.“, die Erkennung lieferte „RECHNU G Nr.“. Es
+    /// trifft gerade das größte Wort der Seite, weil es oft gesperrt gesetzt ist. Der Rückfall
+    /// greift erst, wenn keine ausdrückliche Beschriftung etwas gefunden hat.
+    /// </remarks>
+    [Fact]
+    public void Eine_zerlesene_Rechnungsnummer_wird_trotzdem_gefunden()
+    {
+        var gelesen = BillTextReader.Read("""
+            Musterholz GmbH & Co. KG
+            Auftrags-Nr. 01234567
+            RECHNU G Nr.00099887
+            Kunden-Nr. 77341
+            Datum 04.11.2026
+            """);
+
+        Assert.Equal("00099887", gelesen.BillNumber);
+        Assert.Equal(new DateOnly(2026, 11, 4), gelesen.BillDate);
+    }
+
+    /// <summary>
+    /// Der Absender hängt an der Rechtsform, nicht an der ersten Zeile.
+    /// </summary>
+    /// <remarks>
+    /// <para>Ein Briefkopf hat keine Beschriftung — die Rechtsform ist der beste Anker, den ein
+    /// Blatt von sich aus hergibt. Sie steht am vollständigen Namen und sonst nirgends.</para>
+    /// <para>Als ganzes Wort: „ se“ für die SE fand als Teilstring das „Se“ in „Seite“, und der
+    /// Absender hieß daraufhin „Endrechnung/ ambulant Seite“.</para>
+    /// </remarks>
+    [Fact]
+    public void Der_Absender_haengt_an_der_Rechtsform()
+    {
+        var gelesen = BillTextReader.Read("""
+            MUSTER KLINIKUM
+            Landkreis Musterstadt
+            Endrechnung / ambulant Seite 1
+            Musterstädter Klinikum Landkreis Musterstadt gGmbH
+            Musterstraße 10
+            """);
+
+        Assert.Equal("Musterstädter Klinikum Landkreis Musterstadt gGmbH", gelesen.Provider);
+    }
+
+    /// <summary>Die Anschrift gehört nicht zum Namen, auch wenn sie in derselben Zeile steht.</summary>
+    [Fact]
+    public void Die_Anschrift_wird_vom_Namen_getrennt()
+    {
+        var gelesen = BillTextReader.Read("Musterlabor MVZ GmbH Musterstraße 14 12345 Musterstadt");
+
+        Assert.Equal("Musterlabor MVZ GmbH", gelesen.Provider);
+    }
+
+    /// <summary>
+    /// Was keine Rechnung ist, gibt auch keine Rechnungsdaten her.
+    /// </summary>
+    /// <remarks>
+    /// <c>HasContent</c> ist die ehrliche Antwort auf ein Blatt ohne Beschriftungen. Die Maske
+    /// bleibt dann leer und fragt — statt Zahlen anzubieten, die niemand geprüft hat.
+    /// </remarks>
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData(null)]
+    public void Ohne_Text_gibt_es_nichts_zu_lesen(string? text)
+        => Assert.False(BillTextReader.Read(text).HasContent);
+
+    /// <summary>Ein Eigenanteil steht nicht auf der Rechnung und wird deshalb nie gelesen.</summary>
+    /// <remarks>
+    /// Wie viel die Kasse übernimmt, entscheidet die Kasse — auf ihrer Abrechnung, nicht auf
+    /// dieser Rechnung. Einen Wert dafür zu erfinden hieße, eine offene Forderung zu erfinden.
+    /// </remarks>
+    [Fact]
+    public void Der_Eigenanteil_wird_nicht_erfunden()
+    {
+        var gelesen = BillTextReader.Read("""
+            Musterpraxis Dr. Mustermann GbR
+            Rechnungsbetrag: 318,40
+            Eigenanteil: 60,50
+            """);
+
+        Assert.Null(gelesen.OwnShare);
+    }
+}
