@@ -161,6 +161,15 @@ builder.Services.AddSingleton<IPolicyDocumentAnalyzer, NoPolicyDocumentAnalyzer>
 // ungelesen gemeldet; genau so war es, bevor es sie gab.
 var ocrOptions = builder.Configuration.GetSection(OcrOptions.SectionName)
                      .Get<OcrOptions>() ?? new OcrOptions();
+
+// Nichts eingetragen heißt nicht: nichts da. Unter Windows baut die API das Erkennungsprogramm
+// mit und legt es neben sich; dort wird es gefunden, ohne dass jemand einen Pfad einträgt, der
+// auf jedem Rechner anders aussieht. Ein eingetragener Pfad behält den Vorrang.
+if (string.IsNullOrWhiteSpace(ocrOptions.Command)
+    && OcrOptions.BundledCommand(AppContext.BaseDirectory) is { } mitgeliefert)
+{
+    ocrOptions.Command = mitgeliefert;
+}
 builder.Services.AddSingleton(ocrOptions);
 builder.Services.AddSingleton<PdfPigTextReader>();
 builder.Services.AddSingleton<ImageTextReader>();

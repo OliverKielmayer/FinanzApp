@@ -228,7 +228,67 @@ public sealed class ImageTextTests
         Assert.Equal("unten", zeilen[1].Text);
     }
 
+    // ── Das mitgelieferte Erkennungsprogramm ───────────────────────────────────────────────
+
+    /// <summary>
+    /// Liegt das Programm neben der Anwendung, wird es gefunden — ohne einen Eintrag.
+    /// </summary>
+    /// <remarks>
+    /// Ein Pfad in der Konfiguration sieht auf jedem Rechner anders aus und hat in einem
+    /// öffentlichen Repository nichts verloren. Deshalb legt der Bau das Programm neben die
+    /// API. Geprüft wird hier das Nachsehen, nicht der Bau.
+    /// </remarks>
+    [Fact]
+    public void Das_mitgelieferte_Programm_wird_neben_der_Anwendung_gefunden()
+    {
+        var basis = Ordner();
+        Directory.CreateDirectory(Path.Combine(basis, OcrOptions.BundledFolder));
+        var programm = Path.Combine(basis, OcrOptions.BundledFolder, OcrOptions.BundledFileName);
+        File.WriteAllText(programm, string.Empty);
+
+        try
+        {
+            Assert.Equal(programm, OcrOptions.BundledCommand(basis));
+        }
+        finally
+        {
+            Directory.Delete(basis, recursive: true);
+        }
+    }
+
+    /// <summary>Liegt keins daneben, wird keines erfunden.</summary>
+    /// <remarks>
+    /// Ein Pfad auf eine Datei, die es nicht gibt, wäre schlechter als gar keiner: Die
+    /// Anwendung hielte sich für eingerichtet und meldete bei jedem Bild einen Fehlschlag,
+    /// statt einmal zu sagen, dass keine Erkennung da ist.
+    /// </remarks>
+    [Fact]
+    public void Ohne_mitgeliefertes_Programm_bleibt_es_bei_nichts()
+    {
+        var basis = Ordner();
+        Directory.CreateDirectory(basis);
+
+        try
+        {
+            Assert.Null(OcrOptions.BundledCommand(basis));
+        }
+        finally
+        {
+            Directory.Delete(basis, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData(null)]
+    public void Ohne_Basisverzeichnis_wird_nicht_gesucht(string? basis)
+        => Assert.Null(OcrOptions.BundledCommand(basis));
+
     // ── Aufbau ─────────────────────────────────────────────────────────────────────────────
+
+    private static string Ordner()
+        => Path.Combine(Path.GetTempPath(), "finanzapp-ocr-test-" + Guid.NewGuid().ToString("N"));
 
     private static OcrWord Wort(int zeile, string text, double links, double rechts,
         double oben, double hoehe)

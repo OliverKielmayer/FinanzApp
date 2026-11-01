@@ -23,4 +23,36 @@
     <UserSecretsId>89e9cd4c-2eb7-4962-ba20-4c1e37bb5288</UserSecretsId>
   </PropertyGroup>
 
+  <!--
+    Das Erkennungsprogramm kommt mit.
+
+    Es ist ein eigenes Programm mit eigenem Zielrahmen (siehe FinanzApp.Texterkennung.csproj)
+    und wird deshalb nicht wie eine Bibliothek verwiesen. Trotzdem soll es da sein: Wer die
+    Anwendung startet, soll eingescannte Belege gelesen bekommen, ohne vorher einen Pfad
+    einzutragen, den nur er kennen kann — diese Dateien liegen in einem oeffentlichen
+    Repository, und ein Pfad darin waere auf jedem anderen Rechner falsch.
+
+    Also wird es gebaut und neben die API gelegt; die sucht es dort selbst
+    (OcrOptions.BundledCommand). Nur unter Windows: Der Zielrahmen verlangt das Windows-SDK,
+    und auf einem Linux-Rechner soll der Bau der API weiterhin durchlaufen. Dort bleibt die
+    Erkennung aus, und das sagt die Ablage dann auch an.
+
+    Gilt fuer Build, nicht fuer Publish - veroeffentlicht wuerde die Erkennung fehlen.
+  -->
+  <Target Name="TexterkennungMitnehmen" AfterTargets="Build" Condition="'$(OS)' == 'Windows_NT'">
+    <MSBuild Projects="..\FinanzApp.Texterkennung\FinanzApp.Texterkennung.csproj"
+             Targets="Build"
+             Properties="Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" ItemName="Erkennungsprogramm" />
+    </MSBuild>
+
+    <ItemGroup>
+      <Erkennungsdateien Include="%(Erkennungsprogramm.RootDir)%(Erkennungsprogramm.Directory)**\*" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(Erkennungsdateien)"
+          DestinationFolder="$(OutDir)texterkennung\%(RecursiveDir)"
+          SkipUnchangedFiles="true" />
+  </Target>
+
 </Project>

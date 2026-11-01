@@ -22,8 +22,42 @@ public sealed class OcrOptions
 {
     public const string SectionName = "Texterkennung";
 
-    /// <summary>Das Erkennungsprogramm. Leer heißt: keine Texterkennung.</summary>
+    /// <summary>Der Ordner neben der Anwendung, in dem das Erkennungsprogramm mitkommt.</summary>
+    public const string BundledFolder = "texterkennung";
+
+    /// <summary>Der Dateiname des Erkennungsprogramms.</summary>
+    public const string BundledFileName = "FinanzApp.Texterkennung.exe";
+
+    /// <summary>
+    /// Das Erkennungsprogramm. Leer heißt: nachsehen, ob eins mitgekommen ist.
+    /// </summary>
+    /// <seealso cref="BundledCommand"/>
     public string Command { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Das mitgelieferte Erkennungsprogramm neben der Anwendung — oder nichts.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Ein Pfad in der Konfiguration wäre hier der falsche Weg.</b> Er sieht auf jedem
+    /// Rechner anders aus, und diese Datei liegt in einem öffentlichen Repository. Wer die
+    /// Anwendung auscheckt und startet, soll eine Erkennung haben, ohne erst einen Pfad
+    /// einzutragen, den er nicht kennen kann.</para>
+    /// <para>Deshalb baut die API das Erkennungsprogramm unter Windows mit und legt es neben
+    /// sich. Gefunden wird es dann hier. Ist es nicht da — ein Linux-Rechner, ein Build ohne
+    /// Windows-SDK —, bleibt es bei <see cref="Command"/> leer, und das heißt weiterhin: keine
+    /// Erkennung. Ein eingetragener Pfad hat Vorrang; wer eine andere Erkennung hat, bekommt
+    /// sie nicht überschrieben.</para>
+    /// </remarks>
+    public static string? BundledCommand(string? baseDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(baseDirectory))
+        {
+            return null;
+        }
+
+        var pfad = Path.Combine(baseDirectory, BundledFolder, BundledFileName);
+        return File.Exists(pfad) ? pfad : null;
+    }
 
     /// <summary>Die Sprache des Papiers, nicht die des Rechners.</summary>
     public string Language { get; set; } = "de";
