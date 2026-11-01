@@ -265,6 +265,36 @@
                                     @onclick="@(() => anlegen = false)">Zurück zur Suche</button>
                         </div>
                     }
+                    else if (objektForm is { } formular)
+                    {
+                        @*
+                            Ein Objekt anlegen, mit dem Beleg daneben.
+
+                            Die Felder sind dieselben wie unter „Neu“ — derselbe Baustein, dieselbe
+                            Liste vom Server. Was hier fehlte, wäre dort auch Pflicht; zwei
+                            Formulare für dasselbe Objekt liefen auseinander, und das fiele erst
+                            auf, wenn eines unvollständig anlegt.
+                        *@
+                        <span class="meta">@formular.Title</span>
+
+                        <CreateFields Fields="formular.Fields" Values="objektWerte"
+                                      @bind-Problem="objektProblem" @bind-ProblemKey="objektProblemKey" />
+
+                        @if (objektProblem is { Length: > 0 } && objektProblemKey is null)
+                        {
+                            <div class="notice">
+                                <span class="notice-title">Noch nicht angelegt</span>
+                                <span class="notice-text">@objektProblem</span>
+                            </div>
+                        }
+
+                        <div class="doc-actions">
+                            <button type="button" class="btn btn-primary" disabled="@busy"
+                                    @onclick="CreateObjectAsync">@formular.SubmitLabel</button>
+                            <button type="button" class="btn btn-ghost" disabled="@busy"
+                                    @onclick="CancelObject">Zurück zur Suche</button>
+                        </div>
+                    }
                     else if (picked is { } gewaehlt)
                     {
                         @* Das Gewählte steht statt der Suche da: es ist die Antwort auf die Frage,
@@ -317,6 +347,24 @@
                             <button type="button" class="btn btn-secondary" disabled="@busy"
                                     @onclick="BeginBill">Neue Arztrechnung anlegen</button>
                         }
+
+                        @*
+                            Und für alles andere, das es noch nicht gibt.
+
+                            Ein Notarschreiben zum Hauskauf kommt an, bevor das Haus angelegt ist;
+                            die erste Rechnung eines Versorgers, bevor der Vertrag erfasst ist. Wer
+                            dafür den Prüfplatz verlassen muss, kommt mit dem Beleg im Kopf zurück
+                            — oder gar nicht.
+                        *@
+                        <span class="create-help">Gibt es das Objekt noch nicht, hier anlegen:</span>
+
+                        <div class="chipcloud">
+                            @foreach (var weg in Anlegewege)
+                            {
+                                <button type="button" class="chip" disabled="@busy"
+                                        @onclick="() => BeginObjectAsync(weg.Type)">@weg.Label</button>
+                            }
+                        </div>
                     }
                 </div>
                     </Authorized>
@@ -402,6 +450,32 @@
     private string term = string.Empty;
     private bool searching;
     private bool busy;
+
+    // ── Ein Objekt anlegen, ohne den Prüfplatz zu verlassen ────────────────────────────────
+
+    /// <summary>
+    /// Was sich von hier aus anlegen lässt.
+    /// </summary>
+    /// <remarks>
+    /// Nicht alle zehn Anlegewege: Ein Budget ist eine Vorgabe und kein Gegenstand, an dem ein
+    /// Beleg hinge. Hier stehen die, zu denen Post ins Haus kommt.
+    /// </remarks>
+    private static readonly (CreateObjectType Type, string Label)[] Anlegewege =
+    [
+        (CreateObjectType.Property, "Immobilie"),
+        (CreateObjectType.Contract, "Vertrag"),
+        (CreateObjectType.Vehicle, "Fahrzeug"),
+        (CreateObjectType.Purchase, "Anschaffung"),
+        (CreateObjectType.Protection, "Versicherung"),
+        (CreateObjectType.Pension, "Vorsorge"),
+        (CreateObjectType.Account, "Konto"),
+        (CreateObjectType.Loan, "Darlehen"),
+    ];
+
+    private CreateFormDto? objektForm;
+    private readonly Dictionary<string, string?> objektWerte = [];
+    private string? objektProblem;
+    private string? objektProblemKey;
 
     /// <summary>Für welchen Beleg der Vorschlag schon eingesetzt wurde.</summary>
     /// <remarks>
@@ -495,7 +569,17 @@
         }
     }
 
-    private bool CanAssign => !busy && typeId is not null && picked is not null;
+    /// <summary>
+    /// Was der Hauptschalter verlangt: eine Art. Mehr nicht.
+    /// </summary>
+    /// <remarks>
+    /// Früher auch ein Objekt. Das klang nach Sorgfalt und war eine Sackgasse: Ein
+    /// Notarschreiben zum Hauskauf kommt an, bevor das Haus angelegt ist, und ein Lieferschein
+    /// bekommt nie ein Objekt. Beide blieben für immer im Eingang liegen — und wer das zweimal
+    /// erlebt hat, hängt den nächsten Beleg an irgendetwas, damit er verschwindet. Das ist
+    /// schlechter als gar keine Verknüpfung, weil es wie eine aussieht.
+    /// </remarks>
+    private bool CanAssign => !busy && typeId is not null;
 
     protected override async Task LoadAsync()
     {
@@ -541,7 +625,114 @@
         hits = [];
         anlegen = false;
         gelesen = null;
+        CancelObject();
     }
+
+    /// <summary>
+    /// Holt das Anlegeformular für einen Objekttyp und zeigt es an Ort und Stelle.
+    /// </summary>
+    /// <remarks>
+    /// Die Feldliste kommt vom Server, wie auf der Anlegeseite auch. Sie hier nachzubauen hieße,
+    /// sie zweimal zu pflegen — und die zweite Fassung vergäße beim nächsten neuen Feld etwas.
+    /// </remarks>
+    private Task BeginObjectAsync(CreateObjectType typ) => RunAsync(async () =>
+    {
+        busy = true;
+        try
+        {
+            objektWerte.Clear();
+            objektProblem = null;
+            objektProblemKey = null;
+            objektForm = await Api.GetCreateFormAsync(typ);
+
+            foreach (var feld in objektForm.Fields.Where(f => f.DefaultValue is { Length: > 0 }))
+            {
+                objektWerte[feld.Key] = feld.DefaultValue;
+            }
+        }
+        catch (ApiException ex)
+        {
+            objektForm = null;
+            Toasts.Show(ex.Message);
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    private void CancelObject()
+    {
+        objektForm = null;
+        objektWerte.Clear();
+        objektProblem = null;
+        objektProblemKey = null;
+    }
+
+    /// <summary>
+    /// Legt das Objekt an und wählt es gleich aus.
+    /// </summary>
+    /// <remarks>
+    /// <para>Angelegt und ausgewählt, aber <em>nicht</em> abgelegt: Der Beleg wandert erst, wenn
+    /// jemand den Hauptschalter drückt. Wer gerade ein Objekt angelegt hat, soll noch einmal
+    /// sehen, woran der Beleg landen wird — das Anlegen ist der aufwendigere Schritt, und genau
+    /// danach rutscht ein Griff am ehesten daneben.</para>
+    /// <para>Art und Name des neuen Objekts kommen aus der Antwort und nicht aus dem Objekttyp
+    /// und den eingetippten Feldern: Zwei Annahmen über etwas, das der Server gerade selbst
+    /// geschrieben hat, wären zwei Gelegenheiten, daneben zu liegen.</para>
+    /// </remarks>
+    private Task CreateObjectAsync() => RunAsync(async () =>
+    {
+        if (objektForm is not { } formular)
+        {
+            return;
+        }
+
+        busy = true;
+        try
+        {
+            var ergebnis = await Api.CreateObjectAsync(formular.Type, objektWerte);
+
+            if (!ergebnis.Ok)
+            {
+                objektProblem = ergebnis.Message ?? "Das hat nicht geklappt.";
+                objektProblemKey = ergebnis.FieldKey;
+                return;
+            }
+
+            if (ergebnis is not { LinkTarget: { } art, Id: { } kennung })
+            {
+                // Angelegt ist es trotzdem — es lässt sich nur nichts daran hängen. Das zu
+                // verschweigen hieße, den Beleg stillschweigend ohne Objekt abzulegen.
+                CancelObject();
+                Toasts.Show("Angelegt — daran lässt sich aber nichts hängen.");
+                return;
+            }
+
+            picked = new ObjectHitDto
+            {
+                TargetType = art,
+                TargetId = kennung,
+                Label = ergebnis.Label ?? formular.Title,
+                Subtitle = "gerade angelegt",
+                TargetLabel = Anlegewege.FirstOrDefault(w => w.Type == formular.Type).Label ?? "Objekt",
+            };
+
+            CancelObject();
+            term = string.Empty;
+            hits = [];
+            Toasts.Show($"{picked.Label} angelegt.");
+        }
+        catch (ApiException ex)
+        {
+            objektProblem = ex.Message;
+            objektProblemKey = null;
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
 
     /// <summary>
     /// Öffnet das Formular für einen neuen Erstattungsvorgang.

@@ -1619,6 +1619,24 @@ body {
   border-bottom: 1px solid var(--color-divider);
 }
 
+/*
+  Eine Verknüpfungszeile: links das Objekt, rechts der Weg zurück.
+
+  Das Lösen steht als eigener Knopf daneben und nicht hinter einem Wischen oder einem
+  Kontextmenü — es ist selten, aber wer es sucht, soll es sehen. Die Zeile selbst führt
+  weiter zum Objekt; die beiden dürfen sich nicht überlagern.
+*/
+.link-row > .tap {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.link-row > .btn {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 6px 12px;
+}
+
 .more-label {
   font-size: 15px;
   font-weight: 600;

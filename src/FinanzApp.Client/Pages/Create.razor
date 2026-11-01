@@ -120,79 +120,8 @@ else
             </div>
         }
 
-        <div class="create-fields">
-            @foreach (var field in definition.Fields)
-            {
-                <div class="field create-field @(problemKey == field.Key ? "invalid" : null)">
-                    <label for="@("f-" + field.Key)">
-                        @field.Label@(field.Required ? null : (MarkupString)" <span class=\"create-optional\">optional</span>")
-                    </label>
-
-                    @switch (field.Kind)
-                    {
-                        case CreateFieldKind.Choice:
-                        case CreateFieldKind.Reference:
-                            @if (field.Options is { Count: 0 })
-                            {
-                                <span class="meta">Nichts zur Auswahl vorhanden.</span>
-                            }
-                            else
-                            {
-                                <div class="chipcloud" id="@("f-" + field.Key)">
-                                    @foreach (var option in field.Options ?? [])
-                                    {
-                                        <button type="button"
-                                                class="chip @(Get(field.Key) == option.Value ? "active" : null)"
-                                                @onclick="() => Pick(field, option)">
-                                            @option.Label
-                                            @if (option.Hint is { Length: > 0 } optionHint)
-                                            {
-                                                <span class="chip-hint">@optionHint</span>
-                                            }
-                                        </button>
-                                    }
-                                </div>
-                            }
-                            break;
-
-                        case CreateFieldKind.Date:
-                            <input id="@("f-" + field.Key)" class="input" type="date"
-                                   value="@Get(field.Key)"
-                                   @oninput="e => Set(field.Key, e.Value?.ToString())" />
-                            break;
-
-                        case CreateFieldKind.Money:
-                            <input id="@("f-" + field.Key)" class="input num" type="text" inputmode="decimal"
-                                   placeholder="@field.Placeholder" value="@Get(field.Key)"
-                                   @oninput="e => Set(field.Key, e.Value?.ToString())" />
-                            break;
-
-                        case CreateFieldKind.Number:
-                            @* step="any" ist nicht Zierde: ohne ihn gilt die Schrittweite 1, und
-                               ein Sollzins von 1,84 stünde im Browser als ungültig da. *@
-                            <input id="@("f-" + field.Key)" class="input num" type="number" min="0" step="any"
-                                   placeholder="@field.Placeholder" value="@Get(field.Key)"
-                                   @oninput="e => Set(field.Key, e.Value?.ToString())" />
-                            break;
-
-                        default:
-                            <input id="@("f-" + field.Key)" class="input" type="text"
-                                   placeholder="@field.Placeholder" value="@Get(field.Key)"
-                                   @oninput="e => Set(field.Key, e.Value?.ToString())" />
-                            break;
-                    }
-
-                    @if (problemKey == field.Key && problem is { Length: > 0 })
-                    {
-                        <span class="create-problem">@problem</span>
-                    }
-                    else if (field.Help is { Length: > 0 } help)
-                    {
-                        <span class="create-help">@help</span>
-                    }
-                </div>
-            }
-        </div>
+        <CreateFields Fields="definition.Fields" Values="values"
+                      @bind-Problem="problem" @bind-ProblemKey="problemKey" />
 
         @* Eine Meldung ohne zugehöriges Feld gehört trotzdem gezeigt. *@
         @if (problem is { Length: > 0 } && problemKey is null)
@@ -325,35 +254,6 @@ else
         {
             values[key] = value;
         }
-    }
-
-    private string? Get(string key) => values.TryGetValue(key, out var value) ? value : null;
-
-    private void Set(string key, string? value)
-    {
-        values[key] = value;
-
-        // Sobald das bemängelte Feld angefasst wird, verschwindet die Meldung — sie hat ihren
-        // Zweck erfüllt und stünde sonst noch da, wenn längst etwas drinsteht.
-        if (problemKey == key)
-        {
-            problem = null;
-            problemKey = null;
-        }
-    }
-
-    /// <summary>
-    /// Eine Auswahl kann aus dem Formular herausführen: „Depot“ im Konto-Formular ist kein Konto.
-    /// </summary>
-    private void Pick(CreateFieldDto field, CreateOptionDto option)
-    {
-        if (option.RedirectTo is { Length: > 0 } route)
-        {
-            Navigation.NavigateTo(route);
-            return;
-        }
-
-        Set(field.Key, option.Value);
     }
 
     private Task DeleteAsync() => RunAsync(async () =>

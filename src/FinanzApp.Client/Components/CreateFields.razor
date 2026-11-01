@@ -1,0 +1,130 @@
+@inject NavigationManager Navigation
+
+@*
+    Die Felder eines Anlegeformulars.
+
+    Herausgelöst aus der Anlegeseite, weil der Prüfplatz dieselben Felder braucht: Dort wird ein
+    Objekt angelegt, während der Beleg daneben liegt. Ein zweiter Satz Feldmarkup wäre nach dem
+    ersten neuen Feldtyp auseinandergelaufen — und das fiele erst auf, wenn ein Formular an einer
+    Stelle vollständig ist und an der anderen nicht.
+
+    Die Feldliste kommt weiterhin vom Server. Diese Komponente stellt sie nur dar.
+*@
+<div class="create-fields">
+    @foreach (var field in Fields)
+    {
+        <div class="field create-field @(ProblemKey == field.Key ? "invalid" : null)">
+            <label for="@("f-" + field.Key)">
+                @field.Label@(field.Required ? null : (MarkupString)" <span class=\"create-optional\">optional</span>")
+            </label>
+
+            @switch (field.Kind)
+            {
+                case CreateFieldKind.Choice:
+                case CreateFieldKind.Reference:
+                    @if (field.Options is { Count: 0 })
+                    {
+                        <span class="meta">Nichts zur Auswahl vorhanden.</span>
+                    }
+                    else
+                    {
+                        <div class="chipcloud" id="@("f-" + field.Key)">
+                            @foreach (var option in field.Options ?? [])
+                            {
+                                <button type="button"
+                                        class="chip @(Get(field.Key) == option.Value ? "active" : null)"
+                                        @onclick="() => PickAsync(field, option)">
+                                    @option.Label
+                                    @if (option.Hint is { Length: > 0 } optionHint)
+                                    {
+                                        <span class="chip-hint">@optionHint</span>
+                                    }
+                                </button>
+                            }
+                        </div>
+                    }
+                    break;
+
+                case CreateFieldKind.Date:
+                    <input id="@("f-" + field.Key)" class="input" type="date"
+                           value="@Get(field.Key)"
+                           @oninput="e => SetAsync(field.Key, e.Value?.ToString())" />
+                    break;
+
+                case CreateFieldKind.Money:
+                    <input id="@("f-" + field.Key)" class="input num" type="text" inputmode="decimal"
+                           placeholder="@field.Placeholder" value="@Get(field.Key)"
+                           @oninput="e => SetAsync(field.Key, e.Value?.ToString())" />
+                    break;
+
+                case CreateFieldKind.Number:
+                    @* step="any" ist nicht Zierde: ohne ihn gilt die Schrittweite 1, und
+                       ein Sollzins von 1,84 stünde im Browser als ungültig da. *@
+                    <input id="@("f-" + field.Key)" class="input num" type="number" min="0" step="any"
+                           placeholder="@field.Placeholder" value="@Get(field.Key)"
+                           @oninput="e => SetAsync(field.Key, e.Value?.ToString())" />
+                    break;
+
+                default:
+                    <input id="@("f-" + field.Key)" class="input" type="text"
+                           placeholder="@field.Placeholder" value="@Get(field.Key)"
+                           @oninput="e => SetAsync(field.Key, e.Value?.ToString())" />
+                    break;
+            }
+
+            @if (ProblemKey == field.Key && Problem is { Length: > 0 })
+            {
+                <span class="create-problem">@Problem</span>
+            }
+            else if (field.Help is { Length: > 0 } help)
+            {
+                <span class="create-help">@help</span>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<CreateFieldDto> Fields { get; set; } = [];
+
+    /// <summary>
+    /// Die eingetippten Werte. Gehören dem Aufrufer — er schickt sie ab und kennt ihr Schicksal.
+    /// </summary>
+    [Parameter, EditorRequired] public IDictionary<string, string?> Values { get; set; } =
+        new Dictionary<string, string?>();
+
+    [Parameter] public string? Problem { get; set; }
+    [Parameter] public EventCallback<string?> ProblemChanged { get; set; }
+
+    [Parameter] public string? ProblemKey { get; set; }
+    [Parameter] public EventCallback<string?> ProblemKeyChanged { get; set; }
+
+    private string? Get(string key) => Values.TryGetValue(key, out var value) ? value : null;
+
+    private async Task SetAsync(string key, string? value)
+    {
+        Values[key] = value;
+
+        // Sobald das bemängelte Feld angefasst wird, verschwindet die Meldung — sie hat ihren
+        // Zweck erfüllt und stünde sonst noch da, wenn längst etwas drinsteht.
+        if (ProblemKey == key)
+        {
+            await ProblemChanged.InvokeAsync(null);
+            await ProblemKeyChanged.InvokeAsync(null);
+        }
+    }
+
+    /// <summary>
+    /// Eine Auswahl kann aus dem Formular herausführen: „Depot“ im Konto-Formular ist kein Konto.
+    /// </summary>
+    private async Task PickAsync(CreateFieldDto field, CreateOptionDto option)
+    {
+        if (option.RedirectTo is { Length: > 0 } route)
+        {
+            Navigation.NavigateTo(route);
+            return;
+        }
+
+        await SetAsync(field.Key, option.Value);
+    }
+}
