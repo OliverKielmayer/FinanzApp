@@ -436,6 +436,7 @@ public sealed class ScanTextReader(
     private PdfContent Seitenbilder(MemoryStream puffer, PdfContent inhalt)
     {
         var zeilen = new List<PdfLine>();
+        var vorgelegt = 0;
 
         try
         {
@@ -451,6 +452,7 @@ public sealed class ScanTextReader(
                     continue;
                 }
 
+                vorgelegt++;
                 using var strom = new MemoryStream(bytes);
                 var gelesen = images.Read(strom);
 
@@ -464,11 +466,17 @@ public sealed class ScanTextReader(
             return inhalt;
         }
 
-        if (zeilen.Count == 0)
+        // Kein Blatt hat ein Bild hergegeben: Es lief keine Erkennung, also wird auch keine
+        // behauptet.
+        if (vorgelegt == 0)
         {
             return inhalt;
         }
 
+        // Vorgelegt und nichts gefunden ist ein Ergebnis und kein Nichtstun. Bliebe die Quelle
+        // hier auf der Textebene stehen, meldete der Beleg „nur Bild — ohne Texterkennung
+        // nichts auszulesen“, und das wäre falsch: Sie lief, die Seite gab nichts her. Dasselbe
+        // Bild als lose Datei sagt das längst richtig; im PDF sagte es dasselbe Haus anders.
         return inhalt with { Lines = zeilen, Source = TextSource.Recognition };
     }
 

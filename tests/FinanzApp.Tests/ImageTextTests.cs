@@ -115,6 +115,60 @@ public sealed class ImageTextTests
         Assert.Contains("keinen Text gefunden", inhalt.Note);
     }
 
+    // ── Ein Scan im PDF-Umschlag ───────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Ein PDF ohne Textebene legt sein Seitenbild der Erkennung vor.
+    /// </summary>
+    /// <remarks>
+    /// Ein Flachbettscanner liefert genau das: null Schriftobjekte, ein Bild. Vorher endete der
+    /// Weg hier, weil der PDF-Leser nichts fand und niemand weitersah.
+    /// </remarks>
+    [Fact]
+    public void Ein_PDF_ohne_Textebene_legt_sein_Seitenbild_vor()
+    {
+        using var pdf = new MemoryStream(BildPdf([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10]));
+
+        var inhalt = Reader(befehl: "gibt-es-nicht-hoffentlich.exe").Read(pdf);
+
+        Assert.Equal(TextSource.Recognition, inhalt.Source);
+    }
+
+    /// <summary>
+    /// Eine Erkennung, die nichts findet, sagt das — sie tut nicht so, als wäre sie nie gelaufen.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Fall stammt von einem leeren Scan: ein volles Seitenbild, und die Erkennung
+    /// lieferte null Wörter. Der Beleg meldete daraufhin „nur Bild — ohne Texterkennung nichts
+    /// auszulesen“ und schickte damit auf die Suche nach einer Einrichtung, die längst steht.
+    /// Dasselbe Bild als lose Datei sagte es im selben Haus richtig.</para>
+    /// <para>Der Unterschied, auf den es ankommt: <em>nicht eingerichtet</em> gegen
+    /// <em>eingerichtet und nichts gefunden</em>. Beides endet ohne Text, aber nur das eine ist
+    /// etwas, woran man drehen kann.</para>
+    /// </remarks>
+    [Fact]
+    public void Eine_leere_Erkennung_heisst_nicht_keine_Erkennung()
+    {
+        using var pdf = new MemoryStream(BildPdf([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10]));
+
+        var inhalt = Reader(befehl: "gibt-es-nicht-hoffentlich.exe").Read(pdf);
+
+        Assert.Empty(inhalt.Lines);
+        Assert.Contains("keinen Text gefunden", inhalt.Note);
+    }
+
+    /// <summary>Ohne eingerichtete Erkennung bleibt es beim Befund des PDF-Lesers.</summary>
+    [Fact]
+    public void Ohne_Erkennung_bleibt_ein_Bild_PDF_bei_seinem_Befund()
+    {
+        using var pdf = new MemoryStream(BildPdf([0xFF, 0xD8, 0xFF, 0xE0]));
+
+        var inhalt = Reader(befehl: string.Empty).Read(pdf);
+
+        Assert.Equal(TextSource.PdfTextLayer, inhalt.Source);
+        Assert.Contains("ohne Texterkennung", inhalt.Note);
+    }
+
     // ── Aus erkannten Wörtern werden Zeilen ────────────────────────────────────────────────
 
     /// <summary>
@@ -289,6 +343,63 @@ public sealed class ImageTextTests
 
     private static string Ordner()
         => Path.Combine(Path.GetTempPath(), "finanzapp-ocr-test-" + Guid.NewGuid().ToString("N"));
+
+    /// <summary>
+    /// Ein PDF mit einem Seitenbild und ohne eine einzige Schrift — ein Scan.
+    /// </summary>
+    /// <remarks>
+    /// Von Hand gebaut und nicht aus einer Datei geladen: Ein echter Scan ließe sich nicht
+    /// beilegen, ohne das Papier mitzuliefern, auf dem er entstanden ist. Die Struktur ist die
+    /// eines Flachbettscanners — Katalog, eine Seite, ein Bild-XObject, ein Inhaltsstrom, der
+    /// es zeichnet.
+    /// </remarks>
+    private static byte[] BildPdf(byte[] bild)
+    {
+        using var strom = new MemoryStream();
+        var stellen = new List<long>();
+
+        void Schreiben(string text) => strom.Write(Encoding.ASCII.GetBytes(text));
+
+        void Objekt(int nummer, string woerterbuch, byte[]? daten = null)
+        {
+            stellen.Add(strom.Position);
+            Schreiben($"{nummer} 0 obj\n{woerterbuch}\n");
+
+            if (daten is not null)
+            {
+                Schreiben("stream\n");
+                strom.Write(daten);
+                Schreiben("\nendstream\n");
+            }
+
+            Schreiben("endobj\n");
+        }
+
+        Schreiben("%PDF-1.4\n");
+        Objekt(1, "<< /Type /Catalog /Pages 2 0 R >>");
+        Objekt(2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>");
+        Objekt(3, "<< /Type /Page /Parent 2 0 R /Resources 4 0 R "
+                  + "/MediaBox [0 0 595 842] /Contents 5 0 R >>");
+        Objekt(4, "<< /ProcSet [/PDF /ImageB] /XObject << /Im1 6 0 R >> >>");
+
+        var inhalt = Encoding.ASCII.GetBytes("q 595 0 0 842 0 0 cm /Im1 Do Q");
+        Objekt(5, $"<< /Length {inhalt.Length} >>", inhalt);
+        Objekt(6, "<< /Type /XObject /Subtype /Image /Width 8 /Height 8 /ColorSpace /DeviceRGB "
+                  + $"/BitsPerComponent 8 /Filter /DCTDecode /Length {bild.Length} >>", bild);
+
+        var xref = strom.Position;
+        Schreiben($"xref\n0 {stellen.Count + 1}\n0000000000 65535 f \n");
+
+        foreach (var stelle in stellen)
+        {
+            Schreiben($"{stelle:D10} 00000 n \n");
+        }
+
+        Schreiben($"trailer\n<< /Size {stellen.Count + 1} /Root 1 0 R >>\n"
+                  + $"startxref\n{xref}\n%%EOF\n");
+
+        return strom.ToArray();
+    }
 
     private static OcrWord Wort(int zeile, string text, double links, double rechts,
         double oben, double hoehe)
