@@ -373,9 +373,18 @@ public static class FinanzAppApiExtensions
     // ── Anlegen ───────────────────────────────────────────────────────────
 
     /// <summary>Die Feldliste eines Objekttyps, samt Auswahlwerten aus dem Bestand.</summary>
+    /// <param name="documentId">
+    /// Ein Beleg, aus dem vorbefüllt wird — der Weg vom Prüfplatz. Was auf dem Lieferschein
+    /// steht, muss dann niemand abtippen.
+    /// </param>
     public static Task<CreateFormDto> GetCreateFormAsync(
-        this FinanzAppApi api, CreateObjectType type, CancellationToken ct = default)
-        => api.GetAsync<CreateFormDto>($"api/create/{type}", ct);
+        this FinanzAppApi api, CreateObjectType type, int? documentId = null,
+        CancellationToken ct = default)
+        => api.GetAsync<CreateFormDto>(
+            documentId is { } beleg
+                ? $"api/create/{type}?documentId={beleg}"
+                : $"api/create/{type}",
+            ct);
 
     /// <summary>
     /// Legt an. Ein Fehlschlag kommt als Ergebnis zurück, nicht als Ausnahme — die Oberfläche

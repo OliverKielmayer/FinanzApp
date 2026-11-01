@@ -33,13 +33,21 @@ public sealed class CreateFormService(
     /// <paramref name="id"/> wird daraus das Bearbeiten-Formular: dieselben Felder, vorbefüllt,
     /// andere Beschriftungen — und der Löschabschnitt.
     /// </summary>
+    /// <param name="fromDocumentId">
+    /// Ein Beleg, aus dem vorbefüllt wird. Der Weg vom Prüfplatz: Der Lieferschein liegt daneben,
+    /// und was darauf steht, muss niemand abtippen. Gilt nur beim Anlegen — wer ein bestehendes
+    /// Objekt bearbeitet, will seine Angaben sehen und nicht die eines Belegs.
+    /// </param>
     public async Task<CreateFormDto?> GetFormAsync(
-        CreateObjectType type, int? id = null, CancellationToken ct = default)
+        CreateObjectType type, int? id = null, int? fromDocumentId = null,
+        CancellationToken ct = default)
     {
         var form = await BuildFormAsync(type, ct);
         if (form is null || id is not { } editing)
         {
-            return form;
+            return form is not null && fromDocumentId is { } beleg
+                ? form with { Fields = await VorbefuellenAsync(type, beleg, form.Fields, ct) }
+                : form;
         }
 
         var values = await ReadValuesAsync(type, editing, ct);
@@ -65,6 +73,39 @@ public sealed class CreateFormService(
             // Deshalb gibt es die Bezeichnung hier als echtes Feld.
             Fields = NameField(type) is { } name ? [name, .. form.Fields] : form.Fields,
         };
+    }
+
+    /// <summary>
+    /// Setzt die Vorschläge eines Belegs als Vorgabewerte in die Felder.
+    /// </summary>
+    /// <remarks>
+    /// <para>Gelesen wird der gespeicherte Text des Belegs und nicht die Datei: Er steht seit der
+    /// Einlieferung am Dokument, und dort ist er auch schon einmal durch die Texterkennung
+    /// gegangen. Ein zweites Lesen kostete Sekunden und brächte dasselbe.</para>
+    /// <para>Der Vorschlag überschreibt eine vorhandene Vorgabe. Die ist allgemein — das
+    /// heutige Datum etwa —, der Beleg ist dieser eine Fall.</para>
+    /// </remarks>
+    private async Task<IReadOnlyList<CreateFieldDto>> VorbefuellenAsync(
+        CreateObjectType type, int documentId, IReadOnlyList<CreateFieldDto> felder,
+        CancellationToken ct)
+    {
+        var text = await db.Documents.AsNoTracking()
+            .Where(d => d.Id == documentId)
+            .Select(d => d.ContentText)
+            .FirstOrDefaultAsync(ct);
+
+        if (text is not { Length: > 0 })
+        {
+            return felder;
+        }
+
+        var vorschlaege = BillFormProposals.For(type, BillTextReader.Read(text));
+
+        return vorschlaege.Count == 0
+            ? felder
+            : [.. felder.Select(f => vorschlaege.TryGetValue(f.Key, out var wert)
+                ? f with { DefaultValue = wert }
+                : f)];
     }
 
     private async Task<CreateFormDto?> BuildFormAsync(CreateObjectType type, CancellationToken ct)
@@ -176,7 +217,7 @@ public sealed class CreateFormService(
         CreateObjectType type, int id, IReadOnlyDictionary<string, string?> values,
         CancellationToken ct = default)
     {
-        var form = await GetFormAsync(type, id, ct);
+        var form = await GetFormAsync(type, id, null, ct);
         if (form is null)
         {
             return Fail(null, "Diesen Datensatz gibt es nicht (mehr).");

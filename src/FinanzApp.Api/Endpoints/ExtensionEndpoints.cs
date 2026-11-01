@@ -532,10 +532,13 @@ public static class ExtensionEndpoints
     {
         var api = app.MapGroup("/api/create").WithTags("Anlegen").RequireAuthorization();
 
+        // documentId: der Weg vom Prüfplatz. Liegt ein Beleg daneben, kommt das Formular
+        // vorbefüllt zurück — Händler, Kaufdatum und Preis stehen ja auf dem Blatt.
         api.MapGet("/{type}", async (
-            CreateObjectType type, CreateFormService service, CancellationToken ct) =>
+            CreateObjectType type, int? documentId, CreateFormService service,
+            CancellationToken ct) =>
         {
-            var form = await service.GetFormAsync(type, null, ct);
+            var form = await service.GetFormAsync(type, null, documentId, ct);
             return form is null ? Results.NotFound() : Results.Ok(form);
         });
 
@@ -543,7 +546,7 @@ public static class ExtensionEndpoints
         api.MapGet("/{type}/{id:int}", async (
             CreateObjectType type, int id, CreateFormService service, CancellationToken ct) =>
         {
-            var form = await service.GetFormAsync(type, id, ct);
+            var form = await service.GetFormAsync(type, id, null, ct);
             return form is null ? Results.NotFound() : Results.Ok(form);
         });
 

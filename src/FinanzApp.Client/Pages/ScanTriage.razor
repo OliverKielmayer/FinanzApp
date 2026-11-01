@@ -647,7 +647,11 @@
             objektWerte.Clear();
             objektProblem = null;
             objektProblemKey = null;
-            objektForm = await Api.GetCreateFormAsync(typ);
+
+            // Mit dem Beleg daneben: Händler, Kaufdatum und Preis stehen auf dem Blatt, und der
+            // gelesene Text liegt am Dokument. Was der Server davon zuordnen kann, kommt als
+            // Vorgabewert zurück — und was er nicht lesen konnte, bleibt leer.
+            objektForm = await Api.GetCreateFormAsync(typ, Aktueller?.DocumentId);
 
             foreach (var feld in objektForm.Fields.Where(f => f.DefaultValue is { Length: > 0 }))
             {

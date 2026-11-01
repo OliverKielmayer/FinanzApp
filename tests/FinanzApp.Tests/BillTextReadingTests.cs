@@ -200,4 +200,75 @@ public sealed class BillTextReadingTests
 
         Assert.Null(gelesen.OwnShare);
     }
+
+    // ── Die Händlerrechnung ────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Ein ausgeschriebener Monat ist auch ein Datum.
+    /// </summary>
+    /// <remarks>
+    /// Arztrechnungen schreiben Ziffern, Händler schreiben den Monat aus. Die Beschriftung
+    /// „Belegdatum“ griff deshalb ins Leere: Sie fand die Zeile und daneben kein Datum.
+    /// </remarks>
+    [Theory]
+    [InlineData("Belegdatum 14. Juli 2026", 2026, 7, 14)]
+    [InlineData("Rechnungsdatum: 3. Mai 2026", 2026, 5, 3)]
+    [InlineData("Belegdatum 17. Sept. 2025", 2025, 9, 17)]
+    [InlineData("Belegdatum 1. Marz 2026", 2026, 3, 1)]
+    public void Ein_ausgeschriebener_Monat_wird_gelesen(string zeile, int jahr, int monat, int tag)
+    {
+        var gelesen = BillTextReader.Read($"Musterelektro Handels GmbH\n{zeile}\n");
+
+        Assert.Equal(new DateOnly(jahr, monat, tag), gelesen.BillDate);
+    }
+
+    /// <summary>Was wie ein Monat aussieht, aber keiner ist, bleibt ungelesen.</summary>
+    /// <remarks>
+    /// „12. Rate 2027“ hat die Gestalt eines Datums. Es als eines zu lesen hieße, ein
+    /// Rechnungsdatum zu erfinden, das auf dem Blatt nirgends steht.
+    /// </remarks>
+    [Fact]
+    public void Ein_erfundener_Monatsname_ergibt_kein_Datum()
+    {
+        var gelesen = BillTextReader.Read("""
+            Musterelektro Handels GmbH
+            Belegdatum 12. Rate 2027
+            """);
+
+        Assert.Null(gelesen.BillDate);
+    }
+
+    /// <summary>
+    /// Zwischen Netto und Brutto gewinnt Brutto — auch wenn Netto zuerst dasteht.
+    /// </summary>
+    /// <remarks>
+    /// Händlerrechnungen stellen beide untereinander und nennen beide „Endsumme“. Ohne die
+    /// Unterscheidung wäre der übernommene Preis um die Umsatzsteuer zu niedrig, und eine Zahl,
+    /// die fast stimmt, fällt niemandem auf.
+    /// </remarks>
+    [Fact]
+    public void Die_Endsumme_ohne_Mehrwertsteuer_ist_nicht_der_Rechnungsbetrag()
+    {
+        var gelesen = BillTextReader.Read("""
+            Musterelektro Handels GmbH
+            Endsumme ohne MwSt 1.011,76 EUR
+            MwSt.-Betrag 192,24 EUR
+            Endsumme inkl. MwSt 1.204,00 EUR
+            """);
+
+        Assert.Equal(1204.00m, gelesen.GrossAmount);
+        Assert.Contains("inkl", gelesen.GrossAmountSource!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Steht nur eine Endsumme da, ist sie es.</summary>
+    [Fact]
+    public void Eine_einzelne_Endsumme_zaehlt()
+    {
+        var gelesen = BillTextReader.Read("""
+            Musterelektro Handels GmbH
+            Endsumme 249,90 EUR
+            """);
+
+        Assert.Equal(249.90m, gelesen.GrossAmount);
+    }
 }

@@ -45,6 +45,33 @@ public static class BillTextReader
     private static readonly Regex Datum =
         new(@"(?<!\d)(\d{1,2})\.\s?(\d{1,2})\.\s?(\d{4}|\d{2})(?!\d)", RegexOptions.Compiled);
 
+    /// <summary>
+    /// Ein Datum mit ausgeschriebenem Monat: „22. August 2026“.
+    /// </summary>
+    /// <remarks>
+    /// Händlerrechnungen schreiben den Monat gern aus, Arztrechnungen fast nie — deshalb fehlte
+    /// die Form bisher. Ein Beleg über einen Einbaukühlschrank trug sein Belegdatum so, und die
+    /// Beschriftung griff, während das Datum daneben ungelesen blieb.
+    /// </remarks>
+    private static readonly Regex DatumMitMonatswort =
+        new(@"(?<!\d)(\d{1,2})\.\s*([A-Za-zÄÖÜäöü]{3,9})\.?\s+(\d{4})(?!\d)",
+            RegexOptions.Compiled);
+
+    /// <summary>
+    /// Monatsnamen über ihre ersten drei Buchstaben.
+    /// </summary>
+    /// <remarks>
+    /// Drei Buchstaben decken den ausgeschriebenen Namen und die Abkürzung in einem ab. Die
+    /// Schreibweisen ohne Umlaut und die englischen stehen mit dabei: Eine Erkennung, die „ä“
+    /// nicht sauber liest, macht aus „März“ gern „Marz“.
+    /// </remarks>
+    private static readonly Dictionary<string, int> Monate = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["jan"] = 1, ["feb"] = 2, ["mär"] = 3, ["mar"] = 3, ["apr"] = 4, ["mai"] = 5,
+        ["may"] = 5, ["jun"] = 6, ["jul"] = 7, ["aug"] = 8, ["sep"] = 9, ["okt"] = 10,
+        ["oct"] = 10, ["nov"] = 11, ["dez"] = 12, ["dec"] = 12,
+    };
+
     /// <summary>Eine Belegnummer: enthält mindestens eine Ziffer und ist kein Datum.</summary>
     private static readonly Regex Belegnummer =
         new(@"(?<![\w/-])(?=[\w/-]*\d)[A-Za-z0-9][A-Za-z0-9/-]{2,}", RegexOptions.Compiled);
@@ -91,6 +118,23 @@ public static class BillTextReader
     [
         "rechnungsbetrag", "zu zahlender betrag", "zahlbetrag", "endbetrag", "rechnungssumme",
         "gesamtbetrag", "gesamtsumme", "bruttobetrag", "summe brutto",
+
+        // Händlerrechnungen stellen Netto und Brutto untereinander und nennen beide „Endsumme“.
+        // Die ausdrückliche Brutto-Schreibweise steht deshalb vor der bloßen.
+        "endsumme inkl", "endsumme brutto", "gesamtsumme inkl", "summe inkl", "endsumme",
+    ];
+
+    /// <summary>
+    /// Woran eine Zeile zu erkennen ist, die <em>nicht</em> den Bruttobetrag trägt.
+    /// </summary>
+    /// <remarks>
+    /// „Endsumme ohne MwSt“ enthält „Endsumme“ und steht auf dem Blatt über der Endsumme mit
+    /// MwSt. Ohne diese Sperre wäre der übernommene Preis um die Umsatzsteuer zu niedrig — und
+    /// eine Zahl, die fast stimmt, fällt niemandem auf.
+    /// </remarks>
+    private static readonly string[] NichtBrutto =
+    [
+        "ohne mwst", "ohne mehrwertsteuer", "ohne ust", "netto", "zzgl", "exkl", "zuzüglich",
     ];
 
     private static readonly string[] NummerWoerter =
@@ -219,7 +263,8 @@ public static class BillTextReader
         {
             foreach (var (zeile, index) in zeilen.Select((z, i) => (z, i)))
             {
-                if (!zeile.Contains(wort, StringComparison.OrdinalIgnoreCase))
+                if (!zeile.Contains(wort, StringComparison.OrdinalIgnoreCase)
+                    || NichtBrutto.Any(n => zeile.Contains(n, StringComparison.OrdinalIgnoreCase)))
                 {
                     continue;
                 }
@@ -412,7 +457,9 @@ public static class BillTextReader
         var treffer = Datum.Matches(zeile);
         if (treffer.Count == 0)
         {
-            return null;
+            // Erst die Ziffernform, dann die mit Monatswort. Andersherum fände ein Blatt, das
+            // beide trägt, das seltenere zuerst.
+            return LetztesDatumMitMonatswort(zeile);
         }
 
         var letzter = treffer[^1];
@@ -421,13 +468,45 @@ public static class BillTextReader
         var jahrRoh = int.Parse(letzter.Groups[3].Value, CultureInfo.InvariantCulture);
         var jahr = letzter.Groups[3].Value.Length == 2 ? 2000 + jahrRoh : jahrRoh;
 
-        if (monat is < 1 or > 12 || tag < 1 || tag > DateTime.DaysInMonth(jahr, monat))
+        return Tag(jahr, monat, tag);
+    }
+
+    /// <summary>„22. August 2026“ — nur mit einem Monatsnamen, den es gibt.</summary>
+    /// <remarks>
+    /// Das Wort muss in der Liste stehen. Alles andere wäre geraten: „12. Rate 2026“ sieht
+    /// genauso aus und ist kein Datum.
+    /// </remarks>
+    private static DateOnly? LetztesDatumMitMonatswort(string zeile)
+    {
+        var treffer = DatumMitMonatswort.Matches(zeile);
+
+        for (var i = treffer.Count - 1; i >= 0; i--)
         {
-            return null;
+            var wort = treffer[i].Groups[2].Value;
+            if (wort.Length < 3 || !Monate.TryGetValue(wort[..3], out var monat))
+            {
+                continue;
+            }
+
+            if (Tag(
+                    int.Parse(treffer[i].Groups[3].Value, CultureInfo.InvariantCulture),
+                    monat,
+                    int.Parse(treffer[i].Groups[1].Value, CultureInfo.InvariantCulture))
+                is { } gefunden)
+            {
+                return gefunden;
+            }
         }
 
-        return new DateOnly(jahr, monat, tag);
+        return null;
     }
+
+    /// <summary>Ein Datum, das es im Kalender gibt — oder keins.</summary>
+    private static DateOnly? Tag(int jahr, int monat, int tag)
+        => monat is < 1 or > 12 || jahr is < 1900 or > 2200
+           || tag < 1 || tag > DateTime.DaysInMonth(jahr, monat)
+            ? null
+            : new DateOnly(jahr, monat, tag);
 
     /// <summary>
     /// Der Absender.
