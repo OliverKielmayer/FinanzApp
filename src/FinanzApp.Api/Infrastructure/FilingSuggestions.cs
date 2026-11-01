@@ -50,10 +50,17 @@ public static class FilingSuggestions
     /// </summary>
     private static readonly Rule[] Rules =
     [
+        // „Klinikum“, „Krankenhaus“ und „ambulant“ stehen an einer Klinikrechnung und sonst
+        // nirgends — in 135 abgelegten Schreiben kamen sie ausschließlich auf den drei
+        // medizinischen vor. Ohne sie fiel eine stationäre Endrechnung auf einen Punkt zurück
+        // („Patient“), verfehlte die Schwelle und wurde von der allgemeinen Rechnung
+        // eingesammelt. Das ist nicht falsch, aber es ist die gröbere Schublade, und genau
+        // dagegen steht die Reihenfolge dieser Liste.
         new("Arztrechnung", DocumentArea.Health, "Arztrechnung",
             Strong: ["arztrechnung", "zahnarzt", "goä", "gebührenordnung für ärzte", "liquidation",
                      "honorarrechnung", "gebührenordnung für zahnärzte"],
-            Weak: ["praxis", "behandlung", "diagnose", "patient", "befund", "steigerungsfaktor"]),
+            Weak: ["praxis", "behandlung", "diagnose", "patient", "befund", "steigerungsfaktor",
+                   "klinikum", "krankenhaus", "ambulant"]),
 
         new("Handwerkerrechnung", DocumentArea.Housing, "Handwerkerrechnung",
             Strong: ["handwerkerleistung", "lohnanteil", "arbeitslohn", "§ 35a", "35a estg",

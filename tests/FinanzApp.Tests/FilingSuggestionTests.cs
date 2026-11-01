@@ -64,6 +64,32 @@ public sealed class FilingSuggestionTests
     }
 
     /// <summary>
+    /// Eine Klinikrechnung ist eine Arztrechnung, auch ohne das Wort „GOÄ“.
+    /// </summary>
+    /// <remarks>
+    /// <para>Eine ambulante Rechnung nennt die Gebührenordnung und ist damit sofort erkannt.
+    /// Eine stationäre rechnet nach Fallpauschalen ab und nennt sie nicht — sie kam deshalb auf
+    /// einen einzigen Punkt („Patient“), verfehlte die Schwelle und landete bei der allgemeinen
+    /// Rechnung. Falsch war das nicht, aber es ist die gröbere Schublade, und wer sie bekommt,
+    /// sortiert von Hand nach.</para>
+    /// <para>„Klinikum“ trägt den Unterschied. Text und Namen hier sind erfunden.</para>
+    /// </remarks>
+    [Fact]
+    public void Eine_stationaere_Klinikrechnung_ist_eine_Arztrechnung()
+    {
+        var vorschlag = FilingSuggestions.For(
+            "Musterstädter Klinikum gGmbH\n"
+            + "Endrechnung / stationär\n"
+            + "Aufn.-Nr. 4711\n"
+            + "Patient: Max Mustermann\n"
+            + "Rechnungsbetrag 812,40 EUR");
+
+        Assert.NotNull(vorschlag);
+        Assert.Equal("Arztrechnung", vorschlag.Value.Label);
+        Assert.Equal(DocumentArea.Health, vorschlag.Value.Area);
+    }
+
+    /// <summary>
     /// Die allgemeine Rechnung tritt nur an, wenn nichts Genaueres greift.
     /// </summary>
     /// <remarks>
