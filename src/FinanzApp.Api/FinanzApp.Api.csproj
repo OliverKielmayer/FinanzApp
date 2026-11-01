@@ -40,6 +40,20 @@
     Gilt fuer Build, nicht fuer Publish - veroeffentlicht wuerde die Erkennung fehlen.
   -->
   <Target Name="TexterkennungMitnehmen" AfterTargets="Build" Condition="'$(OS)' == 'Windows_NT'">
+
+    <!--
+      Erst wiederherstellen, dann bauen.
+
+      Das Programm haengt bewusst nicht als Verweis am Projekt - und was nicht verwiesen ist,
+      holt "dotnet restore" auch nicht. In einem frischen Auscheckout fehlte deshalb
+      project.assets.json, und der Bau der API brach mit NETSDK1004 ab: schlimmer als das
+      Problem, das dieser Schritt loest. Hier faellt es nicht auf, wo das Programm schon
+      einmal gebaut wurde - nur beim ersten Mal, bei jemand anderem.
+    -->
+    <MSBuild Projects="..\FinanzApp.Texterkennung\FinanzApp.Texterkennung.csproj"
+             Targets="Restore"
+             Properties="Configuration=$(Configuration)" />
+
     <MSBuild Projects="..\FinanzApp.Texterkennung\FinanzApp.Texterkennung.csproj"
              Targets="Build"
              Properties="Configuration=$(Configuration)">
