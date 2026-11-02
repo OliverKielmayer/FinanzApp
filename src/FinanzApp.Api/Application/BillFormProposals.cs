@@ -33,7 +33,17 @@ public static class BillFormProposals
     public static IReadOnlyDictionary<string, string> For(
         CreateObjectType type, ExtractedBillDto gelesen)
     {
-        if (type != CreateObjectType.Purchase || !gelesen.HasContent)
+        if (!gelesen.HasContent)
+        {
+            return new Dictionary<string, string>();
+        }
+
+        if (type == CreateObjectType.Invoice)
+        {
+            return ForInvoice(gelesen);
+        }
+
+        if (type != CreateObjectType.Purchase)
         {
             return new Dictionary<string, string>();
         }
@@ -61,6 +71,48 @@ public static class BillFormProposals
         if (gelesen.BillNumber is { Length: > 0 } nummer)
         {
             vorschlaege["note"] = $"Beleg-Nr. {nummer}";
+        }
+
+        return vorschlaege;
+    }
+
+    /// <summary>
+    /// Die Vorschläge für einen offenen Posten.
+    /// </summary>
+    /// <remarks>
+    /// <para>Hier passt der gelesene Beleg am genauesten: Empfänger, Nummer, Rechnungsdatum und
+    /// Betrag sind genau die vier Werte, die der Belegleser an einer Rechnung sucht — und genau
+    /// die vier, die ein offener Posten braucht.</para>
+    /// <para><b>Die Fälligkeit fehlt, und das ist Absicht.</b> Der Leser kennt sie nicht; sie
+    /// steht auf dem Blatt als Zahlungsziel und in jeder Rechnung anders. Ein geratenes Datum —
+    /// etwa das Rechnungsdatum — ließe einen Posten sofort überfällig aussehen. An ihr misst
+    /// sich die ganze Nachverfolgung, deshalb tippt sie ein Mensch.</para>
+    /// <para>Der Betreff bekommt den Empfänger als Anfang, wenn einer gelesen wurde: „Rechnung
+    /// Musterelektro“ ist in der Vorgangsliste lesbar, eine Rechnungsnummer nicht.</para>
+    /// </remarks>
+    private static IReadOnlyDictionary<string, string> ForInvoice(ExtractedBillDto gelesen)
+    {
+        var vorschlaege = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        if (gelesen.Provider is { Length: > 0 } empfaenger)
+        {
+            vorschlaege["payee"] = empfaenger;
+            vorschlaege["subject"] = "Rechnung " + empfaenger;
+        }
+
+        if (gelesen.BillNumber is { Length: > 0 } nummer)
+        {
+            vorschlaege["number"] = nummer;
+        }
+
+        if (gelesen.BillDate is { } datum)
+        {
+            vorschlaege["issued"] = datum.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        }
+
+        if (gelesen.GrossAmount is { } brutto and > 0)
+        {
+            vorschlaege["amount"] = brutto.ToString("0.00", CultureInfo.GetCultureInfo("de-DE"));
         }
 
         return vorschlaege;

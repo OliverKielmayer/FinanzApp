@@ -25,18 +25,30 @@
         }
         else
         {
+            @*
+                Nicht nur „bezahlt“. Eine zugeordnete Buchung belegt die Zahlung, eine bestätigte
+                Barzahlung behauptet sie — der Unterschied gehört hierher und nicht ins Gedächtnis
+                dessen, der geklickt hat. Wer später prüft, warum eine Zahlung nicht im Konto
+                auftaucht, findet die Antwort sonst nirgends.
+            *@
             <div class="detail-block">
                 <span class="detail-label">Status</span>
-                <span class="detail-value">
-                    @(invoice.Status == InvoiceStatus.Paid ? "bezahlt" : "storniert")
-                </span>
+                <span class="detail-value">@SettlementLabel(invoice)</span>
             </div>
+
+            @if (invoice.PaymentNote is { Length: > 0 } notiz)
+            {
+                <div class="detail-block">
+                    <span class="detail-label">Zur Zahlung</span>
+                    <span class="detail-value">@notiz</span>
+                </div>
+            }
         }
 
         <div class="detail-block">
             <span class="detail-label">Gehört zu</span>
             <span class="detail-value">
-                @(invoice.ContractName ?? "kein Vertrag")
+                @(invoice.Payee is { Length: > 0 } empfaenger ? empfaenger : invoice.ContractName ?? "kein Vertrag")
                 @(invoice.PropertyName is { Length: > 0 } property ? " · " + property : string.Empty)
             </span>
         </div>
@@ -106,6 +118,19 @@
                     }
                 }
 
+                @*
+                    Der zweite Weg, und er braucht ein Wort dazu. Bar bezahlt, verrechnet, von
+                    einem Konto, das die Anwendung nicht führt — ohne diese Angabe bliebe von der
+                    Zahlung nur ein Status, und in einem halben Jahr wüsste niemand mehr, warum
+                    zu dieser Rechnung keine Abbuchung zu finden ist.
+                *@
+                <div class="detail-block">
+                    <span class="detail-label">Ohne Buchung beglichen?</span>
+                    <input class="input" value="@paymentNote" aria-label="Wie beglichen"
+                           placeholder="z. B. bar bezahlt"
+                           @oninput="e => paymentNote = e.Value?.ToString() ?? string.Empty" />
+                </div>
+
                 <div class="actions">
                     <button type="button" class="btn btn-primary" disabled="@busy" @onclick="LoadCandidatesAsync">
                         Buchung zuordnen
@@ -131,6 +156,9 @@
     private IReadOnlyList<PaymentCandidateDto>? candidates;
     private bool busy;
 
+    /// <summary>Was zur Zahlung zu sagen ist, wenn keine Buchung dahintersteht.</summary>
+    private string paymentNote = string.Empty;
+
     protected override async Task LoadAsync()
     {
         data = await Api.GetInvoiceAsync(Id);
@@ -144,6 +172,28 @@
         1 => "Fällig morgen",
         var days => $"Fällig in {days} Tagen",
     };
+
+    /// <summary>
+    /// Wie der Posten erledigt wurde — und woran man das erkennt.
+    /// </summary>
+    /// <remarks>
+    /// „Bezahlt“ allein wäre zu wenig. Eine Buchung ist ein Beleg; eine bestätigte Barzahlung
+    /// ist eine Aussage. Nur eines davon lässt sich nachprüfen, und wer in einem halben Jahr
+    /// fragt, warum zu dieser Rechnung keine Abbuchung im Konto steht, bekommt hier die Antwort.
+    /// </remarks>
+    private static string SettlementLabel(InvoiceDetailDto invoice)
+    {
+        if (invoice.Status == InvoiceStatus.Cancelled)
+        {
+            return "storniert";
+        }
+
+        var wann = invoice.PaidOn is { } tag ? " am " + GermanFormat.Date(tag) : string.Empty;
+
+        return invoice.IsProven
+            ? $"bezahlt{wann} · durch Buchung belegt"
+            : $"bezahlt{wann} · selbst bestätigt, keine Buchung zugeordnet";
+    }
 
     private async Task LoadCandidatesAsync()
     {
@@ -171,7 +221,10 @@
         busy = true;
         try
         {
-            data = await Api.PayInvoiceAsync(Id, transactionId);
+            // Die Notiz nur beim Weg ohne Buchung. Bei einer zugeordneten Buchung
+            // stünde sie neben einem Beleg und sagte nichts dazu.
+            data = await Api.PayInvoiceAsync(
+                Id, transactionId, transactionId is null ? paymentNote : null);
             candidates = null;
             Toasts.Show(transactionId is null ? "Als bezahlt markiert" : "Buchung zugeordnet");
         }

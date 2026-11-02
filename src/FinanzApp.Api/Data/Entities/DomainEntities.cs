@@ -459,7 +459,14 @@ public class Contract : IHouseholdOwned
         => NoticeToDate is { } to ? to.AddDays(-7 * NoticePeriodWeeks) : null;
 }
 
-/// <summary>Eine Rechnung zu einem Vertrag.</summary>
+/// <summary>
+/// Eine Rechnung — ein offener Posten, bis die Zahlung belegt ist.
+/// </summary>
+/// <remarks>
+/// Sie hing ursprünglich am Vertrag und entstand nur im Beispielbestand. Seit ein Beleg am
+/// Prüfplatz einen offenen Posten anlegen kann, gibt es auch Rechnungen ohne Vertrag — eine
+/// Händlerrechnung gehört zu keinem Dauerschuldverhältnis.
+/// </remarks>
 public class Invoice : IHouseholdOwned
 {
     public int Id { get; set; }
@@ -471,6 +478,16 @@ public class Invoice : IHouseholdOwned
     public required string Subject { get; set; }
     public string? Number { get; set; }
 
+    /// <summary>
+    /// Wer die Zahlung erwartet.
+    /// </summary>
+    /// <remarks>
+    /// Bei einer Vertragsrechnung steht der Anbieter am Vertrag. Ohne Vertrag stünde er
+    /// nirgends — und die Suche nach der passenden Buchung vergleicht gerade ihn. Ein offener
+    /// Posten ohne Empfänger fände seine Zahlung nur noch über den Betrag.
+    /// </remarks>
+    public string? Payee { get; set; }
+
     public DateOnly IssuedOn { get; set; }
     public DateOnly DueOn { get; set; }
     public decimal Amount { get; set; }
@@ -480,7 +497,30 @@ public class Invoice : IHouseholdOwned
     /// <summary>Die Buchung, mit der bezahlt wurde. Keine eigene Geldbewegung.</summary>
     public int? TransactionId { get; set; }
 
+    /// <summary>
+    /// Wann die Zahlung als erfolgt gilt.
+    /// </summary>
+    /// <remarks>
+    /// Ohne dieses Datum bliebe von einer Barzahlung nur ein Status übrig: Dass bezahlt wurde,
+    /// aber nicht wann. Bei einer zugeordneten Buchung ist es deren Buchungstag, bei einer von
+    /// Hand bestätigten Zahlung der Tag, den der Benutzer nennt.
+    /// </remarks>
+    public DateOnly? PaidOn { get; set; }
+
+    /// <summary>Was zur Zahlung zu sagen war — „bar bezahlt“, „per Gutschrift verrechnet“.</summary>
+    public string? PaymentNote { get; set; }
+
     public bool IsOpen => Status == InvoiceStatus.Open;
+
+    /// <summary>
+    /// Ob die Zahlung durch eine Buchung belegt ist — oder nur behauptet.
+    /// </summary>
+    /// <remarks>
+    /// Der Unterschied gehört an die Oberfläche. Eine Buchung ist ein Beleg; eine bestätigte
+    /// Barzahlung ist eine Aussage. Beides heißt „bezahlt“, aber nur eines lässt sich
+    /// nachprüfen.
+    /// </remarks>
+    public bool IsProven => Status == InvoiceStatus.Paid && TransactionId is not null;
 }
 
 /// <summary>

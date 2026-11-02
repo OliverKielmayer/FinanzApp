@@ -461,11 +461,16 @@
     /// Was sich von hier aus anlegen lässt.
     /// </summary>
     /// <remarks>
-    /// Nicht alle zehn Anlegewege: Ein Budget ist eine Vorgabe und kein Gegenstand, an dem ein
-    /// Beleg hinge. Hier stehen die, zu denen Post ins Haus kommt.
+    /// <para>Nicht alle Anlegewege: Ein Budget ist eine Vorgabe und kein Gegenstand, an dem ein
+    /// Beleg hinge. Hier stehen die, zu denen Post ins Haus kommt.</para>
+    /// <para>Der offene Posten steht vorn, weil er der häufigste ist: Was mit der Post kommt und
+    /// Geld kostet, ist meistens eine Rechnung. Er ist auch der einzige Weg hier, der nicht ein
+    /// Objekt beschreibt, sondern eine Verpflichtung — und der einzige, der von selbst wieder
+    /// verschwindet, sobald die Zahlung dasteht.</para>
     /// </remarks>
     private static readonly (CreateObjectType Type, string Label)[] Anlegewege =
     [
+        (CreateObjectType.Invoice, "Offener Posten"),
         (CreateObjectType.Property, "Immobilie"),
         (CreateObjectType.Contract, "Vertrag"),
         (CreateObjectType.Vehicle, "Fahrzeug"),

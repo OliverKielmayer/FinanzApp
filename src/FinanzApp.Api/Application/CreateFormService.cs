@@ -120,6 +120,7 @@ public sealed class CreateFormService(
             CreateObjectType.Budget => await BudgetFormAsync(ct),
             CreateObjectType.Vehicle => await VehicleFormAsync(ct),
             CreateObjectType.Purchase => PurchaseForm(),
+            CreateObjectType.Invoice => InvoiceForm(),
             CreateObjectType.Employment => EmploymentForm(),
             CreateObjectType.Loan => LoanForm(),
             _ => null,
@@ -155,6 +156,7 @@ public sealed class CreateFormService(
             CreateObjectType.Budget => await CreateBudgetAsync(values, ct),
             CreateObjectType.Vehicle => await CreateVehicleAsync(values, ct),
             CreateObjectType.Purchase => await CreatePurchaseAsync(values, ct),
+            CreateObjectType.Invoice => await CreateInvoiceAsync(values, ct),
             CreateObjectType.Employment => await CreateEmploymentAsync(values, ct),
             CreateObjectType.Loan => await CreateLoanAsync(values, ct),
             _ => Fail(null, "Diesen Objekttyp gibt es noch nicht."),
@@ -202,6 +204,7 @@ public sealed class CreateFormService(
         CreateObjectType.Contract => LinkTargetType.Contract,
         CreateObjectType.Vehicle => LinkTargetType.Vehicle,
         CreateObjectType.Purchase => LinkTargetType.Purchase,
+        CreateObjectType.Invoice => LinkTargetType.Invoice,
         CreateObjectType.Employment => LinkTargetType.EmploymentContract,
         CreateObjectType.Loan => LinkTargetType.Loan,
         _ => null,
@@ -242,6 +245,7 @@ public sealed class CreateFormService(
             CreateObjectType.Budget => await UpdateBudgetAsync(id, values, ct),
             CreateObjectType.Vehicle => await UpdateVehicleAsync(id, values, ct),
             CreateObjectType.Purchase => await UpdatePurchaseAsync(id, values, ct),
+            CreateObjectType.Invoice => await UpdateInvoiceAsync(id, values, ct),
             CreateObjectType.Employment => await UpdateEmploymentAsync(id, values, ct),
             CreateObjectType.Loan => await UpdateLoanAsync(id, values, ct),
             _ => Fail(null, "Diesen Objekttyp gibt es noch nicht."),
@@ -263,6 +267,8 @@ public sealed class CreateFormService(
             CreateObjectType.Vehicle => await DeleteSimpleAsync(db.Vehicles, id, "Fahrzeug gelöscht", "/fahrzeuge", ct),
             CreateObjectType.Purchase => await DeleteSimpleAsync(
                 db.Purchases, id, "Anschaffung gelöscht", "/anschaffungen", ct),
+            CreateObjectType.Invoice => await DeleteSimpleAsync(
+                db.Invoices, id, "Offener Posten gelöscht", "/vorgaenge", ct),
             CreateObjectType.Employment => await DeleteSimpleAsync(
                 db.Employments, id, "Arbeitsverhältnis gelöscht", "/arbeit", ct),
 
@@ -461,6 +467,21 @@ public sealed class CreateFormService(
                         ? "Es hängt kein Beleg daran."
                         : $"{belege} {(belege == 1 ? "Beleg bleibt" : "Belege bleiben")} erhalten, "
                           + $"{(belege == 1 ? "steht" : "stehen")} danach aber ohne Objekt da.");
+            }
+
+            case CreateObjectType.Invoice:
+            {
+                var posten = await db.Invoices.AsNoTracking()
+                    .FirstOrDefaultAsync(i => i.Id == id, ct);
+
+                // Ein bezahlter Posten ist Geschichte, ein offener eine Zusage an sich selbst.
+                // Was beim Löschen verloren geht, ist deshalb verschieden.
+                return Impact("Offenen Posten löschen",
+                    posten is { Status: InvoiceStatus.Open }
+                        ? "Die Nachverfolgung entfällt — der Vorgang verschwindet aus der Liste, "
+                          + "die Rechnung bleibt unbezahlt. Der Beleg bleibt erhalten."
+                        : "Die Zahlung bleibt gebucht, nur ihr Bezug zur Rechnung entfällt. "
+                          + "Der Beleg bleibt erhalten.");
             }
 
             case CreateObjectType.Employment:
@@ -694,6 +715,20 @@ public sealed class CreateFormService(
                     ["price"] = x.Price is { } preis ? Money(preis) : null,
                     ["warranty"] = Iso(x.WarrantyUntil),
                     ["note"] = x.Note,
+                };
+            }
+
+            case CreateObjectType.Invoice:
+            {
+                var x = await db.Invoices.AsNoTracking().FirstOrDefaultAsync(y => y.Id == id, ct);
+                return x is null ? null : new()
+                {
+                    ["subject"] = x.Subject,
+                    ["payee"] = x.Payee ?? x.Contract?.Provider,
+                    ["amount"] = Money(x.Amount),
+                    ["issued"] = Iso(x.IssuedOn),
+                    ["due"] = Iso(x.DueOn),
+                    ["number"] = x.Number,
                 };
             }
 
@@ -1881,6 +1916,120 @@ public sealed class CreateFormService(
     /// nicht gerechnet — zwei Jahre sind die Regel, aber Verlängerungen und Gebrauchtkäufe
     /// sind es auch, und eine gerechnete Frist sähe aus wie eine abgelesene.
     /// </remarks>
+    /// <summary>
+    /// Das Formular eines offenen Postens.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die Fälligkeit ist Pflicht, und sie wird nicht vorgeschlagen. An ihr hängt die
+    /// ganze Nachverfolgung: Der Vorgang meldet sich, wenn sie näher rückt, und gilt als
+    /// überfällig, wenn sie vorbei ist. Ein geratenes Datum — etwa das Belegdatum — ließe einen
+    /// Posten am Tag seiner Erfassung überfällig aussehen oder, schlimmer, gar nicht.</para>
+    /// <para>Der Empfänger ist kein Pflichtfeld, aber der Hinweis sagt, was er bewirkt: Ohne ihn
+    /// sucht die Zahlungssuche nur über den Betrag.</para>
+    /// </remarks>
+    private static CreateFormDto InvoiceForm() => new()
+    {
+        Type = CreateObjectType.Invoice,
+        Kicker = "Neu",
+        Title = "Offenen Posten anlegen",
+        SubmitLabel = "Posten anlegen",
+        Hint = "Eine Rechnung, die auf ihre Zahlung wartet. Sie steht unter Vorgänge, bis die "
+               + "Zahlung zugeordnet oder bestätigt ist.",
+        Fields =
+        [
+            Text("subject", "Betreff", required: true, placeholder: "z. B. Sanitärarbeiten Bad"),
+            Text("payee", "Empfänger", required: false, placeholder: "z. B. Musterelektro",
+                help: "Wonach die Zahlungssuche im Verwendungszweck sucht. Fehlt er, bleibt nur der Betrag."),
+            Money("amount", "Betrag", required: true),
+            Date("issued", "Rechnungsdatum", required: true),
+            Date("due", "Fällig am", required: true,
+                help: "Steht auf der Rechnung. Ungeraten — an diesem Tag misst sich, ob der Posten überfällig ist."),
+            Text("number", "Rechnungsnummer", required: false),
+        ],
+    };
+
+    private async Task<CreateResultDto> CreateInvoiceAsync(
+        IReadOnlyDictionary<string, string?> values, CancellationToken ct)
+    {
+        if (ParseMoney(Value(values, "amount")) is not { } betrag || betrag <= 0m)
+        {
+            return Fail("amount", "Der Betrag muss größer als null sein");
+        }
+
+        if (ParseDate(Value(values, "issued")) is not { } ausgestellt)
+        {
+            return Fail("issued", "Rechnungsdatum ist kein Datum");
+        }
+
+        if (ParseDate(Value(values, "due")) is not { } faellig)
+        {
+            return Fail("due", "Fälligkeit ist kein Datum");
+        }
+
+        // Eine Fälligkeit vor dem Rechnungsdatum ist keine Frist, sondern ein Vertipper. Sie
+        // stillschweigend zu nehmen hiesse, den Posten sofort als überfällig zu zeigen.
+        if (faellig < ausgestellt)
+        {
+            return Fail("due", "Die Fälligkeit liegt vor dem Rechnungsdatum");
+        }
+
+        var invoice = new Invoice
+        {
+            Subject = Value(values, "subject")!.Trim(),
+            Payee = Value(values, "payee")?.Trim(),
+            Number = Value(values, "number")?.Trim(),
+            Amount = betrag,
+            IssuedOn = ausgestellt,
+            DueOn = faellig,
+            Status = InvoiceStatus.Open,
+        };
+
+        db.Invoices.Add(invoice);
+        await db.SaveChangesAsync(ct);
+
+        return Ok(invoice.Id, $"/rechnungen/{invoice.Id}");
+    }
+
+    private async Task<CreateResultDto> UpdateInvoiceAsync(
+        int id, IReadOnlyDictionary<string, string?> values, CancellationToken ct)
+    {
+        var invoice = await db.Invoices.FirstOrDefaultAsync(i => i.Id == id, ct);
+        if (invoice is null)
+        {
+            return Fail(null, "Diesen offenen Posten gibt es nicht");
+        }
+
+        if (ParseMoney(Value(values, "amount")) is not { } betrag || betrag <= 0m)
+        {
+            return Fail("amount", "Der Betrag muss größer als null sein");
+        }
+
+        if (ParseDate(Value(values, "issued")) is not { } ausgestellt)
+        {
+            return Fail("issued", "Rechnungsdatum ist kein Datum");
+        }
+
+        if (ParseDate(Value(values, "due")) is not { } faellig)
+        {
+            return Fail("due", "Fälligkeit ist kein Datum");
+        }
+
+        if (faellig < ausgestellt)
+        {
+            return Fail("due", "Die Fälligkeit liegt vor dem Rechnungsdatum");
+        }
+
+        invoice.Subject = Value(values, "subject")!.Trim();
+        invoice.Payee = Value(values, "payee")?.Trim();
+        invoice.Number = Value(values, "number")?.Trim();
+        invoice.Amount = betrag;
+        invoice.IssuedOn = ausgestellt;
+        invoice.DueOn = faellig;
+
+        await db.SaveChangesAsync(ct);
+        return Ok(invoice.Id, $"/rechnungen/{invoice.Id}");
+    }
+
     private static CreateFormDto PurchaseForm() => new()
     {
         Type = CreateObjectType.Purchase,
@@ -2370,8 +2519,15 @@ public sealed class CreateFormService(
             .Select(a => new CreateOptionDto { Value = a.Id.ToString(), Label = a.Name, Hint = a.BankName })
             .ToListAsync(ct);
 
-    private static CreateFieldDto Text(string key, string label, bool required, string? placeholder = null)
-        => new() { Key = key, Label = label, Kind = CreateFieldKind.Text, Required = required, Placeholder = placeholder };
+    // Mit Hilfetext wie Money und Number. Er fehlte, und ein Feld, dessen Wirkung erklärt
+    // gehört — „wonach die Zahlungssuche sucht“ —, musste ohne auskommen.
+    private static CreateFieldDto Text(
+        string key, string label, bool required, string? placeholder = null, string? help = null)
+        => new()
+        {
+            Key = key, Label = label, Kind = CreateFieldKind.Text,
+            Required = required, Placeholder = placeholder, Help = help,
+        };
 
     private static CreateFieldDto Money(string key, string label, bool required, string? help = null)
         => new() { Key = key, Label = label, Kind = CreateFieldKind.Money, Required = required, Help = help, Placeholder = "0,00" };

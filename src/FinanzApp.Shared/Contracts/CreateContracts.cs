@@ -18,6 +18,16 @@ public enum CreateObjectType
 
     /// <summary>Anschaffung — ein Gegenstand, an dem Lieferschein, Rechnung und Garantie hängen.</summary>
     Purchase = 10,
+
+    /// <summary>
+    /// Offener Posten — eine Rechnung, die auf ihre Zahlung wartet.
+    /// </summary>
+    /// <remarks>
+    /// Der Weg vom Prüfplatz: Eine Rechnung wird abgelegt und bleibt bis zur Zahlung
+    /// nachverfolgbar. Bisher entstanden Rechnungen nur im Beispielbestand, und der Apparat
+    /// dahinter — Zahlungssuche, Vorgang, Fälligkeit — lief deshalb leer.
+    /// </remarks>
+    Invoice = 11,
 }
 
 /// <summary>Wie ein Feld einzugeben ist. Bestimmt allein die Darstellung, nicht die Bedeutung.</summary>

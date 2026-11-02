@@ -156,6 +156,9 @@ public sealed class PropertyService(
             PropertyId = invoice.Contract?.PropertyId,
             PropertyName = invoice.Contract?.Property?.Name,
             TransactionId = invoice.TransactionId,
+            Payee = invoice.Payee ?? invoice.Contract?.Provider,
+            PaidOn = invoice.PaidOn,
+            PaymentNote = invoice.PaymentNote,
             Documents = await documents.GetForTargetAsync(LinkTargetType.Invoice, invoice.Id, ct),
         };
     }
@@ -178,7 +181,12 @@ public sealed class PropertyService(
 
         var from = invoice.IssuedOn.AddDays(-7);
         var to = invoice.DueOn.AddDays(45);
-        var keyword = invoice.Contract?.Provider.Split(' ', '-')[0].ToLowerInvariant();
+
+        // Der Anbieter stand bisher nur am Vertrag. Eine Rechnung vom Prüfplatz hat keinen —
+        // ihr Empfänger steht an ihr selbst, und ohne ihn fände sie ihre Buchung nur über den
+        // Betrag. Das erste Wort genügt: „Musterelektro Handels GmbH“ bucht als „Musterelektro“.
+        var keyword = (invoice.Payee ?? invoice.Contract?.Provider)
+            ?.Split(' ', '-')[0].ToLowerInvariant();
 
         var rows = await db.Transactions.AsNoTracking()
             .Include(t => t.Account)
@@ -248,7 +256,19 @@ public sealed class PropertyService(
         return best.Count == 0 ? [] : [.. best.Select((c, index) => c with { IsBestMatch = index == 0 })];
     }
 
-    /// <summary>Markiert eine Rechnung als bezahlt, mit oder ohne zugeordnete Buchung.</summary>
+    /// <summary>
+    /// Markiert eine Rechnung als bezahlt, mit oder ohne zugeordnete Buchung.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Beides ist erlaubt, und beides bleibt unterscheidbar.</b> Eine zugeordnete
+    /// Buchung belegt die Zahlung; eine bestätigte Barzahlung behauptet sie. Der Status heißt in
+    /// beiden Fällen „bezahlt“ — welcher der beiden Wege es war, steht danach an der Rechnung
+    /// und nicht nur im Gedächtnis dessen, der geklickt hat.</para>
+    /// <para><b>Mit Datum.</b> Vorher blieb von einer Barzahlung ein Status und sonst nichts:
+    /// dass bezahlt wurde, aber nicht wann. Bei einer Buchung ist es deren Buchungstag — die
+    /// Zahlung ist an dem Tag geflossen, an dem die Bank sie gebucht hat, und nicht an dem, an
+    /// dem jemand sie zugeordnet hat.</para>
+    /// </remarks>
     public async Task<InvoiceDetailDto?> PayAsync(
         int invoiceId, PayInvoiceRequest request, CancellationToken ct = default)
     {
@@ -258,20 +278,32 @@ public sealed class PropertyService(
             return null;
         }
 
+        DateOnly? gebucht = null;
+
         if (request.TransactionId is { } transactionId)
         {
-            if (!await db.Transactions.AnyAsync(t => t.Id == transactionId, ct))
-            {
-                throw new ArgumentException("Die Buchung gibt es nicht.");
-            }
+            var buchung = await db.Transactions.AsNoTracking()
+                              .FirstOrDefaultAsync(t => t.Id == transactionId, ct)
+                          ?? throw new ArgumentException("Die Buchung gibt es nicht.");
 
             invoice.TransactionId = transactionId;
+            gebucht = buchung.BookingDate;
         }
 
         invoice.Status = InvoiceStatus.Paid;
+        invoice.PaidOn = request.PaidOn ?? gebucht ?? clock.Today;
+
+        if (Clean(request.Note) is { } notiz)
+        {
+            invoice.PaymentNote = notiz;
+        }
+
         await db.SaveChangesAsync(ct);
         return await GetInvoiceAsync(invoiceId, ct);
     }
+
+    private static string? Clean(string? text)
+        => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
 
     /// <summary>Summe der offenen Rechnungen — speist Liquidität und Dashboard-Banner.</summary>
     public async Task<IReadOnlyList<Invoice>> GetOpenInvoicesAsync(CancellationToken ct = default)

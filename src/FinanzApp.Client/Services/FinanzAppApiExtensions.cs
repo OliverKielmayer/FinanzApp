@@ -585,12 +585,17 @@ public static class FinanzAppApiExtensions
         this FinanzAppApi api, int id, CancellationToken ct = default)
         => api.GetAsync<IReadOnlyList<PaymentCandidateDto>>($"api/invoices/{id}/payment-candidates", ct);
 
+    /// <param name="note">
+    /// Was zur Zahlung zu sagen war — nur für den Weg ohne Buchung. „Bar bezahlt“ neben einer
+    /// zugeordneten Buchung wäre keine Auskunft, sondern ein Widerspruch.
+    /// </param>
     public static Task<InvoiceDetailDto> PayInvoiceAsync(
-        this FinanzAppApi api, int id, int? transactionId, CancellationToken ct = default)
+        this FinanzAppApi api, int id, int? transactionId, string? note = null,
+        CancellationToken ct = default)
         => api.SendAsync<PayInvoiceRequest, InvoiceDetailDto>(
             HttpMethod.Post,
             $"api/invoices/{id}/pay",
-            new PayInvoiceRequest { TransactionId = transactionId },
+            new PayInvoiceRequest { TransactionId = transactionId, Note = note },
             ct);
 
     // ── Liquidität ─────────────────────────────────────────────────────────────────────────

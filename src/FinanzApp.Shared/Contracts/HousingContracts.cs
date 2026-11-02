@@ -359,15 +359,43 @@ public sealed record InvoiceDetailDto
     public int? PropertyId { get; init; }
     public string? PropertyName { get; init; }
     public int? TransactionId { get; init; }
+
+    /// <summary>Wer die Zahlung erwartet — bei einer Rechnung ohne Vertrag die einzige Quelle.</summary>
+    public string? Payee { get; init; }
+
+    /// <summary>Wann die Zahlung als erfolgt gilt.</summary>
+    public DateOnly? PaidOn { get; init; }
+
+    /// <summary>Was zur Zahlung zu sagen war — „bar bezahlt“.</summary>
+    public string? PaymentNote { get; init; }
+
     public required IReadOnlyList<DocumentListItemDto> Documents { get; init; }
 
     public bool IsOverdue => Status == InvoiceStatus.Open && DaysUntilDue < 0;
+
+    /// <summary>
+    /// Ob die Zahlung durch eine Buchung belegt ist — oder nur bestätigt.
+    /// </summary>
+    /// <remarks>
+    /// Eine Buchung ist ein Beleg, eine bestätigte Barzahlung eine Aussage. Beides heißt
+    /// „bezahlt“, und nur eines lässt sich nachprüfen — das gehört an die Oberfläche.
+    /// </remarks>
+    public bool IsProven => Status == InvoiceStatus.Paid && TransactionId is not null;
 }
 
 public sealed record PayInvoiceRequest
 {
     /// <summary>Zugeordnete Buchung. Ohne Angabe gilt die Rechnung als bezahlt ohne Beleg.</summary>
     public int? TransactionId { get; init; }
+
+    /// <summary>
+    /// Der Tag der Zahlung. Ohne Angabe nimmt der Dienst den Buchungstag der zugeordneten
+    /// Buchung — und ohne Buchung den heutigen.
+    /// </summary>
+    public DateOnly? PaidOn { get; init; }
+
+    /// <summary>Freitext zur Zahlung, etwa „bar bezahlt“.</summary>
+    public string? Note { get; init; }
 }
 
 // ── Fahrzeuge ─────────────────────────────────────────────────────────────

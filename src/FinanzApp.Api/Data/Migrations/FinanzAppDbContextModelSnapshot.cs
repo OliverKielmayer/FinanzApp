@@ -855,6 +855,15 @@ namespace FinanzApp.Api.Data.Migrations
                         .HasMaxLength(60)
                         .HasColumnType("TEXT");
 
+                    b.Property<DateOnly?>("PaidOn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Payee")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PaymentNote")
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("Status")
                         .HasColumnType("INTEGER");
 
