@@ -153,6 +153,49 @@ benutzt, mit der wir uns anmelden — mail.de weist eine fremde Absenderadresse 
 Ein anderer Anbieter braucht zusätzlich `Mail:Host`, `Mail:Port` und ggf.
 `Mail:UseStartTls=false` für Port 465.
 
+### Bankzugang (FinTS)
+
+Noch ohne Abruf — die Einstellungen stehen schon, damit sich der Zugang einrichten und
+prüfen lässt, bevor die erste Verbindung gebaut wird. Der Abschnitt `Bankzugang` in
+`appsettings.json` nimmt die Produkt-Registrierungsnummer der Deutschen Kreditwirtschaft und
+je Bank einen Eintrag:
+
+```json
+"Bankzugang": {
+  "ProductId": "…",
+  "ProductVersion": "1.0",
+  "Banken": [
+    {
+      "Name": "Sparkasse",
+      "Blz": "12345678",
+      "Url": "https://banking.example.de/fints30",
+      "UserId": "anmeldename",
+      "CustomerId": "",
+      "TanMethod": 921,
+      "Ibans": [ "DE02…" ]
+    }
+  ]
+}
+```
+
+`Blz`, `Url`, `UserId` und `TanMethod` stehen im FinTS-Zugangsdatenblatt der Bank.
+`CustomerId` bleibt leer, wenn sie der `UserId` entspricht — bei den meisten Banken ist das
+so. `Ibans` sagt, welche Konten über diesen Zugang abgefragt werden; die IBAN ist der Bezug
+zum Konto in der Anwendung.
+
+Die PIN gehört **nicht** in die Datei:
+
+```bash
+dotnet user-secrets --project src/FinanzApp.Api set "Bankzugang:Banken:0:Pin" "…"
+```
+
+Im Betrieb entsprechend `Bankzugang__Banken__0__Pin`.
+
+**Leer gelassen bleibt alles wie bisher** — Kontoauszüge werden als Datei eingelesen, und beim
+Start steht nichts in der Konsole. Sobald aber *irgendetwas* im Abschnitt steht, meldet die API
+jedes fehlende Feld einzeln und mit seinem vollen Schlüssel. Halb eingerichtet ist der Zustand,
+in dem man sucht; ganz leer ist eine Entscheidung.
+
 ## Aufbau
 
 ```
