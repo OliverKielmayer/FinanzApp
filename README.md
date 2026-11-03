@@ -943,3 +943,14 @@ Unverändert abgelegt:
   erklärt, was am Export ergänzt werden musste und wie sich der Prototyp öffnen lässt.
 - [`docs/handoff-v4-umsetzung.md`](docs/handoff-v4-umsetzung.md) — die Arbeitsliste dazu, mit
   Stand je Schritt.
+
+## Lizenz
+
+FinanzApp steht unter der [MIT-Lizenz](LICENSE). Verwenden, ändern und weitergeben ist
+erlaubt, solange der Urheberrechtsvermerk erhalten bleibt.
+
+**Nicht mitlizenziert sind die Beispieldaten.** Der Beispielhaushalt in `SeedData.cs` und
+`ExtensionSeedData.cs` ist aus einer echten Ablage abgeleitet; die Namen sind ersetzt, die
+Beträge noch nicht. Wer den Code verwendet, sollte eigene Beispieldaten setzen — nicht aus
+rechtlichen Gründen, sondern weil fremde Zahlen in der eigenen Vorführung nichts zu suchen
+haben.
