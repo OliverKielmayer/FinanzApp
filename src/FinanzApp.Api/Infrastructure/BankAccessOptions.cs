@@ -1,194 +1,110 @@
+using FinanzApp.Api.Data.Entities;
+
 namespace FinanzApp.Api.Infrastructure;
 
 /// <summary>
-/// Der Zugang zu einer Bank über FinTS.
+/// Was das Programm der Bank über sich selbst sagt.
 /// </summary>
 /// <remarks>
-/// <para>Was eine Bank zum Anmelden verlangt, steht in ihrem FinTS-Zugangsdatenblatt und ist
-/// bei jeder anders beschriftet. Die Felder hier tragen die Namen des Standards, nicht die der
-/// jeweiligen Bank — sonst müsste man für jedes Institut raten, welches Feld gemeint ist.</para>
-/// <para><b>Die PIN gehört nicht in <c>appsettings.json</c>.</b> Sie steht wie jedes andere
-/// Geheimnis des Projekts in <c>dotnet user-secrets</c> oder in einer Umgebungsvariablen —
-/// <c>Bankzugang__Banken__0__Pin</c> für die erste Bank der Liste. Eine Datei im Repository ist
-/// der falsche Ort für etwas, womit sich ein Konto leerräumen lässt.</para>
-/// </remarks>
-public sealed class BankLoginOptions
-{
-    /// <summary>Wie die Bank in Meldungen heißt, etwa „Sparkasse“. Nur zum Lesen.</summary>
-    public string Name { get; set; } = string.Empty;
-
-    /// <summary>Die Bankleitzahl. FinTS spricht Banken darüber an, nicht über die BIC.</summary>
-    public string Blz { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Der PIN/TAN-Endpunkt der Bank, etwa <c>https://banking.example.de/fints30</c>.
-    /// </summary>
-    /// <remarks>
-    /// Steht im Zugangsdatenblatt. Die Deutsche Kreditwirtschaft führt zu jeder Bankleitzahl ein
-    /// Verzeichnis; eine falsche Adresse scheitert beim Dialogaufbau und nicht erst beim Abruf.
-    /// </remarks>
-    public string Url { get; set; } = string.Empty;
-
-    /// <summary>Die Benutzerkennung — der Anmeldename des Online-Bankings.</summary>
-    public string UserId { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Die Kunden-ID. Leer heißt: dieselbe wie die Benutzerkennung.
-    /// </summary>
-    /// <remarks>
-    /// Bei den meisten Banken sind beide gleich, bei einigen nicht. Leer zu lassen ist deshalb
-    /// die richtige Vorgabe — und nicht, die Kennung zu verdoppeln: Wer sie später ändert,
-    /// änderte sonst nur eine von beiden.
-    /// </remarks>
-    public string CustomerId { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Das TAN-Verfahren, als Nummer der Bank — etwa 921 für pushTAN.
-    /// </summary>
-    /// <remarks>
-    /// Auch eine reine Saldenabfrage wählt beim Dialogaufbau eines aus; sie löst nur keine TAN
-    /// aus. Welche Nummern eine Bank anbietet, meldet sie selbst — bis der Abruf gebaut ist,
-    /// steht die Nummer im Zugangsdatenblatt.
-    /// </remarks>
-    public int TanMethod { get; set; }
-
-    /// <summary>
-    /// Die PIN. Gehört in user-secrets oder eine Umgebungsvariable, nie in die Datei.
-    /// </summary>
-    public string Pin { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Welche Konten über diesen Zugang abgefragt werden, nach IBAN.
-    /// </summary>
-    /// <remarks>
-    /// Die IBAN ist der Bezug zum Konto in der Anwendung. Nicht die Kontonummer: Die steht in
-    /// der Anwendung nirgends, und zwei Banken können dieselbe vergeben.
-    /// </remarks>
-    public string[] Ibans { get; set; } = [];
-
-    /// <summary>Die Kunden-ID oder, wenn keine eingetragen ist, die Benutzerkennung.</summary>
-    public string EffectiveCustomerId
-        => string.IsNullOrWhiteSpace(CustomerId) ? UserId : CustomerId;
-
-    /// <summary>Ob zu diesem Eintrag überhaupt etwas eingetragen wurde.</summary>
-    public bool IsEmpty
-        => string.IsNullOrWhiteSpace(Name) && string.IsNullOrWhiteSpace(Blz)
-           && string.IsNullOrWhiteSpace(Url) && string.IsNullOrWhiteSpace(UserId)
-           && Ibans.Length == 0;
-}
-
-/// <summary>
-/// Die Einstellungen für den Bankabruf über FinTS.
-/// </summary>
-/// <remarks>
-/// <para><b>Nicht eingerichtet ist ein gültiger Zustand.</b> Die Anwendung lief jahrelang ohne
-/// Bankabruf und tut es weiter: Kontoauszüge lassen sich als Datei einlesen. Ein leerer
-/// Abschnitt ist deshalb kein Fehler und wird nicht gemeldet.</para>
-/// <para><b>Halb eingerichtet ist einer.</b> Wer anfängt, etwas einzutragen, will den Abruf —
-/// und ein fehlendes Feld, das niemand nennt, sucht man am falschen Ende. Deshalb nennt
-/// <see cref="Problems"/> jedes einzeln, sobald überhaupt etwas dasteht.</para>
+/// <para>Nur zwei Felder, und beide bezeichnen die <em>Anwendung</em>: Jedes Programm, das FinTS
+/// spricht, braucht eine eigene Registrierungsnummer der Deutschen Kreditwirtschaft. Sie ist für
+/// alle Konten dieselbe und kein Geheimnis — sie sagt, welche Software anklopft, nicht wer.</para>
+/// <para><b>Der Zugang zu einer Bank steht nicht hier, sondern am Konto.</b> Bank und IBAN stehen
+/// dort ohnehin, und ein Zugang beschreibt genau dieses Konto bei genau dieser Bank. Eine zweite
+/// Liste in der Konfigurationsdatei pflegte dieselbe Beziehung ein zweites Mal — und zwei Orte,
+/// die dasselbe sagen sollen, laufen auseinander.</para>
+/// <para><b>Die PIN steht nirgends.</b> Sie wird beim Abruf eingegeben und lebt nur für den
+/// Dialog.</para>
 /// </remarks>
 public sealed class BankAccessOptions
 {
     public const string SectionName = "Bankzugang";
 
-    /// <summary>
-    /// Die Produkt-Registrierungsnummer der Deutschen Kreditwirtschaft.
-    /// </summary>
-    /// <remarks>
-    /// Jede Anwendung, die FinTS spricht, braucht eine eigene. Sie ist kein Geheimnis — sie
-    /// bezeichnet das Programm, nicht den Kunden — und darf deshalb in der Datei stehen.
-    /// </remarks>
+    /// <summary>Die Produkt-Registrierungsnummer der Deutschen Kreditwirtschaft.</summary>
     public string ProductId { get; set; } = string.Empty;
 
     /// <summary>Die Version, die das Programm der Bank nennt. Selbst vergeben.</summary>
     public string ProductVersion { get; set; } = "1.0";
 
-    /// <summary>Die Zugänge, einer je Bank.</summary>
-    public BankLoginOptions[] Banken { get; set; } = [];
+    /// <summary>Ob die Anwendung sich gegenüber einer Bank ausweisen kann.</summary>
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(ProductId);
+}
 
-    /// <summary>Die Zugänge, bei denen überhaupt etwas eingetragen ist.</summary>
-    public IReadOnlyList<BankLoginOptions> Konfigurierte
-        => [.. Banken.Where(b => !b.IsEmpty)];
-
-    /// <summary>Ob jemand angefangen hat, den Abruf einzurichten.</summary>
-    public bool IsConfigured
-        => !string.IsNullOrWhiteSpace(ProductId) || Konfigurierte.Count > 0;
-
+/// <summary>
+/// Ob ein Konto abgefragt werden kann — und was sonst noch fehlt.
+/// </summary>
+/// <remarks>
+/// Geprüft wird erst, wenn jemand abruft, und nicht beim Start. Ein Konto ohne Bankzugang ist
+/// kein Mangel: Die Anwendung liest Kontoauszüge als Datei und tat das immer. Gemeldet wird
+/// deshalb nur dem, der gerade etwas davon will.
+/// </remarks>
+public static class BankAccessReadiness
+{
     /// <summary>
-    /// Was zum Abruf noch fehlt — jedes Feld einzeln benannt.
+    /// Was dem Abruf dieses Kontos noch fehlt — jedes Feld einzeln benannt.
     /// </summary>
     /// <remarks>
-    /// Einzeln und mit dem vollen Schlüssel, weil die Meldung beim Einrichten gelesen wird und
-    /// nicht beim Entwickeln. „Der Bankzugang ist unvollständig“ sagt niemandem, wo er suchen
-    /// soll; <c>Bankzugang:Banken:0:Url</c> schon.
+    /// Einzeln und bei seinem Namen, weil die Meldung beim Einrichten gelesen wird. „Der
+    /// Bankzugang ist unvollständig“ sagt niemandem, wo er suchen soll.
     /// </remarks>
-    public IReadOnlyList<string> Problems()
+    public static IReadOnlyList<string> Problems(Account account, BankAccessOptions options)
     {
         List<string> probleme = [];
 
-        if (!IsConfigured)
+        if (!options.IsConfigured)
         {
+            probleme.Add(
+                $"{BankAccessOptions.SectionName}:ProductId fehlt — die "
+                + "Produkt-Registrierungsnummer der Deutschen Kreditwirtschaft. Sie steht in "
+                + "appsettings.json und gilt für alle Konten. Ohne sie weist die Bank den "
+                + "Dialog ab.");
+        }
+
+        if (!account.HasBankAccess)
+        {
+            probleme.Add(
+                $"Am Konto „{account.Name}“ ist kein Bankzugang hinterlegt. Bankleitzahl, "
+                + "FinTS-Adresse, Benutzerkennung und TAN-Verfahren stehen im "
+                + "Zugangsdatenblatt der Bank und werden am Konto eingetragen.");
+
             return probleme;
         }
 
-        if (string.IsNullOrWhiteSpace(ProductId))
+        if (string.IsNullOrWhiteSpace(account.Blz))
         {
-            probleme.Add(
-                $"{SectionName}:ProductId ist leer — die Produkt-Registrierungsnummer der "
-                + "Deutschen Kreditwirtschaft. Ohne sie weist die Bank den Dialog ab.");
+            probleme.Add($"Dem Konto „{account.Name}“ fehlt die Bankleitzahl.");
         }
 
-        for (var i = 0; i < Banken.Length; i++)
+        if (string.IsNullOrWhiteSpace(account.FinTsUrl))
         {
-            var bank = Banken[i];
-            if (bank.IsEmpty)
-            {
-                continue;
-            }
+            probleme.Add($"Dem Konto „{account.Name}“ fehlt die FinTS-Adresse der Bank.");
+        }
 
-            var pfad = $"{SectionName}:Banken:{i}";
-            var wer = string.IsNullOrWhiteSpace(bank.Name) ? pfad : $"„{bank.Name}“";
+        if (string.IsNullOrWhiteSpace(account.FinTsUserId))
+        {
+            probleme.Add($"Dem Konto „{account.Name}“ fehlt die Benutzerkennung.");
+        }
 
-            if (string.IsNullOrWhiteSpace(bank.Blz))
-            {
-                probleme.Add($"{pfad}:Blz ist leer — die Bankleitzahl von {wer}.");
-            }
+        if (account.FinTsTanMethod is not > 0)
+        {
+            probleme.Add(
+                $"Dem Konto „{account.Name}“ fehlt das TAN-Verfahren — die Nummer der Bank, "
+                + "etwa 921 für pushTAN.");
+        }
 
-            if (string.IsNullOrWhiteSpace(bank.Url))
-            {
-                probleme.Add($"{pfad}:Url ist leer — der PIN/TAN-Endpunkt von {wer}.");
-            }
-
-            if (string.IsNullOrWhiteSpace(bank.UserId))
-            {
-                probleme.Add($"{pfad}:UserId ist leer — die Benutzerkennung für {wer}.");
-            }
-
-            // Eigens benannt: Sie steht nicht in der Datei, und wer sie dort sucht, sucht
-            // vergeblich. Die Meldung sagt deshalb gleich, wo sie hingehört.
-            if (string.IsNullOrWhiteSpace(bank.Pin))
-            {
-                probleme.Add(
-                    $"{pfad}:Pin ist leer — sie gehört nicht in appsettings.json, sondern in "
-                    + $"dotnet user-secrets oder die Umgebungsvariable "
-                    + $"{SectionName}__Banken__{i}__Pin.");
-            }
-
-            if (bank.TanMethod <= 0)
-            {
-                probleme.Add(
-                    $"{pfad}:TanMethod ist nicht gesetzt — die Nummer des TAN-Verfahrens, "
-                    + $"etwa 921 für pushTAN. Steht im Zugangsdatenblatt von {wer}.");
-            }
-
-            if (bank.Ibans.Length == 0)
-            {
-                probleme.Add(
-                    $"{pfad}:Ibans ist leer — welche Konten über {wer} abgefragt werden sollen.");
-            }
+        // Die IBAN war bisher freiwillig. Für den Abruf ist sie es nicht: An ihr erkennt die
+        // Bank, welches ihrer Konten gemeint ist.
+        if (string.IsNullOrWhiteSpace(account.Iban))
+        {
+            probleme.Add(
+                $"Dem Konto „{account.Name}“ fehlt die IBAN. Ohne sie lässt sich nicht sagen, "
+                + "welches Konto bei der Bank gemeint ist.");
         }
 
         return probleme;
     }
+
+    /// <summary>Ob dieses Konto abgefragt werden kann.</summary>
+    public static bool CanQuery(Account account, BankAccessOptions options)
+        => Problems(account, options).Count == 0;
 }

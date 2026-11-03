@@ -541,6 +541,11 @@ public sealed class CreateFormService(
                     ["iban"] = a.Iban,
                     ["opening"] = Money(a.OpeningBalance),
                     ["asOf"] = Iso(a.BalanceAsOf),
+                    ["blz"] = a.Blz,
+                    ["fintsUrl"] = a.FinTsUrl,
+                    ["fintsUser"] = a.FinTsUserId,
+                    ["fintsCustomer"] = a.FinTsCustomerId,
+                    ["fintsTan"] = a.FinTsTanMethod?.ToString(CultureInfo.InvariantCulture),
                 };
             }
 
@@ -787,6 +792,11 @@ public sealed class CreateFormService(
         account.Iban = Value(values, "iban")?.Trim();
         account.OpeningBalance = opening;
         account.BalanceAsOf = asOf;
+        account.Blz = Value(values, "blz")?.Trim();
+        account.FinTsUrl = Value(values, "fintsUrl")?.Trim();
+        account.FinTsUserId = Value(values, "fintsUser")?.Trim();
+        account.FinTsCustomerId = Value(values, "fintsCustomer")?.Trim();
+        account.FinTsTanMethod = ParseInt(Value(values, "fintsTan"));
 
         await db.SaveChangesAsync(ct);
         return Ok(id, "/konten");
@@ -1134,12 +1144,28 @@ public sealed class CreateFormService(
                         new() { Value = "loan", Label = "Darlehen", Hint = "unter Finanzierungen", RedirectTo = "/neu/loan" },
                     ],
                 },
-                Text("bank", "Bank", required: true, placeholder: "z. B. Sparkasse Heidelberg"),
+                Text("bank", "Bank", required: true, placeholder: "z. B. Sparkasse Musterstadt"),
                 Text("iban", "IBAN", required: false, placeholder: "DE.."),
                 Money("opening", "Startsaldo", required: true,
                     help: "Der Stand zum Stichtag. Buchungen ab diesem Tag rechnen darauf auf."),
                 Date("asOf", "Stichtag", required: true, defaultValue: clock.Today),
                 Reference("profile", "Importprofil", required: false, profiles),
+
+                // Der Bankzugang, alles freiwillig. Ein Konto ohne diese Angaben verhält sich
+                // wie bisher: Auszüge werden als Datei eingelesen. Wer sie ausfüllt, bekommt
+                // den Abruf — und erfährt beim ersten Versuch, was davon noch fehlt.
+                Text("blz", "Bankleitzahl", required: false, placeholder: "12345678",
+                    help: "Nur für den Abruf über FinTS. Steht im Zugangsdatenblatt der Bank."),
+                Text("fintsUrl", "FinTS-Adresse", required: false,
+                    placeholder: "https://banking.example.de/fints30"),
+                Text("fintsUser", "Benutzerkennung", required: false,
+                    help: "Der Anmeldename des Online-Bankings."),
+                Text("fintsCustomer", "Kunden-ID", required: false,
+                    help: "Leer lassen, wenn sie der Benutzerkennung entspricht — das ist bei "
+                          + "den meisten Banken so."),
+                Number("fintsTan", "TAN-Verfahren", required: false,
+                    help: "Die Nummer der Bank, etwa 921 für pushTAN. Die PIN wird nicht "
+                          + "hinterlegt, sondern bei jedem Abruf eingegeben."),
             ],
         };
     }
@@ -1186,6 +1212,11 @@ public sealed class CreateFormService(
             Iban = Value(values, "iban")?.Trim(),
             OpeningBalance = opening,
             BalanceAsOf = asOf,
+            Blz = Value(values, "blz")?.Trim(),
+            FinTsUrl = Value(values, "fintsUrl")?.Trim(),
+            FinTsUserId = Value(values, "fintsUser")?.Trim(),
+            FinTsCustomerId = Value(values, "fintsCustomer")?.Trim(),
+            FinTsTanMethod = ParseInt(Value(values, "fintsTan")),
         };
 
         db.Accounts.Add(account);

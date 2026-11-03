@@ -58,6 +58,54 @@ public class Account : IHouseholdOwned
     /// mit dem Datum der letzten Buchung — die Oberfläche zeigt daraus „heute“ oder ein Datum.</summary>
     public DateOnly BalanceAsOf { get; set; }
 
+    // ── Bankzugang über FinTS ─────────────────────────────────────────────────────────────
+    //
+    // Am Konto und nicht in der Konfigurationsdatei: Bank und IBAN stehen schon hier, und ein
+    // Zugang beschreibt genau dieses Konto bei genau dieser Bank. Eine zweite Liste daneben
+    // pflegte dieselbe Beziehung ein zweites Mal — und zwei Orte, die dasselbe sagen sollen,
+    // laufen auseinander.
+    //
+    // Die PIN steht bewusst nicht dabei. Sie wird beim Abruf eingegeben und lebt nur für den
+    // Dialog; die Datenbank ist eine unverschlüsselte Datei, und eine Banking-PIN darin wäre
+    // eine andere Größenordnung als ein Mail-Passwort.
+
+    /// <summary>Die Bankleitzahl. FinTS spricht Banken darüber an, nicht über die BIC.</summary>
+    public string? Blz { get; set; }
+
+    /// <summary>Der PIN/TAN-Endpunkt der Bank, etwa <c>https://banking.example.de/fints30</c>.</summary>
+    public string? FinTsUrl { get; set; }
+
+    /// <summary>Die Benutzerkennung — der Anmeldename des Online-Bankings.</summary>
+    public string? FinTsUserId { get; set; }
+
+    /// <summary>
+    /// Die Kunden-ID. Leer heißt: dieselbe wie die Benutzerkennung.
+    /// </summary>
+    /// <remarks>
+    /// Bei den meisten Banken sind beide gleich. Leer zu lassen ist deshalb die richtige
+    /// Vorgabe und nicht, die Kennung zu verdoppeln: Wer sie später ändert, änderte sonst nur
+    /// eine von beiden.
+    /// </remarks>
+    public string? FinTsCustomerId { get; set; }
+
+    /// <summary>
+    /// Das TAN-Verfahren, als Nummer der Bank — etwa 921 für pushTAN.
+    /// </summary>
+    /// <remarks>
+    /// Auch eine reine Saldenabfrage wählt beim Dialogaufbau eines aus; sie löst nur keine TAN
+    /// aus. Die Nummer steht im Zugangsdatenblatt der Bank.
+    /// </remarks>
+    public int? FinTsTanMethod { get; set; }
+
+    /// <summary>Die Kunden-ID oder, wenn keine eingetragen ist, die Benutzerkennung.</summary>
+    public string? EffectiveFinTsCustomerId
+        => string.IsNullOrWhiteSpace(FinTsCustomerId) ? FinTsUserId : FinTsCustomerId;
+
+    /// <summary>Ob an diesem Konto überhaupt ein Bankzugang eingetragen wurde.</summary>
+    public bool HasBankAccess
+        => !string.IsNullOrWhiteSpace(Blz) || !string.IsNullOrWhiteSpace(FinTsUrl)
+           || !string.IsNullOrWhiteSpace(FinTsUserId) || FinTsTanMethod is not null;
+
     public List<Transaction> Transactions { get; set; } = [];
 }
 

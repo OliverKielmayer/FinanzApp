@@ -31,6 +31,21 @@ namespace FinanzApp.Api.Data.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Blz")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FinTsCustomerId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("FinTsTanMethod")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("FinTsUrl")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FinTsUserId")
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("HouseholdId")
                         .HasColumnType("INTEGER");
 

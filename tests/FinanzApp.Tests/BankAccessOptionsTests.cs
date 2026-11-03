@@ -1,199 +1,180 @@
+using FinanzApp.Api.Data.Entities;
 using FinanzApp.Api.Infrastructure;
+using FinanzApp.Shared.Contracts;
 
 namespace FinanzApp.Tests;
 
 /// <summary>
-/// Die Einstellungen des Bankabrufs.
+/// Ob ein Konto über FinTS abgefragt werden kann.
 /// </summary>
 /// <remarks>
-/// <para>Eine Optionsklasse, die man testet, weil ihre Meldungen gelesen werden — und zwar beim
-/// Einrichten, von jemandem mit dem Zugangsdatenblatt der Bank in der Hand. Eine Meldung, die
-/// „der Bankzugang ist unvollständig“ sagt, hilft dort nicht.</para>
+/// <para>Der Zugang steht am Konto, nicht in der Konfigurationsdatei: Bank und IBAN stehen dort
+/// ohnehin, und ein Zugang beschreibt genau dieses Konto bei genau dieser Bank. In der
+/// Konfiguration bleibt nur, was das <em>Programm</em> bezeichnet — die
+/// Produkt-Registrierungsnummer, für alle Konten dieselbe.</para>
+/// <para>Geprüft wird, wenn jemand abruft, und nicht beim Start. Ein Konto ohne Bankzugang ist
+/// kein Mangel: Kontoauszüge lassen sich als Datei einlesen, und so lief es immer.</para>
 /// <para>Die Werte hier sind erfunden.</para>
 /// </remarks>
 public sealed class BankAccessOptionsTests
 {
-    private static BankLoginOptions Zugang() => new()
+    private static BankAccessOptions Produkt() => new() { ProductId = "ABC123" };
+
+    private static Account Konto() => new()
     {
-        Name = "Musterbank",
+        Name = "Musterbank Giro",
+        ShortName = "Giro",
+        BankName = "Musterbank",
+        Kind = AccountKind.Checking,
+        Iban = "DE02120300000000202051",
         Blz = "12345678",
-        Url = "https://banking.example.test/fints30",
-        UserId = "mustermann1",
-        TanMethod = 921,
-        Pin = "steht-in-user-secrets",
-        Ibans = ["DE02120300000000202051"],
+        FinTsUrl = "https://banking.example.test/fints30",
+        FinTsUserId = "mustermann1",
+        FinTsTanMethod = 921,
     };
 
-    // ── Nicht eingerichtet ─────────────────────────────────────────────────────────────────
+    // ── Kein Zugang ist kein Mangel ────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Ein leerer Abschnitt ist kein Fehler.
+    /// Ein Konto ohne Bankzugang wird nur gemeldet, wenn jemand es abrufen will.
     /// </summary>
     /// <remarks>
-    /// Die Anwendung lief immer ohne Bankabruf und tut es weiter: Kontoauszüge lassen sich als
-    /// Datei einlesen. Wer den Abruf nicht will, soll bei jedem Start nicht daran erinnert
-    /// werden.
+    /// Die Meldung sagt dann auch, wo die Angaben herkommen — aus dem Zugangsdatenblatt der
+    /// Bank. Ohne diesen Hinweis sucht man sie im Online-Banking, wo sie nicht stehen.
     /// </remarks>
     [Fact]
-    public void Ohne_Eintrag_gibt_es_nichts_zu_melden()
+    public void Ein_Konto_ohne_Zugang_sagt_woher_die_Angaben_kommen()
     {
-        var options = new BankAccessOptions();
+        var konto = Konto();
+        konto.Blz = null;
+        konto.FinTsUrl = null;
+        konto.FinTsUserId = null;
+        konto.FinTsTanMethod = null;
 
-        Assert.False(options.IsConfigured);
-        Assert.Empty(options.Problems());
+        Assert.False(konto.HasBankAccess);
+
+        var problem = Assert.Single(BankAccessReadiness.Problems(konto, Produkt()));
+        Assert.Contains("kein Bankzugang hinterlegt", problem, StringComparison.Ordinal);
+        Assert.Contains("Zugangsdatenblatt", problem, StringComparison.Ordinal);
     }
 
-    /// <summary>Ein Eintrag, in dem nichts steht, zählt nicht als Zugang.</summary>
-    /// <remarks>
-    /// Eine leere Vorlage in der Datei ist eine Einladung zum Ausfüllen, keine halbe
-    /// Einrichtung. Sie zu melden hieße, jemanden für etwas zu rügen, das er noch gar nicht
-    /// angefangen hat.
-    /// </remarks>
-    [Fact]
-    public void Ein_leerer_Bankeintrag_zaehlt_nicht()
-    {
-        var options = new BankAccessOptions { Banken = [new BankLoginOptions()] };
+    // ── Halb eingetragen ───────────────────────────────────────────────────────────────────
 
-        Assert.False(options.IsConfigured);
-        Assert.Empty(options.Problems());
-        Assert.Empty(options.Konfigurierte);
-    }
-
-    // ── Halb eingerichtet ──────────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Fehlt ein Feld, wird es einzeln und mit vollem Schlüssel genannt.
-    /// </summary>
-    /// <remarks>
-    /// „Bankzugang:Banken:0:Url“ sagt, wo zu suchen ist. „Der Zugang ist unvollständig“ sagt
-    /// es nicht, und dann sucht man am falschen Ende.
-    /// </remarks>
-    [Fact]
-    public void Ein_fehlendes_Feld_wird_mit_seinem_Schluessel_genannt()
-    {
-        var zugang = Zugang();
-        zugang.Url = string.Empty;
-
-        var options = new BankAccessOptions { ProductId = "ABC123", Banken = [zugang] };
-
-        var problem = Assert.Single(options.Problems());
-        Assert.Contains("Bankzugang:Banken:0:Url", problem, StringComparison.Ordinal);
-        Assert.Contains("Musterbank", problem, StringComparison.Ordinal);
-    }
-
-    /// <summary>Jedes fehlende Feld einzeln, nicht eines für alle.</summary>
+    /// <summary>Jedes fehlende Feld einzeln, mit dem Namen des Kontos.</summary>
     /// <remarks>
     /// Wer drei Meldungen bekommt, trägt drei Dinge nach. Wer eine bekommt, trägt eines nach
-    /// und startet wieder.
+    /// und versucht es wieder.
     /// </remarks>
     [Fact]
     public void Mehrere_Luecken_ergeben_mehrere_Meldungen()
     {
-        var zugang = Zugang();
-        zugang.Blz = string.Empty;
-        zugang.UserId = string.Empty;
-        zugang.Ibans = [];
+        var konto = Konto();
+        konto.FinTsUrl = null;
+        konto.FinTsUserId = null;
 
-        var options = new BankAccessOptions { ProductId = "ABC123", Banken = [zugang] };
-        var probleme = options.Problems();
+        var probleme = BankAccessReadiness.Problems(konto, Produkt());
 
-        Assert.Equal(3, probleme.Count);
-        Assert.Contains(probleme, p => p.Contains(":Blz", StringComparison.Ordinal));
-        Assert.Contains(probleme, p => p.Contains(":UserId", StringComparison.Ordinal));
-        Assert.Contains(probleme, p => p.Contains(":Ibans", StringComparison.Ordinal));
+        Assert.Equal(2, probleme.Count);
+        Assert.Contains(probleme, p => p.Contains("FinTS-Adresse", StringComparison.Ordinal));
+        Assert.Contains(probleme, p => p.Contains("Benutzerkennung", StringComparison.Ordinal));
+        Assert.All(probleme, p => Assert.Contains("Musterbank Giro", p, StringComparison.Ordinal));
     }
 
     /// <summary>
-    /// Die fehlende PIN sagt gleich, wo sie hingehört.
+    /// Ohne IBAN geht es nicht — auch wenn sie sonst freiwillig ist.
     /// </summary>
     /// <remarks>
-    /// Sie steht nicht in der Datei, und wer sie dort sucht, sucht vergeblich. Eine Meldung, die
-    /// nur „Pin ist leer“ sagt, führt geradewegs dazu, dass jemand sie doch hineinschreibt.
+    /// An ihr erkennt die Bank, welches ihrer Konten gemeint ist. Ein Zugang ohne sie wäre eine
+    /// Anmeldung ohne Frage.
     /// </remarks>
     [Fact]
-    public void Die_fehlende_Pin_nennt_den_richtigen_Ort()
+    public void Ohne_IBAN_laesst_sich_nicht_abrufen()
     {
-        var zugang = Zugang();
-        zugang.Pin = string.Empty;
+        var konto = Konto();
+        konto.Iban = null;
 
-        var options = new BankAccessOptions { ProductId = "ABC123", Banken = [zugang] };
-
-        var problem = Assert.Single(options.Problems());
-        Assert.Contains("user-secrets", problem, StringComparison.Ordinal);
-        Assert.Contains("Bankzugang__Banken__0__Pin", problem, StringComparison.Ordinal);
-        Assert.Contains("nicht in appsettings.json", problem, StringComparison.Ordinal);
+        var problem = Assert.Single(BankAccessReadiness.Problems(konto, Produkt()));
+        Assert.Contains("fehlt die IBAN", problem, StringComparison.Ordinal);
     }
 
-    /// <summary>Ohne Registrierungsnummer weist die Bank den Dialog ab — das wird gesagt.</summary>
+    /// <summary>Ein TAN-Verfahren von null ist keines.</summary>
     [Fact]
-    public void Die_fehlende_Registrierungsnummer_wird_gemeldet()
+    public void Ein_fehlendes_TAN_Verfahren_faellt_auf()
     {
-        var options = new BankAccessOptions { Banken = [Zugang()] };
+        var konto = Konto();
+        konto.FinTsTanMethod = 0;
 
-        var problem = Assert.Single(options.Problems());
+        var problem = Assert.Single(BankAccessReadiness.Problems(konto, Produkt()));
+        Assert.Contains("TAN-Verfahren", problem, StringComparison.Ordinal);
+        Assert.Contains("921", problem, StringComparison.Ordinal);
+    }
+
+    // ── Die Produktangabe ──────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Fehlt die Registrierungsnummer, nützt der schönste Kontozugang nichts.
+    /// </summary>
+    /// <remarks>
+    /// Sie steht in der Konfigurationsdatei und gilt für alle Konten — die Meldung sagt das,
+    /// damit niemand sie am Konto sucht.
+    /// </remarks>
+    [Fact]
+    public void Ohne_Registrierungsnummer_geht_gar_nichts()
+    {
+        var problem = Assert.Single(
+            BankAccessReadiness.Problems(Konto(), new BankAccessOptions()));
+
         Assert.Contains("Bankzugang:ProductId", problem, StringComparison.Ordinal);
+        Assert.Contains("appsettings.json", problem, StringComparison.Ordinal);
+        Assert.Contains("für alle Konten", problem, StringComparison.Ordinal);
     }
 
     // ── Vollständig ────────────────────────────────────────────────────────────────────────
 
     /// <summary>Ist alles da, schweigt die Prüfung.</summary>
     [Fact]
-    public void Ein_vollstaendiger_Zugang_meldet_nichts()
+    public void Ein_vollstaendiger_Zugang_laesst_sich_abrufen()
     {
-        var options = new BankAccessOptions { ProductId = "ABC123", Banken = [Zugang()] };
-
-        Assert.True(options.IsConfigured);
-        Assert.Empty(options.Problems());
-        Assert.Single(options.Konfigurierte);
+        Assert.True(BankAccessReadiness.CanQuery(Konto(), Produkt()));
+        Assert.Empty(BankAccessReadiness.Problems(Konto(), Produkt()));
     }
 
     /// <summary>
     /// Ohne eigene Kunden-ID gilt die Benutzerkennung.
     /// </summary>
     /// <remarks>
-    /// Bei den meisten Banken sind beide gleich. Das Feld leer zu lassen ist deshalb richtig und
-    /// kein Mangel — die Kennung zu verdoppeln wäre der Fehler, denn wer sie später ändert,
-    /// änderte sonst nur eine von beiden.
+    /// Bei den meisten Banken sind beide gleich. Das Feld leer zu lassen ist deshalb richtig —
+    /// die Kennung zu verdoppeln wäre der Fehler, denn wer sie später ändert, änderte sonst nur
+    /// eine von beiden.
     /// </remarks>
     [Fact]
     public void Ohne_Kunden_ID_gilt_die_Benutzerkennung()
     {
-        var zugang = Zugang();
-        zugang.CustomerId = string.Empty;
+        var konto = Konto();
 
-        Assert.Equal("mustermann1", zugang.EffectiveCustomerId);
-        Assert.Empty(new BankAccessOptions { ProductId = "ABC123", Banken = [zugang] }.Problems());
+        Assert.Null(konto.FinTsCustomerId);
+        Assert.Equal("mustermann1", konto.EffectiveFinTsCustomerId);
     }
 
     /// <summary>Steht eine eigene da, gilt sie.</summary>
     [Fact]
     public void Eine_eigene_Kunden_ID_gilt()
     {
-        var zugang = Zugang();
-        zugang.CustomerId = "kunde-4711";
+        var konto = Konto();
+        konto.FinTsCustomerId = "kunde-7788";
 
-        Assert.Equal("kunde-4711", zugang.EffectiveCustomerId);
+        Assert.Equal("kunde-7788", konto.EffectiveFinTsCustomerId);
     }
 
-    /// <summary>Der zweite Zugang wird mit seiner eigenen Nummer genannt.</summary>
+    /// <summary>Die Produktangabe allein trägt keinen Abruf.</summary>
     /// <remarks>
-    /// Zwei Banken sind der Normalfall, und eine Meldung ohne Index schickte zum ersten Eintrag.
+    /// Sie sagt, welche Software anklopft — nicht, bei wem. Ohne Konto bleibt sie folgenlos,
+    /// und das ist der Normalfall: Die Nummer steht in der Datei, der Zugang vielleicht nie.
     /// </remarks>
     [Fact]
-    public void Der_zweite_Zugang_traegt_seinen_eigenen_Index()
+    public void Die_Produktangabe_allein_ist_folgenlos()
     {
-        var zweiter = Zugang();
-        zweiter.Name = "Musterkasse";
-        zweiter.TanMethod = 0;
-
-        var options = new BankAccessOptions
-        {
-            ProductId = "ABC123",
-            Banken = [Zugang(), zweiter],
-        };
-
-        var problem = Assert.Single(options.Problems());
-        Assert.Contains("Bankzugang:Banken:1:TanMethod", problem, StringComparison.Ordinal);
-        Assert.Contains("Musterkasse", problem, StringComparison.Ordinal);
+        Assert.True(Produkt().IsConfigured);
+        Assert.False(new BankAccessOptions().IsConfigured);
     }
 }

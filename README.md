@@ -155,46 +155,34 @@ Ein anderer Anbieter braucht zusätzlich `Mail:Host`, `Mail:Port` und ggf.
 
 ### Bankzugang (FinTS)
 
-Noch ohne Abruf — die Einstellungen stehen schon, damit sich der Zugang einrichten und
-prüfen lässt, bevor die erste Verbindung gebaut wird. Der Abschnitt `Bankzugang` in
-`appsettings.json` nimmt die Produkt-Registrierungsnummer der Deutschen Kreditwirtschaft und
-je Bank einen Eintrag:
+Noch ohne Abruf — die Einstellungen stehen schon, damit sich der Zugang einrichten lässt,
+bevor die erste Verbindung gebaut wird.
+
+**Der Zugang steht am Konto.** Bank und IBAN stehen dort ohnehin; Bankleitzahl, FinTS-Adresse,
+Benutzerkennung, Kunden-ID und TAN-Verfahren kommen im Anlegen- und Bearbeiten-Formular
+dazu, alle freiwillig. Ein Konto ohne diese Angaben verhält sich wie bisher: Auszüge werden
+als Datei eingelesen. Die Werte stehen im FinTS-Zugangsdatenblatt der Bank. Die Kunden-ID
+bleibt leer, wenn sie der Benutzerkennung entspricht — bei den meisten Banken ist das so.
+
+**In `appsettings.json` steht nur, was das Programm bezeichnet:**
 
 ```json
 "Bankzugang": {
   "ProductId": "…",
-  "ProductVersion": "1.0",
-  "Banken": [
-    {
-      "Name": "Sparkasse",
-      "Blz": "12345678",
-      "Url": "https://banking.example.de/fints30",
-      "UserId": "anmeldename",
-      "CustomerId": "",
-      "TanMethod": 921,
-      "Ibans": [ "DE02…" ]
-    }
-  ]
+  "ProductVersion": "1.0"
 }
 ```
 
-`Blz`, `Url`, `UserId` und `TanMethod` stehen im FinTS-Zugangsdatenblatt der Bank.
-`CustomerId` bleibt leer, wenn sie der `UserId` entspricht — bei den meisten Banken ist das
-so. `Ibans` sagt, welche Konten über diesen Zugang abgefragt werden; die IBAN ist der Bezug
-zum Konto in der Anwendung.
+Die Produkt-Registrierungsnummer der Deutschen Kreditwirtschaft gilt für alle Konten und ist
+kein Geheimnis — sie sagt, welche Software anklopft, nicht wer.
 
-Die PIN gehört **nicht** in die Datei:
+**Die PIN wird nirgends hinterlegt.** Sie wird bei jedem Abruf eingegeben und lebt nur für
+diesen Dialog. Die Datenbank ist eine unverschlüsselte Datei, und eine Banking-PIN darin wäre
+eine andere Größenordnung als ein Mail-Passwort. Der Preis ist bekannt: kein Abruf im
+Hintergrund, nur auf Knopfdruck.
 
-```bash
-dotnet user-secrets --project src/FinanzApp.Api set "Bankzugang:Banken:0:Pin" "…"
-```
-
-Im Betrieb entsprechend `Bankzugang__Banken__0__Pin`.
-
-**Leer gelassen bleibt alles wie bisher** — Kontoauszüge werden als Datei eingelesen, und beim
-Start steht nichts in der Konsole. Sobald aber *irgendetwas* im Abschnitt steht, meldet die API
-jedes fehlende Feld einzeln und mit seinem vollen Schlüssel. Halb eingerichtet ist der Zustand,
-in dem man sucht; ganz leer ist eine Entscheidung.
+Geprüft wird beim Abruf, nicht beim Start — ein Konto ohne Bankzugang ist kein Mangel. Was
+fehlt, sagt die Anwendung dann einzeln und beim Namen.
 
 ## Aufbau
 

@@ -204,21 +204,12 @@ builder.Services.AddScoped<TaxYearService>();
 
 // ── Bankzugang ────────────────────────────────────────────────────────────────────────────
 //
-// Nur die Einstellungen; der Abruf selbst kommt später. Sie stehen schon hier, damit sich der
-// Zugang einrichten und prüfen lässt, bevor die erste Verbindung gebaut wird — ein Feld, das
-// im Zugangsdatenblatt der Bank steht, findet man heute leichter als in einem halben Jahr.
+// Nur die Produktangaben; der Zugang zu einer Bank steht am Konto. Beim Start wird nichts
+// geprüft: Ein Konto ohne Bankzugang ist kein Mangel, und wer keinen Abruf will, soll nicht
+// jedes Mal daran erinnert werden. Was fehlt, sagt die Prüfung dem, der gerade abruft.
 var bankOptions = builder.Configuration.GetSection(BankAccessOptions.SectionName)
                       .Get<BankAccessOptions>() ?? new BankAccessOptions();
 builder.Services.AddSingleton(bankOptions);
-
-// Leer bleibt still: Die Anwendung lief immer ohne Bankabruf und tut es weiter. Halb
-// ausgefüllt meldet sich — wer anfängt einzutragen, will den Abruf, und ein fehlendes Feld,
-// das niemand nennt, sucht man am falschen Ende. Mit dem vollen Schlüssel, damit die Meldung
-// beim Einrichten weiterhilft und nicht nur beschreibt.
-foreach (var problem in bankOptions.Problems())
-{
-    Console.WriteLine("Bankzugang: " + problem);
-}
 
 // ── Kurse ─────────────────────────────────────────────────────────────────────────────────
 var quoteOptions = builder.Configuration.GetSection(QuoteOptions.SectionName)
