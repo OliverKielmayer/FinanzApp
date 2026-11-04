@@ -10,9 +10,10 @@ namespace FinanzApp.Api.Data;
 /// Beispieldaten der Erweiterung: Dokumente, PKV-Vorgänge, Versicherungen, Immobilie, Verträge.
 /// </summary>
 /// <remarks>
-/// <para>Zahlen aus den Wireframes, soweit sie sich mit dem Bestand vertragen. Die Monatssummen des
-/// ersten Handoffs bleiben unangetastet: die neuen Buchungen liegen im Juli, damit Einnahmen
-/// (5.240 €) und Ausgaben (3.612 €) des August unverändert herauskommen.</para>
+/// <para><b>Die Beträge sind erfunden</b> — wie im übrigen Bestand und aus demselben Grund,
+/// siehe <see cref="SeedData"/>. Die Monatssummen des Augusts bleiben dabei unangetastet: die
+/// Buchungen dieser Klasse liegen im Juli und früher, damit Einnahmen (4.180 €) und Ausgaben
+/// (2.975,40 €) des Augusts weiterhin glatt herauskommen.</para>
 /// <para>Zu den Dokumenten werden echte Platzhalterdateien geschrieben — nur so lässt sich prüfen,
 /// dass die Pfadauflösung greift. Eine Datei fehlt <em>mit Absicht</em>: der Zustand „Datei nicht
 /// gefunden“ ist gestaltet und soll vorführbar sein.</para>
@@ -87,7 +88,7 @@ public static class ExtensionSeedData
 
     /// <summary>
     /// Die acht Absicherungsverträge aus Handoff v4, Abschnitt 4. Ihre Jahresbeiträge summieren
-    /// sich auf 12.330,00 € — die Kopfzahl des Bereichs.
+    /// sich auf 9.840,00 € — die Kopfzahl des Bereichs.
     /// </summary>
     /// <remarks>
     /// Keiner von ihnen trägt einen Vermögenswert; <c>IsCapitalForming</c> bleibt überall falsch.
@@ -101,28 +102,28 @@ public static class ExtensionSeedData
             int NoticeMonths, decimal? SumInsured)[] rows =
         [
             ("Krankenversicherung", "Krankenversicherung Musterkasse", "Musterkasse", PolicyKind.Health,
-                "PKV · Erstattungen unter Gesundheit", 742m, PremiumInterval.Monthly,
+                "PKV · Erstattungen unter Gesundheit", 585m, PremiumInterval.Monthly,
                 new DateOnly(2016, 1, 1), null, 3, null),
             ("Kfz", "Kfz MGV", "MGV", PolicyKind.Vehicle,
-                "L-2905 · Wechselfrist 30.11.2026", 618m, PremiumInterval.Yearly,
+                "L-2905 · Wechselfrist 30.11.2026", 494m, PremiumInterval.Yearly,
                 new DateOnly(2021, 1, 1), new DateOnly(2026, 12, 31), 1, null),
             ("Berufsunfähigkeit", "Berufsunfähigkeit", "Erste Musterkasse",
-                PolicyKind.DisabilityInsurance, "BU-Rente 3.871,36 € monatlich", 118m,
+                PolicyKind.DisabilityInsurance, "BU-Rente 2.950,00 € monatlich", 96m,
                 PremiumInterval.Monthly, new DateOnly(2017, 9, 1), null, 1, null),
             ("Risikoleben", "Risikoleben", "Musterleben", PolicyKind.TermLife,
-                "kein Rückkaufswert", 42m, PremiumInterval.Monthly,
-                new DateOnly(2020, 7, 1), null, 1, 250000m),
-            ("Wohngebäude", "Wohngebäude", "HUK-Coburg", PolicyKind.Building,
-                "Haus Birkenstetter Straße 10", 412m, PremiumInterval.Yearly,
+                "kein Rückkaufswert", 35m, PremiumInterval.Monthly,
+                new DateOnly(2020, 7, 1), null, 1, 164000m),
+            ("Wohngebäude", "Wohngebäude", "Nordstern Versicherung", PolicyKind.Building,
+                "Haus Hauptstraße 118", 348m, PremiumInterval.Yearly,
                 new DateOnly(2019, 4, 1), new DateOnly(2027, 3, 31), 3, null),
-            ("Rechtsschutz", "Rechtsschutz", "ARAG", PolicyKind.LegalExpenses,
-                "bis 31.05.2027", 231m, PremiumInterval.Yearly,
+            ("Rechtsschutz", "Rechtsschutz", "Rechtsbund", PolicyKind.LegalExpenses,
+                "bis 31.05.2027", 198m, PremiumInterval.Yearly,
                 new DateOnly(2022, 5, 1), new DateOnly(2027, 8, 31), 3, null),
-            ("Hausrat", "Hausrat HUK", "HUK-Coburg", PolicyKind.HouseholdContents,
-                "Wohnfläche 142 m²", 156m, PremiumInterval.Yearly,
+            ("Hausrat", "Hausrat Nordstern", "Nordstern Versicherung", PolicyKind.HouseholdContents,
+                "Wohnfläche 128 m²", 132m, PremiumInterval.Yearly,
                 new DateOnly(2019, 4, 1), new DateOnly(2027, 12, 31), 3, null),
-            ("Privathaftpflicht", "Privathaftpflicht", "Adam Riese", PolicyKind.Liability,
-                "bis 31.12.2027", 89m, PremiumInterval.Yearly,
+            ("Privathaftpflicht", "Privathaftpflicht", "Zahlwerk Direkt", PolicyKind.Liability,
+                "bis 31.12.2027", 76m, PremiumInterval.Yearly,
                 new DateOnly(2018, 1, 1), new DateOnly(2027, 12, 31), 0, null),
         ];
 
@@ -187,14 +188,14 @@ public static class ExtensionSeedData
         var raiffeisen = accounts["Musterbank Giro"].Id;
 
         // Monat -> (Lebensmittel, Freizeit, Auto). Freizeit liegt bewusst dauerhaft über dem
-        // Budget von 200 €, damit das Sparpotential eine echte Überschreitung findet.
+        // Budget von 180 €, damit das Sparpotential eine echte Überschreitung findet.
         (int Month, decimal Food, decimal Leisure, decimal Car)[] variable =
         [
-            (3, 438.20m, 268.00m, 174.30m),
-            (4, 391.75m, 212.50m, 128.90m),
-            (5, 455.60m, 289.40m, 186.20m),
-            (6, 402.30m, 241.80m, 141.50m),
-            (7, 428.90m, 255.60m, 168.70m),
+            (3, 362.40m, 228.00m, 148.30m),
+            (4, 325.75m, 184.50m, 110.90m),
+            (5, 378.60m, 245.40m, 158.20m),
+            (6, 334.30m, 206.80m, 121.50m),
+            (7, 356.90m, 217.60m, 143.70m),
         ];
 
         var reference = 4400;
@@ -216,24 +217,24 @@ public static class ExtensionSeedData
                 });
             }
 
-            Add(1, "Gehalt EWV", "Gehalt", CategoryDirection.Income, 5240m, sparkasse);
-            Add(1, "Miete Wohnung Heidelberg", "Wohnen", CategoryDirection.Expense, -1480m, sparkasse);
-            Add(1, "Nebenkosten Hausgeld", "Wohnen", CategoryDirection.Expense, -245m, sparkasse);
-            Add(15, "Telekom Internet und Mobilfunk", "Wohnen", CategoryDirection.Expense, -59.90m, sparkasse);
-            Add(17, "KFZ-Versicherung Musterschutz", "Versicherung", CategoryDirection.Expense, -78.40m, raiffeisen);
-            Add(18, "Musterleben Beitrag", "Versicherung", CategoryDirection.Expense, -212m, raiffeisen);
+            Add(1, "Gehalt Nordwind", "Gehalt", CategoryDirection.Income, 4180m, sparkasse);
+            Add(1, "Miete Wohnung Heidelberg", "Wohnen", CategoryDirection.Expense, -1165m, sparkasse);
+            Add(1, "Nebenkosten Hausgeld", "Wohnen", CategoryDirection.Expense, -198m, sparkasse);
+            Add(15, "Telekom Internet und Mobilfunk", "Wohnen", CategoryDirection.Expense, -51.90m, sparkasse);
+            Add(17, "KFZ-Versicherung Musterschutz", "Versicherung", CategoryDirection.Expense, -66.90m, raiffeisen);
+            Add(18, "Musterleben Beitrag", "Versicherung", CategoryDirection.Expense, -184m, raiffeisen);
             Add(10, "REWE Markt Heidelberg", "Lebensmittel", CategoryDirection.Expense, -month.Food, sparkasse);
             Add(12, "Freizeit und Kultur", "Freizeit", CategoryDirection.Expense, -month.Leisure, sparkasse);
             Add(13, "ARAL Tankstelle", "Auto", CategoryDirection.Expense, -month.Car, sparkasse);
 
             // Gesundheit gehört zu den Kategorien, die im Kostentrend steigen. Ohne einen Posten
             // in diesen fünf Monaten kläffte zwischen Februar und August ein Loch in der Kurve.
-            Add(20, "Apotheke am Markt", "Gesundheit", CategoryDirection.Expense, -47m, sparkasse);
+            Add(20, "Apotheke am Markt", "Gesundheit", CategoryDirection.Expense, -39m, sparkasse);
 
             // Zwei wiederkehrende Buchungen ohne hinterlegten Vertrag — der Fall „Abos“ aus
             // Wireframe 1g.
-            Add(5, "Streaming Abo", "Sonstiges", CategoryDirection.Expense, -17.99m, sparkasse);
-            Add(5, "Cloud-Speicher", "Sonstiges", CategoryDirection.Expense, -9.99m, sparkasse);
+            Add(5, "Streaming Abo", "Sonstiges", CategoryDirection.Expense, -14.99m, sparkasse);
+            Add(5, "Cloud-Speicher", "Sonstiges", CategoryDirection.Expense, -8.49m, sparkasse);
         }
 
         SeedDeepHistory(db, Category, sparkasse, raiffeisen);
@@ -300,46 +301,46 @@ public static class ExtensionSeedData
                 });
             }
 
-            Add(1, "Gehalt EWV", "Gehalt", CategoryDirection.Income,
-                Jahr(4980m, 5100m, 5240m), sparkasse);
+            Add(1, "Gehalt Nordwind", "Gehalt", CategoryDirection.Income,
+                Jahr(3960m, 4060m, 4180m), sparkasse);
 
             // Fixe Posten ohne Saison — eine Miete schwankt nicht mit dem Monat.
             Add(1, "Miete Wohnung Heidelberg", "Wohnen", CategoryDirection.Expense,
-                -Jahr(1380m, 1420m, 1480m), sparkasse);
+                -Jahr(1085m, 1125m, 1165m), sparkasse);
             Add(15, "Telekom Internet und Mobilfunk", "Wohnen", CategoryDirection.Expense,
-                -Jahr(54.90m, 54.90m, 59.90m), sparkasse);
+                -Jahr(47.90m, 47.90m, 51.90m), sparkasse);
             Add(17, "KFZ-Versicherung Musterschutz", "Versicherung", CategoryDirection.Expense,
-                -Jahr(72.40m, 75.40m, 78.40m), raiffeisen);
+                -Jahr(61.40m, 64.20m, 66.90m), raiffeisen);
             // Vier Verträge, vier Beiträge, jeder mit seiner Nummer im Verwendungszweck —
             // sonst ließe sich die Zuordnung über die Nummer nirgends ansehen.
             Add(18, "Musterleben Beitrag", "Versicherung", CategoryDirection.Expense,
-                -212m, raiffeisen,
+                -184m, raiffeisen,
                 $"BEITRAG {monat:MM/yyyy} VERTRAG LV-4471-01 KAPITALLEBENSVERSICHERUNG");
             Add(18, "Musterbank Lebensversicherung", "Versicherung", CategoryDirection.Expense,
-                -85m, raiffeisen,
+                -70m, raiffeisen,
                 $"MONATSBEITRAG {monat:MM/yyyy} POLICE RB-2019-8842");
             Add(20, "Musterkasse Riesterrente", "Versicherung", CategoryDirection.Expense,
-                -162.75m, sparkasse,
+                -141.50m, sparkasse,
                 $"RIESTER EIGENBEITRAG {monat:MM/yyyy} VERTRAG DB-RI-330914");
             Add(20, "Bausparkasse Musterstadt", "Versicherung", CategoryDirection.Expense,
-                -120m, sparkasse,
+                -100m, sparkasse,
                 $"BAUSPARBEITRAG BSH 7712 4409 {monat:MM/yyyy}");
             Add(5, "Streaming Abo", "Sonstiges", CategoryDirection.Expense,
-                -Jahr(12.99m, 14.99m, 17.99m), sparkasse);
-            Add(5, "Cloud-Speicher", "Sonstiges", CategoryDirection.Expense, -9.99m, sparkasse);
+                -Jahr(10.99m, 12.49m, 14.99m), sparkasse);
+            Add(5, "Cloud-Speicher", "Sonstiges", CategoryDirection.Expense, -8.49m, sparkasse);
 
             // Saisonabhängige Posten — Heizkosten im Winter, Sprit im Sommer, und was der
             // Haushalt über das Jahr verschieden oft kauft.
             Add(1, "Nebenkosten Hausgeld", "Wohnen", CategoryDirection.Expense,
-                -Jahr(225m, 235m, 245m) * saison, sparkasse);
+                -Jahr(182m, 190m, 198m) * saison, sparkasse);
             Add(10, "REWE Markt Heidelberg", "Lebensmittel", CategoryDirection.Expense,
-                -Jahr(372m, 398m, 425m) * saison, sparkasse);
+                -Jahr(308m, 330m, 352m) * saison, sparkasse);
             Add(12, "Freizeit und Kultur", "Freizeit", CategoryDirection.Expense,
-                -Jahr(178m, 214m, 252m) * saison, sparkasse);
+                -Jahr(148m, 178m, 210m) * saison, sparkasse);
             Add(13, "ARAL Tankstelle", "Auto", CategoryDirection.Expense,
-                -Jahr(152m, 158m, 162m) * saison, sparkasse);
+                -Jahr(126m, 131m, 136m) * saison, sparkasse);
             Add(20, "Apotheke am Markt", "Gesundheit", CategoryDirection.Expense,
-                -Jahr(21m, 33m, 47m) * saison, sparkasse);
+                -Jahr(17m, 27m, 39m) * saison, sparkasse);
 
             // Steuerlich eingeordnete Posten: einmal im Jahr die Heizungswartung, monatlich der
             // Berufsverband. Beide speisen den Steuerjahr-Bericht — ohne sie hätte er zwei
@@ -347,16 +348,16 @@ public static class ExtensionSeedData
             if (monat.Month == 3)
             {
                 Add(14, "Heizungswartung Grau", "Handwerker", CategoryDirection.Expense,
-                    -Jahr(182m, 189m, 196m), sparkasse);
+                    -Jahr(152m, 158m, 164m), sparkasse);
             }
 
             if (monat.Month == 9)
             {
                 Add(9, "Schornsteinfeger", "Handwerker", CategoryDirection.Expense,
-                    -Jahr(92m, 96m, 98m), sparkasse);
+                    -Jahr(76m, 80m, 82m), sparkasse);
             }
 
-            Add(2, "Beitrag Berufsverband", "Beruf", CategoryDirection.Expense, -15m, sparkasse);
+            Add(2, "Beitrag Berufsverband", "Beruf", CategoryDirection.Expense, -12m, sparkasse);
         }
     }
 
@@ -365,7 +366,7 @@ public static class ExtensionSeedData
     /// </summary>
     /// <remarks>
     /// <para>Drei Monate, damit der Jahresstand mehr ist als der laufende Monat. Im laufenden
-    /// Monat genau der Fall aus dem Handoff: der eine erfüllt sein Soll, die andere liegt 300 €
+    /// Monat genau der Fall aus dem Handoff: der eine erfüllt sein Soll, die andere liegt 200 €
     /// darunter. Ohne diesen Zustand wäre am Schirm nie zu sehen, was der Vergleich leistet.</para>
     /// <para>Das Vorzeichen ist positiv: auf dem Gemeinschaftskonto kommt die Einlage an. Vom
     /// eigenen Konto aus wäre dieselbe Buchung ein Abfluss — siehe
@@ -426,7 +427,7 @@ public static class ExtensionSeedData
         }
 
         Einlage(currentMonth, 1, erster, erster.MonthlyTarget ?? 0m);
-        Einlage(currentMonth, 3, zweite, (zweite.MonthlyTarget ?? 300m) - 300m);
+        Einlage(currentMonth, 3, zweite, (zweite.MonthlyTarget ?? 200m) - 200m);
 
         await db.SaveChangesAsync(ct);
     }
@@ -442,18 +443,18 @@ public static class ExtensionSeedData
             Name = "Haus Hauptstraße",
             Address = "Hauptstraße 118, 69117 Heidelberg",
             PurchaseDate = new DateOnly(2019, 4, 1),
-            PurchasePrice = 342000m,
-            MarketValue = 395000m,
+            PurchasePrice = 268000m,
+            MarketValue = 312000m,
 
             // Verweis auf das vorhandene Darlehen — es wird nicht kopiert.
             LoanId = loan?.Id,
 
             // Beide für den Objektbericht (Handoff 3.5): ohne Fläche keine €/m²-Zahl, ohne
             // Rücklage fehlt der Posten, an dem Objektkosten und Kontoabfluss auseinanderfallen.
-            // Die 142 m² stehen schon in der Hausratpolice — zwei verschiedene Flächen im
+            // Die 128 m² stehen schon in der Hausratpolice — zwei verschiedene Flächen im
             // Bestand wären ein Widerspruch, den niemand auflösen könnte.
-            LivingArea = 142m,
-            MonthlyReserve = 500m,
+            LivingArea = 128m,
+            MonthlyReserve = 380m,
         };
         db.Properties.Add(property);
         await db.SaveChangesAsync(ct);
@@ -470,7 +471,7 @@ public static class ExtensionSeedData
 
         if (beteiligte.Count == 2)
         {
-            decimal[] eigenkapital = [90000m, 50000m];
+            decimal[] eigenkapital = [62000m, 38000m];
 
             for (var i = 0; i < beteiligte.Count; i++)
             {
@@ -490,12 +491,12 @@ public static class ExtensionSeedData
         (string Name, string Provider, string? Number, decimal Monthly, int NoticeWeeks,
             DateOnly? NoticeTo, bool PropertyRelated)[] contracts =
         [
-            ("Strom", "Stadtwerke Musterstadt", "SW-993 210", 142.50m, 6, new DateOnly(2027, 3, 31), true),
-            ("Internet", "Telekom", "DTAG-40 118", 39.99m, 12, new DateOnly(2027, 6, 30), false),
-            ("Wasser", "Stadtwerke Musterstadt", "SW-771 004", 38.00m, 6, new DateOnly(2027, 3, 31), true),
-            ("Abfallentsorgung", "Stadt Heidelberg", "AE-2019-118", 24.50m, 8, new DateOnly(2026, 12, 31), true),
-            ("Heizungswartung", "Sanitär Brenner", "HW-556", 18.00m, 4, new DateOnly(2026, 10, 31), true),
-            ("Schornsteinfeger", "Bezirk Heidelberg Nord", null, 9.50m, 0, null, true),
+            ("Strom", "Stadtwerke Musterstadt", "SW-993 210", 117.60m, 6, new DateOnly(2027, 3, 31), true),
+            ("Internet", "Telekom", "DTAG-40 118", 34.99m, 12, new DateOnly(2027, 6, 30), false),
+            ("Wasser", "Stadtwerke Musterstadt", "SW-771 004", 31.50m, 6, new DateOnly(2027, 3, 31), true),
+            ("Abfallentsorgung", "Stadt Heidelberg", "AE-2019-118", 19.80m, 8, new DateOnly(2026, 12, 31), true),
+            ("Heizungswartung", "Sanitär Brenner", "HW-556", 15.00m, 4, new DateOnly(2026, 10, 31), true),
+            ("Schornsteinfeger", "Bezirk Heidelberg Nord", null, 8.20m, 0, null, true),
         ];
 
         foreach (var row in contracts)
@@ -531,7 +532,7 @@ public static class ExtensionSeedData
                 Number = "SW-2026-08",
                 IssuedOn = new DateOnly(2026, 8, 1),
                 DueOn = new DateOnly(2026, 9, 15),
-                Amount = 142.50m,
+                Amount = 117.60m,
                 Status = InvoiceStatus.Open,
             },
             new Invoice
@@ -541,7 +542,7 @@ public static class ExtensionSeedData
                 Number = "SW-2026-07",
                 IssuedOn = new DateOnly(2026, 7, 1),
                 DueOn = new DateOnly(2026, 8, 15),
-                Amount = 96.00m,
+                Amount = 88.00m,
                 Status = InvoiceStatus.Paid,
                 TransactionId = paidTransaction,
             });
@@ -573,9 +574,9 @@ public static class ExtensionSeedData
                 Provider = "Dr. Meyer, Zahnarzt",
                 BillDate = new DateOnly(2026, 7, 18),
                 BillNumber = "R-2026-098",
-                GrossAmount = 780m,
-                OwnShare = 100m,
-                ExpectedReimbursement = 680m,
+                GrossAmount = 640m,
+                OwnShare = 80m,
+                ExpectedReimbursement = 560m,
                 Status = MedicalBillStatus.Submitted,
                 SubmittedAt = new DateTime(2026, 7, 25, 9, 0, 0, DateTimeKind.Local),
                 CreatedAt = new DateTime(2026, 7, 18, 9, 0, 0, DateTimeKind.Local),
@@ -587,24 +588,24 @@ public static class ExtensionSeedData
                 Provider = "Zahnarzt Dr. Weber",
                 BillDate = new DateOnly(2026, 8, 19),
                 BillNumber = "R-2026-114",
-                GrossAmount = 850m,
-                OwnShare = 187.60m,
-                ExpectedReimbursement = 662.40m,
+                GrossAmount = 690m,
+                OwnShare = 164.20m,
+                ExpectedReimbursement = 525.80m,
                 Status = MedicalBillStatus.Submitted,
                 SubmittedAt = new DateTime(2026, 8, 19, 17, 30, 0, DateTimeKind.Local),
                 OwnShareTransactionId = dentist,
                 CreatedAt = new DateTime(2026, 8, 19, 17, 0, 0, DateTimeKind.Local),
             },
 
-            // Noch nicht eingereicht — die Zeile „Arztrechnung 210 €“ aus Wireframe 1a.
+            // Noch nicht eingereicht — die Zeile „Arztrechnung 175 €“ aus Wireframe 1a.
             new()
             {
                 Provider = "Radiologie Neuenheim",
                 BillDate = new DateOnly(2026, 8, 20),
                 BillNumber = "RN-2026-441",
-                GrossAmount = 210m,
+                GrossAmount = 175m,
                 OwnShare = 0m,
-                ExpectedReimbursement = 210m,
+                ExpectedReimbursement = 175m,
                 Status = MedicalBillStatus.Recorded,
                 CreatedAt = new DateTime(2026, 8, 20, 11, 0, 0, DateTimeKind.Local),
             },
@@ -615,17 +616,17 @@ public static class ExtensionSeedData
                 Provider = "Dr. Meyer, Zahnarzt",
                 BillDate = new DateOnly(2026, 2, 6),
                 BillNumber = "R-2026-014",
-                GrossAmount = 420m,
+                GrossAmount = 340m,
                 OwnShare = 0m,
-                ExpectedReimbursement = 420m,
-                ActualReimbursement = 420m,
+                ExpectedReimbursement = 340m,
+                ActualReimbursement = 340m,
                 Status = MedicalBillStatus.Completed,
                 SubmittedAt = new DateTime(2026, 2, 9, 8, 0, 0, DateTimeKind.Local),
                 PaidAt = new DateTime(2026, 2, 20, 8, 0, 0, DateTimeKind.Local),
                 CreatedAt = new DateTime(2026, 2, 6, 8, 0, 0, DateTimeKind.Local),
             },
 
-            // Abgerechnet mit weniger als beantragt: 706 statt 830 € Anspruch. Der Rest ist
+            // Abgerechnet mit weniger als beantragt: 544 statt 640 € Anspruch. Der Rest ist
             // keine offene Forderung mehr, sondern Eigenanteil — der Vorgang ist zu Ende, und
             // der Balken darf kein „erwartet“ zeigen, auf das niemand mehr wartet.
             new()
@@ -633,10 +634,10 @@ public static class ExtensionSeedData
                 Provider = "Orthopädie am Neckar",
                 BillDate = new DateOnly(2026, 4, 22),
                 BillNumber = "ON-2026-207",
-                GrossAmount = 980m,
-                OwnShare = 150m,
-                ExpectedReimbursement = 830m,
-                ActualReimbursement = 706m,
+                GrossAmount = 760m,
+                OwnShare = 120m,
+                ExpectedReimbursement = 640m,
+                ActualReimbursement = 544m,
                 Status = MedicalBillStatus.Completed,
                 SubmittedAt = new DateTime(2026, 4, 27, 8, 0, 0, DateTimeKind.Local),
                 PaidAt = new DateTime(2026, 5, 16, 8, 0, 0, DateTimeKind.Local),
@@ -649,10 +650,10 @@ public static class ExtensionSeedData
                 Provider = "Hautarztpraxis Bergheim",
                 BillDate = new DateOnly(2025, 9, 11),
                 BillNumber = "HB-2025-338",
-                GrossAmount = 340m,
-                OwnShare = 40m,
-                ExpectedReimbursement = 300m,
-                ActualReimbursement = 300m,
+                GrossAmount = 280m,
+                OwnShare = 30m,
+                ExpectedReimbursement = 250m,
+                ActualReimbursement = 250m,
                 Status = MedicalBillStatus.Completed,
                 SubmittedAt = new DateTime(2025, 9, 14, 8, 0, 0, DateTimeKind.Local),
                 PaidAt = new DateTime(2025, 9, 28, 8, 0, 0, DateTimeKind.Local),
@@ -672,7 +673,7 @@ public static class ExtensionSeedData
                 BookingDate = new DateOnly(2026, 7, 30),
                 Payee = "Erstattung PKV R-2026-098",
                 Kind = TransactionKind.Income,
-                Amount = 680m,
+                Amount = 560m,
                 AccountId = account.Id,
                 CategoryId = incomeCategory?.Id,
                 ImportReference = "SEED-4300",
@@ -689,7 +690,7 @@ public static class ExtensionSeedData
     /// </summary>
     /// <remarks>
     /// Die Kosten werden nicht gepflegt, sondern aus echten Buchungen gerechnet. Damit die Zahlen
-    /// des Prototyps herauskommen (Passat 4.120 €, Fabia 1.980 €), liegen hier Steuer, Werkstatt
+    /// des Prototyps herauskommen (Passat 2.816 €, Fabia 1.475 €), liegen hier Steuer, Werkstatt
     /// und Tanken — alle in der Vorgeschichte März bis Juli, damit der August und seine
     /// kalibrierten Monatssummen unberührt bleiben. Das Kennzeichen steht in der Notiz: daran
     /// findet der Dienst sie wieder.
@@ -700,7 +701,7 @@ public static class ExtensionSeedData
     /// <remarks>
     /// <para>Der Auszahlungsbetrag wird <b>aus der Gehaltsbuchung gelesen</b>, nicht danebengesetzt.
     /// Das ist die erste Regel, gegen die der Prototyp verstoßen hat: dort hing die Abrechnung
-    /// 08/2026 an einer Buchung über 5.240 €, führte selbst aber 3.812 € Auszahlung — eine
+    /// 08/2026 an einer Buchung über 4.180 €, führte selbst aber 3.040 € Auszahlung — eine
     /// Paarung, die der eigene Matcher (±15 %) nie vorgeschlagen hätte. Wer die Zahl aus der
     /// Buchung nimmt, kann diesen Fehler nicht machen.</para>
     /// <para>Das zweite Verhältnis ist beendet. Es steht in der Liste, trägt aber keine
@@ -708,22 +709,22 @@ public static class ExtensionSeedData
     /// </remarks>
     private static async Task SeedWorkAsync(FinanzAppDbContext db, CancellationToken ct)
     {
-        var ewv = new Employment
+        var nordwind = new Employment
         {
-            Employer = "EWV Kontrollsysteme",
+            Employer = "Nordwind Messtechnik",
             Position = "Softwareentwicklung",
             Kind = EmploymentKind.Permanent,
             StartsOn = new DateOnly(2019, 3, 1),
             HoursPerWeek = 40m,
-            GrossMonthly = 8400m,
-            NetMonthly = 5240m,
+            GrossMonthly = 6700m,
+            NetMonthly = 4180m,
             NoticePeriodMonths = 3,
             IsActive = true,
 
             // Grundlage der Entfernungspauschale im Steuerjahr-Bericht. Ohne beide Felder
             // entsteht die Position nicht — geraten wird sie nicht.
-            CommuteKilometres = 38m,
-            WorkDaysPerYear = 214,
+            CommuteKilometres = 24m,
+            WorkDaysPerYear = 220,
         };
 
         var klinikum = new Employment
@@ -734,7 +735,7 @@ public static class ExtensionSeedData
             StartsOn = new DateOnly(2015, 9, 1),
             EndsOn = new DateOnly(2019, 2, 28),
             HoursPerWeek = 24m,
-            GrossMonthly = 2450m,
+            GrossMonthly = 2050m,
 
             // Kein Netto erfasst: die Anzeige schätzt und sagt, dass sie schätzt.
             NetMonthly = null,
@@ -742,7 +743,7 @@ public static class ExtensionSeedData
             IsActive = false,
         };
 
-        db.Employments.AddRange(ewv, klinikum);
+        db.Employments.AddRange(nordwind, klinikum);
         await db.SaveChangesAsync(ct);
 
         var belege = await db.Documents
@@ -755,7 +756,7 @@ public static class ExtensionSeedData
             var ersten = new DateOnly(2026, monat, 1);
 
             var buchung = await db.Transactions.FirstOrDefaultAsync(
-                t => t.Payee == "Gehalt EWV" && t.BookingDate == ersten, ct);
+                t => t.Payee == "Gehalt Nordwind" && t.BookingDate == ersten, ct);
 
             if (buchung is null)
             {
@@ -766,9 +767,9 @@ public static class ExtensionSeedData
 
             db.Payslips.Add(new Payslip
             {
-                EmploymentId = ewv.Id,
+                EmploymentId = nordwind.Id,
                 Month = ersten,
-                Gross = 8400m,
+                Gross = 6700m,
 
                 // 05/2026 ohne erfasstes Netto: die Zeile zeigt dann die Schätzung samt
                 // Kennzeichen. Ohne diesen einen Fall ließe sich der Unterschied zwischen
@@ -788,14 +789,14 @@ public static class ExtensionSeedData
         db.WorkAgreements.AddRange(
             new WorkAgreement
             {
-                Employment = ewv,
+                Employment = nordwind,
                 Name = "Gehaltsanpassung 2026",
                 SignedOn = new DateOnly(2026, 1, 15),
                 Kind = WorkAgreementKind.SalaryChange,
             },
             new WorkAgreement
             {
-                Employment = ewv,
+                Employment = nordwind,
                 Name = "Entgeltumwandlung Direktversicherung",
                 SignedOn = new DateOnly(2023, 6, 1),
                 Kind = WorkAgreementKind.OccupationalPension,
@@ -815,7 +816,7 @@ public static class ExtensionSeedData
             Plate = "L-2905",
             Usage = "Erstwagen",
             FirstRegistration = new DateOnly(2019, 3, 1),
-            Mileage = 128400,
+            Mileage = 112300,
             PolicyId = kfz,
         };
 
@@ -827,12 +828,12 @@ public static class ExtensionSeedData
                 Plate = "L-1113",
                 Usage = "Zweitwagen",
                 FirstRegistration = new DateOnly(2016, 9, 1),
-                Mileage = 94200,
+                Mileage = 86400,
             },
             new Vehicle
             {
-                Name = "Firmenwagen EWV",
-                Plate = "HD-EW 41",
+                Name = "Firmenwagen Nordwind",
+                Plate = "HD-NW 41",
                 Usage = "Dienstwagen · 1 % Regelung",
             });
 
@@ -844,11 +845,11 @@ public static class ExtensionSeedData
 
         (int Month, int Day, string Payee, string Note, decimal Amount)[] costs =
         [
-            (3, 12, "Hauptzollamt Heidelberg", "Kfz-Steuer L-2905", -282m),
-            (4, 18, "Autohaus Krause", "Inspektion L-2905", -1220m),
-            (5, 6, "Tankstellen 12 Monate", "Kraftstoff L-2905", -2000m),
-            (4, 22, "Werkstatt Sauer", "Bremsen L-1113", -980m),
-            (6, 9, "Tankstellen 12 Monate", "Kraftstoff L-1113", -1000m),
+            (3, 12, "Hauptzollamt Heidelberg", "Kfz-Steuer L-2905", -236m),
+            (4, 18, "Autohaus Krause", "Inspektion L-2905", -940m),
+            (5, 6, "Tankstellen 12 Monate", "Kraftstoff L-2905", -1640m),
+            (4, 22, "Werkstatt Sauer", "Bremsen L-1113", -720m),
+            (6, 9, "Tankstellen 12 Monate", "Kraftstoff L-1113", -755m),
         ];
 
         var reference = 4900;
@@ -887,7 +888,7 @@ public static class ExtensionSeedData
 
         (string File, string Sender, int Pages, bool Recognised, int DaysAgo)[] rows =
         [
-            ("Beitragsanpassung_2027.pdf", "HUK-Coburg", 2, true, 1),
+            ("Beitragsanpassung_2027.pdf", "Nordstern Versicherung", 2, true, 1),
             ("Abrechnung_Musterkasse_08.pdf", "Musterkasse", 4, true, 2),
             ("Scan_20260820_0001.pdf", null!, 1, false, 3),
             ("Scan_20260819_0007.pdf", null!, 6, false, 4),

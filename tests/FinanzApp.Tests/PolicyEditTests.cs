@@ -60,14 +60,14 @@ public sealed class PolicyEditTests : IDisposable
     public async Task Oeffnen_und_Speichern_behaelt_die_Wertbestandteile()
     {
         var angelegt = await Service().CreateAsync(
-            CreateObjectType.Pension, Vertrag("18.373,87", "2.107,65", wert: null));
+            CreateObjectType.Pension, Vertrag("13.240,55", "1.486,25", wert: null));
 
         Assert.True(angelegt.Ok);
 
         var maske = await Service().GetFormAsync(CreateObjectType.Pension, angelegt.Id!.Value);
 
-        Assert.Equal("18373,87", maske!.Values["baseValue"]);
-        Assert.Equal("2107,65", maske.Values["accruedBonus"]);
+        Assert.Equal("13240,55", maske!.Values["baseValue"]);
+        Assert.Equal("1486,25", maske.Values["accruedBonus"]);
 
         var gespeichert = await Service().UpdateAsync(
             CreateObjectType.Pension, angelegt.Id!.Value, new Dictionary<string, string?>(maske.Values));
@@ -77,9 +77,9 @@ public sealed class PolicyEditTests : IDisposable
         using var context = database.Context();
         var vertrag = context.Policies.Single();
 
-        Assert.Equal(18373.87m, vertrag.BaseValue);
-        Assert.Equal(2107.65m, vertrag.AccruedBonus);
-        Assert.Equal(20481.52m, vertrag.CurrentValue);
+        Assert.Equal(13240.55m, vertrag.BaseValue);
+        Assert.Equal(1486.25m, vertrag.AccruedBonus);
+        Assert.Equal(14726.80m, vertrag.CurrentValue);
     }
 
     // ── §19.5: die Summe entsteht aus den Bestandteilen ────────────────────────────────────
@@ -95,10 +95,10 @@ public sealed class PolicyEditTests : IDisposable
     public async Task Die_Bestandteile_ergeben_den_Wert_schon_beim_Anlegen()
     {
         var ergebnis = await Service().CreateAsync(
-            CreateObjectType.Pension, Vertrag("12.000,00", "320,08", wert: null));
+            CreateObjectType.Pension, Vertrag("8.400,00", "327,60", wert: null));
 
         Assert.True(ergebnis.Ok);
-        Assert.Equal(12320.08m, database.Context().Policies.Single().CurrentValue);
+        Assert.Equal(8727.60m, database.Context().Policies.Single().CurrentValue);
     }
 
     /// <summary>Ohne Bestandteile bleibt das Wertfeld die Quelle.</summary>
@@ -134,14 +134,14 @@ public sealed class PolicyEditTests : IDisposable
     public async Task Der_erfasste_Stand_steht_in_der_Berichtsreihe()
     {
         var angelegt = await Service().CreateAsync(
-            CreateObjectType.Pension, Vertrag("18.373,87", "2.107,65", wert: null));
+            CreateObjectType.Pension, Vertrag("13.240,55", "1.486,25", wert: null));
 
         using var context = database.Context();
         var bericht = Assert.Single(context.PolicyReports);
 
         Assert.Equal(angelegt.Id!.Value, bericht.PolicyId);
         Assert.Equal(new DateOnly(2025, 7, 31), bericht.AsOf);
-        Assert.Equal(20481.52m, bericht.Value);
+        Assert.Equal(14726.80m, bericht.Value);
         Assert.Equal("erfasst", bericht.Source);
     }
 
@@ -156,16 +156,16 @@ public sealed class PolicyEditTests : IDisposable
     public async Task Ein_neuer_Stichtag_waechst_die_Reihe_derselbe_ersetzt_den_Stand()
     {
         var angelegt = await Service().CreateAsync(
-            CreateObjectType.Pension, Vertrag("18.373,87", "2.107,65", wert: null));
+            CreateObjectType.Pension, Vertrag("13.240,55", "1.486,25", wert: null));
 
-        var korrigiert = Vertrag("18.400,00", "2.107,65", wert: null);
+        var korrigiert = Vertrag("13.260,00", "1.486,25", wert: null);
         korrigiert["displayName"] = "Erste Musterkasse";
         await Service().UpdateAsync(CreateObjectType.Pension, angelegt.Id!.Value, korrigiert);
 
         using (var nachKorrektur = database.Context())
         {
             var bericht = Assert.Single(nachKorrektur.PolicyReports);
-            Assert.Equal(20507.65m, bericht.Value);
+            Assert.Equal(14746.25m, bericht.Value);
         }
 
         var naechstesJahr = Vertrag("19.900,00", "2.480,00", wert: null);
@@ -177,7 +177,7 @@ public sealed class PolicyEditTests : IDisposable
         var reihe = context.PolicyReports.OrderBy(r => r.AsOf).ToList();
 
         Assert.Equal(2, reihe.Count);
-        Assert.Equal(20507.65m, reihe[0].Value);
+        Assert.Equal(14746.25m, reihe[0].Value);
         Assert.Equal(22380m, reihe[1].Value);
     }
 

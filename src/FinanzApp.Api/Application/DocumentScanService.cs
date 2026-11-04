@@ -1136,7 +1136,7 @@ public sealed class DocumentScanService(
     /// </summary>
     /// <remarks>
     /// Beide werden mit derselben Regel gelesen wie beim ersten Mal. Eine von Hand eingetippte
-    /// „18.373,87 EUR“ muss dieselbe Zahl ergeben wie die gelesene — sonst hinge der
+    /// „13.240,55 EUR“ muss dieselbe Zahl ergeben wie die gelesene — sonst hinge der
     /// Vermögenswert daran, wer ihn eingetragen hat.
     /// </remarks>
     private static Dictionary<string, ScanValue> Values(

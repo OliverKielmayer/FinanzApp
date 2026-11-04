@@ -157,7 +157,7 @@ public sealed class DataQualityTests : IDisposable
                 },
                 new Policy
                 {
-                    Name = "Haftpflicht", Provider = "HUK", Premium = 89m,
+                    Name = "Haftpflicht", Provider = "Nordstern", Premium = 76m,
                     Kind = PolicyKind.Liability,
                 });
             context.SaveChanges();

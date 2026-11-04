@@ -74,7 +74,7 @@ public sealed class HoldingsService(
             {
                 // Die eine Zahl, wortgleich zum Dashboard-Hero und zur Navigationskennzahl.
                 // Vorher stand hier das Finanzvermögen — und damit eine zweite Antwort auf
-                // dieselbe Frage, 395.000 € neben der ersten.
+                // dieselbe Frage, 312.000 € neben der ersten.
                 null => vermoegen.Net,
                 HoldingClass.Protection or HoldingClass.Vehicles => kosten,
                 HoldingClass.Work => einkommen,

@@ -77,7 +77,7 @@ public sealed class TransactionListTests : IDisposable
     public async Task Stapelvergabe_laesst_Umbuchungen_unveraendert()
     {
         var miete = Add("Vermieter", -900m, TransactionKind.Expense);
-        var strom = Add("Stadtwerke", -142.50m, TransactionKind.Expense);
+        var strom = Add("Stadtwerke", -117.60m, TransactionKind.Expense);
         var umbuchung = Add("Auf Tagesgeld", -500m, TransactionKind.Transfer);
 
         var result = await Service().AssignCategoryBatchAsync(new BatchAssignRequest
@@ -103,7 +103,7 @@ public sealed class TransactionListTests : IDisposable
     public async Task Ohne_Umbuchung_im_Stapel_bleibt_die_Meldung_schlicht()
     {
         var a = Add("Vermieter", -900m, TransactionKind.Expense);
-        var b = Add("Stadtwerke", -142.50m, TransactionKind.Expense);
+        var b = Add("Stadtwerke", -117.60m, TransactionKind.Expense);
 
         var result = await Service().AssignCategoryBatchAsync(new BatchAssignRequest
         {

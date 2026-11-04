@@ -62,7 +62,7 @@ public sealed class EmploymentTests : IDisposable
     }
 
     private int Buchung(
-        int kontoId, DateOnly tag, decimal betrag, string empfaenger = "Gehalt EWV",
+        int kontoId, DateOnly tag, decimal betrag, string empfaenger = "Gehalt Nordwind",
         TransactionKind art = TransactionKind.Income)
     {
         using var context = database.Context();
@@ -84,7 +84,7 @@ public sealed class EmploymentTests : IDisposable
     }
 
     private async Task<int> AbrechnungAsync(
-        int stelleId, int monat, decimal brutto = 8400m, decimal? netto = 5240m,
+        int stelleId, int monat, decimal brutto = 6700m, decimal? netto = 4180m,
         decimal? auszahlung = null)
     {
         var zeile = await Service().CreatePayslipAsync(new CreatePayslipRequest
@@ -112,7 +112,7 @@ public sealed class EmploymentTests : IDisposable
     [Fact]
     public async Task Die_Jahressumme_laesst_beendete_Verhaeltnisse_aus()
     {
-        Stelle("EWV Kontrollsysteme", brutto: 6480m);
+        Stelle("Nordwind Messtechnik", brutto: 6480m);
         Stelle("Rheinpark Klinikum", brutto: 4120m, ende: new DateOnly(2024, 8, 31), aktiv: false);
 
         var kopf = (await Service().GetAsync()).Head;
@@ -126,7 +126,7 @@ public sealed class EmploymentTests : IDisposable
     [Fact]
     public async Task Die_beendete_Zeile_traegt_keine_Jahreszahl()
     {
-        Stelle("EWV Kontrollsysteme", brutto: 6480m);
+        Stelle("Nordwind Messtechnik", brutto: 6480m);
         Stelle("Rheinpark Klinikum", brutto: 4120m, ende: new DateOnly(2024, 8, 31), aktiv: false);
 
         var zeilen = (await Service().GetAsync()).Employments;
@@ -180,14 +180,14 @@ public sealed class EmploymentTests : IDisposable
     [Fact]
     public async Task Ein_erfasstes_Netto_gilt_unveraendert()
     {
-        Stelle("Mit Netto", brutto: 8400m, netto: 5240m);
+        Stelle("Mit Netto", brutto: 6700m, netto: 4180m);
 
         var kopf = (await Service().GetAsync()).Head;
 
         Assert.False(kopf.NetIsEstimated);
-        Assert.Equal(5240m, kopf.MonthlyNet);
+        Assert.Equal(4180m, kopf.MonthlyNet);
 
-        // (8400 − 5240) / 8400 = 37,6 %
+        // (6700 − 4180) / 6700 = 37,6 %
         Assert.Equal(37.6m, kopf.DeductionRatePercent);
     }
 
@@ -208,14 +208,14 @@ public sealed class EmploymentTests : IDisposable
     [Fact]
     public async Task Der_Auszahlungsbetrag_ist_ohne_Angabe_das_Netto()
     {
-        var stelle = Stelle("EWV", brutto: 8400m);
+        var stelle = Stelle("Nordwind", brutto: 6700m);
 
         var zeile = await Service().CreatePayslipAsync(new CreatePayslipRequest
         {
-            EmploymentId = stelle, Month = new DateOnly(2026, 7, 14), Gross = 8400m, Net = 5240m,
+            EmploymentId = stelle, Month = new DateOnly(2026, 7, 14), Gross = 6700m, Net = 4180m,
         });
 
-        Assert.Equal(5240m, zeile.Payout);
+        Assert.Equal(4180m, zeile.Payout);
 
         // Gespeichert wird der Monatserste, egal welcher Tag hereinkommt.
         Assert.Equal(new DateOnly(2026, 7, 1), zeile.Month);
@@ -225,16 +225,16 @@ public sealed class EmploymentTests : IDisposable
     [Fact]
     public async Task Die_Abgaben_ergeben_sich_aus_Brutto_und_Netto()
     {
-        var stelle = Stelle("EWV", brutto: 8400m);
+        var stelle = Stelle("Nordwind", brutto: 6700m);
         await AbrechnungAsync(stelle, 7);
 
-        Assert.Equal(3160m, (await Service().GetAsync()).Payslips.Single().Deductions);
+        Assert.Equal(2520m, (await Service().GetAsync()).Payslips.Single().Deductions);
     }
 
     [Fact]
     public async Task Zwei_Abrechnungen_fuer_denselben_Monat_werden_abgewiesen()
     {
-        var stelle = Stelle("EWV", brutto: 8400m);
+        var stelle = Stelle("Nordwind", brutto: 6700m);
         await AbrechnungAsync(stelle, 7);
 
         var fehler = await Assert.ThrowsAsync<RuleViolationException>(
@@ -246,10 +246,10 @@ public sealed class EmploymentTests : IDisposable
     [Fact]
     public async Task Ein_Netto_ueber_dem_Brutto_wird_abgewiesen()
     {
-        var stelle = Stelle("EWV", brutto: 8400m);
+        var stelle = Stelle("Nordwind", brutto: 6700m);
 
         await Assert.ThrowsAsync<RuleViolationException>(
-            () => AbrechnungAsync(stelle, 7, brutto: 4000m, netto: 5240m));
+            () => AbrechnungAsync(stelle, 7, brutto: 4000m, netto: 4180m));
     }
 
     // ── Regel (a): eine Größe, und sie kommt aus der Buchung ───────────────────────────────
@@ -258,10 +258,10 @@ public sealed class EmploymentTests : IDisposable
     public async Task Die_passende_Gutschrift_wird_als_bester_Treffer_vorgeschlagen()
     {
         var konto = Konto();
-        var stelle = Stelle("EWV Kontrollsysteme", brutto: 8400m);
+        var stelle = Stelle("Nordwind Messtechnik", brutto: 6700m);
         var abrechnung = await AbrechnungAsync(stelle, 7);
 
-        var richtig = Buchung(konto, new DateOnly(2026, 7, 1), 5240m);
+        var richtig = Buchung(konto, new DateOnly(2026, 7, 1), 4180m);
         Buchung(konto, new DateOnly(2026, 7, 3), 5000m, "Erstattung Finanzamt");
 
         var treffer = await Service().GetPaymentCandidatesAsync(abrechnung);
@@ -276,18 +276,18 @@ public sealed class EmploymentTests : IDisposable
     /// Was weiter als 15 % abweicht, ist kein Kandidat.
     /// </summary>
     /// <remarks>
-    /// Der Prototyp knüpfte eine Abrechnung über 3.812 € Auszahlung an eine Buchung über
-    /// 5.240 € — 37 % daneben. Diese Paarung hätte der eigene Matcher nie vorgeschlagen; hier
+    /// Der Prototyp knüpfte eine Abrechnung über 3.040 € Auszahlung an eine Buchung über
+    /// 4.180 € — 37 % daneben. Diese Paarung hätte der eigene Matcher nie vorgeschlagen; hier
     /// wird sie auch nicht mehr angeboten.
     /// </remarks>
     [Fact]
     public async Task Eine_weit_abweichende_Gutschrift_ist_kein_Kandidat()
     {
         var konto = Konto();
-        var stelle = Stelle("EWV", brutto: 6000m);
-        var abrechnung = await AbrechnungAsync(stelle, 8, brutto: 6000m, netto: 3812m);
+        var stelle = Stelle("Nordwind", brutto: 6000m);
+        var abrechnung = await AbrechnungAsync(stelle, 8, brutto: 6000m, netto: 3040m);
 
-        Buchung(konto, new DateOnly(2026, 8, 1), 5240m);
+        Buchung(konto, new DateOnly(2026, 8, 1), 4180m);
 
         Assert.Empty(await Service().GetPaymentCandidatesAsync(abrechnung));
     }
@@ -296,10 +296,10 @@ public sealed class EmploymentTests : IDisposable
     public async Task Eine_Ausgabe_ist_kein_Kandidat()
     {
         var konto = Konto();
-        var stelle = Stelle("EWV", brutto: 8400m);
+        var stelle = Stelle("Nordwind", brutto: 6700m);
         var abrechnung = await AbrechnungAsync(stelle, 7);
 
-        Buchung(konto, new DateOnly(2026, 7, 1), -5240m, "Miete", TransactionKind.Expense);
+        Buchung(konto, new DateOnly(2026, 7, 1), -4180m, "Miete", TransactionKind.Expense);
 
         Assert.Empty(await Service().GetPaymentCandidatesAsync(abrechnung));
     }
@@ -309,9 +309,9 @@ public sealed class EmploymentTests : IDisposable
     public async Task Auch_von_Hand_gilt_die_Fuenfzehnprozentgrenze()
     {
         var konto = Konto();
-        var stelle = Stelle("EWV", brutto: 8400m);
+        var stelle = Stelle("Nordwind", brutto: 6700m);
         var abrechnung = await AbrechnungAsync(stelle, 7);
-        var daneben = Buchung(konto, new DateOnly(2026, 7, 1), 3812m);
+        var daneben = Buchung(konto, new DateOnly(2026, 7, 1), 3040m);
 
         var fehler = await Assert.ThrowsAsync<RuleViolationException>(
             () => Service().LinkPaymentAsync(abrechnung, daneben));
@@ -330,9 +330,9 @@ public sealed class EmploymentTests : IDisposable
     public async Task Die_Zuordnung_legt_keine_zweite_Buchung_an()
     {
         var konto = Konto();
-        var stelle = Stelle("EWV", brutto: 8400m);
+        var stelle = Stelle("Nordwind", brutto: 6700m);
         var abrechnung = await AbrechnungAsync(stelle, 7);
-        var buchung = Buchung(konto, new DateOnly(2026, 7, 1), 5240m);
+        var buchung = Buchung(konto, new DateOnly(2026, 7, 1), 4180m);
 
         using (var context = database.Context())
         {
@@ -342,20 +342,20 @@ public sealed class EmploymentTests : IDisposable
         var zeile = await Service().LinkPaymentAsync(abrechnung, buchung);
 
         Assert.Equal(buchung, zeile.TransactionId);
-        Assert.Equal(5240m, zeile.PaidAmount);
+        Assert.Equal(4180m, zeile.PaidAmount);
 
         using var danach = database.Context();
         Assert.Equal(1, await danach.Transactions.CountAsync());
-        Assert.Equal(5240m, await danach.Transactions.SumAsync(t => t.Amount));
+        Assert.Equal(4180m, await danach.Transactions.SumAsync(t => t.Amount));
     }
 
     [Fact]
     public async Task Die_Zuordnung_laesst_sich_wieder_loesen_und_die_Buchung_bleibt()
     {
         var konto = Konto();
-        var stelle = Stelle("EWV", brutto: 8400m);
+        var stelle = Stelle("Nordwind", brutto: 6700m);
         var abrechnung = await AbrechnungAsync(stelle, 7);
-        var buchung = Buchung(konto, new DateOnly(2026, 7, 1), 5240m);
+        var buchung = Buchung(konto, new DateOnly(2026, 7, 1), 4180m);
 
         await Service().LinkPaymentAsync(abrechnung, buchung);
         var zeile = await Service().DetachPaymentAsync(abrechnung);
@@ -379,7 +379,7 @@ public sealed class EmploymentTests : IDisposable
     [Fact]
     public async Task Ein_geloeschtes_Verhaeltnis_laesst_seine_Abrechnungen_stehen()
     {
-        var stelle = Stelle("EWV", brutto: 8400m);
+        var stelle = Stelle("Nordwind", brutto: 6700m);
         await AbrechnungAsync(stelle, 6);
         await AbrechnungAsync(stelle, 7);
 
@@ -409,13 +409,13 @@ public sealed class EmploymentTests : IDisposable
     [Fact]
     public async Task Ohne_Netto_schaetzt_die_Anzeige_und_kennzeichnet_es()
     {
-        var stelle = Stelle("EWV", brutto: 8400m);
+        var stelle = Stelle("Nordwind", brutto: 6700m);
         await AbrechnungAsync(stelle, 6, netto: null);
 
         var zeile = (await Service().GetAsync()).Payslips.Single();
 
         Assert.True(zeile.NetIsEstimated);
-        Assert.Equal(4956m, zeile.Net);
+        Assert.Equal(3953m, zeile.Net);
 
         // Gespeichert ist nichts: sonst wäre die Schätzung später nicht mehr von einer
         // erfassten Zahl zu unterscheiden.
@@ -426,13 +426,13 @@ public sealed class EmploymentTests : IDisposable
     [Fact]
     public async Task Ein_eingetragenes_Netto_bleibt_unangetastet()
     {
-        var stelle = Stelle("EWV", brutto: 8400m);
-        await AbrechnungAsync(stelle, 6, netto: 5240m);
+        var stelle = Stelle("Nordwind", brutto: 6700m);
+        await AbrechnungAsync(stelle, 6, netto: 4180m);
 
         var zeile = (await Service().GetAsync()).Payslips.Single();
 
         Assert.False(zeile.NetIsEstimated);
-        Assert.Equal(5240m, zeile.Net);
+        Assert.Equal(4180m, zeile.Net);
     }
 
     /// <summary>
@@ -445,17 +445,17 @@ public sealed class EmploymentTests : IDisposable
     [Fact]
     public async Task Ohne_Netto_folgt_die_Auszahlung_der_Schaetzung()
     {
-        var stelle = Stelle("EWV", brutto: 8400m);
+        var stelle = Stelle("Nordwind", brutto: 6700m);
         await AbrechnungAsync(stelle, 6, netto: null);
 
-        Assert.Equal(4956m, (await Service().GetAsync()).Payslips.Single().Payout);
+        Assert.Equal(3953m, (await Service().GetAsync()).Payslips.Single().Payout);
     }
 
     /// <summary>Derselbe Monat zweimal ist keine zweite Abrechnung.</summary>
     [Fact]
     public async Task Ein_doppelter_Monat_wird_abgewiesen()
     {
-        var stelle = Stelle("EWV", brutto: 8400m);
+        var stelle = Stelle("Nordwind", brutto: 6700m);
         await AbrechnungAsync(stelle, 6);
 
         var fehler = await Assert.ThrowsAsync<RuleViolationException>(

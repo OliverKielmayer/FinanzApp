@@ -857,14 +857,18 @@ Filter findet **nichts** — der Standardfall ist „nichts sichtbar“, nicht �
 
 ## Beispieldaten
 
-Alle Summen werden **gerechnet**, nicht gespeichert. Die Beispieldaten sind so gewählt, dass dabei
-genau die Zahlen der Handoffs herauskommen: Liquidität **+1.628 €** (Einnahmen 5.240 €, Ausgaben
-3.612 €, Sparquote 31 %), Nettovermögen **99.879,95 €**, Bruttovermögen **248.179,95 €**,
-Depotwert 132.480,00 €, Vorsorge **58.940,00 €** aus vier Verträgen, Absicherung
-**12.330 €/Jahr** aus acht, G/V +18.940,20 €, Budgets 892 € von 1.250 €, Kontosalden
-4.812,60 € / 1.947,35 € / 50.000,00 €, Erinnerung Kündigung Hausrat in **18 Tagen**,
-PKV-Erstattung **680 €** überfällig,
-Arztrechnung **210 €** noch nicht eingereicht, Stromrechnung **142,50 €** offen.
+Alle Summen werden **gerechnet**, nicht gespeichert.
+
+**Die Beträge sind erfunden.** Der Beispielbestand der Handoffs war aus einer echten Ablage
+abgeleitet, und dieses Repository ist öffentlich; maßgeblich bleiben die Handoffs deshalb für
+den Aufbau, nicht mehr für die Zahlen. Gewählt sind die Sätze so, dass die Kopfzahlen glatt
+aufgehen: Liquidität **+1.204,60 €** (Einnahmen 4.180 €, Ausgaben 2.975,40 €, Sparquote 29 %),
+Nettovermögen **60.042,75 €**, Bruttovermögen **181.542,75 €**, Depotwert 95.534,00 €,
+Vorsorge **42.760,00 €** aus vier Verträgen, Absicherung **9.840 €/Jahr** aus acht,
+G/V +11.697,30 €, Budgets 755,80 € von 1.080 €, Kontosalden
+3.964,20 € / 1.284,55 € / 38.000,00 €, Erinnerung Kündigung Hausrat in **18 Tagen**,
+PKV-Erstattung **560 €** überfällig,
+Arztrechnung **175 €** noch nicht eingereicht, Stromrechnung **117,60 €** offen.
 
 Damit das aufgeht, enthält der August 2026 mehr Buchungen als die sieben des ersten Prototyps, und
 die Erweiterung bringt fünf Monate Vorgeschichte (März bis Juli) mit — ohne Historie könnte „Wohin

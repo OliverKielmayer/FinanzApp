@@ -98,7 +98,7 @@ public sealed class EditAndDeleteTests : IDisposable
         Assert.Null(create.DeleteImpact);
         Assert.Null(create.EditingId);
 
-        var id = AddPolicy("Hausrat HUK", PolicyKind.HouseholdContents, "HUK-Coburg");
+        var id = AddPolicy("Hausrat Nordstern", PolicyKind.HouseholdContents, "Nordstern Versicherung");
         var edit = await Service().GetFormAsync(CreateObjectType.Protection, id);
 
         Assert.Contains(edit!.Fields, f => f.Key == "displayName");

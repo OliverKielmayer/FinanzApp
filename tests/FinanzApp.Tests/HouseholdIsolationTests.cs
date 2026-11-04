@@ -112,8 +112,8 @@ public sealed class HouseholdIsolationTests : IDisposable
         var policy = new Policy
         {
             Name = "Hausrat",
-            Provider = "HUK",
-            Premium = 156m,
+            Provider = "Nordstern",
+            Premium = 132m,
             PremiumInterval = PremiumInterval.Yearly,
         };
         context.Policies.Add(policy);
@@ -238,7 +238,7 @@ public sealed class HouseholdIsolationTests : IDisposable
             {
                 PolicyId = vertrag.Id,
                 AsOf = new DateOnly(2025, 7, 31),
-                Value = 20481.52m,
+                Value = 14726.80m,
                 Source = "Statusreport",
                 CreatedAt = new DateTime(2025, 8, 14, 9, 0, 0, DateTimeKind.Local),
             };

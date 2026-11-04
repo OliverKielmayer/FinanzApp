@@ -82,15 +82,15 @@ public sealed class PolicyValueTests : IDisposable
     [Fact]
     public async Task Der_Wert_zeigt_seine_beiden_Bestandteile()
     {
-        var id = Policy(PolicyKind.CapitalLife, 18373.87m, 2107.65m, 20481.52m);
+        var id = Policy(PolicyKind.CapitalLife, 13240.55m, 1486.25m, 14726.80m);
 
         var teile = (await Service().GetAsync(id))!.ValueParts;
 
         Assert.Equal(2, teile.Count);
         Assert.Equal("Rückkaufswert", teile[0].Label);
-        Assert.Equal(18373.87m, teile[0].Amount);
+        Assert.Equal(13240.55m, teile[0].Amount);
         Assert.Equal("Ansammlungsguthaben", teile[1].Label);
-        Assert.Equal(20481.52m, teile.Sum(t => t.Amount));
+        Assert.Equal(14726.80m, teile.Sum(t => t.Amount));
         Assert.Equal("Statusreport 31.07.2025", teile[0].Origin);
     }
 
@@ -104,7 +104,7 @@ public sealed class PolicyValueTests : IDisposable
     [Fact]
     public async Task Ein_Bausparvertrag_hat_nur_einen_Bestandteil()
     {
-        var id = Policy(PolicyKind.BuildingSociety, 12320.08m, ueberschuss: null, 12320.08m);
+        var id = Policy(PolicyKind.BuildingSociety, 8727.60m, ueberschuss: null, 8727.60m);
 
         var teil = Assert.Single((await Service().GetAsync(id))!.ValueParts);
 
@@ -122,7 +122,7 @@ public sealed class PolicyValueTests : IDisposable
     [Fact]
     public async Task Was_die_Art_nicht_kennt_erscheint_nicht()
     {
-        var id = Policy(PolicyKind.BuildingSociety, 12000m, ueberschuss: 320.08m, 12320.08m);
+        var id = Policy(PolicyKind.BuildingSociety, 8400m, ueberschuss: 327.60m, 8727.60m);
 
         Assert.Single((await Service().GetAsync(id))!.ValueParts);
     }
@@ -131,7 +131,7 @@ public sealed class PolicyValueTests : IDisposable
     [Fact]
     public async Task Ohne_Bestandteile_gibt_es_keinen_Block()
     {
-        var id = Policy(PolicyKind.CapitalLife, basis: null, ueberschuss: null, 20481.52m);
+        var id = Policy(PolicyKind.CapitalLife, basis: null, ueberschuss: null, 14726.80m);
 
         Assert.Empty((await Service().GetAsync(id))!.ValueParts);
     }
@@ -205,7 +205,7 @@ public sealed class PolicyValueTests : IDisposable
     [Fact]
     public async Task Ohne_Berichte_gibt_es_keinen_Verlauf()
     {
-        var id = Policy(PolicyKind.CapitalLife, 18373.87m, 2107.65m, 20481.52m);
+        var id = Policy(PolicyKind.CapitalLife, 13240.55m, 1486.25m, 14726.80m);
 
         Assert.Empty((await Service().GetAsync(id))!.Reports);
     }
@@ -220,22 +220,22 @@ public sealed class PolicyValueTests : IDisposable
     [Fact]
     public async Task Ein_einzelner_Bericht_bleibt_ein_Punkt()
     {
-        var id = Policy(PolicyKind.Riester, 11930.40m, null, 11930.40m);
-        Report(id, "2025-12-31", 11930.40m);
+        var id = Policy(PolicyKind.Riester, 8715.60m, null, 8715.60m);
+        Report(id, "2025-12-31", 8715.60m);
 
         var bericht = Assert.Single((await Service().GetAsync(id))!.Reports);
 
         Assert.Equal(new DateOnly(2025, 12, 31), bericht.AsOf);
-        Assert.Equal(11930.40m, bericht.Value);
+        Assert.Equal(8715.60m, bericht.Value);
     }
 
     /// <summary>Mehrere Berichte kommen in Stichtagsreihenfolge zurück.</summary>
     [Fact]
     public async Task Mehrere_Berichte_stehen_nach_Stichtag()
     {
-        var id = Policy(PolicyKind.CapitalLife, 18373.87m, 2107.65m, 20481.52m);
+        var id = Policy(PolicyKind.CapitalLife, 13240.55m, 1486.25m, 14726.80m);
 
-        Report(id, "2025-07-31", 20481.52m);
+        Report(id, "2025-07-31", 14726.80m);
         Report(id, "2023-07-31", 17400.00m);
         Report(id, "2024-07-31", 19960.14m);
 

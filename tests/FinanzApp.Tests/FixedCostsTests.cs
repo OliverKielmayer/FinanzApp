@@ -275,8 +275,8 @@ public sealed class FixedCostsTests : IDisposable
         {
             context.Loans.Add(new Loan
             {
-                Name = "Baufinanzierung", Lender = "Sparkasse", RemainingDebt = 148300m,
-                InterestRatePercent = 1.85m, Installment = 1180m,
+                Name = "Baufinanzierung", Lender = "Sparkasse", RemainingDebt = 121500m,
+                InterestRatePercent = 1.85m, Installment = 960m,
                 NextPaymentDate = new DateOnly(2026, 9, 1),
             });
             context.SaveChanges();
@@ -284,7 +284,7 @@ public sealed class FixedCostsTests : IDisposable
 
         var zeile = (await FixAsync()).Rows.Single();
 
-        Assert.Equal(1180m, zeile.MonthlyAmount);
+        Assert.Equal(960m, zeile.MonthlyAmount);
         Assert.Equal(FixedCostBinding.Fixed, zeile.Binding);
         Assert.Contains("nicht kündbar", zeile.Note);
     }

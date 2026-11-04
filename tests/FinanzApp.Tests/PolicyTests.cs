@@ -20,7 +20,7 @@ public sealed class PolicyTests
             Provider = "Musterleben",
             Kind = PolicyKind.TermLife,
             IsCapitalForming = false,
-            CurrentValue = 250000m,
+            CurrentValue = 164000m,
             ValuationDate = new DateOnly(2025, 12, 31),
         };
 
@@ -36,11 +36,11 @@ public sealed class PolicyTests
             Provider = "Musterleben",
             Kind = PolicyKind.CapitalLife,
             IsCapitalForming = true,
-            CurrentValue = 20481.52m,
+            CurrentValue = 14726.80m,
             ValuationDate = new DateOnly(2025, 7, 31),
         };
 
-        Assert.Equal(20481.52m, policy.AssetValue);
+        Assert.Equal(14726.80m, policy.AssetValue);
     }
 
     [Fact]
@@ -77,22 +77,22 @@ public sealed class PolicyTests
     }
 
     /// <summary>
-    /// Die acht Absicherungsverträge des Handoffs summieren sich auf 12.330 € im Jahr. Der Test
+    /// Die acht Absicherungsverträge des Bestands summieren sich auf 9.840 € im Jahr. Der Test
     /// hält die Rechnung fest, nicht die Beispieldaten — er rechnet dieselben Sätze nach.
     /// </summary>
     [Fact]
-    public void Die_acht_Absicherungen_ergeben_zwoelftausenddreihundertdreissig()
+    public void Die_acht_Absicherungen_ergeben_neuntausendachthundertvierzig()
     {
         (decimal Premium, PremiumInterval Interval)[] rows =
         [
-            (742m, PremiumInterval.Monthly),
-            (618m, PremiumInterval.Yearly),
-            (118m, PremiumInterval.Monthly),
-            (42m, PremiumInterval.Monthly),
-            (412m, PremiumInterval.Yearly),
-            (231m, PremiumInterval.Yearly),
-            (156m, PremiumInterval.Yearly),
-            (89m, PremiumInterval.Yearly),
+            (585m, PremiumInterval.Monthly),
+            (494m, PremiumInterval.Yearly),
+            (96m, PremiumInterval.Monthly),
+            (35m, PremiumInterval.Monthly),
+            (348m, PremiumInterval.Yearly),
+            (198m, PremiumInterval.Yearly),
+            (132m, PremiumInterval.Yearly),
+            (76m, PremiumInterval.Yearly),
         ];
 
         var total = rows
@@ -105,16 +105,16 @@ public sealed class PolicyTests
             })
             .Sum(p => p.AnnualPremium);
 
-        Assert.Equal(12330m, total);
+        Assert.Equal(9840m, total);
     }
 
     /// <summary>
-    /// Vier Vorsorgeverträge, 58.940 € — der Betrag, der im Prototyp im Bruttovermögen steht.
+    /// Vier Vorsorgeverträge, 42.760 € — der Betrag, der im Bruttovermögen steht.
     /// </summary>
     [Fact]
-    public void Die_vier_Vorsorgevertraege_ergeben_achtundfuenfzigtausendneunhundertvierzig()
+    public void Die_vier_Vorsorgevertraege_ergeben_zweiundvierzigtausendsiebenhundertsechzig()
     {
-        decimal[] values = [20481.52m, 14208m, 11930.40m, 12320.08m];
+        decimal[] values = [14726.80m, 10590m, 8715.60m, 8727.60m];
 
         var total = values
             .Select(v => new Policy
@@ -127,7 +127,7 @@ public sealed class PolicyTests
             })
             .Sum(p => p.AssetValue ?? 0m);
 
-        Assert.Equal(58940m, total);
+        Assert.Equal(42760m, total);
     }
 
     [Fact]
@@ -135,8 +135,8 @@ public sealed class PolicyTests
     {
         var policy = new Policy
         {
-            Name = "Hausrat HUK",
-            Provider = "HUK-Coburg",
+            Name = "Hausrat Nordstern",
+            Provider = "Nordstern Versicherung",
             Kind = PolicyKind.HouseholdContents,
             EndsOn = new DateOnly(2027, 12, 31),
             NoticePeriodMonths = 3,

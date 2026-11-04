@@ -80,7 +80,7 @@ public sealed class NetWorthShareTests : IDisposable
             Name = "Immobiliendarlehen",
             Lender = "Sparkasse",
             RemainingDebt = restschuld,
-            InterestRatePercent = 1.84m,
+            InterestRatePercent = 2.15m,
             Installment = 1500m,
             NextPaymentDate = new DateOnly(2026, 10, 1),
         };

@@ -140,12 +140,12 @@ public sealed class HoldingsTests : IDisposable
     [Fact]
     public async Task Eine_Immobilie_ist_ein_Sachwert()
     {
-        Immobilie(395_000m);
+        Immobilie(312_000m);
 
         var zeile = (await Service().GetAsync(HoldingClass.Housing)).Rows.Single();
 
         Assert.True(zeile.IsTangible);
-        Assert.Equal(395_000m, zeile.Value);
+        Assert.Equal(312_000m, zeile.Value);
     }
 
     // ── Die Kopfkennzahl ───────────────────────────────────────────────────────────────────
@@ -154,25 +154,25 @@ public sealed class HoldingsTests : IDisposable
     /// Bei „Alle“ steht das Gesamtvermögen netto, und die Dreiteilung liegt darunter bereit.
     /// </summary>
     /// <remarks>
-    /// Zwei Fassungen dieser Regel sind schon gescheitert. Erst nannte der Kopf 99.880 €,
-    /// während in derselben Liste eine Immobilie über 395.000 € stand. Dann trug der Kopf
+    /// Zwei Fassungen dieser Regel sind schon gescheitert. Erst nannte der Kopf 60.043 €,
+    /// während in derselben Liste eine Immobilie über 312.000 € stand. Dann trug der Kopf
     /// Finanzvermögen und Sachwerte nebeneinander, das Dashboard aber weiter eine einzelne
     /// Zahl — zwei Antworten auf dieselbe Frage. Jetzt gilt: eine Zahl, drei Flächen.
     /// </remarks>
     [Fact]
     public async Task Der_Kopf_nennt_das_Gesamtvermoegen_und_haelt_die_Dreiteilung_bereit()
     {
-        Konto("Sparkasse Giro", 248_179.95m);
-        Immobilie(395_000m);
+        Konto("Sparkasse Giro", 181_542.75m);
+        Immobilie(312_000m);
 
         var kopf = (await Service().GetAsync()).Head;
 
         Assert.Null(kopf.Class);
-        Assert.Equal(643_179.95m, kopf.Value);
+        Assert.Equal(493_542.75m, kopf.Value);
         Assert.Equal(kopf.Net, kopf.Value);
 
-        Assert.Equal(248_179.95m, kopf.FinancialAssets);
-        Assert.Equal(395_000m, kopf.TangibleAssets);
+        Assert.Equal(181_542.75m, kopf.FinancialAssets);
+        Assert.Equal(312_000m, kopf.TangibleAssets);
         Assert.Equal(0m, kopf.Liabilities);
     }
 
@@ -187,8 +187,8 @@ public sealed class HoldingsTests : IDisposable
     [Fact]
     public async Task Bestand_und_Dashboard_nennen_dieselbe_Zahl()
     {
-        Konto("Sparkasse Giro", 248_179.95m);
-        Immobilie(395_000m);
+        Konto("Sparkasse Giro", 181_542.75m);
+        Immobilie(312_000m);
 
         var kopf = (await Service().GetAsync()).Head;
         var dashboard = await Dashboard().GetAsync();
@@ -216,13 +216,13 @@ public sealed class HoldingsTests : IDisposable
     [Fact]
     public async Task Wohnen_zaehlt_Objekte_und_Vertraege_getrennt()
     {
-        Immobilie(395_000m);
+        Immobilie(312_000m);
 
         using (var context = database.Context())
         {
             context.Contracts.Add(new Contract
             {
-                Name = "Strom", Provider = "Stadtwerke", Amount = 142.50m,
+                Name = "Strom", Provider = "Stadtwerke", Amount = 117.60m,
             });
             context.SaveChanges();
         }
@@ -231,7 +231,7 @@ public sealed class HoldingsTests : IDisposable
 
         Assert.Equal(1, bestand.Head.Count);
         Assert.Equal(1, bestand.Head.SecondaryCount);
-        Assert.Equal(395_000m, bestand.Head.Value);
+        Assert.Equal(312_000m, bestand.Head.Value);
     }
 
     /// <summary>
@@ -245,7 +245,7 @@ public sealed class HoldingsTests : IDisposable
     [Fact]
     public async Task Arbeit_summiert_nur_laufende_Verhaeltnisse()
     {
-        Arbeitsverhaeltnis("EWV Kontrollsysteme", 6480m);
+        Arbeitsverhaeltnis("Nordwind Messtechnik", 6480m);
         Arbeitsverhaeltnis("Rheinpark Klinikum", 4120m, ende: new DateOnly(2024, 8, 31));
 
         var bestand = await Service().GetAsync(HoldingClass.Work);
@@ -268,12 +268,12 @@ public sealed class HoldingsTests : IDisposable
     [Fact]
     public async Task Ein_Arbeitsverhaeltnis_traegt_Einkommen_statt_Wert_oder_Kosten()
     {
-        Arbeitsverhaeltnis("EWV Kontrollsysteme", 6480m);
+        Arbeitsverhaeltnis("Nordwind Messtechnik", 6480m);
         Arbeitsverhaeltnis("Rheinpark Klinikum", 4120m, ende: new DateOnly(2024, 8, 31));
 
         var zeilen = (await Service().GetAsync(HoldingClass.Work)).Rows;
 
-        var laufend = zeilen.Single(z => z.Name == "EWV Kontrollsysteme");
+        var laufend = zeilen.Single(z => z.Name == "Nordwind Messtechnik");
         Assert.Equal(77_760m, laufend.YearlyIncome);
         Assert.Null(laufend.Value);
         Assert.Null(laufend.YearlyCost);
@@ -289,7 +289,7 @@ public sealed class HoldingsTests : IDisposable
     public async Task Ein_Gehalt_zaehlt_nicht_ins_Finanzvermoegen()
     {
         Konto("Sparkasse Giro", 1000m);
-        Arbeitsverhaeltnis("EWV Kontrollsysteme", 6480m);
+        Arbeitsverhaeltnis("Nordwind Messtechnik", 6480m);
 
         Assert.Equal(1000m, (await Service().GetAsync()).Head.Value);
     }
@@ -307,7 +307,7 @@ public sealed class HoldingsTests : IDisposable
     public async Task Jede_Zeile_hat_eine_Metazeile()
     {
         Konto("Sparkasse Giro", 1000m);
-        Immobilie(395_000m);
+        Immobilie(312_000m);
         Police("Haftpflicht", 20m, kapitalbildend: false);
         Police("Kapital-LV", 212m, kapitalbildend: true);
 
@@ -345,7 +345,7 @@ public sealed class HoldingsTests : IDisposable
     public async Task Der_Klassenfilter_zaehlt_immer_alle_Klassen()
     {
         Konto("Sparkasse Giro", 1000m);
-        Immobilie(395_000m);
+        Immobilie(312_000m);
 
         var bestand = await Service().GetAsync(HoldingClass.Accounts);
 

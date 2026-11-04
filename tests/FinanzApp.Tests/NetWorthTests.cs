@@ -10,8 +10,8 @@ namespace FinanzApp.Tests;
 /// </summary>
 /// <remarks>
 /// Der Anlass ist ein Widerspruch, der erst sichtbar wurde, als Objekte in <em>eine</em> Liste
-/// rückten: der Kopf nannte „Nettovermögen 99.880 €“, und darunter stand ein Haus mit
-/// 395.000 €. Solange Immobilien einen eigenen Bildschirm hatten, fiel niemandem auf, dass sie
+/// rückten: der Kopf nannte „Nettovermögen 60.043 €“, und darunter stand ein Haus mit
+/// 312.000 €. Solange Immobilien einen eigenen Bildschirm hatten, fiel niemandem auf, dass sie
 /// in keiner Summe vorkamen. Diese Tests halten die drei Größen und ihr Verhältnis fest.
 /// </remarks>
 public sealed class NetWorthTests : IDisposable
@@ -61,7 +61,7 @@ public sealed class NetWorthTests : IDisposable
         context.Loans.Add(new Loan
         {
             Name = "Baufinanzierung", Lender = "Sparkasse", RemainingDebt = restschuld,
-            InterestRatePercent = 1.85m, Installment = 1180m,
+            InterestRatePercent = 1.85m, Installment = 960m,
             NextPaymentDate = new DateOnly(2026, 9, 1),
         });
         context.SaveChanges();
@@ -77,15 +77,15 @@ public sealed class NetWorthTests : IDisposable
     [Fact]
     public async Task Finanzvermoegen_und_Sachwerte_bleiben_getrennt()
     {
-        Konto(248_179.95m);
-        Immobilie(395_000m);
-        Darlehen(148_300m);
+        Konto(181_542.75m);
+        Immobilie(312_000m);
+        Darlehen(121_500m);
 
         var wert = (await Service().GetAsync()).NetWorth;
 
-        Assert.Equal(248_179.95m, wert.FinancialAssets);
-        Assert.Equal(395_000m, wert.TangibleAssets);
-        Assert.Equal(148_300m, wert.Liabilities);
+        Assert.Equal(181_542.75m, wert.FinancialAssets);
+        Assert.Equal(312_000m, wert.TangibleAssets);
+        Assert.Equal(121_500m, wert.Liabilities);
     }
 
     /// <summary>
@@ -99,13 +99,13 @@ public sealed class NetWorthTests : IDisposable
     [Fact]
     public async Task Das_Nettovermoegen_ist_die_Summe_der_drei_Groessen()
     {
-        Konto(248_179.95m);
-        Immobilie(395_000m);
-        Darlehen(148_300m);
+        Konto(181_542.75m);
+        Immobilie(312_000m);
+        Darlehen(121_500m);
 
         var wert = (await Service().GetAsync()).NetWorth;
 
-        Assert.Equal(494_879.95m, wert.Net);
+        Assert.Equal(372_042.75m, wert.Net);
         Assert.Equal(wert.FinancialAssets + wert.TangibleAssets - wert.Liabilities, wert.Net);
     }
 
@@ -120,13 +120,13 @@ public sealed class NetWorthTests : IDisposable
     [Fact]
     public async Task Das_Finanznetto_steht_neben_dem_Gesamtnetto()
     {
-        Konto(248_179.95m);
-        Immobilie(395_000m);
-        Darlehen(148_300m);
+        Konto(181_542.75m);
+        Immobilie(312_000m);
+        Darlehen(121_500m);
 
         var wert = (await Service().GetAsync()).NetWorth;
 
-        Assert.Equal(99_879.95m, wert.FinancialNet);
+        Assert.Equal(60_042.75m, wert.FinancialNet);
         Assert.NotEqual(wert.Net, wert.FinancialNet);
     }
 

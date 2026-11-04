@@ -111,15 +111,15 @@ public sealed class PolicyReportTests : IDisposable
     public async Task Der_Bericht_setzt_den_erreichten_Wert()
     {
         var id = Policy();
-        await ReportAsync(id, "2025-07-31", 20481.52m, 18373.87m, 2107.65m);
+        await ReportAsync(id, "2025-07-31", 14726.80m, 13240.55m, 1486.25m);
 
         using var context = database.Context();
         var vertrag = context.Policies.Single();
 
-        Assert.Equal(20481.52m, vertrag.CurrentValue);
+        Assert.Equal(14726.80m, vertrag.CurrentValue);
         Assert.Equal(new DateOnly(2025, 7, 31), vertrag.ValuationDate);
-        Assert.Equal(18373.87m, vertrag.BaseValue);
-        Assert.Equal(2107.65m, vertrag.AccruedBonus);
+        Assert.Equal(13240.55m, vertrag.BaseValue);
+        Assert.Equal(1486.25m, vertrag.AccruedBonus);
     }
 
     /// <summary>
@@ -133,12 +133,12 @@ public sealed class PolicyReportTests : IDisposable
     public async Task Ein_nachgetragener_alter_Bericht_aendert_den_Wert_nicht()
     {
         var id = Policy();
-        await ReportAsync(id, "2025-07-31", 20481.52m);
+        await ReportAsync(id, "2025-07-31", 14726.80m);
         await ReportAsync(id, "2023-07-31", 17400m);
 
         using var context = database.Context();
 
-        Assert.Equal(20481.52m, context.Policies.Single().CurrentValue);
+        Assert.Equal(14726.80m, context.Policies.Single().CurrentValue);
         Assert.Equal(2, context.PolicyReports.Count());
     }
 
@@ -147,14 +147,14 @@ public sealed class PolicyReportTests : IDisposable
     public async Task Derselbe_Stichtag_berichtigt_den_Stand()
     {
         var id = Policy();
-        await ReportAsync(id, "2025-07-31", 20481.52m, 18373.87m, 2107.65m);
-        await ReportAsync(id, "2025-07-31", 20500m, 18400m, 2100m);
+        await ReportAsync(id, "2025-07-31", 14726.80m, 13240.55m, 1486.25m);
+        await ReportAsync(id, "2025-07-31", 14750m, 13260m, 1490m);
 
         using var context = database.Context();
 
-        Assert.Equal(20500m, Assert.Single(context.PolicyReports).Value);
-        Assert.Equal(20500m, context.Policies.Single().CurrentValue);
-        Assert.Equal(18400m, context.Policies.Single().BaseValue);
+        Assert.Equal(14750m, Assert.Single(context.PolicyReports).Value);
+        Assert.Equal(14750m, context.Policies.Single().CurrentValue);
+        Assert.Equal(13260m, context.Policies.Single().BaseValue);
     }
 
     // ── Entfernen ─────────────────────────────────────────────────────────────────────────
@@ -165,7 +165,7 @@ public sealed class PolicyReportTests : IDisposable
     {
         var id = Policy();
         await ReportAsync(id, "2024-07-31", 19637.12m, 17600m, 2037.12m);
-        var neuester = await ReportAsync(id, "2025-07-31", 20481.52m, 18373.87m, 2107.65m);
+        var neuester = await ReportAsync(id, "2025-07-31", 14726.80m, 13240.55m, 1486.25m);
 
         Assert.True(await Service().DeleteReportAsync(neuester));
 
@@ -185,13 +185,13 @@ public sealed class PolicyReportTests : IDisposable
     {
         var id = Policy();
         var alter = await ReportAsync(id, "2024-07-31", 19637.12m);
-        await ReportAsync(id, "2025-07-31", 20481.52m);
+        await ReportAsync(id, "2025-07-31", 14726.80m);
 
         await Service().DeleteReportAsync(alter);
 
         using var context = database.Context();
 
-        Assert.Equal(20481.52m, context.Policies.Single().CurrentValue);
+        Assert.Equal(14726.80m, context.Policies.Single().CurrentValue);
         Assert.Equal(new DateOnly(2025, 7, 31), context.Policies.Single().ValuationDate);
     }
 
@@ -206,7 +206,7 @@ public sealed class PolicyReportTests : IDisposable
     public async Task Mit_dem_letzten_Bericht_geht_der_Wert()
     {
         var id = Policy();
-        var einziger = await ReportAsync(id, "2025-07-31", 20481.52m, 18373.87m, 2107.65m);
+        var einziger = await ReportAsync(id, "2025-07-31", 14726.80m, 13240.55m, 1486.25m);
 
         await Service().DeleteReportAsync(einziger);
 
@@ -237,11 +237,11 @@ public sealed class PolicyReportTests : IDisposable
     {
         var id = Policy();
         var beleg = Document(
-            ("rueckkauf", "Rückkaufswert", "18.373,87 EUR", 2),
-            ("ansammlung", "Ansammlungsguthaben", "2.107,65 EUR", 2),
+            ("rueckkauf", "Rückkaufswert", "13.240,55 EUR", 2),
+            ("ansammlung", "Ansammlungsguthaben", "1.486,25 EUR", 2),
             ("ablauf", "Ablauf", "1.12.2031", 1));
 
-        await ReportAsync(id, "2025-07-31", 20481.52m, 18373.87m, 2107.65m, beleg);
+        await ReportAsync(id, "2025-07-31", 14726.80m, 13240.55m, 1486.25m, beleg);
 
         var bericht = Assert.Single((await Service().GetAsync(id))!.Reports);
 
@@ -252,7 +252,7 @@ public sealed class PolicyReportTests : IDisposable
         var rueckkauf = bericht.Values[0];
         Assert.Equal("Rückkaufswert", rueckkauf.Label);
         Assert.True(rueckkauf.IsMoney);
-        Assert.Equal(18373.87m, rueckkauf.Number);
+        Assert.Equal(13240.55m, rueckkauf.Number);
         Assert.Equal(2, rueckkauf.SourcePage);
 
         // Ein Datum ist kein Betrag: es geht als Text hinaus und wird nicht maskiert.
@@ -266,7 +266,7 @@ public sealed class PolicyReportTests : IDisposable
     public async Task Ein_erfasster_Stand_hat_keine_gelesenen_Werte()
     {
         var id = Policy();
-        await ReportAsync(id, "2025-07-31", 20481.52m, quelle: "erfasst");
+        await ReportAsync(id, "2025-07-31", 14726.80m, quelle: "erfasst");
 
         var bericht = Assert.Single((await Service().GetAsync(id))!.Reports);
 
@@ -280,7 +280,7 @@ public sealed class PolicyReportTests : IDisposable
     public async Task Die_Reihe_traegt_ihre_Bestandteile()
     {
         var id = Policy();
-        await ReportAsync(id, "2025-07-31", 20481.52m, 18373.87m, 2107.65m);
+        await ReportAsync(id, "2025-07-31", 14726.80m, 13240.55m, 1486.25m);
         await ReportAsync(id, "2024-07-31", 19637.12m, 17600m, 2037.12m);
 
         var reihe = (await Service().GetAsync(id))!.Reports;
@@ -290,7 +290,7 @@ public sealed class PolicyReportTests : IDisposable
             reihe.Select(r => r.AsOf));
 
         Assert.Equal(17600m, reihe[0].BaseValue);
-        Assert.Equal(2107.65m, reihe[1].AccruedBonus);
+        Assert.Equal(1486.25m, reihe[1].AccruedBonus);
     }
 
     public void Dispose() => database.Dispose();

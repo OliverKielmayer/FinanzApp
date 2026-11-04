@@ -63,7 +63,7 @@ public sealed class HoldingMetaTests : IDisposable
     {
         var police = new Policy
         {
-            Name = "Hausrat", Provider = "HUK", PolicyNumber = "HR-4711",
+            Name = "Hausrat", Provider = "Nordstern", PolicyNumber = "HR-4711",
             Kind = PolicyKind.HouseholdContents, Premium = 13m,
             PremiumInterval = PremiumInterval.Monthly,
             EndsOn = new DateOnly(2027, 12, 31), NoticePeriodMonths = 3,
@@ -71,7 +71,7 @@ public sealed class HoldingMetaTests : IDisposable
         };
 
         Assert.Equal(
-            "Hausrat · HUK · Nr. HR-4711 · bis 31.12.2027 · Kündigungsfrist 3 Monate · "
+            "Hausrat · Nordstern · Nr. HR-4711 · bis 31.12.2027 · Kündigungsfrist 3 Monate · "
             + "Versicherungssumme 250.000 €",
             HoldingMeta.ForProtection(police));
     }
@@ -171,7 +171,7 @@ public sealed class HoldingMetaTests : IDisposable
         using var context = database.Context();
         var police = new Policy
         {
-            Name = "Hausrat", Provider = "HUK", PolicyNumber = "HR-4711",
+            Name = "Hausrat", Provider = "Nordstern", PolicyNumber = "HR-4711",
             Kind = PolicyKind.HouseholdContents, Premium = 13m,
             PremiumInterval = PremiumInterval.Monthly,
             EndsOn = new DateOnly(2027, 12, 31), NoticePeriodMonths = 3,

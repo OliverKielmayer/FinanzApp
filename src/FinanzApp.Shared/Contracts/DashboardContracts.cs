@@ -17,8 +17,8 @@ public sealed record DashboardDto
 /// <remarks>
 /// <para>Früher stand hier ein einziges „Brutto“ — und das waren nur die Finanzwerte. Solange
 /// Immobilien auf einem eigenen Bildschirm lagen, fiel das nicht auf. In <em>einer</em> Liste
-/// unter <em>einer</em> Kennzahl wird daraus ein Widerspruch: der Kopf nannte 99.880 €, und in
-/// den Zeilen darunter stand ein Haus mit 395.000 €. Wer nachrechnet, kommt auf 495 T€.</para>
+/// unter <em>einer</em> Kennzahl wird daraus ein Widerspruch: der Kopf nannte 60.043 €, und in
+/// den Zeilen darunter stand ein Haus mit 312.000 €. Wer nachrechnet, kommt auf 372 T€.</para>
 /// <para>Darum drei Größen und keine zusammengeworfene. Dashboard, Navigationskennzahl und
 /// Bestandskopf rechnen aus derselben Quelle — v5-Handoff, Abschnitt 3(b).</para>
 /// </remarks>
@@ -79,9 +79,9 @@ public sealed record NetWorthDto
     /// <remarks>
     /// Sie steht wortgleich im Dashboard-Hero, in der Navigationskennzahl „Heute“ und im Kopf
     /// des Bestands; die Dreiteilung erscheint überall nur als Unterzeile. Der Prototyp hatte
-    /// das zweimal verletzt: erst nannte der Bestand-Kopf 99.880 €, während in derselben Liste
-    /// eine Immobilie über 395.000 € stand — dann trug der Bestand die Dreiteilung und das
-    /// Dashboard weiter die alte Zahl. Zwei Antworten auf dieselbe Frage, 395.000 € auseinander.
+    /// das zweimal verletzt: erst nannte der Bestand-Kopf 60.043 €, während in derselben Liste
+    /// eine Immobilie über 312.000 € stand — dann trug der Bestand die Dreiteilung und das
+    /// Dashboard weiter die alte Zahl. Zwei Antworten auf dieselbe Frage, 312.000 € auseinander.
     /// </remarks>
     public decimal Net => FinancialAssets + TangibleAssets - Liabilities + Receivables;
 

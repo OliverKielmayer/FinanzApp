@@ -169,7 +169,7 @@ public sealed class CreateFormTests : IDisposable
         {
             ["kind"] = nameof(PolicyKind.Riester),
             ["provider"] = "Musterkasse",
-            ["value"] = "11.930,40",
+            ["value"] = "8.715,60",
             ["asOf"] = "2025-12-31",
         });
 
@@ -178,7 +178,7 @@ public sealed class CreateFormTests : IDisposable
         using var check = database.Context();
         var policy = Assert.Single(check.Policies);
         Assert.True(policy.IsCapitalForming);
-        Assert.Equal(11930.40m, policy.AssetValue);
+        Assert.Equal(8715.60m, policy.AssetValue);
         Assert.Equal(new DateOnly(2025, 12, 31), policy.ValuationDate);
     }
 
@@ -365,7 +365,7 @@ public sealed class CreateFormTests : IDisposable
                 IsCapitalForming = false,
                 Name = "Kfz MGV",
                 Provider = "MGV",
-                Premium = 618m,
+                Premium = 494m,
                 PremiumInterval = PremiumInterval.Yearly,
             };
             context.Policies.Add(policy);
@@ -440,7 +440,7 @@ public sealed class CreateFormTests : IDisposable
         using var content = new MemoryStream("x"u8.ToArray());
 
         var result = await Service().AnalyseAsync(
-            CreateObjectType.Protection, content, "Hausrat_HUK_156EUR_2027-12-31.pdf");
+            CreateObjectType.Protection, content, "Hausrat_Nordstern_132EUR_2027-12-31.pdf");
 
         Assert.Empty(result.Fields);
     }
@@ -474,7 +474,7 @@ public sealed class CreateFormTests : IDisposable
         Dictionary<string, string?> Police(string nummer) => new()
         {
             ["kind"] = nameof(PolicyKind.HouseholdContents),
-            ["provider"] = "HUK-Coburg",
+            ["provider"] = "Nordstern Versicherung",
             ["number"] = nummer,
             ["premium"] = "156",
         };
@@ -486,7 +486,7 @@ public sealed class CreateFormTests : IDisposable
         Assert.True(zweite.Ok);
 
         using var context = database.Context();
-        Assert.Equal(2, context.Policies.Count(p => p.Provider == "HUK-Coburg"));
+        Assert.Equal(2, context.Policies.Count(p => p.Provider == "Nordstern Versicherung"));
     }
 
     /// <summary>Auch zwei Vorsorgeverträge bei einer Gesellschaft gehen.</summary>
@@ -554,7 +554,7 @@ public sealed class CreateFormTests : IDisposable
         Dictionary<string, string?> Police() => new()
         {
             ["kind"] = nameof(PolicyKind.Liability),
-            ["provider"] = "Adam Riese",
+            ["provider"] = "Zahlwerk Direkt",
             ["premium"] = "89",
         };
 
@@ -572,7 +572,7 @@ public sealed class CreateFormTests : IDisposable
         Dictionary<string, string?> Police(string nummer) => new()
         {
             ["kind"] = nameof(PolicyKind.HouseholdContents),
-            ["provider"] = "HUK-Coburg",
+            ["provider"] = "Nordstern Versicherung",
             ["number"] = nummer,
             ["premium"] = "156",
         };

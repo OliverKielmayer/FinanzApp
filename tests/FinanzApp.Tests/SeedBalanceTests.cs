@@ -31,9 +31,9 @@ public sealed class SeedBalanceTests : IDisposable
     /// <summary>Die Stände, auf die der Seed rechnet — hier noch einmal unabhängig genannt.</summary>
     private static readonly (string Name, decimal Balance)[] Expected =
     [
-        ("Sparkasse Giro", 4812.60m),
-        ("Musterbank Giro", 1947.35m),
-        ("Tagesgeld Raiffeisen", 50000.00m),
+        ("Sparkasse Giro", 3964.20m),
+        ("Musterbank Giro", 1284.55m),
+        ("Tagesgeld Raiffeisen", 38000.00m),
     ];
 
     [Fact]
@@ -64,7 +64,7 @@ public sealed class SeedBalanceTests : IDisposable
             .SingleAsync(a => a.Name == "Musterbank Giro");
 
         Assert.Equal(AccountSharing.Private, konto.Sharing);
-        Assert.Equal(1947.35m, await BalanceAsync(konto.Name));
+        Assert.Equal(1284.55m, await BalanceAsync(konto.Name));
     }
 
     private async Task SeedAsync()

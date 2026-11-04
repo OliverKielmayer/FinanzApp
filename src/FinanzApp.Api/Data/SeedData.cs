@@ -12,18 +12,12 @@ namespace FinanzApp.Api.Data;
 /// <remarks>
 /// <para>Alle Summen der Oberfläche werden aus diesen Sätzen <em>gerechnet</em> — Kontosalden aus
 /// Anfangsbestand plus Buchungen, Budgetauslastung aus den Buchungen der Kategorie, Depotwert aus
-/// Stück mal Kurs. Die Beispieldaten sind so gewählt, dass dabei genau die Zahlen des Handoffs
-/// herauskommen.</para>
-/// <para>Zwei Detailwerte des Handoffs waren mit seinen eigenen Kopfzahlen nicht vereinbar und
-/// wurden angepasst; die Kopfzahlen haben Vorrang, weil sie auf mehreren Screens auftauchen:</para>
-/// <list type="bullet">
-///   <item>Die vier Depotpositionen summieren sich im Handoff auf 132.440,22 €, der Depotwert steht
-///   dort mit 132.480,00 €. Die Position „Musterschutz SE“ ist deshalb hier 46 St. zu 342,55 € statt
-///   52 St. zu 302,26 €.</item>
-///   <item>Die Einstandswerte, die die Positionsrenditen des Handoffs ergäben, summieren sich nicht
-///   auf den ausgewiesenen G/V von +18.940,20 €. Der Einstand des Xtrackers trägt hier die
-///   Differenz, seine Rendite liegt damit bei +19,2 % statt +4,2 %.</item>
-/// </list>
+/// Stück mal Kurs. Die Sätze sind so gewählt, dass die Kopfzahlen dabei glatt aufgehen.</para>
+/// <para><b>Die Beträge sind erfunden</b> und stammen nicht mehr aus dem Handoff: dessen
+/// Beispielbestand war aus einer echten Ablage abgeleitet, und dieses Repository ist öffentlich.
+/// Maßgeblich bleibt der Handoff für den <em>Aufbau</em> — welche Konten, welche Verträge, welche
+/// Zustände vorzuführen sind. Für die Zahlen ist er es nicht mehr. Wer sie ändert, prüft deshalb
+/// nicht gegen den Prototyp, sondern gegen die Stände, die <c>SeedBalanceTests</c> festhält.</para>
 /// </remarks>
 public static class SeedData
 {
@@ -40,9 +34,9 @@ public static class SeedData
     /// <summary>Zielsalden laut Handoff. Der Anfangsbestand ergibt sich daraus rückwärts.</summary>
     private static readonly Dictionary<string, decimal> TargetBalances = new()
     {
-        ["Sparkasse Giro"] = 4812.60m,
-        ["Musterbank Giro"] = 1947.35m,
-        ["Tagesgeld Raiffeisen"] = 50000.00m,
+        ["Sparkasse Giro"] = 3964.20m,
+        ["Musterbank Giro"] = 1284.55m,
+        ["Tagesgeld Raiffeisen"] = 38000.00m,
     };
 
     /// <summary>Name des Demo-Haushalts.</summary>
@@ -268,19 +262,19 @@ public static class SeedData
         // niemand bestellt hat.
         //
         // Ungleiche Sollbeträge zeigen, dass der Vergleich je Person läuft und nicht über die
-        // Summe: 1.500 gegen 1.200, und Sabine zahlt im laufenden Monat 300 € zu wenig.
+        // Summe: 1.100 gegen 900, und Sabine zahlt im laufenden Monat 200 € zu wenig.
         if (sabine is not null && accounts.TryGetValue("Tagesgeld Raiffeisen", out var tagesgeld))
         {
             tagesgeld.Sharing = AccountSharing.Shared;
 
             db.AccountShares.Add(new AccountShare
             {
-                AccountId = tagesgeld.Id, UserId = oliver.Id, MonthlyTarget = 1500m, DueDay = 1,
+                AccountId = tagesgeld.Id, UserId = oliver.Id, MonthlyTarget = 1100m, DueDay = 1,
             });
 
             db.AccountShares.Add(new AccountShare
             {
-                AccountId = tagesgeld.Id, UserId = sabine.Id, MonthlyTarget = 1200m, DueDay = 1,
+                AccountId = tagesgeld.Id, UserId = sabine.Id, MonthlyTarget = 900m, DueDay = 1,
             });
         }
     }
@@ -304,7 +298,7 @@ public static class SeedData
             new()
             {
                 Name = "Tagesgeld Raiffeisen", ShortName = "Tagesgeld", BankName = "Musterbank",
-                Kind = AccountKind.Savings, InterestRatePercent = 2.35m, InterestYearToDate = 98.12m,
+                Kind = AccountKind.Savings, InterestRatePercent = 2.10m, InterestYearToDate = 74.65m,
                 BalanceAsOf = new DateOnly(2026, 8, 19),
             },
         ];
@@ -355,38 +349,39 @@ public static class SeedData
     {
         (int Day, string Payee, string? Category, string Account, decimal Amount)[] rows =
         [
-            // Die sieben Buchungen aus dem Handoff. Sie stehen oben in der Liste.
-            (22, "REWE Markt Heidelberg", "Lebensmittel", "Sparkasse Giro", -68.42m),
-            (21, "Shell Tankstelle", null, "Sparkasse Giro", -84.10m),
-            (20, "Stadtwerke Strom", "Wohnen", "Sparkasse Giro", -96.00m),
-            (19, "Umbuchung → Tagesgeld", null, "Sparkasse Giro", -1500.00m),
-            (18, "Musterleben Beitrag", "Versicherung", "Musterbank Giro", -212.00m),
-            (15, "PAYPAL .PAYCOMET SL", null, "Musterbank Giro", -39.99m),
-            (1, "Gehalt EWV", "+Gehalt", "Sparkasse Giro", 5240.00m),
+            // Die sieben Buchungen, die der Handoff auf dem Startschirm zeigt. Sie stehen oben
+            // in der Liste; zwei davon bleiben ohne Kategorie und speisen das Triage-Banner.
+            (22, "REWE Markt Heidelberg", "Lebensmittel", "Sparkasse Giro", -58.35m),
+            (21, "Shell Tankstelle", null, "Sparkasse Giro", -71.40m),
+            (20, "Stadtwerke Strom", "Wohnen", "Sparkasse Giro", -88.00m),
+            (19, "Umbuchung → Tagesgeld", null, "Sparkasse Giro", -1200.00m),
+            (18, "Musterleben Beitrag", "Versicherung", "Musterbank Giro", -184.00m),
+            (15, "PAYPAL .PAYCOMET SL", null, "Musterbank Giro", -32.75m),
+            (1, "Gehalt Nordwind", "+Gehalt", "Sparkasse Giro", 4180.00m),
 
             // Weitere Buchungen des Monats, damit Budgetauslastung und Monatssummen aufgehen.
-            (19, "Zahnarzt Dr. Weber", "Gesundheit", "Musterbank Giro", -187.60m),
-            (18, "Spende Tierheim", "Sonstiges", "Sparkasse Giro", -80.00m),
-            (17, "KFZ-Versicherung Musterschutz", "Versicherung", "Musterbank Giro", -78.40m),
-            (16, "Karlstorbahnhof Kino", "Freizeit", "Musterbank Giro", -28.00m),
-            (15, "Telekom Internet und Mobilfunk", "Wohnen", "Sparkasse Giro", -59.90m),
-            (14, "EDEKA Neckargemünd", "Lebensmittel", "Sparkasse Giro", -87.20m),
-            (13, "ARAL Tankstelle", "Auto", "Sparkasse Giro", -92.30m),
-            (12, "Fitnessstudio Beitrag", "Freizeit", "Musterbank Giro", -49.90m),
-            (11, "Apotheke am Markt", "Gesundheit", "Sparkasse Giro", -34.80m),
-            (10, "Amazon Bestellung", "Sonstiges", "Sparkasse Giro", -62.71m),
-            (9, "REWE Markt Heidelberg", "Lebensmittel", "Sparkasse Giro", -64.15m),
-            (8, "Restaurant Zum Ritter", "Freizeit", "Sparkasse Giro", -96.50m),
-            (7, "Anzahlung Ferienwohnung", "Reisen", "Sparkasse Giro", -90.00m),
-            (6, "ALDI SÜD Heidelberg", "Lebensmittel", "Sparkasse Giro", -41.93m),
-            (6, "Drogeriemarkt dm", "Sonstiges", "Sparkasse Giro", -47.25m),
-            (5, "Kfz-Werkstatt Ölwechsel", "Auto", "Sparkasse Giro", -61.70m),
-            (4, "Bäckerei Göbes", "Lebensmittel", "Sparkasse Giro", -12.40m),
-            (3, "Buchhandlung Schmitt", "Freizeit", "Sparkasse Giro", -61.60m),
-            (2, "REWE Markt Heidelberg", "Lebensmittel", "Sparkasse Giro", -137.90m),
-            (2, "Zeitschriften-Abo", "Sonstiges", "Sparkasse Giro", -12.25m),
-            (1, "Miete Wohnung Heidelberg", "Wohnen", "Sparkasse Giro", -1480.00m),
-            (1, "Nebenkosten Hausgeld", "Wohnen", "Sparkasse Giro", -245.00m),
+            (19, "Zahnarzt Dr. Weber", "Gesundheit", "Musterbank Giro", -164.20m),
+            (18, "Spende Tierheim", "Sonstiges", "Sparkasse Giro", -65.00m),
+            (17, "KFZ-Versicherung Musterschutz", "Versicherung", "Musterbank Giro", -66.90m),
+            (16, "Karlstorbahnhof Kino", "Freizeit", "Musterbank Giro", -24.00m),
+            (15, "Telekom Internet und Mobilfunk", "Wohnen", "Sparkasse Giro", -51.90m),
+            (14, "EDEKA Neckargemünd", "Lebensmittel", "Sparkasse Giro", -74.65m),
+            (13, "ARAL Tankstelle", "Auto", "Sparkasse Giro", -79.80m),
+            (12, "Fitnessstudio Beitrag", "Freizeit", "Musterbank Giro", -39.90m),
+            (11, "Apotheke am Markt", "Gesundheit", "Sparkasse Giro", -28.45m),
+            (10, "Amazon Bestellung", "Sonstiges", "Sparkasse Giro", -53.90m),
+            (9, "REWE Markt Heidelberg", "Lebensmittel", "Sparkasse Giro", -55.30m),
+            (8, "Restaurant Zum Ritter", "Freizeit", "Sparkasse Giro", -82.10m),
+            (7, "Anzahlung Ferienwohnung", "Reisen", "Sparkasse Giro", -75.00m),
+            (6, "ALDI SÜD Heidelberg", "Lebensmittel", "Sparkasse Giro", -36.20m),
+            (6, "Drogeriemarkt dm", "Sonstiges", "Sparkasse Giro", -39.85m),
+            (5, "Kfz-Werkstatt Ölwechsel", "Auto", "Sparkasse Giro", -52.40m),
+            (4, "Bäckerei Göbes", "Lebensmittel", "Sparkasse Giro", -10.80m),
+            (3, "Buchhandlung Schmitt", "Freizeit", "Sparkasse Giro", -48.70m),
+            (2, "REWE Markt Heidelberg", "Lebensmittel", "Sparkasse Giro", -118.60m),
+            (2, "Zeitschriften-Abo", "Sonstiges", "Sparkasse Giro", -10.25m),
+            (1, "Miete Wohnung Heidelberg", "Wohnen", "Sparkasse Giro", -1165.00m),
+            (1, "Nebenkosten Hausgeld", "Wohnen", "Sparkasse Giro", -198.00m),
         ];
 
         var reference = 4200;
@@ -415,10 +410,10 @@ public static class SeedData
         // Der Budgetname ist frei wählbar. „Urlaub“ plant auf die Kategorie „Reisen“.
         (string Name, string Category, decimal Planned)[] rows =
         [
-            ("Lebensmittel", "Lebensmittel", 500m),
-            ("Freizeit", "Freizeit", 200m),
-            ("Auto", "Auto", 300m),
-            ("Urlaub", "Reisen", 250m),
+            ("Lebensmittel", "Lebensmittel", 420m),
+            ("Freizeit", "Freizeit", 180m),
+            ("Auto", "Auto", 260m),
+            ("Urlaub", "Reisen", 220m),
         ];
 
         var order = 0;
@@ -467,17 +462,17 @@ public static class SeedData
     {
         var depot = new Depot
         {
-            Name = "finanzen.net ZERO", Number = "1234567001", TwrorPercent = 9.8m,
+            Name = "finanzen.net ZERO", Number = "1234567001", TwrorPercent = 7.4m,
         };
         db.Depots.Add(depot);
 
         var pricesAsOf = new DateTime(2026, 8, 22, 17, 35, 0, DateTimeKind.Local);
         (string Name, string Isin, decimal Quantity, decimal Price, decimal Cost)[] rows =
         [
-            ("Vanguard FTSE All-World", "IE00BK5BQT80", 412m, 118.40m, 40182.70m),
-            ("iShares Core MSCI World", "IE00B4L5Y983", 386m, 102.15m, 33386.03m),
-            ("Xtrackers MSCI EM", "IE00BTJRMP35", 540m, 52.80m, 23925.96m),
-            ("Musterschutz SE", "DE0008404005", 46m, 342.55m, 16045.11m),
+            ("Vanguard FTSE All-World", "IE00BK5BQT80", 310m, 104.20m, 27980.50m),
+            ("iShares Core MSCI World", "IE00B4L5Y983", 285m, 96.40m, 24310.20m),
+            ("Xtrackers MSCI EM", "IE00BTJRMP35", 420m, 48.15m, 18640.60m),
+            ("Musterschutz SE", "DE0008404005", 52m, 298.75m, 12905.40m),
         ];
 
         foreach (var row in rows)
@@ -502,15 +497,15 @@ public static class SeedData
         {
             Name = "Immobiliendarlehen",
             Lender = "Sparkasse",
-            RemainingDebt = 148300m,
-            InterestRatePercent = 1.84m,
-            Installment = 1180m,
+            RemainingDebt = 121500m,
+            InterestRatePercent = 2.15m,
+            Installment = 960m,
             NextPaymentDate = new DateOnly(2026, 9, 1),
         });
 
         // Vorsorge & Kapital — die vier Verträge aus Handoff v4, Abschnitt 4. Ihre Summe ist
-        // 58.940,00 € und damit genau der Betrag, der im Prototyp im Bruttovermögen steht.
-        // Jeder trägt seinen eigenen Stichtag; das älteste Datum bestimmt, wie alt die Summe ist.
+        // 42.760,00 € und steht so im Bruttovermögen. Jeder trägt seinen eigenen Stichtag; das
+        // älteste Datum bestimmt, wie alt die Summe ist.
         db.Policies.AddRange(
             new Policy
             {
@@ -526,19 +521,19 @@ public static class SeedData
 
                 // Die Bestandteile des erreichten Werts — daraus entsteht der Block „So
                 // entsteht der Wert" am Vertrag.
-                BaseValue = 18373.87m,
-                AccruedBonus = 2107.65m,
-                CurrentValue = 20481.52m,
+                BaseValue = 13240.55m,
+                AccruedBonus = 1486.25m,
+                CurrentValue = 14726.80m,
                 ValuationDate = new DateOnly(2025, 7, 31),
 
                 // Vier gemeldete Stände — daraus entsteht der Verlauf. Ohne sie stünde am
                 // Vertrag ein einziger Wert, und jede gezeichnete Kurve wäre erfunden.
                 Reports =
                 {
-                    Report(2022, 7, 31, 18051.33m, "Statusreport", 16400m, 1651.33m),
-                    Report(2023, 7, 31, 18827.54m, "Statusreport", 17000m, 1827.54m),
-                    Report(2024, 7, 31, 19637.12m, "Statusreport", 17680m, 1957.12m),
-                    Report(2025, 7, 31, 20481.52m, "Statusreport", 18373.87m, 2107.65m),
+                    Report(2022, 7, 31, 12980.40m, "Statusreport", 11800m, 1180.40m),
+                    Report(2023, 7, 31, 13515.70m, "Statusreport", 12250m, 1265.70m),
+                    Report(2024, 7, 31, 14108.25m, "Statusreport", 12740m, 1368.25m),
+                    Report(2025, 7, 31, 14726.80m, "Statusreport", 13240.55m, 1486.25m),
                 },
             },
             new Policy
@@ -549,15 +544,15 @@ public static class SeedData
                 Provider = "Musterbank",
                 Notes = "Ablauf 2034",
                 PolicyNumber = "RB-2019-8842",
-                Premium = 85m,
+                Premium = 70m,
                 PremiumInterval = PremiumInterval.Monthly,
-                CurrentValue = 14208m,
+                CurrentValue = 10590m,
                 ValuationDate = new DateOnly(2025, 12, 31),
                 MaturesOn = new DateOnly(2034, 12, 1),
 
                 // Nur ein Stand: dieser Vertrag zeigt den ehrlichen Fall — ein Bericht ist kein
                 // Verlauf, und der Schirm zeichnet dann keine Linie, sondern sagt das.
-                Reports = { Report(2025, 12, 31, 14208m, "Statusreport") },
+                Reports = { Report(2025, 12, 31, 10590m, "Statusreport") },
             },
             new Policy
             {
@@ -567,19 +562,19 @@ public static class SeedData
                 Provider = "Musterkasse",
                 Notes = "Zulagen 2025 gebucht",
                 PolicyNumber = "DB-RI-330914",
-                Premium = 162.75m,
+                Premium = 141.50m,
                 PremiumInterval = PremiumInterval.Monthly,
 
                 // Ein Bestandteil, keine Summe: eine Riesterrente führt kein
                 // Ansammlungsguthaben, und eine Summe aus einem Summanden ist keine.
-                BaseValue = 11930.40m,
-                CurrentValue = 11930.40m,
+                BaseValue = 8715.60m,
+                CurrentValue = 8715.60m,
                 ValuationDate = new DateOnly(2025, 12, 31),
                 Reports =
                 {
-                    Report(2023, 12, 31, 7612.05m, "Auszug", 7612.05m),
-                    Report(2024, 12, 31, 9686.40m, "Auszug", 9686.40m),
-                    Report(2025, 12, 31, 11930.40m, "Auszug", 11930.40m),
+                    Report(2023, 12, 31, 5420.80m, "Auszug", 5420.80m),
+                    Report(2024, 12, 31, 7012.30m, "Auszug", 7012.30m),
+                    Report(2025, 12, 31, 8715.60m, "Auszug", 8715.60m),
                 },
             },
             new Policy
@@ -590,15 +585,15 @@ public static class SeedData
                 Provider = "Bausparkasse Musterstadt",
                 Notes = "Zuteilung möglich",
                 PolicyNumber = "BSH 7712 4409",
-                Premium = 120m,
+                Premium = 100m,
                 PremiumInterval = PremiumInterval.Monthly,
-                BaseValue = 12320.08m,
-                CurrentValue = 12320.08m,
+                BaseValue = 8727.60m,
+                CurrentValue = 8727.60m,
                 ValuationDate = new DateOnly(2025, 12, 31),
                 Reports =
                 {
-                    Report(2024, 12, 31, 10856.68m, "Auszug", 10856.68m),
-                    Report(2025, 12, 31, 12320.08m, "Auszug", 12320.08m),
+                    Report(2024, 12, 31, 7486.20m, "Auszug", 7486.20m),
+                    Report(2025, 12, 31, 8727.60m, "Auszug", 8727.60m),
                 },
             });
     }
@@ -641,16 +636,14 @@ public static class SeedData
 
     private static void SeedSnapshots(FinanzAppDbContext db, Dictionary<string, Account> accounts, Depot depot)
     {
-        // Elf historische Monatswerte. Der laufende Monat fällt aus den echten Beständen.
-        // Elf historische Monatswerte, gegenüber der Fassung vor Handoff v4 um 25.960 € nach
-        // unten verschoben — so viel weniger trägt die Vorsorge zum Vermögen bei, seit die
-        // Risikoverträge nicht mehr mitzählen. Verschoben und nicht skaliert: der Unterschied
-        // steckte schon immer in der Reihe, er war nur falsch zugeordnet. Der Monatszuwachs von
-        // +2.140,80 € bleibt dadurch erhalten.
+        // Elf historische Monatswerte. Der laufende Monat steht nicht darin — er wird weiter
+        // unten aus den Beständen gerechnet, damit die Kurve am aktuellen Rand nicht behauptet,
+        // was der Bestand nicht trägt. Der letzte historische Wert liegt genau einen
+        // Monatszuwachs von +1.580,40 € darunter; so entsteht dort kein Sprung.
         decimal[] netWorth =
         [
-            87002.25m, 87662.85m, 88488.35m, 89643.55m, 89313.75m, 91129.55m,
-            92450.85m, 94266.55m, 94927.15m, 96742.95m, 97739.15m,
+            48725.45m, 49266.05m, 49971.55m, 51006.75m, 50756.95m, 52452.75m,
+            53654.05m, 55349.75m, 55890.35m, 57586.15m, 58462.35m,
         ];
 
         var cash = accounts.Values.Sum(a => a.OpeningBalance) + db.Transactions.Local.Sum(t => t.Amount);
@@ -670,8 +663,8 @@ public static class SeedData
 
         decimal[] portfolio =
         [
-            112000.00m, 114824.20m, 112706.55m, 118355.17m, 116237.24m, 121180.69m,
-            119768.28m, 124711.72m, 122592.55m, 127536.55m, 128949.24m, 131067.59m,
+            80784.20m, 82818.40m, 81292.75m, 85361.20m, 83835.50m, 87395.60m,
+            86378.40m, 89938.45m, 88412.45m, 91972.30m, 92989.90m, 94515.60m,
         ];
 
         month = new DateOnly(2026, 8, 1).AddMonths(-portfolio.Length);

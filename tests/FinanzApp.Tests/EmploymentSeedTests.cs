@@ -13,7 +13,7 @@ namespace FinanzApp.Tests;
 /// </summary>
 /// <remarks>
 /// <para>Das ist die erste Regel, die der v5-Handoff aus dem Prototypenbau mitgibt: dort war die
-/// Abrechnung 08/2026 an eine Gehaltsbuchung über 5.240 € geknüpft, führte selbst aber 3.812 €
+/// Abrechnung 08/2026 an eine Gehaltsbuchung über 4.180 € geknüpft, führte selbst aber 3.040 €
 /// Auszahlung — 37 % daneben, eine Paarung, die der eigene Matcher (±15 %) nie vorgeschlagen
 /// hätte, und ein Widerspruch zur Einnahmenzahl des Dashboards.</para>
 /// <para>Deshalb wird hier nicht geprüft, ob die Zahlen hübsch sind, sondern ob der Matcher
@@ -98,7 +98,7 @@ public sealed class EmploymentSeedTests : IDisposable
 
         Assert.Equal(1, kopf.ActiveCount);
         Assert.Equal(2, kopf.TotalCount);
-        Assert.Equal("EWV Kontrollsysteme", kopf.Employer);
+        Assert.Equal("Nordwind Messtechnik", kopf.Employer);
     }
 
     /// <summary>

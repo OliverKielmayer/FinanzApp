@@ -40,9 +40,9 @@ public sealed class LoanCreateTests : IDisposable
     private static Dictionary<string, string?> Werte(
         string name = "Immobiliendarlehen",
         string lender = "Sparkasse",
-        string debt = "148.300,00",
-        string rate = "1,84",
-        string installment = "1.180,00",
+        string debt = "121.500,00",
+        string rate = "2,15",
+        string installment = "960,00",
         string payment = "2026-12-01")
         => new()
         {
@@ -114,9 +114,9 @@ public sealed class LoanCreateTests : IDisposable
         var loan = Assert.Single(check.Loans);
         Assert.Equal("Immobiliendarlehen", loan.Name);
         Assert.Equal("Sparkasse", loan.Lender);
-        Assert.Equal(148_300m, loan.RemainingDebt);
-        Assert.Equal(1.84m, loan.InterestRatePercent);
-        Assert.Equal(1_180m, loan.Installment);
+        Assert.Equal(121_500m, loan.RemainingDebt);
+        Assert.Equal(2.15m, loan.InterestRatePercent);
+        Assert.Equal(960m, loan.Installment);
         Assert.Equal(new DateOnly(2026, 12, 1), loan.NextPaymentDate);
     }
 
@@ -169,10 +169,10 @@ public sealed class LoanCreateTests : IDisposable
 
         var erste = darlehen!.Schedule[0];
 
-        // 148.300,00 € × 1,84 % ÷ 12 = 227,39 €. Der Rest der Rate tilgt.
-        Assert.Equal(227.39m, erste.Interest);
-        Assert.Equal(952.61m, erste.Principal);
-        Assert.Equal(147_347.39m, erste.RemainingDebt);
+        // 121.500,00 € × 2,15 % ÷ 12 = 217,69 €. Der Rest der Rate tilgt.
+        Assert.Equal(217.69m, erste.Interest);
+        Assert.Equal(742.31m, erste.Principal);
+        Assert.Equal(120_757.69m, erste.RemainingDebt);
     }
 
     [Fact]
@@ -221,7 +221,7 @@ public sealed class LoanCreateTests : IDisposable
 
         Assert.False(result.Ok);
         Assert.Equal("installment", result.FieldKey);
-        Assert.Contains("227,39", result.Message);
+        Assert.Contains("217,69", result.Message);
 
         using var check = database.Context();
         Assert.Empty(check.Loans);
@@ -238,7 +238,7 @@ public sealed class LoanCreateTests : IDisposable
     public async Task Ein_endfaelliges_Darlehen_wird_angenommen()
     {
         var result = await Service().CreateAsync(
-            CreateObjectType.Loan, Werte(installment: "227,39"));
+            CreateObjectType.Loan, Werte(installment: "217,69"));
 
         Assert.True(result.Ok, result.Message);
 
@@ -246,7 +246,7 @@ public sealed class LoanCreateTests : IDisposable
         var plan = await new LoanService(context).GetAsync(result.Id!.Value);
 
         Assert.Equal(0m, plan!.Schedule[0].Principal);
-        Assert.Equal(148_300m, plan.Schedule[0].RemainingDebt);
+        Assert.Equal(121_500m, plan.Schedule[0].RemainingDebt);
     }
 
     [Theory]
@@ -276,7 +276,7 @@ public sealed class LoanCreateTests : IDisposable
     /// </summary>
     /// <remarks>
     /// Das Zinsfeld rendert als <c>&lt;input type="number"&gt;</c>, und ein solches Feld verwirft
-    /// „1,84“ als ungültig. Das Formular käme leer heraus, und das nächste Speichern verlöre den
+    /// „2,15“ als ungültig. Das Formular käme leer heraus, und das nächste Speichern verlöre den
     /// gepflegten Zins — derselbe Fehler, der schon einmal Wertbestandteile einer Police
     /// gekostet hat.
     /// </remarks>
@@ -289,8 +289,8 @@ public sealed class LoanCreateTests : IDisposable
 
         Assert.Equal("Darlehen bearbeiten", form!.Title);
         Assert.Equal("Immobiliendarlehen", form.Values["name"]);
-        Assert.Equal("1.84", form.Values["rate"]);
-        Assert.Equal("148300,00", form.Values["debt"]);
+        Assert.Equal("2.15", form.Values["rate"]);
+        Assert.Equal("121500,00", form.Values["debt"]);
         Assert.Equal("2026-12-01", form.Values["payment"]);
     }
 
@@ -307,9 +307,9 @@ public sealed class LoanCreateTests : IDisposable
 
         using var check = database.Context();
         var loan = Assert.Single(check.Loans);
-        Assert.Equal(148_300m, loan.RemainingDebt);
-        Assert.Equal(1.84m, loan.InterestRatePercent);
-        Assert.Equal(1_180m, loan.Installment);
+        Assert.Equal(121_500m, loan.RemainingDebt);
+        Assert.Equal(2.15m, loan.InterestRatePercent);
+        Assert.Equal(960m, loan.Installment);
     }
 
     [Fact]
@@ -334,7 +334,7 @@ public sealed class LoanCreateTests : IDisposable
     public async Task Die_Loeschfolge_zaehlt_die_verknuepften_Objekte()
     {
         var angelegt = await Service().CreateAsync(CreateObjectType.Loan, Werte());
-        Haus("Haus Birkenstetter Straße", angelegt.Id);
+        Haus("Haus Hauptstraße", angelegt.Id);
 
         var form = await Service().GetFormAsync(CreateObjectType.Loan, angelegt.Id);
 
@@ -348,7 +348,7 @@ public sealed class LoanCreateTests : IDisposable
     public async Task Bei_zwei_Objekten_steht_die_Folge_im_Plural()
     {
         var angelegt = await Service().CreateAsync(CreateObjectType.Loan, Werte());
-        Haus("Haus Birkenstetter Straße", angelegt.Id);
+        Haus("Haus Hauptstraße", angelegt.Id);
         Haus("Wohnung Bahnhofstraße", angelegt.Id);
 
         var form = await Service().GetFormAsync(CreateObjectType.Loan, angelegt.Id);
@@ -379,7 +379,7 @@ public sealed class LoanCreateTests : IDisposable
     public async Task Geloescht_wird_das_Darlehen_und_nicht_das_Haus()
     {
         var angelegt = await Service().CreateAsync(CreateObjectType.Loan, Werte());
-        Haus("Haus Birkenstetter Straße", angelegt.Id);
+        Haus("Haus Hauptstraße", angelegt.Id);
 
         var result = await Service().DeleteAsync(CreateObjectType.Loan, angelegt.Id!.Value);
 

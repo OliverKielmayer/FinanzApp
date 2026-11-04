@@ -132,19 +132,19 @@ public static class DemoImportBatch
         // Fünf Sätze, die die Beispieldaten unter derselben Referenz bereits enthalten.
         (string Reference, int Day, string Payee, decimal Amount)[] known =
         [
-            ("SEED-4200", 22, "REWE Markt Heidelberg", -68.42m),
-            ("SEED-4201", 21, "Shell Tankstelle", -84.10m),
-            ("SEED-4202", 20, "Stadtwerke Strom", -96.00m),
-            ("SEED-4208", 18, "Spende Tierheim", -80.00m),
-            ("SEED-4212", 14, "EDEKA Neckargemünd", -87.20m),
+            ("SEED-4200", 22, "REWE Markt Heidelberg", -58.35m),
+            ("SEED-4201", 21, "Shell Tankstelle", -71.40m),
+            ("SEED-4202", 20, "Stadtwerke Strom", -88.00m),
+            ("SEED-4208", 18, "Spende Tierheim", -65.00m),
+            ("SEED-4212", 14, "EDEKA Neckargemünd", -74.65m),
         ];
 
         records.AddRange(known.Select(row => new ImportRecord(
             row.Reference, new DateOnly(2026, 8, row.Day), row.Payee, row.Amount)));
 
         // Zwei Sätze mit neuer Referenz, aber Tag, Empfänger und Betrag einer vorhandenen Buchung.
-        records.Add(new ImportRecord("CAMT-2608-901", new DateOnly(2026, 8, 13), "ARAL Tankstelle", -92.30m));
-        records.Add(new ImportRecord("CAMT-2608-902", new DateOnly(2026, 8, 10), "Amazon Bestellung", -62.71m));
+        records.Add(new ImportRecord("CAMT-2608-901", new DateOnly(2026, 8, 13), "ARAL Tankstelle", -79.80m));
+        records.Add(new ImportRecord("CAMT-2608-902", new DateOnly(2026, 8, 10), "Amazon Bestellung", -53.90m));
 
         // Ein Satz mit unlesbarem Betrag — mit Absicht, wie das Dokument ohne Datei. Sonst
         // ließe sich der Zustand „Fehlerhafte Sätze“ nirgends vorführen, und der Handoff

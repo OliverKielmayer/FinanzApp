@@ -12,19 +12,19 @@ public sealed class CalculationTests
     public void Tilgungsplan_zehrt_die_Restschuld_ab()
     {
         var schedule = LoanService.BuildSchedule(
-            remainingDebt: 148300m,
-            interestRatePercent: 1.84m,
-            installment: 1180m,
+            remainingDebt: 121500m,
+            interestRatePercent: 2.15m,
+            installment: 960m,
             firstPayment: new DateOnly(2026, 9, 1),
             months: 12);
 
         Assert.Equal(12, schedule.Count);
-        Assert.Equal(227.39m, schedule[0].Interest);
-        Assert.Equal(952.61m, schedule[0].Principal);
-        Assert.Equal(147347.39m, schedule[0].RemainingDebt);
+        Assert.Equal(217.69m, schedule[0].Interest);
+        Assert.Equal(742.31m, schedule[0].Principal);
+        Assert.Equal(120757.69m, schedule[0].RemainingDebt);
 
         // Zins plus Tilgung ergibt in jedem Monat genau die Rate.
-        Assert.All(schedule, entry => Assert.Equal(1180m, entry.Interest + entry.Principal));
+        Assert.All(schedule, entry => Assert.Equal(960m, entry.Interest + entry.Principal));
 
         // Und die Restschuld nimmt monoton ab.
         Assert.All(
@@ -38,7 +38,7 @@ public sealed class CalculationTests
         var schedule = LoanService.BuildSchedule(
             remainingDebt: 500m,
             interestRatePercent: 2m,
-            installment: 1180m,
+            installment: 960m,
             firstPayment: new DateOnly(2026, 9, 1),
             months: 12);
 
@@ -67,8 +67,8 @@ public sealed class CalculationTests
         var policy = new Policy
         {
             Name = "Hausrat",
-            Provider = "HUK",
-            Premium = 156m,
+            Provider = "Nordstern",
+            Premium = 132m,
             PremiumInterval = PremiumInterval.Yearly,
             EndsOn = new DateOnly(2026, 12, 10),
             NoticePeriodMonths = 3,
@@ -136,16 +136,16 @@ public sealed class CalculationTests
     [Fact]
     public void Negativer_Betrag_traegt_das_typografische_Minus()
     {
-        var text = GermanFormat.Euro(-68.42m);
+        var text = GermanFormat.Euro(-58.35m);
 
         Assert.StartsWith("−", text, StringComparison.Ordinal);
         Assert.DoesNotContain("-", text, StringComparison.Ordinal);
-        Assert.Equal("−68,42 €", text);
+        Assert.Equal("−58,35 €", text);
     }
 
     [Fact]
     public void Vorzeichen_wird_auf_Wunsch_auch_bei_Einnahmen_gezeigt()
-        => Assert.Equal("+5.240,00 €", GermanFormat.Euro(5240m, withPlusSign: true));
+        => Assert.Equal("+4.180,00 €", GermanFormat.Euro(4180m, withPlusSign: true));
 
     [Theory]
     [InlineData(null, PasswordStrength.None)]

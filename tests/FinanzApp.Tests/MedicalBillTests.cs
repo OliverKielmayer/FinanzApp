@@ -20,10 +20,10 @@ public sealed class MedicalBillTests : IDisposable
     [Fact]
     public async Task Eigenanteil_zaehlt_nicht_als_offene_Forderung()
     {
-        var bill = await CreateBillAsync(gross: 850m, ownShare: 187.60m);
+        var bill = await CreateBillAsync(gross: 690m, ownShare: 164.20m);
 
-        Assert.Equal(662.40m, bill.ExpectedReimbursement);
-        Assert.Equal(662.40m, bill.OpenAmount);
+        Assert.Equal(525.80m, bill.ExpectedReimbursement);
+        Assert.Equal(525.80m, bill.OpenAmount);
 
         // Der Eigenanteil taucht im offenen Betrag nirgends auf.
         Assert.NotEqual(bill.GrossAmount, bill.OpenAmount);

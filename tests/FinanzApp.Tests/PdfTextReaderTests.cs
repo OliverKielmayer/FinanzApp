@@ -49,7 +49,7 @@ public sealed class PdfTextReaderTests
     /// </summary>
     /// <remarks>
     /// Ohne diese Unterscheidung wäre „Wert der Versicherung“ drei Spalten und „Rückkaufswert
-    /// 18.373,87 EUR“ eine — beides falsch herum.
+    /// 13.240,55 EUR“ eine — beides falsch herum.
     /// </remarks>
     [Fact]
     public void Woerter_bleiben_zusammen_Spalten_werden_getrennt()
@@ -57,12 +57,12 @@ public sealed class PdfTextReaderTests
         var pdf = Pdf(
             new(60, 700, "Wert der Versicherung"),
             new(60, 680, "Rueckkaufswert"),
-            new(430, 680, "18.373,87 EUR"));
+            new(430, 680, "13.240,55 EUR"));
 
         var inhalt = Read(pdf);
 
         Assert.Equal(["Wert der Versicherung"], inhalt.Lines[0].Cells);
-        Assert.Equal(["Rueckkaufswert", "18.373,87 EUR"], inhalt.Lines[1].Cells);
+        Assert.Equal(["Rueckkaufswert", "13.240,55 EUR"], inhalt.Lines[1].Cells);
     }
 
     /// <summary>

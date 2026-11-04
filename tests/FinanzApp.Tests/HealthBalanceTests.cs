@@ -238,15 +238,15 @@ public sealed class HealthBalanceTests : IDisposable
     {
         Bill("Dr. Meyer", 1_000m, 200m, 800m, erstattet: 800m,
             status: MedicalBillStatus.Completed);
-        Krankenversicherung(742m, PremiumInterval.Monthly);
+        Krankenversicherung(585m, PremiumInterval.Monthly);
 
         var bilanz = await Service().GetAsync();
 
         Assert.Equal(200m, bilanz.Split.OwnShare);
-        Assert.Equal(8_904m, bilanz.YearlyPremium);
+        Assert.Equal(7_020m, bilanz.YearlyPremium);
 
         // Die Steuerbrücke nennt beide zusammen — aber erst dort, und benannt.
-        Assert.Equal(9_104m, bilanz.Deductible);
+        Assert.Equal(7_220m, bilanz.Deductible);
     }
 
     [Fact]
