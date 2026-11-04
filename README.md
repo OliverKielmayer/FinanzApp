@@ -934,6 +934,13 @@ Inhaber oder Mitglied.
 - **Der Kurszeitstempel bleibt sichtbar**, weil die Kurse aus einem austauschbaren Anbieter stammen.
 - **Der App-Rahmen hat feste Höhe**, nicht Mindesthöhe: sonst wächst er mit dem Inhalt, das Fenster
   wird zum Scroller und die Tab-Bar wandert aus dem Bild.
+- **`System.Security.Cryptography.Pkcs` steht in der Projektdatei, obwohl kein Quelltext es
+  anspricht.** MimeKit verlangt es. Ohne den Eintrag lässt der Bau die Paketfassung liegen und
+  bindet die gleichnamige Datei aus dem ASP.NET-Core-Rahmenwerk — also die des Rechners, auf dem
+  gebaut wird. Gemessen: ohne Eintrag taucht sie weder im Ausgabeordner noch in `deps.json` auf,
+  mit Eintrag liegt sie dort. Für zwei Sicherheitshinweise ist sie bis 10.0.12 anfällig, und
+  darauf will man sich nicht je nach Maschine verlassen. Wer die Zeile wegräumt, weil sie
+  überflüssig aussieht, tauscht die ausgelieferte Krypto-Bibliothek still gegen eine ältere.
 
 ## Tests
 
