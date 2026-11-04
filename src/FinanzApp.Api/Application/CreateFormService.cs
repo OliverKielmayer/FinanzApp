@@ -2220,8 +2220,8 @@ public sealed class CreateFormService(
                    + "Vorteil nach der 1-%-Regelung.",
             Fields =
             [
-                Text("name", "Bezeichnung", required: true, placeholder: "z. B. VW Passat Variant"),
-                Text("plate", "Kennzeichen", required: true, placeholder: "L-2905"),
+                Text("name", "Bezeichnung", required: true, placeholder: "z. B. Opel Astra Sports Tourer"),
+                Text("plate", "Kennzeichen", required: true, placeholder: "HD-OA 17"),
                 Choice("usage", "Typ", required: false,
                 [
                     new() { Value = "Erstwagen", Label = "Erstwagen" },

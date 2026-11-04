@@ -381,8 +381,8 @@ public sealed class CreateFormTests : IDisposable
 
         var result = await Service().CreateAsync(CreateObjectType.Vehicle, new Dictionary<string, string?>
         {
-            ["name"] = "VW Passat Variant",
-            ["plate"] = "L-2905",
+            ["name"] = "Opel Astra Sports Tourer",
+            ["plate"] = "HD-OA 17",
             ["policy"] = policyId.ToString(),
         });
 
@@ -401,8 +401,8 @@ public sealed class CreateFormTests : IDisposable
     {
         var values = new Dictionary<string, string?>
         {
-            ["name"] = "VW Passat Variant",
-            ["plate"] = "L-2905",
+            ["name"] = "Opel Astra Sports Tourer",
+            ["plate"] = "HD-OA 17",
         };
 
         Assert.True((await Service().CreateAsync(CreateObjectType.Vehicle, values)).Ok);

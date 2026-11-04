@@ -135,7 +135,7 @@ public sealed class HoldingMetaTests : IDisposable
     {
         var fahrzeug = new Vehicle
         {
-            Name = "VW Passat", Plate = "HD-AB 123", Usage = "Erstwagen",
+            Name = "Opel Astra", Plate = "HD-AB 123", Usage = "Erstwagen",
             FirstRegistration = new DateOnly(2019, 4, 1),
         };
 

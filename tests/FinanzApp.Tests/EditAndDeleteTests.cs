@@ -214,7 +214,7 @@ public sealed class EditAndDeleteTests : IDisposable
 
         using (var context = database.Context())
         {
-            context.Vehicles.Add(new Vehicle { Name = "VW Passat", Plate = "L-2905", PolicyId = policyId });
+            context.Vehicles.Add(new Vehicle { Name = "Opel Astra", Plate = "HD-OA 17", PolicyId = policyId });
             context.SaveChanges();
         }
 

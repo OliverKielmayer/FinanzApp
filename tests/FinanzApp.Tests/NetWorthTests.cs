@@ -158,7 +158,7 @@ public sealed class NetWorthTests : IDisposable
 
         using (var context = database.Context())
         {
-            context.Vehicles.Add(new Vehicle { Name = "VW Passat", Plate = "HD-AB 123" });
+            context.Vehicles.Add(new Vehicle { Name = "Opel Astra", Plate = "HD-AB 123" });
             context.SaveChanges();
         }
 

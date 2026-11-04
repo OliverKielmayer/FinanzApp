@@ -105,7 +105,7 @@ public static class ExtensionSeedData
                 "PKV · Erstattungen unter Gesundheit", 585m, PremiumInterval.Monthly,
                 new DateOnly(2016, 1, 1), null, 3, null),
             ("Kfz", "Kfz MGV", "MGV", PolicyKind.Vehicle,
-                "L-2905 · Wechselfrist 30.11.2026", 494m, PremiumInterval.Yearly,
+                "HD-OA 17 · Wechselfrist 30.11.2026", 494m, PremiumInterval.Yearly,
                 new DateOnly(2021, 1, 1), new DateOnly(2026, 12, 31), 1, null),
             ("Berufsunfähigkeit", "Berufsunfähigkeit", "Erste Musterkasse",
                 PolicyKind.DisabilityInsurance, "BU-Rente 2.950,00 € monatlich", 96m,
@@ -819,8 +819,8 @@ public static class ExtensionSeedData
 
         var passat = new Vehicle
         {
-            Name = "VW Passat Variant",
-            Plate = "L-2905",
+            Name = "Opel Astra Sports Tourer",
+            Plate = "HD-OA 17",
             Usage = "Erstwagen",
             FirstRegistration = new DateOnly(2019, 3, 1),
             Mileage = 112300,
@@ -831,8 +831,8 @@ public static class ExtensionSeedData
             passat,
             new Vehicle
             {
-                Name = "Skoda Fabia",
-                Plate = "L-1113",
+                Name = "Fiat Panda",
+                Plate = "HD-FP 8",
                 Usage = "Zweitwagen",
                 FirstRegistration = new DateOnly(2016, 9, 1),
                 Mileage = 86400,
@@ -858,11 +858,11 @@ public static class ExtensionSeedData
 
         (int Month, int Day, string Payee, string Note, decimal Amount)[] costs =
         [
-            (3, 12, "Hauptzollamt Heidelberg", "Kfz-Steuer L-2905", -236m),
-            (4, 18, "Autohaus Krause", "Inspektion L-2905", -940m),
-            (5, 6, "Tankstellen 12 Monate", "Kraftstoff L-2905", -1640m),
-            (4, 22, "Werkstatt Sauer", "Bremsen L-1113", -720m),
-            (6, 9, "Tankstellen 12 Monate", "Kraftstoff L-1113", -755m),
+            (3, 12, "Hauptzollamt Heidelberg", "Kfz-Steuer HD-OA 17", -236m),
+            (4, 18, "Autohaus Krause", "Inspektion HD-OA 17", -940m),
+            (5, 6, "Tankstellen 12 Monate", "Kraftstoff HD-OA 17", -1640m),
+            (4, 22, "Werkstatt Sauer", "Bremsen HD-FP 8", -720m),
+            (6, 9, "Tankstellen 12 Monate", "Kraftstoff HD-FP 8", -755m),
         ];
 
         var reference = 4900;

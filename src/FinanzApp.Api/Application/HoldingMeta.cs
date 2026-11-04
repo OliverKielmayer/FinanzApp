@@ -77,7 +77,7 @@ public static class HoldingMeta
     /// Ohne Kennzeichen: das steht neben dem Namen, nicht im Untertitel.
     /// </summary>
     /// <remarks>
-    /// Die Fahrzeugliste zeigt „VW Passat · HD-AB 123“ als Titel. Das Kennzeichen hier noch
+    /// Die Fahrzeugliste zeigt „Opel Astra · HD-AB 123“ als Titel. Das Kennzeichen hier noch
     /// einmal zu nennen hieße, dieselbe Angabe zweimal in dieselbe Zeile zu setzen.
     /// </remarks>
     /// <summary>
