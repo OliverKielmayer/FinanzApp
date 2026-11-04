@@ -976,6 +976,14 @@ public sealed class CreateFormService(
             return Fail("amount", "Abschlag ist kein Betrag");
         }
 
+        // Vor dem ersten Zuweisen geprüft: Ein abgewiesenes Formular darf keine halb geänderte
+        // Entität zurücklassen.
+        var objektbezogen = Flagged(values, "objekt", fallback: contract.PropertyRelated);
+        if (await ObjektBrauchtObjektAsync(values, objektbezogen, ct) is { } widerspruch)
+        {
+            return widerspruch;
+        }
+
         contract.Name = Value(values, "name")!.Trim();
         contract.Provider = Value(values, "provider")!.Trim();
         contract.ContractNumber = Value(values, "number")?.Trim();
@@ -983,7 +991,7 @@ public sealed class CreateFormService(
         contract.PaymentInterval = Rhythm(values, contract.PaymentInterval);
         contract.AccountId = ParseInt(Value(values, "account"));
         contract.PropertyId = ParseInt(Value(values, "property"));
-        contract.PropertyRelated = Flagged(values, "objekt", fallback: contract.PropertyRelated);
+        contract.PropertyRelated = objektbezogen;
         contract.CostGroup = Value(values, "costGroup")?.Trim();
         contract.NoticePeriodWeeks = ParseInt(Value(values, "notice")) ?? 0;
 
@@ -1868,6 +1876,12 @@ public sealed class CreateFormService(
             return Fail("provider", $"Ein Vertrag „{name}“ bei „{provider}“ besteht bereits.");
         }
 
+        var objektbezogen = Flagged(values, "objekt", fallback: true);
+        if (await ObjektBrauchtObjektAsync(values, objektbezogen, ct) is { } widerspruch)
+        {
+            return widerspruch;
+        }
+
         var contract = new Contract
         {
             Name = name,
@@ -1877,7 +1891,7 @@ public sealed class CreateFormService(
             PaymentInterval = Rhythm(values, PremiumInterval.Monthly),
             AccountId = ParseInt(Value(values, "account")),
             PropertyId = ParseInt(Value(values, "property")),
-            PropertyRelated = Flagged(values, "objekt", fallback: true),
+            PropertyRelated = objektbezogen,
             CostGroup = Value(values, "costGroup")?.Trim(),
             NoticePeriodWeeks = ParseInt(Value(values, "notice")) ?? 0,
         };
@@ -2773,6 +2787,35 @@ public sealed class CreateFormService(
 
     private static int? ParseInt(string? text)
         => int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ? value : null;
+
+    /// <summary>
+    /// „Objektbezogen“ ohne Immobilie ist eine Angabe, die sich selbst widerspricht.
+    /// </summary>
+    /// <remarks>
+    /// <para>Das Häkchen steht vorbelegt an, die Immobilie ist freiwillig. Wer sie übersieht,
+    /// legt einen Vertrag an, dessen Kosten zu einem Objekt zählen sollen, das er nicht nennt.
+    /// Der Vertrag erscheint danach bei keiner Immobilie, und deren Kosten bleiben zu
+    /// niedrig — ohne dass irgendwo etwas fehlte, das jemandem auffiele.</para>
+    /// <para>Genau so ist ein Abfallvertrag verschwunden: angelegt, gespeichert, und am Haus
+    /// nicht zu finden. Lieber beim Anlegen fragen als später eine Zahl vermissen.</para>
+    /// <para>Wer keine Immobilie erfasst hat, wird nicht gefragt: Die Auswahl wäre leer, und
+    /// eine Pflicht, die sich nicht erfüllen lässt, sperrte das Formular für alle, die bloß
+    /// einen Mobilfunkvertrag anlegen wollen.</para>
+    /// </remarks>
+    private async Task<CreateResultDto?> ObjektBrauchtObjektAsync(
+        IReadOnlyDictionary<string, string?> values, bool objektbezogen, CancellationToken ct)
+    {
+        if (!objektbezogen || ParseInt(Value(values, "property")) is not null)
+        {
+            return null;
+        }
+
+        return await db.Properties.AnyAsync(ct)
+            ? Fail("property",
+                "„Objektbezogen“ braucht eine Immobilie — sonst zählen die Kosten zu keinem "
+                + "Objekt. Gehört der Vertrag zu keinem, bitte auf „Lebenshaltung“ stellen.")
+            : null;
+    }
 
     private static CreateResultDto Fail(string? fieldKey, string message)
         => new() { Ok = false, FieldKey = fieldKey, Message = message };

@@ -675,6 +675,137 @@ public sealed class CreateFormTests : IDisposable
         Assert.Equal("142", maske!.Values!["area"]);
     }
 
+    // ── Objektbezogen ohne Objekt ──────────────────────────────────────────────────────────
+    //
+    // Der Fall, der einen Abfallvertrag verschwinden ließ: Das Häkchen „objektbezogen“ steht
+    // vorbelegt an, die Immobilie ist freiwillig. Wer sie übersieht, legt einen Vertrag an,
+    // dessen Kosten zu einem Objekt zählen sollen, das er nicht nennt — und findet ihn danach
+    // bei keiner Immobilie, ohne dass irgendwo etwas fehlte.
+
+    private int Immobilie(string name = "Haus Musterweg 3")
+    {
+        using var context = database.Context();
+        var objekt = new Property { Name = name, Address = "Musterweg 3, 12345 Musterstadt" };
+        context.Properties.Add(objekt);
+        context.SaveChanges();
+        return objekt.Id;
+    }
+
+    private static Dictionary<string, string?> Vertragswerte(
+        string? property = null, string? objekt = null)
+    {
+        var werte = new Dictionary<string, string?>
+        {
+            ["name"] = "Abfall",
+            ["provider"] = "Landkreis Musterkreis",
+            ["amount"] = "38,90",
+            ["rhythm"] = nameof(PremiumInterval.Quarterly),
+        };
+
+        if (property is not null)
+        {
+            werte["property"] = property;
+        }
+
+        if (objekt is not null)
+        {
+            werte["objekt"] = objekt;
+        }
+
+        return werte;
+    }
+
+    [Fact]
+    public async Task Objektbezogen_ohne_Immobilie_wird_abgewiesen()
+    {
+        Immobilie();
+
+        var ergebnis = await Service().CreateAsync(CreateObjectType.Contract, Vertragswerte());
+
+        Assert.False(ergebnis.Ok);
+        Assert.Equal("property", ergebnis.FieldKey);
+        Assert.Contains("Lebenshaltung", ergebnis.Message);
+
+        // Und nichts ist entstanden: Ein abgewiesenes Formular legt nichts an.
+        using var check = database.Context();
+        Assert.Empty(check.Contracts);
+    }
+
+    [Fact]
+    public async Task Mit_gewaehlter_Immobilie_geht_es_durch()
+    {
+        var objekt = Immobilie();
+
+        var ergebnis = await Service().CreateAsync(
+            CreateObjectType.Contract, Vertragswerte(property: objekt.ToString()));
+
+        Assert.True(ergebnis.Ok, ergebnis.Message);
+
+        using var check = database.Context();
+        var vertrag = Assert.Single(check.Contracts);
+        Assert.Equal(objekt, vertrag.PropertyId);
+        Assert.True(vertrag.PropertyRelated);
+    }
+
+    /// <summary>
+    /// Wer „Lebenshaltung“ wählt, braucht keine Immobilie.
+    /// </summary>
+    /// <remarks>
+    /// Der Mobilfunkvertrag ist der Fall: Er gehört zu keinem Objekt, und die Prüfung darf ihn
+    /// nicht aufhalten.
+    /// </remarks>
+    [Fact]
+    public async Task Ohne_Objektbezug_braucht_es_keine_Immobilie()
+    {
+        Immobilie();
+
+        var ergebnis = await Service().CreateAsync(
+            CreateObjectType.Contract, Vertragswerte(objekt: "nein"));
+
+        Assert.True(ergebnis.Ok, ergebnis.Message);
+
+        using var check = database.Context();
+        Assert.False(Assert.Single(check.Contracts).PropertyRelated);
+    }
+
+    /// <summary>
+    /// Ohne erfasste Immobilie wird gar nicht erst gefragt.
+    /// </summary>
+    /// <remarks>
+    /// Die Auswahl wäre leer. Eine Pflicht, die sich nicht erfüllen lässt, sperrte das
+    /// Formular für alle, die noch kein Objekt erfasst haben.
+    /// </remarks>
+    [Fact]
+    public async Task Ohne_jede_Immobilie_haelt_die_Pruefung_nicht_auf()
+    {
+        var ergebnis = await Service().CreateAsync(CreateObjectType.Contract, Vertragswerte());
+
+        Assert.True(ergebnis.Ok, ergebnis.Message);
+    }
+
+    /// <summary>Beim Bearbeiten gilt dasselbe — und der Vertrag bleibt unberührt.</summary>
+    [Fact]
+    public async Task Beim_Bearbeiten_bleibt_der_Vertrag_unveraendert_wenn_das_Objekt_fehlt()
+    {
+        var objekt = Immobilie();
+        var angelegt = await Service().CreateAsync(
+            CreateObjectType.Contract, Vertragswerte(property: objekt.ToString()));
+
+        var ohneObjekt = Vertragswerte();
+        ohneObjekt["amount"] = "99,99";
+
+        var ergebnis = await Service().UpdateAsync(
+            CreateObjectType.Contract, angelegt.Id!.Value, ohneObjekt);
+
+        Assert.False(ergebnis.Ok);
+        Assert.Equal("property", ergebnis.FieldKey);
+
+        using var check = database.Context();
+        var vertrag = Assert.Single(check.Contracts);
+        Assert.Equal(objekt, vertrag.PropertyId);
+        Assert.Equal(38.90m, vertrag.Amount);
+    }
+
     public void Dispose()
     {
         database.Dispose();
