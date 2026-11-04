@@ -102,6 +102,19 @@ public static class BillTextReader
     private static readonly Regex DatumZeilenanfang =
         new(@"^datum\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    /// <summary>
+    /// Das Ortsdatum eines Behördenbriefs: „Musterstadt, den 12.03.2026“.
+    /// </summary>
+    /// <remarks>
+    /// <para>Eine Behörde beschriftet ihr Datum nicht. Sie schreibt es neben den Ort, und das
+    /// ist die einzige Form, die auf jedem Bescheid gleich aussieht. Ohne diese Regel blieb das
+    /// Datum eines Abfallgebührenbescheids leer, obwohl es oben rechts stand.</para>
+    /// <para>Das „den“ trägt die Regel. Ein bloßes Komma vor einem Datum steht auf jeder
+    /// zweiten Zeile — damit wäre jede Aufzählung ein Briefdatum.</para>
+    /// </remarks>
+    private static readonly Regex Ortsdatum =
+        new(@",\s*den\s+(?=\d{1,2}\.)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     /// <summary>Wo eine Anschrift beginnt — danach gehört nichts mehr zum Namen.</summary>
     private static readonly Regex Anschrift =
         new(@"\b([A-Za-zÄÖÜäöüß.]*(?:stra(?:ß|ss)e|str\.?|weg|platz|allee|ring|gasse)\s*\d"
@@ -142,12 +155,33 @@ public static class BillTextReader
         "rechnungsnummer", "rechnungs-nr", "rechnungsnr", "rechnung nr", "rechnung-nr",
         "rechn-nr", "rechn.-nr", "re-nr", "re.-nr", "r-nummer", "belegnummer", "beleg-nr",
         "invoice no",
+
+        // Eine Behörde stellt keine Rechnung, sie erlässt einen Bescheid — und der trägt
+        // seine Nummer unter diesem Namen. Für die Fristenüberwachung ist das dasselbe Feld.
+        // Das Kassenzeichen steht bewusst nicht dabei: Es ist der Verwendungszweck der
+        // Zahlung, nicht die Nummer des Bescheids.
+        "bescheidnummer", "bescheid-nr", "bescheid nr",
     ];
 
     private static readonly string[] DatumWoerter =
     [
         "rechnungsdatum", "re-datum", "re.-datum", "r-datum", "belegdatum",
-        "datum der rechnung", "rechnung vom",
+        "datum der rechnung", "rechnung vom", "bescheid vom",
+    ];
+
+    /// <summary>
+    /// Beschriftungen des Fälligkeitstags, die eindeutigste zuerst.
+    /// </summary>
+    /// <remarks>
+    /// „zur zahlung fällig“ steht vor „fällig“, weil die kurze Form auch in der
+    /// Rechtsbehelfsbelehrung vorkommt. Entscheiden tut am Ende ohnehin, ob in der Zeile ein
+    /// Datum steht — aber die Reihenfolge bestimmt, welche Zeile zuerst gefragt wird.
+    /// </remarks>
+    private static readonly string[] FaelligkeitWoerter =
+    [
+        "zur zahlung fällig", "zahlung fällig", "fällig am", "fällig bis", "fälligkeitstag",
+        "fälligkeit", "zahlbar bis", "zahlbar am", "zahlungsziel", "bitte bis zum",
+        "überweisen sie bis",
     ];
 
     /// <summary>
@@ -206,6 +240,7 @@ public static class BillTextReader
         var (betrag, betragZeile) = Betrag(zeilen);
         var (nummer, nummerZeile) = Nummer(zeilen);
         var (datum, datumZeile) = Rechnungsdatum(zeilen);
+        var (faellig, faelligZeile) = Faelligkeit(zeilen);
         var (absender, absenderZeile) = Absender(zeilen);
         var (zahn, zahnZeile) = Zahnbehandlung(zeilen);
 
@@ -214,13 +249,15 @@ public static class BillTextReader
             IsDental = zahn,
             IsDentalSource = zahnZeile,
             HasContent = betrag is not null || nummer is not null
-                         || datum is not null || absender is not null,
+                         || datum is not null || faellig is not null || absender is not null,
             Provider = absender,
             ProviderSource = absenderZeile,
             BillNumber = nummer,
             BillNumberSource = nummerZeile,
             BillDate = datum,
             BillDateSource = datumZeile,
+            DueDate = faellig,
+            DueDateSource = faelligZeile,
             GrossAmount = betrag,
             GrossAmountSource = betragZeile,
 
@@ -440,12 +477,54 @@ public static class BillTextReader
             }
         }
 
+        // Dann das Ortsdatum, wie es ein Behördenbrief oben rechts trägt. Nur im Briefkopf:
+        // Weiter unten steht „zahlbar bis“ und anderes, was ebenso ein Datum nennt und etwas
+        // anderes meint.
+        foreach (var zeile in zeilen.Take(25))
+        {
+            if (Ortsdatum.IsMatch(zeile) && LetztesDatum(zeile) is { } briefkopf)
+            {
+                return (briefkopf, zeile);
+            }
+        }
+
         // Zuletzt: eine Zeile, die schlicht mit „Datum“ anfängt.
         foreach (var zeile in zeilen.Take(25))
         {
             if (DatumZeilenanfang.IsMatch(zeile) && LetztesDatum(zeile) is { } schlicht)
             {
                 return (schlicht, zeile);
+            }
+        }
+
+        return (null, null);
+    }
+
+    /// <summary>
+    /// Wann gezahlt sein muss.
+    /// </summary>
+    /// <remarks>
+    /// <para>Das Feld, an dem ein offener Posten hängt: Ohne Fälligkeit ist er eine Notiz, mit
+    /// ihr eine Frist. Bisher las der Leser es gar nicht — bei keinem Beleg, nicht nur bei
+    /// Bescheiden.</para>
+    /// <para>Genommen wird das <em>letzte</em> Datum der Zeile. „Dieser Betrag ist am
+    /// 24.04.2026 zur Zahlung fällig“ stellt es vor die Beschriftung, „zahlbar bis 24.04.2026“
+    /// dahinter — beide Male ist es das einzige und damit das letzte.</para>
+    /// <para>Eine Zeile ohne Datum zählt nicht und bricht die Suche auch nicht ab. Auf
+    /// demselben Bescheid steht „Sollte der Fälligkeitstermin ein Wochenende sein …“, und das
+    /// ist eine Belehrung und kein Termin.</para>
+    /// </remarks>
+    private static (DateOnly? Wert, string? Zeile) Faelligkeit(string[] zeilen)
+    {
+        foreach (var wort in FaelligkeitWoerter)
+        {
+            foreach (var zeile in zeilen)
+            {
+                if (zeile.Contains(wort, StringComparison.OrdinalIgnoreCase)
+                    && LetztesDatum(zeile) is { } gefunden)
+                {
+                    return (gefunden, zeile);
+                }
             }
         }
 

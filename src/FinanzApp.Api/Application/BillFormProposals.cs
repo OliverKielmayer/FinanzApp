@@ -110,6 +110,14 @@ public static class BillFormProposals
             vorschlaege["issued"] = datum.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         }
 
+        // Die Frist, um die es bei einem offenen Posten geht. Nur wenn sie auf dem Beleg steht:
+        // aus dem Rechnungsdatum hochgerechnet wäre sie eine Annahme in einem Feld, das später
+        // mahnt.
+        if (gelesen.DueDate is { } faellig)
+        {
+            vorschlaege["due"] = faellig.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        }
+
         if (gelesen.GrossAmount is { } brutto and > 0)
         {
             vorschlaege["amount"] = brutto.ToString("0.00", CultureInfo.GetCultureInfo("de-DE"));

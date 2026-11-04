@@ -127,6 +127,16 @@ public sealed record ExtractedBillDto
     public decimal? GrossAmount { get; init; }
     public decimal? OwnShare { get; init; }
 
+    /// <summary>
+    /// Wann gezahlt sein muss. <c>null</c>, wenn der Beleg keine Frist nennt.
+    /// </summary>
+    /// <remarks>
+    /// Ein offener Posten ohne Fälligkeit ist eine Notiz, mit ihr eine Frist. Nicht aus dem
+    /// Belegdatum hochgerechnet: „vierzehn Tage“ ist eine verbreitete Übung und keine Zusage,
+    /// und eine geschätzte Frist stünde später als gelesene da.
+    /// </remarks>
+    public DateOnly? DueDate { get; init; }
+
     /// <summary>Ob überhaupt etwas erkannt wurde.</summary>
     public required bool HasContent { get; init; }
 
@@ -142,6 +152,9 @@ public sealed record ExtractedBillDto
 
     /// <summary>Die Zeile, aus der <see cref="BillDate"/> stammt.</summary>
     public string? BillDateSource { get; init; }
+
+    /// <summary>Die Zeile, aus der <see cref="DueDate"/> stammt.</summary>
+    public string? DueDateSource { get; init; }
 
     /// <summary>Die Zeile, aus der <see cref="BillNumber"/> stammt.</summary>
     public string? BillNumberSource { get; init; }

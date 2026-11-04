@@ -1,4 +1,6 @@
+using FinanzApp.Api.Application;
 using FinanzApp.Api.Infrastructure;
+using FinanzApp.Shared.Contracts;
 
 namespace FinanzApp.Tests;
 
@@ -310,5 +312,116 @@ public sealed class BillTextReadingTests
             """);
 
         Assert.Equal(249.90m, gelesen.GrossAmount);
+    }
+
+    // ── Behördenbescheide ──────────────────────────────────────────────────────────────────
+    //
+    // Eine Behörde stellt keine Rechnung. Sie erlässt einen Bescheid, nennt ihre Nummer
+    // „Bescheidnummer“, schreibt ihr Datum neben den Ort und ihre Frist in einen ganzen Satz.
+    // Drei Formen, die auf jedem Gebührenbescheid gleich aussehen — und die der Leser bis
+    // zuletzt übersah, obwohl sie im Klartext dastanden.
+
+    private const string Gebuehrenbescheid = """
+        Landkreis Musterkreis- Abfallwirtschaftsamt
+        Musterstraße 44
+        12345 Musterstadt
+        Herrn/Frau Musterstadt, den 12.03.2026
+        Kundennummer: 7654321
+        Bescheidnummer: 80231477
+        Abfallgebührenbescheid 2026
+        Objekt: Musterdorf, Beispielweg 3
+        Für den Zeitraum vom 01.04.2026 bis 30.06.2026
+        wird die Abfallgebühr festgesetzt auf 63,40 EUR
+        Dieser Betrag ist am 24.04.2026 zur Zahlung fällig.
+        Sollte der Fälligkeitstermin ein Wochenende oder Feiertag sein, verschiebt sich der
+        Zusammenfassung:
+        Summe Personenpflichtgebühr 52,10
+        Summe Leerungsgebühren Restmüll 11,30
+        Gesamtbetrag 2026 63,40
+        """;
+
+    [Fact]
+    public void Ein_Behoerdenbescheid_gibt_Nummer_Datum_und_Faelligkeit_her()
+    {
+        var gelesen = BillTextReader.Read(Gebuehrenbescheid);
+
+        Assert.Equal("80231477", gelesen.BillNumber);
+        Assert.Equal(new DateOnly(2026, 3, 12), gelesen.BillDate);
+        Assert.Equal(new DateOnly(2026, 4, 24), gelesen.DueDate);
+        Assert.Equal(63.40m, gelesen.GrossAmount);
+    }
+
+    /// <summary>
+    /// Auch die neuen Werte nennen ihre Zeile.
+    /// </summary>
+    /// <remarks>
+    /// Beim Ortsdatum trägt das die Prüfung: „Musterstadt, den 12.03.2026“ sieht einem
+    /// Zeitraum zum Verwechseln ähnlich, und wer die Quelle sieht, erkennt den Unterschied in
+    /// einer Sekunde.
+    /// </remarks>
+    [Fact]
+    public void Die_Faelligkeit_und_das_Ortsdatum_nennen_ihre_Quelle()
+    {
+        var gelesen = BillTextReader.Read(Gebuehrenbescheid);
+
+        Assert.Contains("zur Zahlung fällig", gelesen.DueDateSource);
+        Assert.Contains(", den 12.03.2026", gelesen.BillDateSource);
+    }
+
+    /// <summary>
+    /// Eine Belehrung über die Fälligkeit ist kein Termin.
+    /// </summary>
+    /// <remarks>
+    /// „Sollte der Fälligkeitstermin ein Wochenende sein …“ steht auf jedem Bescheid und nennt
+    /// kein Datum. Eine Regel, die auf das Wort allein anspränge, nähme sich das nächste Datum
+    /// der Seite — und das ist dort der Beginn des Abrechnungszeitraums.
+    /// </remarks>
+    [Fact]
+    public void Eine_Belehrung_ueber_die_Faelligkeit_ist_kein_Termin()
+    {
+        var gelesen = BillTextReader.Read("""
+            Landkreis Musterkreis- Abfallwirtschaftsamt
+            Für den Zeitraum vom 01.04.2026 bis 30.06.2026
+            Gesamtbetrag 2026 63,40
+            Sollte der Fälligkeitstermin ein Wochenende oder Feiertag sein, verschiebt sich der
+            Termin auf den folgenden Werktag.
+            """);
+
+        Assert.Null(gelesen.DueDate);
+        Assert.Equal(63.40m, gelesen.GrossAmount);
+    }
+
+    /// <summary>
+    /// Nennt der Beleg keine Frist, bleibt sie leer.
+    /// </summary>
+    /// <remarks>
+    /// Aus dem Rechnungsdatum vierzehn Tage hochzurechnen wäre eine verbreitete Übung und
+    /// trotzdem geraten — in einem Feld, an dem später eine Mahnung hängt.
+    /// </remarks>
+    [Fact]
+    public void Ohne_genannte_Frist_bleibt_die_Faelligkeit_leer()
+    {
+        var gelesen = BillTextReader.Read("""
+            Musterstädter Klinikum gGmbH
+            Rechnungsnummer: 4711
+            Rechnungsdatum: 04.11.2026
+            Rechnungsbetrag: 318,40
+            """);
+
+        Assert.Equal(new DateOnly(2026, 11, 4), gelesen.BillDate);
+        Assert.Null(gelesen.DueDate);
+    }
+
+    /// <summary>Die gelesene Frist landet im Formular des offenen Postens.</summary>
+    [Fact]
+    public void Der_offene_Posten_bekommt_die_Frist_vorgeschlagen()
+    {
+        var vorschlaege = BillFormProposals.For(
+            CreateObjectType.Invoice, BillTextReader.Read(Gebuehrenbescheid));
+
+        Assert.Equal("2026-04-24", vorschlaege["due"]);
+        Assert.Equal("2026-03-12", vorschlaege["issued"]);
+        Assert.Equal("80231477", vorschlaege["number"]);
+        Assert.Equal("63,40", vorschlaege["amount"]);
     }
 }
