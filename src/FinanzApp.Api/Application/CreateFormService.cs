@@ -452,8 +452,47 @@ public sealed class CreateFormService(
             }
 
             case CreateObjectType.Vehicle:
+            {
+                // Mit dem Arbeitsverhältnis geladen, weil der geldwerte Vorteil daran hängt:
+                // ohne es käme der Wegzuschlag nicht zustande, und der Satz nennte zu wenig.
+                var fahrzeug = await db.Vehicles.AsNoTracking()
+                    .Include(v => v.Employment)
+                    .FirstOrDefaultAsync(v => v.Id == id, ct);
+
+                if (fahrzeug is null)
+                {
+                    return Impact("Fahrzeug löschen", "Das Fahrzeug ist bereits fort.");
+                }
+
+                var belege = await db.DocumentLinks.CountAsync(
+                    l => l.TargetType == LinkTargetType.Vehicle && l.TargetId == id, ct);
+
+                // Beim Namen genannt, nicht als „die Versicherung“: Wer zwei Fahrzeuge hält,
+                // soll sehen, welcher Vertrag gemeint ist, der bleibt.
+                var police = fahrzeug.PolicyId is { } policyId
+                    ? await db.Policies.AsNoTracking()
+                        .Where(p => p.Id == policyId).Select(p => p.Name).FirstOrDefaultAsync(ct)
+                    : null;
+
+                var vorteil = VehicleService.Benefit(fahrzeug);
+
                 return Impact("Fahrzeug löschen",
-                    "Die Kostenübersicht entfällt. Versicherung und Dokumente bleiben.");
+                    "Die Kostenübersicht entfällt."
+                    + (vorteil is null
+                        ? string.Empty
+                        : $" Der geldwerte Vorteil von {GermanFormat.Euro(vorteil.PerMonth)} im Monat"
+                          + " zählt dann nirgends mehr mit.")
+                    + (police is null
+                        ? " Es ist keine Versicherung verknüpft."
+                        : $" Die Versicherung „{police}“ bleibt und steht weiter unter Absicherung.")
+
+                    // Dieselbe Auskunft wie bei der Anschaffung, und aus demselben Grund: Der
+                    // Beleg überlebt, seine Zuordnung nicht — das ist der eigentliche Verlust.
+                    + (belege == 0
+                        ? " Es hängt kein Beleg daran."
+                        : $" {belege} {(belege == 1 ? "Beleg bleibt" : "Belege bleiben")} erhalten, "
+                          + $"{(belege == 1 ? "steht" : "stehen")} danach aber ohne Objekt da."));
+            }
 
             case CreateObjectType.Purchase:
             {

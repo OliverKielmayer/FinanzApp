@@ -163,8 +163,11 @@ public sealed class VehicleService(FinanzAppDbContext db, DocumentService docume
     /// <para>Nicht gerechnet wird die Einzelbewertung mit 0,002 % je tatsächlicher Fahrt. Sie
     /// setzt ein Fahrtenbuch über das Jahr voraus; was die Anwendung dazu hätte, wären
     /// geratene Tage.</para>
+    /// <para><c>internal</c>, weil der Löschabschnitt denselben Betrag nennt, den die
+    /// Kostenzeile zeigt. Ihn dort nachzurechnen hieße, die Regel an zwei Stellen zu führen —
+    /// und zwei Stellen laufen auseinander.</para>
     /// </remarks>
-    private static CompanyCarBenefitDto? Benefit(Vehicle vehicle)
+    internal static CompanyCarBenefitDto? Benefit(Vehicle vehicle)
     {
         if (vehicle.GrossListPrice is not { } listenpreis || listenpreis <= 0m)
         {

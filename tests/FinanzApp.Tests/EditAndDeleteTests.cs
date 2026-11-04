@@ -2,6 +2,7 @@ using FinanzApp.Api.Application;
 using FinanzApp.Api.Data.Entities;
 using FinanzApp.Api.Infrastructure;
 using FinanzApp.Shared.Contracts;
+using FinanzApp.Shared.Formatting;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FinanzApp.Tests;
@@ -261,6 +262,126 @@ public sealed class EditAndDeleteTests : IDisposable
 
         using var check = database.Context();
         Assert.Equal(300m, check.Budgets.Single().PlannedPerMonth);
+    }
+
+    /// <summary>
+    /// Die Löschfolge eines Fahrzeugs zählt, was daran hängt.
+    /// </summary>
+    /// <remarks>
+    /// Sie war lange der eine Fall, der behauptete statt zu zählen: „Versicherung und Dokumente
+    /// bleiben“ stimmte halb — die Belege überleben zwar, ihre Zuordnung aber nicht.
+    /// </remarks>
+    [Fact]
+    public async Task Die_Loeschfolge_eines_Fahrzeugs_zaehlt_Belege_und_nennt_die_Versicherung()
+    {
+        var policyId = AddPolicy("Kfz MGV", PolicyKind.Vehicle, "MGV");
+        int vehicleId;
+
+        using (var context = database.Context())
+        {
+            var wagen = new Vehicle { Name = "Opel Astra", Plate = "HD-OA 17", PolicyId = policyId };
+            context.Vehicles.Add(wagen);
+            context.SaveChanges();
+            vehicleId = wagen.Id;
+
+            var beleg = new Document
+            {
+                Title = "Zulassung", RelativePath = "Fahrzeuge/zulassung.pdf",
+                FileName = "zulassung.pdf",
+            };
+            context.Documents.Add(beleg);
+            context.SaveChanges();
+
+            context.DocumentLinks.Add(new DocumentLink
+            {
+                DocumentId = beleg.Id, TargetType = LinkTargetType.Vehicle, TargetId = vehicleId,
+                CreatedAt = new DateTime(2026, 8, 1, 8, 0, 0, DateTimeKind.Local),
+            });
+            context.SaveChanges();
+        }
+
+        var folge = (await Service().GetFormAsync(CreateObjectType.Vehicle, vehicleId))!
+            .DeleteImpact!.Consequence;
+
+        Assert.Contains("Die Versicherung „Kfz MGV“ bleibt", folge);
+        Assert.Contains("1 Beleg bleibt erhalten, steht danach aber ohne Objekt da.", folge);
+
+        Assert.True((await Service().DeleteAsync(CreateObjectType.Vehicle, vehicleId)).Ok);
+
+        using var check = database.Context();
+
+        // Beides überlebt das Fahrzeug: der Vertrag, weil er unter Absicherung geführt wird,
+        // und der Beleg, weil er eine Tatsache ist.
+        Assert.Single(check.Policies);
+        Assert.Single(check.Documents);
+        Assert.Empty(check.Vehicles);
+    }
+
+    [Fact]
+    public async Task Ohne_Bezug_sagt_die_Fahrzeugfolge_auch_das()
+    {
+        int vehicleId;
+        using (var context = database.Context())
+        {
+            var wagen = new Vehicle { Name = "Fiat Panda", Plate = "HD-FP 8" };
+            context.Vehicles.Add(wagen);
+            context.SaveChanges();
+            vehicleId = wagen.Id;
+        }
+
+        var folge = (await Service().GetFormAsync(CreateObjectType.Vehicle, vehicleId))!
+            .DeleteImpact!.Consequence;
+
+        Assert.Equal(
+            "Die Kostenübersicht entfällt. Es ist keine Versicherung verknüpft. "
+            + "Es hängt kein Beleg daran.",
+            folge);
+    }
+
+    /// <summary>
+    /// Beim Dienstwagen nennt die Folge den Betrag, der aus den Kosten verschwindet.
+    /// </summary>
+    /// <remarks>
+    /// Gerechnet wird er von derselben Stelle, die ihn auf dem Fahrzeugschirm zeigt. Stünde die
+    /// Regel hier ein zweites Mal, liefen die beiden Zahlen irgendwann auseinander — und die
+    /// Löschfolge wäre genau das, wovor ihr eigener Kommentar warnt.
+    /// </remarks>
+    [Fact]
+    public async Task Beim_Dienstwagen_nennt_die_Loeschfolge_den_geldwerten_Vorteil()
+    {
+        int vehicleId;
+        using (var context = database.Context())
+        {
+            var stelle = new Employment
+            {
+                Employer = "Nordwind Messtechnik",
+                GrossMonthly = 6700m,
+                StartsOn = new DateOnly(2019, 3, 1),
+                CommuteKilometres = 24m,
+            };
+            context.Employments.Add(stelle);
+            context.SaveChanges();
+
+            var wagen = new Vehicle
+            {
+                Name = "Firmenwagen Nordwind",
+                Plate = "HD-NW 41",
+                GrossListPrice = 48_900m,
+                TaxableSharePercent = 100m,
+                EmploymentId = stelle.Id,
+            };
+            context.Vehicles.Add(wagen);
+            context.SaveChanges();
+            vehicleId = wagen.Id;
+        }
+
+        var folge = (await Service().GetFormAsync(CreateObjectType.Vehicle, vehicleId))!
+            .DeleteImpact!.Consequence;
+
+        // 489,00 € private Nutzung plus 352,08 € für 24 km — derselbe Betrag wie in der
+        // Kostenzeile. Über GermanFormat zusammengesetzt, weil zwischen Zahl und € ein
+        // geschütztes Leerzeichen steht, das man in einer Zeichenkette nicht sieht.
+        Assert.Contains($"geldwerte Vorteil von {GermanFormat.Euro(841.08m)} im Monat", folge);
     }
 
     public void Dispose()
