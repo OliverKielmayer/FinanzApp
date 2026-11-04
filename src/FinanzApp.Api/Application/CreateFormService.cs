@@ -684,6 +684,7 @@ public sealed class CreateFormService(
                     ["account"] = x.AccountId?.ToString(),
                     ["property"] = x.PropertyId?.ToString(),
                     ["objekt"] = x.PropertyRelated ? FlagOn : FlagOff,
+                    ["bereich"] = x.Area.ToString(),
                     ["costGroup"] = x.CostGroup,
                     ["notice"] = x.NoticePeriodWeeks == 0 ? null : x.NoticePeriodWeeks.ToString(),
                 };
@@ -989,6 +990,7 @@ public sealed class CreateFormService(
         contract.ContractNumber = Value(values, "number")?.Trim();
         contract.Amount = amount;
         contract.PaymentInterval = Rhythm(values, contract.PaymentInterval);
+        contract.Area = Bereich(values, contract.Area);
         contract.AccountId = ParseInt(Value(values, "account"));
         contract.PropertyId = ParseInt(Value(values, "property"));
         contract.PropertyRelated = objektbezogen;
@@ -1826,17 +1828,21 @@ public sealed class CreateFormService(
             Fields =
             [
                 Text("provider", "Anbieter", required: true, placeholder: "z. B. Stadtwerke Musterstadt"),
-                Choice("name", "Art", required: true,
-                [
-                    new() { Value = "Strom", Label = "Strom" },
-                    new() { Value = "Gas", Label = "Gas" },
-                    new() { Value = "Wasser", Label = "Wasser" },
-                    new() { Value = "Internet", Label = "Internet" },
-                    new() { Value = "Mobilfunk", Label = "Mobilfunk" },
-                    new() { Value = "Abfall", Label = "Abfall" },
-                    new() { Value = "Wartung", Label = "Wartung" },
-                    new() { Value = "Sonstiges", Label = "Sonstiges" },
-                ]),
+
+                // Freier Text statt der acht festen Arten.
+                //
+                // Die Auswahl kannte Strom, Gas, Wasser, Internet, Mobilfunk, Abfall, Wartung
+                // und Sonstiges — und sonst nichts. Eine Kontoführungsgebühr hieß damit
+                // „Sonstiges“, im Fixkostenbericht wie überall, und eine zweite Gebühr bei
+                // derselben Bank ließ sich gar nicht erst anlegen: Die Doppelprüfung läuft über
+                // Bezeichnung und Anbieter, und beide hießen „Sonstiges“.
+                //
+                // Geprüft wurde die Auswahl ohnehin nie — über die Schnittstelle ging jeder
+                // Text durch. Die Beschränkung saß allein im Formular und kostete nur die, die
+                // es benutzten.
+                Text("name", "Bezeichnung", required: true,
+                    placeholder: "z. B. Strom, Abfall, Kontoführung",
+                    help: "Der Name, unter dem der Vertrag in den Fixkosten steht."),
                 Text("number", "Vertragsnummer", required: false),
                 Money("amount", "Betrag je Zahlung", required: true,
                     help: "So, wie er vom Konto abgeht — nicht umgerechnet."),
@@ -1853,6 +1859,22 @@ public sealed class CreateFormService(
                     help: "Objektbezogen zählt in die Objektkosten und in €/m². "
                           + "Der Internetanschluss hängt am Haus und zieht doch mit um.",
                     defaultOn: true),
+                // Der Bereich stand bisher nicht im Formular und blieb deshalb immer auf
+                // „Wohnen“ — der Vorgabe der Entität. Eine Bankgebühr trug damit die
+                // Anmerkung „Wohnen“, und niemand konnte es ändern.
+                Choice("bereich", "Bereich", required: false,
+                [
+                    new() { Value = nameof(DocumentArea.Housing), Label = "Wohnen" },
+                    new() { Value = nameof(DocumentArea.Finance), Label = "Finanzen" },
+                    new() { Value = nameof(DocumentArea.Insurance), Label = "Versicherung" },
+                    new() { Value = nameof(DocumentArea.Health), Label = "Gesundheit" },
+                    new() { Value = nameof(DocumentArea.Vehicle), Label = "Fahrzeuge" },
+                    new() { Value = nameof(DocumentArea.Work), Label = "Arbeit" },
+                    new() { Value = nameof(DocumentArea.Personal), Label = "Persönlich" },
+                    new() { Value = nameof(DocumentArea.Other), Label = "Sonstiges" },
+                ], defaultValue: nameof(DocumentArea.Housing),
+                    help: "Steht als Anmerkung am Posten und gilt, solange keine Kostenart "
+                          + "gepflegt ist."),
                 Text("costGroup", "Kostenart", required: false,
                     placeholder: "z. B. Wohnen, Streaming, Mobilfunk"),
                 Number("notice", "Kündigungsfrist in Wochen", required: false),
@@ -1889,6 +1911,7 @@ public sealed class CreateFormService(
             ContractNumber = Value(values, "number")?.Trim(),
             Amount = amount,
             PaymentInterval = Rhythm(values, PremiumInterval.Monthly),
+            Area = Bereich(values, DocumentArea.Housing),
             AccountId = ParseInt(Value(values, "account")),
             PropertyId = ParseInt(Value(values, "property")),
             PropertyRelated = objektbezogen,
@@ -1913,6 +1936,17 @@ public sealed class CreateFormService(
     private static PremiumInterval Rhythm(
         IReadOnlyDictionary<string, string?> values, PremiumInterval fallback)
         => Enum.TryParse<PremiumInterval>(Value(values, "rhythm"), out var takt) ? takt : fallback;
+
+    /// <summary>
+    /// Der gewählte Bereich. Ohne Angabe bleibt der bisherige stehen.
+    /// </summary>
+    /// <remarks>
+    /// Dieselbe Vorsicht wie beim Takt: Ein Formular, das das Feld nicht mitschickt, darf
+    /// einen gepflegten Bereich nicht stillschweigend auf „Wohnen“ zurücksetzen.
+    /// </remarks>
+    private static DocumentArea Bereich(
+        IReadOnlyDictionary<string, string?> values, DocumentArea fallback)
+        => Enum.TryParse<DocumentArea>(Value(values, "bereich"), out var bereich) ? bereich : fallback;
 
     // ── Budget ─────────────────────────────────────────────────────────────────────────────
 

@@ -806,6 +806,129 @@ public sealed class CreateFormTests : IDisposable
         Assert.Equal(38.90m, vertrag.Amount);
     }
 
+    // ── Bezeichnung und Bereich ────────────────────────────────────────────────────────────
+    //
+    // Der Vertrag kannte acht feste Arten und keinen Bereich. Eine Kontoführungsgebühr hieß
+    // damit „Sonstiges“, lag unter „Wohnen“, und eine zweite Gebühr bei derselben Bank ließ
+    // sich gar nicht erst anlegen.
+
+    [Fact]
+    public async Task Ein_Vertrag_traegt_die_Bezeichnung_die_man_ihm_gibt()
+    {
+        var werte = Vertragswerte(objekt: "nein");
+        werte["name"] = "Kontoführung";
+        werte["provider"] = "Musterbank";
+
+        var ergebnis = await Service().CreateAsync(CreateObjectType.Contract, werte);
+
+        Assert.True(ergebnis.Ok, ergebnis.Message);
+
+        using var check = database.Context();
+        Assert.Equal("Kontoführung", Assert.Single(check.Contracts).Name);
+    }
+
+    /// <summary>
+    /// Zwei Gebühren bei derselben Bank gehen nebeneinander.
+    /// </summary>
+    /// <remarks>
+    /// Die Doppelprüfung läuft über Bezeichnung und Anbieter. Solange beide „Sonstiges“ hießen,
+    /// wies sie die zweite ab — und das war kein Schutz, sondern eine Folge der zu engen
+    /// Auswahl.
+    /// </remarks>
+    [Fact]
+    public async Task Zwei_verschiedene_Gebuehren_beim_selben_Anbieter_gehen()
+    {
+        var erste = Vertragswerte(objekt: "nein");
+        erste["name"] = "Kontoführung";
+        erste["provider"] = "Musterbank";
+
+        var zweite = Vertragswerte(objekt: "nein");
+        zweite["name"] = "Depotgebühr";
+        zweite["provider"] = "Musterbank";
+
+        Assert.True((await Service().CreateAsync(CreateObjectType.Contract, erste)).Ok);
+
+        var ergebnis = await Service().CreateAsync(CreateObjectType.Contract, zweite);
+        Assert.True(ergebnis.Ok, ergebnis.Message);
+
+        using var check = database.Context();
+        Assert.Equal(2, check.Contracts.Count());
+    }
+
+    /// <summary>Derselbe Vertrag beim selben Anbieter bleibt abgewiesen.</summary>
+    [Fact]
+    public async Task Derselbe_Vertrag_zweimal_bleibt_abgewiesen()
+    {
+        var werte = Vertragswerte(objekt: "nein");
+        werte["name"] = "Kontoführung";
+        werte["provider"] = "Musterbank";
+
+        Assert.True((await Service().CreateAsync(CreateObjectType.Contract, werte)).Ok);
+
+        var zweiter = await Service().CreateAsync(
+            CreateObjectType.Contract, new Dictionary<string, string?>(werte));
+
+        Assert.False(zweiter.Ok);
+        Assert.Equal("provider", zweiter.FieldKey);
+    }
+
+    [Fact]
+    public async Task Der_gewaehlte_Bereich_wird_gespeichert()
+    {
+        var werte = Vertragswerte(objekt: "nein");
+        werte["name"] = "Kontoführung";
+        werte["bereich"] = nameof(DocumentArea.Finance);
+
+        Assert.True((await Service().CreateAsync(CreateObjectType.Contract, werte)).Ok);
+
+        using var check = database.Context();
+        Assert.Equal(DocumentArea.Finance, Assert.Single(check.Contracts).Area);
+    }
+
+    /// <summary>
+    /// Ohne Angabe bleibt der Bereich stehen.
+    /// </summary>
+    /// <remarks>
+    /// Dieselbe Vorsicht wie beim Zahlungstakt: Ein Formular, das das Feld nicht mitschickt,
+    /// darf einen gepflegten Bereich nicht stillschweigend auf „Wohnen“ zurückstellen.
+    /// </remarks>
+    [Fact]
+    public async Task Ohne_Angabe_bleibt_der_Bereich_wie_er_war()
+    {
+        var werte = Vertragswerte(objekt: "nein");
+        werte["name"] = "Kontoführung";
+        werte["bereich"] = nameof(DocumentArea.Finance);
+
+        var angelegt = await Service().CreateAsync(CreateObjectType.Contract, werte);
+
+        var ohneBereich = Vertragswerte(objekt: "nein");
+        ohneBereich["name"] = "Kontoführung";
+        ohneBereich["amount"] = "12,50";
+
+        Assert.True((await Service().UpdateAsync(
+            CreateObjectType.Contract, angelegt.Id!.Value, ohneBereich)).Ok);
+
+        using var check = database.Context();
+        var vertrag = Assert.Single(check.Contracts);
+        Assert.Equal(DocumentArea.Finance, vertrag.Area);
+        Assert.Equal(12.50m, vertrag.Amount);
+    }
+
+    /// <summary>Beim Bearbeiten kommt der Bereich vorbefüllt zurück.</summary>
+    [Fact]
+    public async Task Der_Bereich_steht_im_Bearbeiten_Formular()
+    {
+        var werte = Vertragswerte(objekt: "nein");
+        werte["name"] = "Kontoführung";
+        werte["bereich"] = nameof(DocumentArea.Finance);
+
+        var angelegt = await Service().CreateAsync(CreateObjectType.Contract, werte);
+        var maske = await Service().GetFormAsync(CreateObjectType.Contract, angelegt.Id);
+
+        Assert.Equal(nameof(DocumentArea.Finance), maske!.Values!["bereich"]);
+        Assert.Contains(maske.Fields, f => f.Key == "bereich");
+    }
+
     public void Dispose()
     {
         database.Dispose();
