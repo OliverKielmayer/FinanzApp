@@ -1873,8 +1873,14 @@ namespace FinanzApp.Api.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("EmploymentId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateOnly?>("FirstRegistration")
                         .HasColumnType("TEXT");
+
+                    b.Property<long?>("GrossListPrice")
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("HouseholdId")
                         .HasColumnType("INTEGER");
@@ -1895,11 +1901,17 @@ namespace FinanzApp.Api.Data.Migrations
                     b.Property<int?>("PolicyId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<decimal?>("TaxableSharePercent")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Usage")
                         .HasMaxLength(80)
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EmploymentId");
 
                     b.HasIndex("PolicyId");
 
@@ -2287,10 +2299,17 @@ namespace FinanzApp.Api.Data.Migrations
 
             modelBuilder.Entity("FinanzApp.Api.Data.Entities.Vehicle", b =>
                 {
+                    b.HasOne("FinanzApp.Api.Data.Entities.Employment", "Employment")
+                        .WithMany()
+                        .HasForeignKey("EmploymentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("FinanzApp.Api.Data.Entities.Policy", "Policy")
                         .WithMany()
                         .HasForeignKey("PolicyId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Employment");
 
                     b.Navigation("Policy");
                 });

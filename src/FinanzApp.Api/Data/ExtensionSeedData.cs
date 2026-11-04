@@ -810,6 +810,13 @@ public static class ExtensionSeedData
     {
         var kfz = policies.TryGetValue("Kfz", out var policy) ? policy.Id : (int?)null;
 
+        // Der Dienstwagen hängt am laufenden Arbeitsverhältnis: nur so entsteht der Zuschlag
+        // für den Arbeitsweg, und nur so ist die 1-%-Regelung überhaupt vorführbar.
+        var stelle = await db.Employments.IgnoreQueryFilters()
+            .Where(e => e.Employer == "Nordwind Messtechnik")
+            .Select(e => (int?)e.Id)
+            .FirstOrDefaultAsync(ct);
+
         var passat = new Vehicle
         {
             Name = "VW Passat Variant",
@@ -835,6 +842,12 @@ public static class ExtensionSeedData
                 Name = "Firmenwagen Nordwind",
                 Plate = "HD-NW 41",
                 Usage = "Dienstwagen · 1 % Regelung",
+
+                // 48.900 € voll angesetzt: 489,00 € private Nutzung plus 352,08 € für
+                // 24 km Arbeitsweg — 841,08 € im Monat, 10.092,96 € im Jahr.
+                GrossListPrice = 48900m,
+                TaxableSharePercent = 100m,
+                EmploymentId = stelle,
             });
 
         var account = await db.Accounts.IgnoreQueryFilters().FirstAsync(a => a.Name == "Sparkasse Giro", ct);

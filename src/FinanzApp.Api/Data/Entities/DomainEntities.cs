@@ -677,6 +677,40 @@ public class Vehicle : IHouseholdOwned
     /// <summary>Verknüpfte Kfz-Versicherung. Sie bleibt eine <see cref="Policy"/>.</summary>
     public int? PolicyId { get; set; }
     public Policy? Policy { get; set; }
+
+    /// <summary>
+    /// Bruttolistenpreis. <c>null</c> bei jedem Fahrzeug, das kein Dienstwagen ist.
+    /// </summary>
+    /// <remarks>
+    /// Die einzige Pflichtangabe der 1-%-Regelung und zugleich die, die niemand im Kopf hat:
+    /// nicht der Kaufpreis und nicht der Zeitwert, sondern der Listenpreis des Herstellers zum
+    /// Zeitpunkt der Erstzulassung, einschließlich Sonderausstattung und Umsatzsteuer. Rabatte
+    /// mindern ihn nicht. Fehlt er, entsteht die Rechnung gar nicht — geschätzt wird er nicht.
+    /// </remarks>
+    public decimal? GrossListPrice { get; set; }
+
+    /// <summary>
+    /// Anteil des Listenpreises, der in die Bemessung geht: 100, 50 oder 25.
+    /// </summary>
+    /// <remarks>
+    /// Für Hybrid und Elektro wird nicht der Monatssatz gesenkt, sondern die
+    /// Bemessungsgrundlage (§ 6 Abs. 1 Nr. 4 EStG). Der Unterschied ist sichtbar: so sinkt mit
+    /// ihr auch der Zuschlag für den Arbeitsweg. Bei einem gesenkten Monatssatz bliebe er
+    /// stehen, und das Elektroauto käme auf einen zu hohen Vorteil.
+    /// </remarks>
+    public decimal? TaxableSharePercent { get; set; }
+
+    /// <summary>
+    /// Das Arbeitsverhältnis, zu dem der Dienstwagen gehört. <c>null</c> beim Privatwagen.
+    /// </summary>
+    /// <remarks>
+    /// Verknüpft und nicht abgeschrieben: der Zuschlag für Fahrten zwischen Wohnung und
+    /// Arbeitsstätte rechnet mit <see cref="Employment.CommuteKilometres"/> — derselben
+    /// Entfernung, aus der die Entfernungspauschale entsteht. Zwei Felder für dieselbe Strecke
+    /// wären zwei Wahrheiten, von denen eine veraltet.
+    /// </remarks>
+    public int? EmploymentId { get; set; }
+    public Employment? Employment { get; set; }
 }
 
 /// <summary>

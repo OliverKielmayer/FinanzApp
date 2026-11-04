@@ -706,6 +706,9 @@ public sealed class CreateFormService(
                     ["first"] = Iso(x.FirstRegistration),
                     ["mileage"] = x.Mileage?.ToString(),
                     ["policy"] = x.PolicyId?.ToString(),
+                    ["listPrice"] = x.GrossListPrice is { } preis ? Money(preis) : null,
+                    ["taxShare"] = NumberValue(x.TaxableSharePercent),
+                    ["employment"] = x.EmploymentId?.ToString(),
                 };
             }
 
@@ -1020,10 +1023,24 @@ public sealed class CreateFormService(
         vehicle.FirstRegistration = ParseDate(Value(values, "first"));
         vehicle.Mileage = ParseInt(Value(values, "mileage"));
         vehicle.PolicyId = ParseInt(Value(values, "policy"));
+        vehicle.GrossListPrice = ParseMoney(Value(values, "listPrice"));
+        vehicle.TaxableSharePercent = Share(vehicle.GrossListPrice, values);
+        vehicle.EmploymentId = ParseInt(Value(values, "employment"));
 
         await db.SaveChangesAsync(ct);
         return Ok(id, $"/fahrzeuge/{id}");
     }
+
+    /// <summary>
+    /// Der Anteil des Listenpreises, der in die Bemessung geht.
+    /// </summary>
+    /// <remarks>
+    /// Ohne Listenpreis bleibt er leer. Die Auswahl steht vorbelegt auf „Voll“, und ein
+    /// gespeichertes „100“ an einem Privatwagen sähe aus, als wäre dort etwas entschieden
+    /// worden — entschieden wird erst, wenn ein Preis dasteht.
+    /// </remarks>
+    private static decimal? Share(decimal? listPrice, IReadOnlyDictionary<string, string?> values)
+        => listPrice is null ? null : ParseInt(Value(values, "taxShare")) ?? 100m;
 
     private static string Plural(int count) => count == 1 ? "1 Buchung" : $"{count} Buchungen";
 
@@ -2141,13 +2158,27 @@ public sealed class CreateFormService(
             .Select(p => new CreateOptionDto { Value = p.Id.ToString(), Label = p.Name, Hint = p.Provider })
             .ToListAsync(ct);
 
+        // Auch beendete Verhältnisse stehen zur Wahl: sonst verschwände beim Bearbeiten die
+        // Verknüpfung eines Wagens, dessen Stelle ausgelaufen ist, still aus dem Formular.
+        var employments = await db.Employments.AsNoTracking()
+            .OrderByDescending(e => e.IsActive).ThenBy(e => e.Employer)
+            .Select(e => new CreateOptionDto
+            {
+                Value = e.Id.ToString(),
+                Label = e.Employer,
+                Hint = e.IsActive ? e.Position : "beendet",
+            })
+            .ToListAsync(ct);
+
         return new CreateFormDto
         {
             Type = CreateObjectType.Vehicle,
             Kicker = "Neu",
             Title = "Fahrzeug anlegen",
             SubmitLabel = "Fahrzeug anlegen",
-            Hint = "Die Kfz-Versicherung wird verknüpft, nicht kopiert — sie bleibt unter Absicherung.",
+            Hint = "Die Kfz-Versicherung wird verknüpft, nicht kopiert — sie bleibt unter "
+                   + "Absicherung. Beim Dienstwagen rechnet der Bruttolistenpreis den geldwerten "
+                   + "Vorteil nach der 1-%-Regelung.",
             Fields =
             [
                 Text("name", "Bezeichnung", required: true, placeholder: "z. B. VW Passat Variant"),
@@ -2161,6 +2192,19 @@ public sealed class CreateFormService(
                 Date("first", "Erstzulassung", required: false),
                 Number("mileage", "Kilometerstand", required: false),
                 Reference("policy", "Versicherung verknüpfen", required: false, policies),
+                Money("listPrice", "Bruttolistenpreis", required: false,
+                    help: "Nur beim Dienstwagen. Der Listenpreis des Herstellers samt "
+                          + "Sonderausstattung und Umsatzsteuer — nicht der Kaufpreis, Rabatte "
+                          + "mindern ihn nicht. Ohne ihn wird kein geldwerter Vorteil gerechnet."),
+                Choice("taxShare", "Versteuerung", required: false,
+                [
+                    new() { Value = "100", Label = "Voll · 1 % je Monat" },
+                    new() { Value = "50", Label = "Hybrid · 0,5 % je Monat" },
+                    new() { Value = "25", Label = "Elektro · 0,25 % je Monat" },
+                ], defaultValue: "100",
+                    help: "Gemindert wird die Bemessungsgrundlage, nicht der Satz — der "
+                          + "Zuschlag für den Arbeitsweg sinkt deshalb im selben Verhältnis."),
+                Reference("employment", "Arbeitsverhältnis", required: false, employments),
             ],
         };
     }
@@ -2176,6 +2220,8 @@ public sealed class CreateFormService(
             return Fail("plate", $"Ein Fahrzeug mit Kennzeichen „{plate}“ besteht bereits.");
         }
 
+        var listenpreis = ParseMoney(Value(values, "listPrice"));
+
         var vehicle = new Vehicle
         {
             Name = name,
@@ -2184,6 +2230,9 @@ public sealed class CreateFormService(
             FirstRegistration = ParseDate(Value(values, "first")),
             Mileage = ParseInt(Value(values, "mileage")),
             PolicyId = ParseInt(Value(values, "policy")),
+            GrossListPrice = listenpreis,
+            TaxableSharePercent = Share(listenpreis, values),
+            EmploymentId = ParseInt(Value(values, "employment")),
         };
 
         db.Vehicles.Add(vehicle);
@@ -2580,7 +2629,8 @@ public sealed class CreateFormService(
         => new() { Key = key, Label = label, Kind = CreateFieldKind.Date, Required = required, Help = help };
 
     private static CreateFieldDto Choice(
-        string key, string label, bool required, IReadOnlyList<CreateOptionDto> options, string? defaultValue = null)
+        string key, string label, bool required, IReadOnlyList<CreateOptionDto> options,
+        string? defaultValue = null, string? help = null)
         => new()
         {
             Key = key,
@@ -2589,6 +2639,7 @@ public sealed class CreateFormService(
             Required = required,
             Options = options,
             DefaultValue = defaultValue,
+            Help = help,
         };
 
     /// <summary>

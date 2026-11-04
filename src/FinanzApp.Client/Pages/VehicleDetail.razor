@@ -20,6 +20,66 @@
             <span class="detail-value num">@Describe(vehicle)</span>
         </div>
 
+        @*
+            Die 1-%-Regelung, in ihren Bestandteilen. Nur die Endsumme zu zeigen hieße, eine
+            Zahl zu nennen, die niemand nachrechnen kann — und sie ist beim Dienstwagen der
+            mit Abstand größte Posten der Kostenzeile oben.
+        *@
+        @if (vehicle.Benefit is { } vorteil)
+        {
+            <div class="value-parts">
+                <span class="label-muted">So entsteht der geldwerte Vorteil</span>
+
+                <div class="value-part">
+                    <span class="stack">
+                        <span>Private Nutzung</span>
+                        <span class="meta num">1 % von @State.Euro0(vorteil.Basis) je Monat</span>
+                    </span>
+                    <span class="num">@State.Euro(vorteil.UsePerMonth)</span>
+                </div>
+
+                @if (vorteil.CommuteKilometres is { } km)
+                {
+                    <div class="value-part">
+                        <span class="stack">
+                            <span>Weg zur Arbeit</span>
+                            <span class="meta num">
+                                0,03 % je Kilometer · @GermanFormat.Quantity(km) km einfach@(vorteil.EmployerName is { Length: > 0 } arbeitgeber
+                                    ? " · " + arbeitgeber
+                                    : null)
+                            </span>
+                        </span>
+                        <span class="num">@State.Euro(vorteil.CommutePerMonth)</span>
+                    </div>
+                }
+
+                <div class="value-part total">
+                    <span class="label-strong">Je Monat</span>
+                    <span class="num">@State.Euro(vorteil.PerMonth)</span>
+                </div>
+
+                <span class="meta num">@Basis(vorteil)</span>
+
+                <span class="meta">
+                    Im Jahr @State.Euro(vorteil.PerYear) — so steht er in den Kosten oben. Der
+                    Betrag wird nicht überwiesen, er erhöht das zu versteuernde Einkommen. Was
+                    davon im Netto fehlt, hängt vom persönlichen Steuersatz ab und steht
+                    deshalb hier nicht als Zahl.
+                </span>
+
+                @* Ohne Entfernung entsteht der Zuschlag gar nicht. Das zu verschweigen hieße,
+                   eine unvollständige Rechnung als vollständige auszugeben. *@
+                @if (vorteil.CommuteKilometres is null)
+                {
+                    <span class="meta">
+                        Ohne erfasste Entfernung fehlt der Zuschlag für Fahrten zwischen Wohnung
+                        und Arbeitsstätte. Er entsteht, sobald am verknüpften Arbeitsverhältnis
+                        eine Entfernung steht.
+                    </span>
+                }
+            </div>
+        }
+
         <div class="list-head">
             <span class="label-strong">Versicherung</span>
         </div>
@@ -87,6 +147,25 @@
     private VehicleDetailDto? data;
 
     protected override async Task LoadAsync() => data = await Api.GetVehicleAsync(Id);
+
+    /// <summary>
+    /// Die Bemessungsgrundlage im Klartext — der Satz, den sonst niemand nachvollziehen kann.
+    /// </summary>
+    /// <remarks>
+    /// Der Minderungssatz steht nur da, wo er greift. „zu 100 % angesetzt“ an einem Verbrenner
+    /// wäre eine Angabe über etwas, das gar nicht entschieden wurde.
+    /// </remarks>
+    private string Basis(CompanyCarBenefitDto vorteil)
+    {
+        var satz = vorteil.TaxableSharePercent;
+        var gemindert = satz < 100m
+            ? $", davon {GermanFormat.Percent(satz, 0)} als {(satz == 25m ? "Elektro" : "Hybrid")}"
+            : string.Empty;
+
+        return $"Bruttolistenpreis {State.Euro0(vorteil.GrossListPrice)}, "
+               + $"abgerundet auf volle hundert Euro{gemindert} — Bemessung "
+               + $"{State.Euro0(vorteil.Basis)}.";
+    }
 
     private static string Describe(VehicleDetailDto vehicle)
     {

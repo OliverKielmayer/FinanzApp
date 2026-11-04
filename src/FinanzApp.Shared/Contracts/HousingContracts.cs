@@ -426,10 +426,48 @@ public sealed record VehicleDetailDto
     public required decimal CostsLastTwelveMonths { get; init; }
     public required IReadOnlyList<string> CostParts { get; init; }
 
+    /// <summary>Die 1-%-Regelung, wenn sie sich rechnen lässt — sonst <c>null</c>.</summary>
+    public CompanyCarBenefitDto? Benefit { get; init; }
+
     /// <summary>Die verknüpfte Kfz-Versicherung, als Verweiszeile. Nicht kopiert.</summary>
     public VehiclePolicyRefDto? Policy { get; init; }
 
     public required IReadOnlyList<DocumentListItemDto> Documents { get; init; }
+}
+
+/// <summary>
+/// Der geldwerte Vorteil eines Dienstwagens, in seinen Bestandteilen.
+/// </summary>
+/// <remarks>
+/// Nicht nur die Endsumme: Wer 841,08 € im Monat liest, will wissen, woraus sie entsteht — und
+/// die beiden Teile haben verschiedene Gründe. Die private Nutzung fällt an, solange der Wagen
+/// da ist; der Wegzuschlag hängt an einer Entfernung, die sich ändert, wenn jemand umzieht.
+/// </remarks>
+public sealed record CompanyCarBenefitDto
+{
+    /// <summary>Der erfasste Bruttolistenpreis, ungerundet.</summary>
+    public required decimal GrossListPrice { get; init; }
+
+    /// <summary>Anteil, mit dem er angesetzt wird: 100, 50 oder 25.</summary>
+    public required decimal TaxableSharePercent { get; init; }
+
+    /// <summary>Bemessungsgrundlage: abgerundet auf volle hundert Euro, dann gemindert.</summary>
+    public required decimal Basis { get; init; }
+
+    /// <summary>Ein Prozent der Bemessungsgrundlage, je Monat.</summary>
+    public required decimal UsePerMonth { get; init; }
+
+    /// <summary>Einfache Entfernung zur Arbeitsstätte. <c>null</c>, wenn keine erfasst ist.</summary>
+    public decimal? CommuteKilometres { get; init; }
+
+    /// <summary>0,03 % je Kilometer, je Monat. Null ohne erfasste Entfernung.</summary>
+    public required decimal CommutePerMonth { get; init; }
+
+    /// <summary>Der Arbeitgeber, an dessen Verhältnis der Wagen hängt.</summary>
+    public string? EmployerName { get; init; }
+
+    public required decimal PerMonth { get; init; }
+    public required decimal PerYear { get; init; }
 }
 
 public sealed record VehiclePolicyRefDto

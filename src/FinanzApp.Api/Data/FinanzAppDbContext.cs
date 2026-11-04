@@ -420,9 +420,18 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
             e.Property(x => x.Plate).HasMaxLength(20).IsRequired();
             e.Property(x => x.Usage).HasMaxLength(80);
 
+            // Dieselbe Regel wie überall: Beträge liegen als Cent in einem long.
+            e.Property(x => x.GrossListPrice).HasConversion(NullableMoneyConverter);
+            e.Property(x => x.TaxableSharePercent).HasPrecision(5, 2);
+
             // Die Versicherung wird verknüpft, nicht besessen — sie überlebt das Fahrzeug.
             e.HasOne(x => x.Policy).WithMany()
                 .HasForeignKey(x => x.PolicyId).OnDelete(DeleteBehavior.SetNull);
+
+            // Das Arbeitsverhältnis ebenso. Endet es, bleibt das Fahrzeug stehen: der
+            // geldwerte Vorteil entfällt dann, das Objekt nicht.
+            e.HasOne(x => x.Employment).WithMany()
+                .HasForeignKey(x => x.EmploymentId).OnDelete(DeleteBehavior.SetNull);
         });
 
         b.Entity<Purchase>(e =>

@@ -365,6 +365,24 @@ Fristen und Dokumente hängen. Seine Kosten der letzten zwölf Monate werden aus
 gerechnet, nicht gepflegt. Die Kfz-Versicherung wird **verwiesen**, nicht kopiert — sie bleibt
 unter Absicherung.
 
+Ein **Dienstwagen** kostet nichts, was vom Konto ginge, und stünde deshalb mit 0 € da. Steht ein
+**Bruttolistenpreis** am Fahrzeug, rechnet die Anwendung den geldwerten Vorteil nach der
+1-%-Regelung und stellt ihn in die Kostenzeile — als eigener, benannter Posten neben
+„Versicherung“ und „Steuer, Werkstatt“. Gerechnet wird auf den auf volle hundert Euro
+abgerundeten Listenpreis (§ 6 Abs. 1 Nr. 4 EStG): ein Prozent je Monat, dazu **0,03 % je
+Kilometer** einfacher Entfernung für den Arbeitsweg. Die Entfernung kommt aus dem verknüpften
+Arbeitsverhältnis — derselben Angabe, aus der die Entfernungspauschale entsteht; ohne sie
+entsteht der Zuschlag gar nicht, statt mit einer geratenen Strecke zu rechnen. Bei Hybrid und
+Elektro wird die **Bemessungsgrundlage** auf die Hälfte oder ein Viertel gemindert, nicht der
+Monatssatz: so sinkt der Wegzuschlag im selben Verhältnis mit. Endet das Arbeitsverhältnis,
+entfällt der Vorteil — beendetes ist keine laufende Last.
+
+Was die Anwendung **nicht** rechnet: die Einzelbewertung mit 0,002 % je tatsächlicher Fahrt (sie
+setzt ein Fahrtenbuch voraus) und das, was vom Vorteil tatsächlich im Netto fehlt. Der geldwerte
+Vorteil wird nicht überwiesen, er erhöht das zu versteuernde Einkommen; wie viel davon Steuer und
+Sozialabgaben kosten, hängt am persönlichen Satz und stünde hier als geschätzte Zahl in einer
+Summe, der man glauben soll. Der Schirm sagt das, statt zu rechnen.
+
 Findet die Analyse kein Zielobjekt, nennt die Meldung die gesuchte Nummer, **den Haushalt** und
 — wenn es einen gibt — das Objekt mit **denselben Ziffern**. Verglichen wird dafür auf die Ziffern
 herunter: „R-10020030-04“ auf dem Papier und „10020030-04“ im Vertrag treffen sich dabei. Genannt
@@ -868,7 +886,9 @@ Vorsorge **42.760,00 €** aus vier Verträgen, Absicherung **9.840 €/Jahr** a
 G/V +11.697,30 €, Budgets 755,80 € von 1.080 €, Kontosalden
 3.964,20 € / 1.284,55 € / 38.000,00 €, Erinnerung Kündigung Hausrat in **18 Tagen**,
 PKV-Erstattung **560 €** überfällig,
-Arztrechnung **175 €** noch nicht eingereicht, Stromrechnung **117,60 €** offen.
+Arztrechnung **175 €** noch nicht eingereicht, Stromrechnung **117,60 €** offen. Der Dienstwagen
+trägt **48.900 €** Bruttolistenpreis und damit 841,08 € geldwerten Vorteil im Monat — 489,00 €
+private Nutzung plus 352,08 € für 24 km Arbeitsweg.
 
 Damit das aufgeht, enthält der August 2026 mehr Buchungen als die sieben des ersten Prototyps, und
 die Erweiterung bringt fünf Monate Vorgeschichte (März bis Juli) mit — ohne Historie könnte „Wohin
