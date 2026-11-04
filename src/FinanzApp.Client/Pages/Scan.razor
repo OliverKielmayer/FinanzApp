@@ -457,7 +457,7 @@ else if (step == Step.Done && result is { } fertig)
         {
             // Kein Typ erkannt, Datei verschwunden: das ist kein Fehler der Seite, sondern eine
             // Aussage über den Beleg. Sie gehört auf den Schirm, und die Seite bleibt am Anfang.
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
             step = Step.Capture;
         }
     }
@@ -467,7 +467,7 @@ else if (step == Step.Done && result is { } fertig)
         var file = e.File;
         if (file.Size > MaxBytes)
         {
-            Toasts.Show("Die Datei ist größer als 25 MB.");
+            Toasts.Show("Die Datei ist größer als 25 MB.", ToastKind.Problem);
             return;
         }
 
@@ -489,7 +489,7 @@ else if (step == Step.Done && result is { } fertig)
 
         if (bytes.LongLength > MaxBytes)
         {
-            Toasts.Show("Die Aufnahme ist größer als 25 MB.");
+            Toasts.Show("Die Aufnahme ist größer als 25 MB.", ToastKind.Problem);
             return;
         }
 
@@ -512,7 +512,7 @@ else if (step == Step.Done && result is { } fertig)
         }
         catch (ApiException ex)
         {
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
             step = Step.Capture;
         }
     }
@@ -538,7 +538,7 @@ else if (step == Step.Done && result is { } fertig)
         }
         catch (ApiException ex)
         {
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
         }
         finally
         {
@@ -632,7 +632,7 @@ else if (step == Step.Done && result is { } fertig)
             // Die Eingabe zurücknehmen: sonst stünde sie im Schirm, ohne dass irgendetwas sie
             // gerechnet hätte, und die Zahlen darunter widersprächen ihr.
             zurücknehmen();
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
         }
         finally
         {

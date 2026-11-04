@@ -233,7 +233,7 @@
             fresh = string.Empty;
             await LoadAsync();
 
-            Toasts.Show($"„{angelegt.Name}“ angelegt");
+            Toasts.Show($"„{angelegt.Name}“ angelegt", ToastKind.Saved);
         }
         catch (ApiException ex)
         {
@@ -269,7 +269,7 @@
 
             Toasts.Show(art == TaxCategory.None
                 ? "Steuerliche Einordnung entfernt"
-                : $"Steuerlich eingeordnet: {TaxKinds.First(k => k.Kind == art).Label}");
+                : $"Steuerlich eingeordnet: {TaxKinds.First(k => k.Kind == art).Label}", ToastKind.Saved);
         }
         finally
         {
@@ -291,7 +291,7 @@
 
             Toasts.Show(objektbezogen
                 ? "Zählt zu den Objektkosten"
-                : "Zählt zur Lebenshaltung");
+                : "Zählt zur Lebenshaltung", ToastKind.Saved);
         }
         finally
         {
@@ -319,7 +319,8 @@
             Toasts.Show(wirkung.TransactionCount == 0
                 ? $"{vorher} → {nachher}"
                 : $"{vorher} → {nachher} · {wirkung.TransactionCount} "
-                  + (wirkung.TransactionCount == 1 ? "Buchung angepasst" : "Buchungen angepasst"));
+                  + (wirkung.TransactionCount == 1 ? "Buchung angepasst" : "Buchungen angepasst"),
+                ToastKind.Saved);
         }
         catch (ApiException ex)
         {
@@ -357,7 +358,7 @@
                 teile.Add($"{wirkung.RuleCount} {(wirkung.RuleCount == 1 ? "Regel" : "Regeln")} entfernt");
             }
 
-            Toasts.Show(string.Join(" · ", teile));
+            Toasts.Show(string.Join(" · ", teile), ToastKind.Saved);
         }
         catch (ApiException ex)
         {

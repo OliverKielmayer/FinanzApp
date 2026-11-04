@@ -1,11 +1,26 @@
 @implements IDisposable
 @inject ToastService Toasts
 
+@*
+    Der Stempel steht nur da, wo er stimmt.
+
+    Vorher trug ihn jede Einblendung — auch die über eine Bank, die den Abruf abgelehnt hatte.
+    Daneben stand dann „Gespeichert“, und das war schlicht falsch. Ein Stempel ist eine Zusage;
+    wo keine zu geben ist, steht keine.
+
+    Ein Fehlschlag ist ausserdem kein „status“: Vorleseprogramme reichen den erst weiter, wenn
+    sie gerade nichts anderes zu tun haben. Was schiefging, soll dazwischen.
+*@
 @if (Toasts.Message is { } message)
 {
-    <div class="toast" role="status" aria-live="polite">
+    <div class="@(Toasts.Kind == ToastKind.Problem ? "toast toast-problem" : "toast")"
+         role="@(Toasts.Kind == ToastKind.Problem ? "alert" : "status")"
+         aria-live="@(Toasts.Kind == ToastKind.Problem ? "assertive" : "polite")">
         <span class="toast-message">@message</span>
-        <span class="toast-mark">Gespeichert</span>
+        @if (Toasts.Kind == ToastKind.Saved)
+        {
+            <span class="toast-mark">Gespeichert</span>
+        }
     </div>
 }
 

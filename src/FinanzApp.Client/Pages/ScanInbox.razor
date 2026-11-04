@@ -229,7 +229,7 @@
         try
         {
             await Api.FileScanInboxAsync(item.Id);
-            Toasts.Show($"{item.FileName} ist eingeordnet.");
+            Toasts.Show($"{item.FileName} ist eingeordnet.", ToastKind.Saved);
             await ReloadAsync();
         }
         finally

@@ -275,7 +275,7 @@ else
                 return;
             }
 
-            Toasts.Show(result.Message ?? "Gelöscht");
+            Toasts.Show(result.Message ?? "Gelöscht", ToastKind.Saved);
             Navigation.NavigateTo(result.Route ?? "/");
         }
         finally
@@ -322,7 +322,7 @@ else
         }
         catch (ApiException ex)
         {
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
             analysis = null;
         }
         finally
@@ -382,7 +382,7 @@ else
 
             Toasts.Show(Id is null
                 ? $"{form!.Title.Replace(" anlegen", string.Empty)} angelegt"
-                : "Änderungen gespeichert");
+                : "Änderungen gespeichert", ToastKind.Saved);
 
             Navigation.NavigateTo(result.Route ?? "/");
         }

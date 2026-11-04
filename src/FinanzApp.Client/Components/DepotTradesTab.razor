@@ -270,7 +270,7 @@
             await ReloadAsync();
             await OnImported.InvokeAsync();
 
-            Toasts.Show(Summary(result));
+            Toasts.Show(Summary(result), ToastKind.Saved);
         }
         catch (ApiException ex)
         {

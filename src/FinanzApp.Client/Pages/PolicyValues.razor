@@ -252,7 +252,7 @@ else
 
         if (file.Size > MaxBytes)
         {
-            Toasts.Show("Die Datei ist größer als 25 MB.");
+            Toasts.Show("Die Datei ist größer als 25 MB.", ToastKind.Problem);
             return;
         }
 
@@ -271,7 +271,7 @@ else
         }
         catch (ApiException ex)
         {
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
         }
         finally
         {
@@ -304,7 +304,7 @@ else
         }
         catch (ApiException ex)
         {
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
         }
         finally
         {

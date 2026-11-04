@@ -114,7 +114,7 @@
             await Api.DeleteRuleAsync(id);
             await LoadAsync();
 
-            Toasts.Show("Regel gelöscht");
+            Toasts.Show("Regel gelöscht", ToastKind.Saved);
         }
         finally
         {

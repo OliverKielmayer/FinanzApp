@@ -266,7 +266,7 @@
             await Api.ChangePasswordAsync(currentPassword, newPassword);
 
             CancelChange();
-            Toasts.Show("Passwort geändert · andere Sitzungen beendet");
+            Toasts.Show("Passwort geändert · andere Sitzungen beendet", ToastKind.Saved);
         }
         catch (ApiException ex)
         {
@@ -386,7 +386,7 @@
                 accounts = [.. accounts.Select(a => a.Id == geaendert.Id ? geaendert : a)];
                 Recount();
 
-                Toasts.Show($"{geaendert.Name}: {Reach(geaendert)}");
+                Toasts.Show($"{geaendert.Name}: {Reach(geaendert)}", ToastKind.Saved);
             }
             finally
             {
@@ -401,7 +401,7 @@
         {
             var invitation = await Api.CreateInvitationAsync();
             data = data! with { Invitation = invitation };
-            Toasts.Show("Neuer Einladungscode erzeugt");
+            Toasts.Show("Neuer Einladungscode erzeugt", ToastKind.Saved);
         }
         finally
         {
@@ -434,7 +434,7 @@
         }
         catch (ApiException ex)
         {
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
         }
         finally
         {

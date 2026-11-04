@@ -113,25 +113,27 @@
     {
         if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(email))
         {
-            Toasts.Show("Name und E-Mail nötig");
+            Toasts.Show("Name und E-Mail nötig", ToastKind.Problem);
             return;
         }
 
         if (!PasswordPolicy.IsAcceptable(password))
         {
-            Toasts.Show($"Passwort zu schwach — mindestens {PasswordPolicy.MinimumLength} Zeichen und Stufe „Gut“");
+            Toasts.Show(
+                $"Passwort zu schwach — mindestens {PasswordPolicy.MinimumLength} Zeichen "
+                + "und Stufe „Gut“", ToastKind.Problem);
             return;
         }
 
         if (mode == HouseholdMode.Join && string.IsNullOrWhiteSpace(inviteCode))
         {
-            Toasts.Show("Einladungscode fehlt");
+            Toasts.Show("Einladungscode fehlt", ToastKind.Problem);
             return;
         }
 
         if (mode == HouseholdMode.Create && string.IsNullOrWhiteSpace(householdName))
         {
-            Toasts.Show("Name des Haushalts fehlt");
+            Toasts.Show("Name des Haushalts fehlt", ToastKind.Problem);
             return;
         }
 
@@ -150,12 +152,12 @@
 
             await Profiles.RememberAsync(user);
             Auth.SetUser(user);
-            Toasts.Show("Konto angelegt · " + user.HouseholdName);
+            Toasts.Show("Konto angelegt · " + user.HouseholdName, ToastKind.Saved);
             Navigation.NavigateTo("/", replace: true);
         }
         catch (ApiException ex)
         {
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
         }
         finally
         {

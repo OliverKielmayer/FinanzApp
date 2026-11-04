@@ -608,12 +608,12 @@
                 report, period, comparison, sort, depotId, [.. excluded]));
 
             views = [.. views, neu];
-            Toasts.Show($"Ansicht „{neu.Name}“ gespeichert");
+            Toasts.Show($"Ansicht „{neu.Name}“ gespeichert", ToastKind.Saved);
         }
         catch (ApiException ex)
         {
             // Meist der doppelte Name. Der Satz vom Server sagt es genauer als jeder hier.
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
         }
         finally
         {
@@ -656,7 +656,7 @@
         {
             await Api.DeleteReportViewAsync(ansicht.Id);
             views = [.. views.Where(v => v.Id != ansicht.Id)];
-            Toasts.Show($"Ansicht „{ansicht.Name}“ verworfen");
+            Toasts.Show($"Ansicht „{ansicht.Name}“ verworfen", ToastKind.Saved);
         }
         finally
         {

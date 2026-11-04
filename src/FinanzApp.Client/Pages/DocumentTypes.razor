@@ -211,7 +211,7 @@
             fresh = string.Empty;
             await LoadAsync();
 
-            Toasts.Show($"„{neu.Name}“ angelegt");
+            Toasts.Show($"„{neu.Name}“ angelegt", ToastKind.Saved);
         }
         catch (ApiException ex)
         {
@@ -270,7 +270,8 @@
                 ? $"„{ergebnis.Name}“ steht jetzt unter {AreaLabel(data!, ziel)}"
                 : $"„{ergebnis.Name}“ steht jetzt unter {AreaLabel(data!, ziel)} — "
                   + $"{ergebnis.DocumentCount} "
-                  + $"{(ergebnis.DocumentCount == 1 ? "Beleg ist" : "Belege sind")} mitgezogen");
+                  + $"{(ergebnis.DocumentCount == 1 ? "Beleg ist" : "Belege sind")} mitgezogen",
+                ToastKind.Saved);
         }
         catch (ApiException ex)
         {
@@ -299,7 +300,8 @@
             Toasts.Show(ergebnis.DocumentCount == 0
                 ? $"Umbenannt in „{ergebnis.Name}“"
                 : $"Umbenannt in „{ergebnis.Name}“ · {ergebnis.DocumentCount} "
-                  + (ergebnis.DocumentCount == 1 ? "Dokument betroffen" : "Dokumente betroffen"));
+                  + (ergebnis.DocumentCount == 1 ? "Dokument betroffen" : "Dokumente betroffen"),
+                ToastKind.Saved);
         }
         catch (ApiException ex)
         {
@@ -335,7 +337,7 @@
                 ? $"„{ergebnis.Name}“ gelöscht"
                 : $"„{ergebnis.Name}“ gelöscht · {ergebnis.DocumentCount} "
                   + (ergebnis.DocumentCount == 1 ? "Dokument behält" : "Dokumente behalten")
-                  + " den Typ");
+                  + " den Typ", ToastKind.Saved);
         }
         catch (ApiException ex)
         {

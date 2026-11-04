@@ -1093,7 +1093,7 @@
             // Seite beim nächsten Besuch denselben Auszug noch einmal an — und liefe ins Leere.
             Draft.Clear();
 
-            Toasts.Show(string.Join(" · ", teile));
+            Toasts.Show(string.Join(" · ", teile), ToastKind.Saved);
             Navigation.NavigateTo("/konten");
         }
         finally

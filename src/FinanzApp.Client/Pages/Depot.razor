@@ -199,7 +199,7 @@
         try
         {
             var ergebnis = await Api.RefreshQuotesAsync();
-            Toasts.Show(ergebnis.Message);
+            Toasts.Show(ergebnis.Message, ToastKind.Saved);
 
             await LoadAsync();
             await LoadSeriesAsync();

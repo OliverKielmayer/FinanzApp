@@ -426,7 +426,7 @@
 
             data = await Api.GetDocumentAsync(Id);
             editing = false;
-            Toasts.Show("Angaben übernommen");
+            Toasts.Show("Angaben übernommen", ToastKind.Saved);
         }
         finally
         {
@@ -444,11 +444,11 @@
             data = await Api.GetDocumentAsync(Id);
             term = string.Empty;
             hits = [];
-            Toasts.Show($"Hängt jetzt an {treffer.Label}.");
+            Toasts.Show($"Hängt jetzt an {treffer.Label}.", ToastKind.Saved);
         }
         catch (ApiException ex)
         {
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
         }
         finally
         {
@@ -472,11 +472,11 @@
         {
             await Api.UnlinkDocumentAsync(verknuepfung.Id);
             data = await Api.GetDocumentAsync(Id);
-            Toasts.Show($"Verknüpfung zu {verknuepfung.Label} gelöst · Datei bleibt liegen");
+            Toasts.Show($"Verknüpfung zu {verknuepfung.Label} gelöst · Datei bleibt liegen", ToastKind.Saved);
         }
         catch (ApiException ex)
         {
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
         }
         finally
         {
@@ -544,7 +544,7 @@
         catch (ApiException ex)
         {
             searching = false;
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
         }
     }
 
@@ -576,7 +576,7 @@
             data = await Api.GetDocumentAsync(Id);
             Toasts.Show(freigabe == DocumentSharing.Private
                 ? "Sichtbar nur für Sie"
-                : "Sichtbar für den Haushalt");
+                : "Sichtbar für den Haushalt", ToastKind.Saved);
         }
         finally
         {
@@ -606,12 +606,12 @@
         try
         {
             await Api.DeleteDocumentAsync(Id);
-            Toasts.Show("Dokumenteintrag gelöscht · Datei bleibt liegen");
+            Toasts.Show("Dokumenteintrag gelöscht · Datei bleibt liegen", ToastKind.Saved);
             await OnDeleted.InvokeAsync(Id);
         }
         catch (ApiException ex)
         {
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
         }
         finally
         {
@@ -633,11 +633,11 @@
         {
             data = await Api.FixDocumentPathAsync(Id, newPath);
             fixing = false;
-            Toasts.Show("Pfad gespeichert");
+            Toasts.Show("Pfad gespeichert", ToastKind.Saved);
         }
         catch (ApiException ex)
         {
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
         }
         finally
         {

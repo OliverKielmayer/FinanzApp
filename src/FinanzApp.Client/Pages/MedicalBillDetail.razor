@@ -182,12 +182,12 @@
         try
         {
             data = await Api.AdvanceMedicalBillAsync(Id, status);
-            Toasts.Show(label + " ✓");
+            Toasts.Show(label + " ✓", ToastKind.Saved);
             await LoadAsync();
         }
         catch (ApiException ex)
         {
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
         }
         finally
         {
@@ -203,12 +203,12 @@
         try
         {
             data = await Api.LinkBillPaymentAsync(Id, candidate.TransactionId);
-            Toasts.Show("Zahlung zugeordnet");
+            Toasts.Show("Zahlung zugeordnet", ToastKind.Saved);
             await LoadAsync();
         }
         catch (ApiException ex)
         {
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
         }
         finally
         {

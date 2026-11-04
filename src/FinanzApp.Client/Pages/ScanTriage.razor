@@ -666,7 +666,7 @@
         catch (ApiException ex)
         {
             objektForm = null;
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
         }
         finally
         {
@@ -718,7 +718,7 @@
                 // Angelegt ist es trotzdem — es lässt sich nur nichts daran hängen. Das zu
                 // verschweigen hieße, den Beleg stillschweigend ohne Objekt abzulegen.
                 CancelObject();
-                Toasts.Show("Angelegt — daran lässt sich aber nichts hängen.");
+                Toasts.Show("Angelegt — daran lässt sich aber nichts hängen.", ToastKind.Saved);
                 return;
             }
 
@@ -734,7 +734,7 @@
             CancelObject();
             term = string.Empty;
             hits = [];
-            Toasts.Show($"{picked.Label} angelegt.");
+            Toasts.Show($"{picked.Label} angelegt.", ToastKind.Saved);
         }
         catch (ApiException ex)
         {
@@ -799,7 +799,7 @@
             // Maske leer und der Vorgang lässt sich trotzdem anlegen.
             gelesen = null;
             regel = null;
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
         }
         finally
         {
@@ -922,7 +922,7 @@
                     TargetId = vorgang.Id,
                 });
 
-            Toasts.Show($"{beleg.FileName} liegt jetzt bei {vorgang.Provider}.");
+            Toasts.Show($"{beleg.FileName} liegt jetzt bei {vorgang.Provider}.", ToastKind.Saved);
 
             Navigation.NavigateTo(weiter is { } naechster
                 ? $"/scaneingang/{naechster}"
@@ -930,7 +930,7 @@
         }
         catch (ApiException ex)
         {
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
         }
         finally
         {
@@ -989,7 +989,7 @@
         catch (ApiException ex)
         {
             searching = false;
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
         }
     }
 
@@ -1027,7 +1027,7 @@
 
             Toasts.Show(picked is { } ziel
                 ? $"{beleg.FileName} liegt jetzt bei {ziel.Label}."
-                : $"{beleg.FileName} ist abgelegt — noch ohne Objekt.");
+                : $"{beleg.FileName} ist abgelegt — noch ohne Objekt.", ToastKind.Saved);
 
             Navigation.NavigateTo(weiter is { } naechster
                 ? $"/scaneingang/{naechster}"
@@ -1035,7 +1035,7 @@
         }
         catch (ApiException ex)
         {
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
         }
         finally
         {

@@ -153,7 +153,7 @@
         var file = e.File;
         if (file.Size > MaxBytes)
         {
-            Toasts.Show("Die Datei ist größer als 25 MB.");
+            Toasts.Show("Die Datei ist größer als 25 MB.", ToastKind.Problem);
             return;
         }
 
@@ -177,11 +177,11 @@
 
             documentId = result.DocumentId;
             fileName = file.Name;
-            Toasts.Show("Beleg abgelegt");
+            Toasts.Show("Beleg abgelegt", ToastKind.Saved);
         }
         catch (ApiException ex)
         {
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
         }
         finally
         {
@@ -221,13 +221,13 @@
     {
         if (string.IsNullOrWhiteSpace(provider))
         {
-            Toasts.Show("Rechnungssteller fehlt");
+            Toasts.Show("Rechnungssteller fehlt", ToastKind.Problem);
             return;
         }
 
         if (gross <= 0)
         {
-            Toasts.Show("Betrag fehlt");
+            Toasts.Show("Betrag fehlt", ToastKind.Problem);
             return;
         }
 
@@ -245,12 +245,12 @@
                 DocumentId = documentId,
             });
 
-            Toasts.Show("Vorgang angelegt");
+            Toasts.Show("Vorgang angelegt", ToastKind.Saved);
             Navigation.NavigateTo($"/gesundheit/{bill.Id}");
         }
         catch (ApiException ex)
         {
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
         }
         finally
         {

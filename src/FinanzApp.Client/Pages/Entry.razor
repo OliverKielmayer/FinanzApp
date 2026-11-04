@@ -275,7 +275,7 @@
         {
             if (step == 1 && Amount == 0m)
             {
-                Toasts.Show("Betrag fehlt");
+                Toasts.Show("Betrag fehlt", ToastKind.Problem);
                 return;
             }
 
@@ -310,13 +310,13 @@
     {
         if (Amount == 0m)
         {
-            Toasts.Show("Betrag fehlt");
+            Toasts.Show("Betrag fehlt", ToastKind.Problem);
             return;
         }
 
         if (accountId is not { } account)
         {
-            Toasts.Show("Kein Konto gewählt");
+            Toasts.Show("Kein Konto gewählt", ToastKind.Problem);
             return;
         }
 
@@ -324,7 +324,7 @@
         // Fehler ab, und der Nutzer sucht die Ursache in der falschen Ecke.
         if (kind == TransactionKind.Deposit && (depositUserId is null || propertyId is null))
         {
-            Toasts.Show("Eine Einlage braucht Person und Objekt");
+            Toasts.Show("Eine Einlage braucht Person und Objekt", ToastKind.Problem);
             return;
         }
 
@@ -346,12 +346,12 @@
             var created = await Api.CreateTransactionAsync(request);
 
             Reset();
-            Toasts.Show(GermanFormat.Euro(created.Amount, withPlusSign: true) + " erfasst");
+            Toasts.Show(GermanFormat.Euro(created.Amount, withPlusSign: true) + " erfasst", ToastKind.Saved);
             Navigation.NavigateTo("/konten");
         }
         catch (ApiException ex)
         {
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
         }
         finally
         {

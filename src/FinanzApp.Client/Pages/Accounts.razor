@@ -638,7 +638,7 @@ else if (sheetTransaction is { } sheet)
         }
         catch (ApiException ex)
         {
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
             bankAccountId = null;
         }
         finally
@@ -948,7 +948,7 @@ else if (sheetTransaction is { } sheet)
         }
         catch (ApiException ex)
         {
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
         }
     }
 
@@ -1039,7 +1039,7 @@ else if (sheetTransaction is { } sheet)
     {
         var count = await Api.DeleteTransactionsAsync([.. selected]);
 
-        Toasts.Show(count == 1 ? "1 Buchung gelöscht" : $"{count} Buchungen gelöscht");
+        Toasts.Show(count == 1 ? "1 Buchung gelöscht" : $"{count} Buchungen gelöscht", ToastKind.Saved);
         ClearSelection();
         await ReloadListAsync();
     });
@@ -1054,7 +1054,7 @@ else if (sheetTransaction is { } sheet)
 
         await Api.DeleteTransactionAsync(transaction.Id);
         CloseSheet();
-        Toasts.Show("Buchung gelöscht");
+        Toasts.Show("Buchung gelöscht", ToastKind.Saved);
         await ReloadListAsync();
     });
 
@@ -1078,7 +1078,7 @@ else if (sheetTransaction is { } sheet)
             CategoryId = category.Id,
         });
 
-        Toasts.Show(result.Message);
+        Toasts.Show(result.Message, ToastKind.Saved);
         await ReloadListAsync();
         CloseBatch();
     });
@@ -1091,7 +1091,7 @@ else if (sheetTransaction is { } sheet)
             MarkAsTransfer = true,
         });
 
-        Toasts.Show(result.Message);
+        Toasts.Show(result.Message, ToastKind.Saved);
         await ReloadListAsync();
         CloseBatch();
     });
@@ -1211,7 +1211,7 @@ else if (sheetTransaction is { } sheet)
 
         Toasts.Show(regel
             ? $"{category.Name} zugeordnet · Regel für „{Categorization.RulePatternFor(empfaenger)}“ gemerkt"
-            : category.Name + " zugeordnet");
+            : category.Name + " zugeordnet", ToastKind.Saved);
 
         if (advance)
         {
@@ -1242,7 +1242,7 @@ else if (sheetTransaction is { } sheet)
 
         Apply(updated);
         await ReloadAsync();
-        Toasts.Show("Als Einlage markiert");
+        Toasts.Show("Als Einlage markiert", ToastKind.Saved);
     });
 
     /// <summary>Eine Umbuchung ist keine Kategorie — hier entsteht darum auch keine Regel.</summary>
@@ -1256,7 +1256,7 @@ else if (sheetTransaction is { } sheet)
             sheetTransaction!.Id, new AssignCategoryRequest { MarkAsTransfer = true });
 
         Apply(updated);
-        Toasts.Show("Als Umbuchung markiert");
+        Toasts.Show("Als Umbuchung markiert", ToastKind.Saved);
 
         if (advance)
         {
@@ -1284,7 +1284,9 @@ else if (sheetTransaction is { } sheet)
                     transaction.Id, new AssignCategoryRequest { CategoryId = categoryId, CreateRule = true });
 
                 Apply(updated);
-                Toasts.Show("Regel für „" + Categorization.RulePatternFor(transaction.Payee) + "“ gemerkt");
+                Toasts.Show(
+                    "Regel für „" + Categorization.RulePatternFor(transaction.Payee) + "“ gemerkt",
+                    ToastKind.Saved);
             });
         }
 

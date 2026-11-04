@@ -407,7 +407,7 @@
             capturing = false;
             await ReloadAsync();
 
-            Toasts.Show($"Aufstellung per {GermanFormat.Date(stichtag)} erfasst");
+            Toasts.Show($"Aufstellung per {GermanFormat.Date(stichtag)} erfasst", ToastKind.Saved);
         }
         catch (ApiException ex)
         {
@@ -431,11 +431,11 @@
             expanded = null;
             await ReloadAsync();
 
-            Toasts.Show("Aufstellung gelöscht");
+            Toasts.Show("Aufstellung gelöscht", ToastKind.Saved);
         }
         catch (ApiException ex)
         {
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
         }
         finally
         {

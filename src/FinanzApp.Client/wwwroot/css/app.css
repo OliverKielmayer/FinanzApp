@@ -1954,6 +1954,13 @@ body {
   opacity: 0.7;
 }
 
+/* Ein Fehlschlag bekommt eine Kante im Akzentmuster, wie der Fehlerblock ueber
+   einer Liste. Nicht rot: Die Anwendung kennt keine Ampelfarben, und eine, die
+   nur hier auftauchte, waere lauter als alles andere im Haus. */
+.toast-problem {
+  border-left: 3px solid var(--color-accent-300);
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    Ab Tablet: die Tab-Bar wird zur Seitennavigation, die Kacheln bekommen
    mehr Spalten. Ab hier ist es eine Web-App, keine Handy-Ansicht mehr.

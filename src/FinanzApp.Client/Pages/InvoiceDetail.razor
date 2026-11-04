@@ -208,7 +208,7 @@
         }
         catch (ApiException ex)
         {
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
         }
         finally
         {
@@ -226,11 +226,11 @@
             data = await Api.PayInvoiceAsync(
                 Id, transactionId, transactionId is null ? paymentNote : null);
             candidates = null;
-            Toasts.Show(transactionId is null ? "Als bezahlt markiert" : "Buchung zugeordnet");
+            Toasts.Show(transactionId is null ? "Als bezahlt markiert" : "Buchung zugeordnet", ToastKind.Saved);
         }
         catch (ApiException ex)
         {
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
         }
         finally
         {

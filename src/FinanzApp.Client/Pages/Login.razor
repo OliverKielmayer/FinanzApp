@@ -113,13 +113,13 @@
     {
         if (string.IsNullOrWhiteSpace(email))
         {
-            Toasts.Show("E-Mail fehlt");
+            Toasts.Show("E-Mail fehlt", ToastKind.Problem);
             return;
         }
 
         if (string.IsNullOrEmpty(password))
         {
-            Toasts.Show("Passwort fehlt");
+            Toasts.Show("Passwort fehlt", ToastKind.Problem);
             return;
         }
 
@@ -141,7 +141,7 @@
         catch (ApiException ex)
         {
             password = string.Empty;
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
         }
         finally
         {

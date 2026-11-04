@@ -564,7 +564,7 @@
             loeschen = null;
             offen = null;
             await ReloadAsync();
-            Toasts.Show("Stand entfernt");
+            Toasts.Show("Stand entfernt", ToastKind.Saved);
         }
         finally
         {

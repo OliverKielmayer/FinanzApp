@@ -166,7 +166,7 @@ public abstract class AppPage : ComponentBase, IDisposable
         }
         catch (ApiException ex)
         {
-            Toasts.Show(ex.Message);
+            Toasts.Show(ex.Message, ToastKind.Problem);
         }
     }
 
