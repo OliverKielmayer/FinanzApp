@@ -124,6 +124,19 @@ public static class HoldingMeta
             $"{GermanFormat.Percent(loan.InterestRatePercent, 2)} Sollzins",
             $"Rate {GermanFormat.EuroRounded(loan.Installment)}");
 
+    /// <summary>
+    /// Ein offener Posten — Empfänger, Nummer, Fälligkeit.
+    /// </summary>
+    /// <remarks>
+    /// Ohne Betrag, aus demselben Grund wie bei der Anschaffung: Er steht rechts an der Zeile,
+    /// wo „Beträge verbergen“ ihn maskiert. Hier genannt, käme er an der Maskierung vorbei.
+    /// </remarks>
+    public static string ForInvoice(Invoice invoice)
+        => Join(
+            invoice.Payee,
+            Number(invoice.Number),
+            $"fällig {GermanFormat.Date(invoice.DueOn)}");
+
     // ── Bausteine ──────────────────────────────────────────────────────────────────────────
 
     private static string? Number(string? value)

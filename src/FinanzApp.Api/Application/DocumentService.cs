@@ -137,6 +137,54 @@ public sealed class DocumentService(
             Add(LinkTargetType.Purchase, row.Id, row.Name, HoldingMeta.ForPurchase(row));
         }
 
+        // Fahrzeuge.
+        //
+        // Dieselbe Lücke wie bei den Konten, und sie fiel länger nicht auf, weil die Suchzeile
+        // das Fahrzeug ausdrücklich nennt: „Vertrag, Immobilie, Fahrzeug …“. Gesucht wurde es
+        // nie. Eine Werkstattrechnung blieb damit im Eingang liegen, obwohl das Fahrzeug mit
+        // Kennzeichen danebenstand.
+        //
+        // Das Kennzeichen gehört in die Beschriftung, nicht nur in den Untertitel: Auf der
+        // Rechnung steht es, und danach sucht, wer sie in der Hand hält. Die Fahrzeugliste
+        // schreibt denselben Titel.
+        //
+        // Mit der Police geladen, weil <see cref="HoldingMeta.ForVehicle"/> sie nennt — ohne
+        // sie fehlte der Hinweis an jedem Fahrzeug, auch an den versicherten.
+        foreach (var row in await db.Vehicles.AsNoTracking().Include(v => v.Policy).ToListAsync(ct))
+        {
+            Add(LinkTargetType.Vehicle, row.Id, $"{row.Name} · {row.Plate}", HoldingMeta.ForVehicle(row));
+        }
+
+        // Depot, Darlehen, offener Posten.
+        //
+        // Beim Nachsehen, warum das Fahrzeug fehlte, kam heraus, dass es nicht allein war:
+        // <see cref="ObjectLabelService.ResolveAsync"/> löst elf Zielarten auf, gesucht wurden
+        // acht. Verknüpfen, beschriften und wiederfinden gehören aber zusammen — eine Zielart,
+        // die nur zwei davon kann, ist für den Prüfplatz nicht vorhanden.
+        //
+        // Damit deckt die Suche alles ab, was sich überhaupt auflösen lässt. Kommt eine
+        // Zielart dazu, gehört sie an beide Stellen.
+        var positionen = await db.PortfolioPositions.AsNoTracking()
+            .GroupBy(p => p.DepotId)
+            .Select(g => new { DepotId = g.Key, Anzahl = g.Count() })
+            .ToDictionaryAsync(x => x.DepotId, x => x.Anzahl, ct);
+
+        foreach (var row in await db.Depots.AsNoTracking().ToListAsync(ct))
+        {
+            Add(LinkTargetType.Portfolio, row.Id, row.Name,
+                HoldingMeta.ForDepot(row, positionen.GetValueOrDefault(row.Id)));
+        }
+
+        foreach (var row in await db.Loans.AsNoTracking().ToListAsync(ct))
+        {
+            Add(LinkTargetType.Loan, row.Id, row.Name, HoldingMeta.ForLoan(row));
+        }
+
+        foreach (var row in await db.Invoices.AsNoTracking().ToListAsync(ct))
+        {
+            Add(LinkTargetType.Invoice, row.Id, row.Subject, HoldingMeta.ForInvoice(row));
+        }
+
         foreach (var row in await db.MedicalBills.AsNoTracking()
                      .Select(x => new { x.Id, x.Provider, x.BillNumber }).ToListAsync(ct))
         {
