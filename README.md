@@ -155,8 +155,14 @@ Ein anderer Anbieter braucht zusätzlich `Mail:Host`, `Mail:Port` und ggf.
 
 ### Bankzugang (FinTS)
 
-Noch ohne Abruf — die Einstellungen stehen schon, damit sich der Zugang einrichten lässt,
-bevor die erste Verbindung gebaut wird.
+Ein Konto mit Bankzugang bekommt auf der Kontenseite den Schalter **„Stand bei der Bank
+abfragen"**. Er holt den Saldo und stellt ihn neben den gerechneten. Mehr nicht: Der Abruf
+schreibt nichts, und der gerechnete Stand bleibt stehen, wie er ist.
+
+**Eine Abweichung ist der Befund, nicht der Fehler.** Sie heisst: Es fehlen Buchungen, oder
+es stehen welche zu viel da. Den gerechneten Saldo auf die Zahl der Bank zu setzen, hiesse
+eine Rechnung durch eine Behauptung zu ersetzen — und die Differenz, die man eigentlich
+sucht, verschwände im selben Zug.
 
 **Der Zugang steht am Konto.** Bank und IBAN stehen dort ohnehin; Bankleitzahl, FinTS-Adresse,
 Benutzerkennung, Kunden-ID und TAN-Verfahren kommen im Anlegen- und Bearbeiten-Formular
@@ -164,17 +170,37 @@ dazu, alle freiwillig. Ein Konto ohne diese Angaben verhält sich wie bisher: Au
 als Datei eingelesen. Die Werte stehen im FinTS-Zugangsdatenblatt der Bank. Die Kunden-ID
 bleibt leer, wenn sie der Benutzerkennung entspricht — bei den meisten Banken ist das so.
 
-**In `appsettings.json` steht nur, was das Programm bezeichnet:**
+**In der Konfiguration steht nur, was das Programm bezeichnet.** Die
+Produkt-Registrierungsnummer der Deutschen Kreditwirtschaft gilt für alle Konten — sie sagt,
+welche Software anklopft, nicht wer. Sie ist genau 25 Zeichen lang und enthält keine
+Leerzeichen; was länger ist, weist die Bank mit einer Meldung über ein ungültiges Segment ab.
 
-```json
-"Bankzugang": {
-  "ProductId": "…",
-  "ProductVersion": "1.0"
-}
+```bash
+dotnet user-secrets --project src/FinanzApp.Api set "Bankzugang:ProductId" "…"
 ```
 
-Die Produkt-Registrierungsnummer der Deutschen Kreditwirtschaft gilt für alle Konten und ist
-kein Geheimnis — sie sagt, welche Software anklopft, nicht wer.
+Im Betrieb entsprechend die Umgebungsvariable `Bankzugang__ProductId`. Die Nummer gehört
+**nicht** in `appsettings.json` — die Datei liegt im Repository. Sie ist kein Passwort, aber
+sie ist auf einen Betreiber registriert: Wer sie veröffentlicht, lässt fremde Software unter
+seinem Namen anklopfen, und muss sich die Folgen zurechnen lassen. `ProductVersion` bleibt in
+`appsettings.json`; sie bezeichnet nur die eigene Fassung.
+
+**Die FinTS-Bibliothek protokolliert nicht mit.** Unterhalb von „Warnung" schreibt sie den
+Nachrichtenstrom selbst, und darin steht die PIN. Der Filter dafür steht in `Program.cs` und
+nicht in der Konfiguration, damit ihn niemand versehentlich wegstellt. Dasselbe gilt für ihre
+Ausnahmen: Deren Text kommt weder auf den Bildschirm noch ins Protokoll — übernommen wird nur,
+was vom Netz spricht, also Rechnername, Port, Zeitüberschreitung. Dort kann keine PIN stehen.
+
+**Antwortet die Bank gar nicht, steht das in der Tafel.** Kein Netz, Wartungsfenster, ein
+Tippfehler in der FinTS-Adresse: Der Abruf endet dann mit einem Satz, der die Leitung benennt
+und ausdrücklich sagt, dass es **nicht** an der PIN liegt. Das ist der Punkt — wer eine
+Fehlermeldung über einen Abruf liest, tippt sonst die PIN neu, und drei Fehlversuche sperren
+den Zugang.
+
+**Verlangt die Bank eine TAN, endet der Abruf.** Der Saldo ändert nichts und ist meist ohne
+TAN zu haben; viele Banken verlangen eine Freigabe nur alle 90 Tage. Wer dort landet, meldet
+sich einmal im Online-Banking an. Eine TAN entgegenzunehmen ist zu bauen, aber noch nicht
+gebaut.
 
 **Die PIN wird nirgends hinterlegt.** Sie wird bei jedem Abruf eingegeben und lebt nur für
 diesen Dialog. Die Datenbank ist eine unverschlüsselte Datei, und eine Banking-PIN darin wäre

@@ -37,6 +37,7 @@ public sealed class AccountService(FinanzAppDbContext db)
             OwnerUserId = a.OwnerUserId,
             OwnerName = a.Owner?.Name,
             IsMine = a.OwnerUserId == db.CurrentUserId,
+            HasBankAccess = a.HasBankAccess,
             Sharing = a.Sharing,
             SharedWith = [.. a.Shares
                 .Where(s => s.User != null)

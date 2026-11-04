@@ -28,6 +28,16 @@ public sealed class BankAccessOptions
 
     /// <summary>Ob die Anwendung sich gegenüber einer Bank ausweisen kann.</summary>
     public bool IsConfigured => !string.IsNullOrWhiteSpace(ProductId);
+
+    /// <summary>
+    /// Die längste Registrierungsnummer, die in eine Dialogeröffnung passt.
+    /// </summary>
+    /// <remarks>
+    /// Das Feld „Produktbezeichnung“ in FinTS fasst 25 Zeichen. Was länger ist, weist die Bank
+    /// ab — und zwar mit einer Meldung über ein ungültiges Segment, die niemand mit einer zu
+    /// langen Nummer in Verbindung bringt.
+    /// </remarks>
+    public const int ProductIdMaxLength = 25;
 }
 
 /// <summary>
@@ -59,6 +69,21 @@ public static class BankAccessReadiness
                 + "appsettings.json und gilt für alle Konten. Ohne sie weist die Bank den "
                 + "Dialog ab.");
         }
+        else if (options.ProductId.Trim().Length > BankAccessOptions.ProductIdMaxLength
+                 || options.ProductId.Any(char.IsWhiteSpace))
+        {
+            // Zwei Fehler, eine Meldung: Beide enden bei der Bank als abgewiesenes Segment, und
+            // beide sieht man der Nummer nicht an. Gemeldet wird die Länge, nicht die Nummer —
+            // sie ist zwar kein Geheimnis, gehört aber niemandem vor die Augen, der sie nicht
+            // gerade einträgt.
+            probleme.Add(
+                $"{BankAccessOptions.SectionName}:ProductId ist "
+                + $"{options.ProductId.Trim().Length} Zeichen lang und enthält "
+                + (options.ProductId.Any(char.IsWhiteSpace) ? "Leerzeichen" : "keine Leerzeichen")
+                + $". Erlaubt sind höchstens {BankAccessOptions.ProductIdMaxLength} Zeichen ohne "
+                + "Leerzeichen; die Registrierungsnummer der Deutschen Kreditwirtschaft hat "
+                + "genau diese Länge.");
+        }
 
         if (!account.HasBankAccess)
         {
@@ -73,6 +98,18 @@ public static class BankAccessReadiness
         if (string.IsNullOrWhiteSpace(account.Blz))
         {
             probleme.Add($"Dem Konto „{account.Name}“ fehlt die Bankleitzahl.");
+        }
+        else if (account.Blz.Trim() is not { Length: 8 } blz || !blz.All(char.IsAsciiDigit))
+        {
+            // Beim Abtippen entsteht das leicht: eine Ziffer zu viel, ein Leerzeichen, ein
+            // Punkt. Geprüft wird es hier, weil die Bankleitzahl weiter unten als Zahl
+            // gebraucht wird — eine elfstellige passt in keine, und der Abruf bräche mit einer
+            // Meldung ab, die von der Bankleitzahl kein Wort sagte.
+            probleme.Add(
+                $"Die Bankleitzahl am Konto „{account.Name}“ hat "
+                + $"{account.Blz.Trim().Length} Zeichen. Eine deutsche Bankleitzahl hat genau "
+                + "acht Ziffern — sie steht in den ersten acht Stellen der IBAN nach der "
+                + "Prüfziffer.");
         }
 
         if (string.IsNullOrWhiteSpace(account.FinTsUrl))

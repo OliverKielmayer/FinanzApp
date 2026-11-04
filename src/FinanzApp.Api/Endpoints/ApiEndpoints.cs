@@ -25,6 +25,38 @@ public static class ApiEndpoints
         api.MapGet("/accounts", async (AccountService service, CancellationToken ct)
             => Results.Ok(await service.GetAccountsAsync(ct)));
 
+        // Was dem Abruf eines Kontos noch fehlt — ohne abzurufen und ohne PIN. Damit die
+        // Oberfläche den Schalter gar nicht erst anbietet, wo er nur in eine Fehlermeldung
+        // führte.
+        api.MapGet("/accounts/{id:int}/bankzugang", async (
+                int id, BankBalanceService service, CancellationToken ct)
+            => Results.Ok(await service.ProblemsAsync(id, ct)));
+
+        // Der Abruf bei der Bank. POST, obwohl nichts gespeichert wird: Die PIN gehört in den
+        // Rumpf der Anfrage und nicht in eine Adresse, die in Protokollen und im Verlauf steht.
+        //
+        // Lesen genügt als Recht. Der Abruf ändert nichts — er stellt nur zwei Zahlen
+        // nebeneinander.
+        api.MapPost("/accounts/{id:int}/kontostand", async (
+            int id, BalanceCheckRequest request, BankBalanceService service,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(await service.CheckAsync(id, request.Pin, ct));
+            }
+            catch (RuleViolationException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+            catch (BankAccessException ex)
+            {
+                // 502: Die Anwendung hat richtig gefragt, die Gegenstelle hat abgelehnt. Die
+                // Meldung ist die der Bank und bleibt, wie sie ist.
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status502BadGateway);
+            }
+        });
+
         // Die Gemeinschaftskonten mit Soll und Eingang. Fertig gerechnet: der Schirm stellt
         // gegenüber, er rechnet nicht.
         api.MapGet("/accounts/gemeinschaft", async (

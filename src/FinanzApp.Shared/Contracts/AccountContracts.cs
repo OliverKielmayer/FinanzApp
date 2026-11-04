@@ -35,6 +35,17 @@ public sealed record AccountDto
     /// <summary>Ob der angemeldete Benutzer der Eigentümer ist — nur er darf die Freigabe ändern.</summary>
     public required bool IsMine { get; init; }
 
+    /// <summary>
+    /// Ob am Konto ein Bankzugang steht.
+    /// </summary>
+    /// <remarks>
+    /// Nur ja oder nein. Benutzerkennung und Zugangsadresse bleiben am Server — die Oberfläche
+    /// muss wissen, ob sie den Abruf anbieten kann, und sonst nichts. Ob der Zugang auch
+    /// <em>vollständig</em> ist, sagt dieses Feld nicht; danach fragt die Seite erst, wenn
+    /// jemand hinsieht.
+    /// </remarks>
+    public bool HasBankAccess { get; init; }
+
     public required AccountSharing Sharing { get; init; }
 
     /// <summary>
@@ -49,4 +60,65 @@ public sealed record AccountDto
 
     /// <summary>Stand des Saldos — die Oberfläche macht daraus „heute“ oder ein Datum.</summary>
     public required DateOnly BalanceAsOf { get; init; }
+}
+
+// ── Bankabruf ─────────────────────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Was die Bank sagt, was die Anwendung rechnet — und der Unterschied.
+/// </summary>
+/// <remarks>
+/// <para><b>Drei Zahlen, nicht eine.</b> Der Saldo dieser Anwendung ist nichts Gespeichertes,
+/// sondern das Ergebnis aus Anfangsbestand und allen Buchungen. Ein Banksaldo ist eine zweite
+/// Zahl aus einer anderen Quelle. Sie übereinanderzuschreiben hiesse, eine Rechnung durch eine
+/// Behauptung zu ersetzen.</para>
+/// <para><b>Eine Abweichung ist eine Auskunft.</b> Sie bedeutet: Es fehlen Buchungen, oder es
+/// stehen welche zu viel da. Das ist der Befund, nach dem man sucht — und keine Zahl, die man
+/// wegrechnet.</para>
+/// </remarks>
+public sealed record BankBalanceDto
+{
+    public required int AccountId { get; init; }
+    public required string AccountName { get; init; }
+
+    /// <summary>Was die Bank meldet.</summary>
+    public required decimal BankBalance { get; init; }
+
+    /// <summary>
+    /// Wann abgerufen wurde.
+    /// </summary>
+    /// <remarks>
+    /// Der Zeitpunkt der Frage, nicht ein von der Bank genannter Stichtag: Die Bank nennt im
+    /// Saldo zwar einen Buchungstag, die verwendete Bibliothek reicht ihn aber nicht durch. Ein
+    /// Feld „Stand vom“ behauptete deshalb mehr, als hier ankommt.
+    /// </remarks>
+    public required DateTime RetrievedAt { get; init; }
+
+    /// <summary>Was die Anwendung aus Anfangsbestand und Buchungen rechnet.</summary>
+    public required decimal LedgerBalance { get; init; }
+
+    /// <summary>Bank minus Anwendung. Positiv heisst: die Bank hat mehr.</summary>
+    public decimal Difference => BankBalance - LedgerBalance;
+
+    /// <summary>
+    /// Ob beide Zahlen dasselbe sagen.
+    /// </summary>
+    /// <remarks>
+    /// Mit einem halben Cent Spielraum: Ein Vergleich auf Gleichheit zweier Dezimalzahlen aus
+    /// verschiedenen Quellen findet sonst Unterschiede, die keine sind.
+    /// </remarks>
+    public bool Matches => Math.Abs(Difference) < 0.005m;
+}
+
+/// <summary>
+/// Die PIN für einen einzelnen Abruf.
+/// </summary>
+/// <remarks>
+/// Sie wird nicht gespeichert — weder in der Datenbank noch in der Konfiguration. Sie kommt mit
+/// der Anfrage, lebt für den Dialog mit der Bank und ist danach weg. Der Preis ist bekannt: kein
+/// Abruf im Hintergrund, nur auf Knopfdruck.
+/// </remarks>
+public sealed record BalanceCheckRequest
+{
+    public required string Pin { get; init; }
 }

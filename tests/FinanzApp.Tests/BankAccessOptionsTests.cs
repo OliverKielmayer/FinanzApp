@@ -18,7 +18,8 @@ namespace FinanzApp.Tests;
 /// </remarks>
 public sealed class BankAccessOptionsTests
 {
-    private static BankAccessOptions Produkt() => new() { ProductId = "ABC123" };
+    private static BankAccessOptions Produkt()
+        => new() { ProductId = "ABC123DEF456GHI789JKL0123" };
 
     private static Account Konto() => new()
     {
@@ -26,8 +27,8 @@ public sealed class BankAccessOptionsTests
         ShortName = "Giro",
         BankName = "Musterbank",
         Kind = AccountKind.Checking,
-        Iban = "DE02120300000000202051",
-        Blz = "12345678",
+        Iban = "DE66999999991234567890",
+        Blz = "99999999",
         FinTsUrl = "https://banking.example.test/fints30",
         FinTsUserId = "mustermann1",
         FinTsTanMethod = 921,
@@ -97,6 +98,34 @@ public sealed class BankAccessOptionsTests
         Assert.Contains("fehlt die IBAN", problem, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Eine Bankleitzahl mit der falschen Stellenzahl fällt auf.
+    /// </summary>
+    /// <remarks>
+    /// <para>Beim Abtippen entsteht das leicht — eine Ziffer zu viel, und niemand zählt nach.
+    /// Gefunden wurde es an echten Daten: Ein Konto trug eine elfstellige Bankleitzahl, und
+    /// der Abruf wäre daran mit einer Meldung zerbrochen, die von der Bankleitzahl kein Wort
+    /// gesagt hätte — sie wird weiter unten als Zahl gebraucht, und eine elfstellige passt in
+    /// keine.</para>
+    /// <para>Die Meldung nennt die Stellenzahl und sagt, wo die richtige steht.</para>
+    /// </remarks>
+    [Theory]
+    [InlineData("99999999000")]
+    [InlineData("1234567")]
+    [InlineData("1234 5678")]
+    [InlineData("ABCDEFGH")]
+    public void Eine_falsche_Bankleitzahl_faellt_auf(string blz)
+    {
+        var konto = Konto();
+        konto.Blz = blz;
+
+        var problem = Assert.Single(BankAccessReadiness.Problems(konto, Produkt()));
+
+        Assert.Contains("Bankleitzahl", problem, StringComparison.Ordinal);
+        Assert.Contains("acht Ziffern", problem, StringComparison.Ordinal);
+        Assert.Contains("Musterbank Giro", problem, StringComparison.Ordinal);
+    }
+
     /// <summary>Ein TAN-Verfahren von null ist keines.</summary>
     [Fact]
     public void Ein_fehlendes_TAN_Verfahren_faellt_auf()
@@ -127,6 +156,57 @@ public sealed class BankAccessOptionsTests
         Assert.Contains("Bankzugang:ProductId", problem, StringComparison.Ordinal);
         Assert.Contains("appsettings.json", problem, StringComparison.Ordinal);
         Assert.Contains("für alle Konten", problem, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Eine zu lange Nummer fällt hier auf und nicht erst bei der Bank.
+    /// </summary>
+    /// <remarks>
+    /// Das Feld in der Dialogeröffnung fasst 25 Zeichen. Wer eine längere einträgt, bekommt von
+    /// der Bank eine Meldung über ein ungültiges Segment — und sucht den Fehler überall, nur
+    /// nicht in der Länge einer Nummer, die er abgetippt hat.
+    /// </remarks>
+    [Fact]
+    public void Eine_zu_lange_Registrierungsnummer_faellt_auf()
+    {
+        var zuLang = new BankAccessOptions { ProductId = new string('A', 26) };
+
+        var problem = Assert.Single(BankAccessReadiness.Problems(Konto(), zuLang));
+
+        Assert.Contains("26 Zeichen", problem, StringComparison.Ordinal);
+        Assert.Contains("höchstens 25", problem, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Ein Leerzeichen in der Nummer ebenso.
+    /// </summary>
+    /// <remarks>
+    /// Beim Abtippen aus einem Brief entsteht es von selbst — die Nummern stehen dort in
+    /// Vierergruppen. Die Bank weist den Dialog ab, ohne zu sagen, warum.
+    /// </remarks>
+    [Fact]
+    public void Ein_Leerzeichen_in_der_Nummer_faellt_auf()
+    {
+        var mitLuecke = new BankAccessOptions { ProductId = "ABC1 23DE F456 GHI7 89JK" };
+
+        var problem = Assert.Single(BankAccessReadiness.Problems(Konto(), mitLuecke));
+
+        Assert.Contains("Leerzeichen", problem, StringComparison.Ordinal);
+    }
+
+    /// <summary>Die Nummer selbst steht in keiner Meldung.</summary>
+    /// <remarks>
+    /// Sie ist kein Geheimnis, aber sie gehört dem Betreiber und niemandem sonst vor die Augen.
+    /// Die Meldung nennt die Länge; das genügt, um den Fehler zu finden.
+    /// </remarks>
+    [Fact]
+    public void Die_Meldung_zeigt_die_Nummer_nicht()
+    {
+        var zuLang = new BankAccessOptions { ProductId = new string('A', 30) };
+
+        var problem = Assert.Single(BankAccessReadiness.Problems(Konto(), zuLang));
+
+        Assert.DoesNotContain(zuLang.ProductId, problem, StringComparison.Ordinal);
     }
 
     // ── Vollständig ────────────────────────────────────────────────────────────────────────

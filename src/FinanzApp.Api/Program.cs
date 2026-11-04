@@ -210,6 +210,13 @@ builder.Services.AddScoped<TaxYearService>();
 var bankOptions = builder.Configuration.GetSection(BankAccessOptions.SectionName)
                       .Get<BankAccessOptions>() ?? new BankAccessOptions();
 builder.Services.AddSingleton(bankOptions);
+builder.Services.AddSingleton<IBankBalanceSource, FinTsBalanceSource>();
+builder.Services.AddScoped<BankBalanceService>();
+
+// Die FinTS-Bibliothek bekommt kein eigenes Protokoll: Was sie unterhalb von „Warnung“
+// schreibt, ist der Nachrichtenstrom selbst — und darin steht die PIN. Der Filter steht hier
+// und nicht in appsettings.json, damit ihn niemand versehentlich wegkonfiguriert.
+builder.Logging.AddFilter("libfintx", LogLevel.Warning);
 
 // ── Kurse ─────────────────────────────────────────────────────────────────────────────────
 var quoteOptions = builder.Configuration.GetSection(QuoteOptions.SectionName)

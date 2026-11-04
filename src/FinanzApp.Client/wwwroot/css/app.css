@@ -1052,6 +1052,64 @@ body {
   margin-top: 14px;
 }
 
+/* ── Der Stand bei der Bank ─────────────────────────────────────────────────── */
+
+/* Drei Zeilen untereinander: was die Bank sagt, was hier gerechnet wird, und was
+   dazwischen steht. Die dritte ist abgesetzt, weil sie die einzige ist, die man
+   nirgends sonst ablesen kann — die beiden darüber sind nur ihre Herkunft. */
+.acct-bank {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-divider);
+  text-align: left;
+}
+
+.acct-bank-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.acct-bank-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.acct-bank-diff {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--color-divider);
+  font-size: 15px;
+}
+
+/* Jeder fehlende Wert in einer eigenen Zeile. Wer drei Zeilen liest, trägt drei
+   Dinge nach; wer einen Fließtext liest, überliest das zweite. */
+.acct-bank-problems {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  color: var(--color-neutral-700);
+}
+
+.acct-bank-problems li + li {
+  margin-top: 4px;
+}
+
+/* Der Fehlerblock der Anwendung, hier ohne eigenen Rand: Die Tafel bringt ihren
+   Abstand schon mit, und der Block steht nicht ueber einer Liste, sondern in einer
+   Spalte. */
+.acct-bank .state-error {
+  margin: 0;
+  width: 100%;
+}
+
 /* ── Der Buchungstag ────────────────────────────────────────────────────────── */
 
 /* Datum links, daneben was an dem Tag passiert ist und wo das Konto danach stand.

@@ -85,6 +85,31 @@ public sealed class FinanzAppApi(HttpClient http)
     public Task<IReadOnlyList<JointAccountDto>> GetJointAccountsAsync(CancellationToken ct = default)
         => GetAsync<IReadOnlyList<JointAccountDto>>("api/accounts/gemeinschaft", ct);
 
+    /// <summary>
+    /// Was dem Bankabruf dieses Kontos noch fehlt. Leere Liste heisst: nichts.
+    /// </summary>
+    /// <remarks>
+    /// Ohne PIN und ohne Bankdialog. Damit die Seite den Schalter nur dort zeigt, wo er auch
+    /// irgendwohin führt.
+    /// </remarks>
+    public Task<IReadOnlyList<string>> GetBankAccessProblemsAsync(
+        int id, CancellationToken ct = default)
+        => GetAsync<IReadOnlyList<string>>($"api/accounts/{id}/bankzugang", ct);
+
+    /// <summary>
+    /// Fragt den Stand bei der Bank und stellt ihn neben den gerechneten.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die PIN geht im Rumpf der Anfrage mit und wird nirgends behalten — weder hier noch
+    /// auf dem Server. Jeder Abruf fragt neu.</para>
+    /// <para>Der Aufruf dauert, solange die Bank braucht: ein echter Dialog mit Anmeldung. Die
+    /// Seite muss das anzeigen, sonst sieht es aus, als sei nichts passiert.</para>
+    /// </remarks>
+    public Task<BankBalanceDto> CheckBankBalanceAsync(
+        int id, string pin, CancellationToken ct = default)
+        => PostAsync<BalanceCheckRequest, BankBalanceDto>(
+            $"api/accounts/{id}/kontostand", new BalanceCheckRequest { Pin = pin }, ct);
+
     /// <summary>Ändert die Freigabe eines Kontos. Nur der Eigentümer darf das.</summary>
     public Task<AccountDto> SetAccountSharingAsync(
         int id, AccountSharing sharing, IReadOnlyList<int> userIds, CancellationToken ct = default)
