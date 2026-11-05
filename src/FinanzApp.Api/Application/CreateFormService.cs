@@ -119,7 +119,7 @@ public sealed class CreateFormService(
             CreateObjectType.Contract => await ContractFormAsync(ct),
             CreateObjectType.Budget => await BudgetFormAsync(ct),
             CreateObjectType.Vehicle => await VehicleFormAsync(ct),
-            CreateObjectType.Purchase => PurchaseForm(),
+            CreateObjectType.Purchase => await PurchaseFormAsync(ct),
             CreateObjectType.Invoice => InvoiceForm(),
             CreateObjectType.Employment => EmploymentForm(),
             CreateObjectType.Loan => LoanForm(),
@@ -424,12 +424,21 @@ public sealed class CreateFormService(
             {
                 var contracts = await db.Contracts.CountAsync(c => c.PropertyId == id, ct);
                 var hasLoan = await db.Properties.AnyAsync(x => x.Id == id && x.LoanId != null, ct);
+
+                // Die Anschaffungen bleiben — sie sind Tatsachen, das Objekt war nur ihre
+                // Schublade. Nur ihre Investitionssumme hat danach kein Zuhause mehr.
+                var anschaffungen = await db.Purchases.CountAsync(p => p.PropertyId == id, ct);
+
                 return Impact("Immobilie löschen",
                     "Das Objekt entfällt."
                     + (hasLoan ? " Das verknüpfte Darlehen bleibt und steht weiter unter Darlehen." : string.Empty)
                     + (contracts == 0
                         ? string.Empty
-                        : $" {contracts} {(contracts == 1 ? "Vertrag verliert" : "Verträge verlieren")} die Zuordnung."));
+                        : $" {contracts} {(contracts == 1 ? "Vertrag verliert" : "Verträge verlieren")} die Zuordnung.")
+                    + (anschaffungen == 0
+                        ? string.Empty
+                        : $" {anschaffungen} {(anschaffungen == 1 ? "Anschaffung bleibt" : "Anschaffungen bleiben")} "
+                          + "erhalten, zählen danach aber zu keinem Objekt mehr."));
             }
 
             case CreateObjectType.Contract:
@@ -762,6 +771,7 @@ public sealed class CreateFormService(
                     ["vendor"] = x.Vendor,
                     ["price"] = x.Price is { } preis ? Money(preis) : null,
                     ["warranty"] = Iso(x.WarrantyUntil),
+                    ["property"] = x.PropertyId?.ToString(),
                     ["note"] = x.Note,
                 };
             }
@@ -1814,10 +1824,7 @@ public sealed class CreateFormService(
 
     private async Task<CreateFormDto> ContractFormAsync(CancellationToken ct)
     {
-        var properties = await db.Properties.AsNoTracking()
-            .OrderBy(p => p.Name)
-            .Select(p => new CreateOptionDto { Value = p.Id.ToString(), Label = p.Name })
-            .ToListAsync(ct);
+        var properties = await PropertyOptionsAsync(ct);
 
         return new CreateFormDto
         {
@@ -2165,7 +2172,7 @@ public sealed class CreateFormService(
         return Ok(invoice.Id, $"/rechnungen/{invoice.Id}");
     }
 
-    private static CreateFormDto PurchaseForm() => new()
+    private async Task<CreateFormDto> PurchaseFormAsync(CancellationToken ct) => new()
     {
         Type = CreateObjectType.Purchase,
         Kicker = "Neu",
@@ -2180,6 +2187,13 @@ public sealed class CreateFormService(
             Money("price", "Kaufpreis", required: false),
             Date("warranty", "Garantie bis", required: false,
                 help: "Steht auf dem Beleg. Ungerechnet — eine gerechnete Frist sähe aus wie eine abgelesene."),
+
+            // Freiwillig: Ein Bodenbelag gehört an das Haus, ein Fernseher zieht mit um. Nur
+            // was hier steht, zählt dort zu den Investitionen — ein Stichtag entschiede es
+            // sonst für den Benutzer, und zwar falsch: Der Einbaukühlschrank wurde neun Tage
+            // vor dem Kaufdatum der Immobilie gekauft, und zwar für sie.
+            Reference("property", "Immobilie", required: false, await PropertyOptionsAsync(ct),
+                help: "Zählt dann dort zu den Investitionen, getrennt von den laufenden Kosten."),
             Text("note", "Notiz", required: false),
         ],
     };
@@ -2200,6 +2214,7 @@ public sealed class CreateFormService(
             Price = ParseMoney(Value(values, "price")),
             WarrantyUntil = ParseDate(Value(values, "warranty")),
             Note = Value(values, "note")?.Trim(),
+            PropertyId = ParseInt(Value(values, "property")),
             CreatedAt = clock.Now,
             UpdatedAt = clock.Now,
         };
@@ -2230,6 +2245,7 @@ public sealed class CreateFormService(
         purchase.Price = ParseMoney(Value(values, "price"));
         purchase.WarrantyUntil = ParseDate(Value(values, "warranty"));
         purchase.Note = Value(values, "note")?.Trim();
+        purchase.PropertyId = ParseInt(Value(values, "property"));
         purchase.UpdatedAt = clock.Now;
 
         await db.SaveChangesAsync(ct);
@@ -2686,6 +2702,13 @@ public sealed class CreateFormService(
             .Select(a => new CreateOptionDto { Value = a.Id.ToString(), Label = a.Name, Hint = a.BankName })
             .ToListAsync(ct);
 
+    /// <summary>Die Immobilien zur Auswahl — für Vertrag und Anschaffung dieselbe Liste.</summary>
+    private async Task<List<CreateOptionDto>> PropertyOptionsAsync(CancellationToken ct)
+        => await db.Properties.AsNoTracking()
+            .OrderBy(p => p.Name)
+            .Select(p => new CreateOptionDto { Value = p.Id.ToString(), Label = p.Name, Hint = p.Address })
+            .ToListAsync(ct);
+
     // Mit Hilfetext wie Money und Number. Er fehlte, und ein Feld, dessen Wirkung erklärt
     // gehört — „wonach die Zahlungssuche sucht“ —, musste ohne auskommen.
     private static CreateFieldDto Text(
@@ -2776,8 +2799,11 @@ public sealed class CreateFormService(
             _ => fallback,
         };
 
+    // Mit Hilfetext wie Text, Choice und Money. Er fehlte als einziger, und gerade ein Verweis
+    // braucht ihn: Was eine Zuordnung bewirkt, steht nicht in ihrem Namen.
     private static CreateFieldDto Reference(
-        string key, string label, bool required, IReadOnlyList<CreateOptionDto> options)
+        string key, string label, bool required, IReadOnlyList<CreateOptionDto> options,
+        string? help = null)
         => new()
         {
             Key = key,
@@ -2785,6 +2811,7 @@ public sealed class CreateFormService(
             Kind = CreateFieldKind.Reference,
             Required = required,
             Options = options,
+            Help = help,
         };
 
     private static DateOnly FirstOfMonth(DateOnly day) => new(day.Year, day.Month, 1);

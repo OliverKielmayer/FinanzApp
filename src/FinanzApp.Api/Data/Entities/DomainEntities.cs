@@ -753,6 +753,26 @@ public class Purchase : IHouseholdOwned
 
     public string? Note { get; set; }
 
+    /// <summary>
+    /// Die Immobilie, in die der Gegenstand gegangen ist. <c>null</c> bei allem, was mitzieht.
+    /// </summary>
+    /// <remarks>
+    /// <para>Ein Bodenbelag, eine Einbauküche, eine Wandverkleidung gehören an das Haus und an
+    /// nichts sonst; ein Schlafapnoe-Gerät und ein Fernseher ziehen mit um. Erst diese
+    /// Unterscheidung lässt die Frage beantworten, was ein Einzug gekostet hat — vorher
+    /// standen beide Sorten nebeneinander in einer flachen Liste ohne Summe.</para>
+    /// <para>Freiwillig, und ohne ein zweites Feld daneben, das dasselbe noch einmal behauptet:
+    /// Beim Vertrag gibt es ein Häkchen „objektbezogen“ neben der Immobilie, und wer das eine
+    /// setzte und das andere vergaß, legte einen Vertrag an, der nirgends auftauchte. Hier ist
+    /// die Zuordnung das Objekt selbst, da kann nichts auseinanderlaufen.</para>
+    /// <para>Beim Löschen der Immobilie wird der Verweis auf <c>null</c> gesetzt, nicht die
+    /// Anschaffung gelöscht: Der gekaufte Gegenstand ist eine Tatsache, das Objekt war nur
+    /// seine Schublade — dasselbe Verhältnis wie zwischen Buchung und Konto.</para>
+    /// </remarks>
+    public int? PropertyId { get; set; }
+
+    public Property? Property { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }

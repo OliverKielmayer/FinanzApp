@@ -260,6 +260,23 @@ public sealed record PropertyDetailDto
     /// <summary>Woraus sich die Kosten zusammensetzen, für die Untertitelzeile.</summary>
     public required IReadOnlyList<string> CostParts { get; init; }
 
+    /// <summary>
+    /// Was in das Objekt gesteckt wurde: die Summe der zugeordneten Anschaffungen.
+    /// </summary>
+    /// <remarks>
+    /// <para>Bewusst <b>neben</b> <see cref="CostsLastTwelveMonths"/> und nicht darin. Die
+    /// Kostenzeile rechnet Hochrechenbares — Darlehensrate mal zwölf, Vertragsjahresbeträge,
+    /// Versicherung. Eine Einbauküche ist keine Jahreslast; in dieselbe Zahl gemischt stünde
+    /// sie als Dauerkosten da und fiele im Jahr darauf ohne erkennbaren Grund wieder weg.</para>
+    /// <para>Ohne Zeitfenster: Was zugeordnet ist, zählt. Ein Stichtag — etwa „seit dem
+    /// Kaufdatum“ — entschiede es für den Benutzer, und zwar falsch, sobald etwas kurz vor
+    /// dem Kauf für genau dieses Objekt angeschafft wurde.</para>
+    /// </remarks>
+    public required decimal Investments { get; init; }
+
+    /// <summary>Wie viele Anschaffungen die Summe trägt. Ohne sie wäre sie nicht nachzählbar.</summary>
+    public required int InvestmentCount { get; init; }
+
     public required IReadOnlyList<ContractListItemDto> Contracts { get; init; }
     public required IReadOnlyList<DocumentListItemDto> Documents { get; init; }
 

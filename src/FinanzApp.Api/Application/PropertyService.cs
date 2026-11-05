@@ -57,6 +57,14 @@ public sealed class PropertyService(
         }
 
         var (costs, parts) = await CalculateCostsAsync(property, ct);
+
+        // Getrennt gerechnet und getrennt gezeigt: Was einmal gekauft wurde, gehört nicht in
+        // eine Jahreslast. Ohne Preis zählt eine Anschaffung in der Anzahl mit, aber nicht in
+        // der Summe — ein fehlender Preis ist keine Null.
+        var investitionen = await db.Purchases.AsNoTracking()
+            .Where(p => p.PropertyId == property.Id)
+            .Select(p => p.Price)
+            .ToListAsync(ct);
         var contracts = new List<ContractListItemDto>();
         foreach (var contract in property.Contracts.OrderBy(c => c.Name))
         {
@@ -82,6 +90,8 @@ public sealed class PropertyService(
                 : null,
             CostsLastTwelveMonths = costs,
             CostParts = parts,
+            Investments = decimal.Round(investitionen.Sum(p => p ?? 0m), 2),
+            InvestmentCount = investitionen.Count,
             Contracts = contracts,
             Documents = await documents.GetForTargetAsync(LinkTargetType.Property, property.Id, ct),
             Participation = await participation.ForPropertyAsync(property.Id, ct),

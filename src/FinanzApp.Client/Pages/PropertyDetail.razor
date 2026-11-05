@@ -140,6 +140,26 @@
             </span>
         </section>
 
+        @*
+            Eigener Abschnitt, nicht eine Zeile in den Kosten. Was einmal gekauft wurde, ist
+            keine Jahreslast — in dieselbe Zahl gerechnet stünde eine Einbauküche als
+            Dauerkosten da und fiele im Jahr darauf ohne Grund wieder weg.
+        *@
+        @if (property.InvestmentCount > 0)
+        {
+            <section class="section">
+                <div class="section-head">
+                    <span class="label-strong">Investitionen</span>
+                    <a class="section-link" href="/anschaffungen">Anschaffungen</a>
+                </div>
+                <span class="hero-value medium num">@State.Euro0(property.Investments)</span>
+                <span class="meta" style="display:block;padding-top:6px">
+                    @property.InvestmentCount @(property.InvestmentCount == 1 ? "Anschaffung" : "Anschaffungen")
+                    · einmalig, nicht in den Kosten oben
+                </span>
+            </section>
+        }
+
         <div class="list-head">
             <span class="label-strong">Verträge</span>
             <span class="list-count num">@property.Contracts.Count</span>
