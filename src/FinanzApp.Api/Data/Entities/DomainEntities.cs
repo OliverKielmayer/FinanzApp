@@ -758,7 +758,7 @@ public class Purchase : IHouseholdOwned
     /// </summary>
     /// <remarks>
     /// <para>Ein Bodenbelag, eine Einbauküche, eine Wandverkleidung gehören an das Haus und an
-    /// nichts sonst; ein Schlafapnoe-Gerät und ein Fernseher ziehen mit um. Erst diese
+    /// nichts sonst; ein Fernseher und eine Waschmaschine ziehen mit um. Erst diese
     /// Unterscheidung lässt die Frage beantworten, was ein Einzug gekostet hat — vorher
     /// standen beide Sorten nebeneinander in einer flachen Liste ohne Summe.</para>
     /// <para>Freiwillig, und ohne ein zweites Feld daneben, das dasselbe noch einmal behauptet:

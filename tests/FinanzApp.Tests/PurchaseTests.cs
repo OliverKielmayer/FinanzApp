@@ -140,7 +140,7 @@ public sealed class PurchaseTests : IDisposable
     public async Task Ein_Beleg_haengt_an_der_Anschaffung()
     {
         using var context = database.Context();
-        var id = Anlegen(context, "Schlafapnoe-Gerät", new DateOnly(2026, 9, 3));
+        var id = Anlegen(context, "Waschmaschine", new DateOnly(2026, 9, 3));
 
         var dokument = new Document
         {
@@ -186,7 +186,7 @@ public sealed class PurchaseTests : IDisposable
 
     // ── Investitionen am Objekt ────────────────────────────────────────────────────────────
     //
-    // Ein Bodenbelag gehört an das Haus, ein Schlafapnoe-Gerät zieht mit um. Ohne diese
+    // Ein Bodenbelag gehört an das Haus, ein Fernseher zieht mit um. Ohne diese
     // Unterscheidung standen beide in einer flachen Liste ohne Summe, und die Frage „was hat
     // der Einzug gekostet“ war nicht zu beantworten.
 
