@@ -74,6 +74,23 @@ public class Document : IHouseholdOwned
     public string? Tags { get; set; }
 
     /// <summary>
+    /// Ob der Dateiname von der Anwendung stammt und verbessert werden darf.
+    /// </summary>
+    /// <remarks>
+    /// <para>Ein Scanner nennt jede Seite „Scannen0007“. Beim Einliefern weiß die Anwendung
+    /// schon die vermutete Art und das Datum vom Blatt und macht daraus einen brauchbaren
+    /// Namen; beim Zuordnen weiß sie zusätzlich das Objekt und könnte ihn schärfen.</para>
+    /// <para>Dafür braucht es dieses Kennzeichen. Bisher erkannte die Umbenennung einen
+    /// Gerätenamen am Muster — nach der ersten Verbesserung sieht der Name aber nicht mehr
+    /// nach Gerät aus, und die zweite unterbliebe. Am Muster weiterzuraten hieße, einen
+    /// gepflegten Namen zu überschreiben, sobald er zufällig so aussieht wie ein erzeugter.</para>
+    /// <para><c>false</c> heißt: Ein Mensch hat benannt. Das bleibt, immer. Ein überschriebener
+    /// Name ist nicht zurückzuholen, und die Anwendung weiß nicht besser, wie sein Beleg
+    /// heißen soll.</para>
+    /// </remarks>
+    public bool HasGeneratedName { get; set; }
+
+    /// <summary>
     /// Der gelesene Text des Dokuments, für die Suche.
     /// </summary>
     /// <remarks>

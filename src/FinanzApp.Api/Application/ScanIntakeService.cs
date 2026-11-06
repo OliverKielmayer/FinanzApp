@@ -86,7 +86,7 @@ public sealed class ScanIntakeService(
                          && analyse.TargetId is { } zielId
                          && await LinkAsync(analyse.DocumentId, art.Target, zielId, ct);
 
-        await StampAsync(analyse.DocumentId, typ?.Id, source, ct);
+        await StampAsync(analyse.DocumentId, typ?.Id, typ?.Name, source, ct);
 
         // Erkannt heißt: die Analyse weiß, was das Dokument ist *und* wozu es gehört. Nur der
         // Typ ohne Ziel wäre im Eingang die Zusage „erkannt“ für einen Beleg, den danach doch
@@ -421,7 +421,9 @@ public sealed class ScanIntakeService(
     /// Die Herkunft steht als Beschreibung dort, wo sie hingehört: am Dokument. Wer im Eingang
     /// eine Datei findet, die er nicht erwartet hat, sieht damit, aus welchem Ordner sie kam.
     /// </remarks>
-    private async Task StampAsync(int documentId, int? typeId, string? source, CancellationToken ct)
+    private async Task StampAsync(
+        int documentId, int? typeId, string? typeName, string? source,
+        CancellationToken ct)
     {
         var dokument = await db.Documents.FirstOrDefaultAsync(d => d.Id == documentId, ct);
         if (dokument is null)
@@ -439,8 +441,63 @@ public sealed class ScanIntakeService(
             dokument.Description = "Aus dem überwachten Ordner übernommen: " + herkunft;
         }
 
+        DatumVomBlatt(dokument);
+
         await db.SaveChangesAsync(ct);
+
+        // Und der Name hinterher, mit dem, was jetzt bekannt ist: vermutete Art und Datum.
+        // Das Objekt fehlt noch — es kommt beim Zuordnen dazu und schärft den Namen dann.
+        if (Namensvorschlag(typeName, dokument) is { Length: > 0 } art)
+        {
+            await documents.RenameIfScannedAsync(
+                documentId, art, targetName: string.Empty, dokument.DocumentDate, ct);
+        }
     }
+
+    /// <summary>
+    /// Setzt das Datum, das auf dem Blatt steht — statt des Tages der Einlieferung.
+    /// </summary>
+    /// <remarks>
+    /// <para>Ein Beleg bekam bisher <c>clock.Today</c>, weil die allgemeine Einlieferung kein
+    /// Datum kennt. Die Dokumentliste sortiert aber nach Dokumentdatum, und so standen zehn
+    /// Schreiben aus zehn Monaten alle am selben Tag — der Stapel war zwar abgelegt, aber nicht
+    /// mehr zeitlich zu lesen.</para>
+    /// <para>Gelesen wird aus demselben Text, aus dem auch der Ablagevorschlag entsteht. Nur
+    /// gesetzt, wenn der Beleg noch das Einlieferungsdatum trägt: Was ein besonderer Weg
+    /// bereits gesetzt hat — der Stichtag eines Statusreports etwa — ist genauer als ein
+    /// Briefdatum und bleibt stehen.</para>
+    /// <para><b>Kein Datum aus der Zukunft.</b> Ein Papier entsteht, bevor es ankommt. Stünde
+    /// eine Zahlungsfrist in der Zeile, die der Leser für das Briefdatum hält, sortierte sich
+    /// der Beleg nach vorn und stünde zwischen Schreiben, die es noch nicht gibt.</para>
+    /// </remarks>
+    private void DatumVomBlatt(Document dokument)
+    {
+        if (dokument.DocumentDate != clock.Today
+            || dokument.ContentText is not { Length: > 0 } text)
+        {
+            return;
+        }
+
+        if (BillTextReader.Read(text).BillDate is { } gelesen && gelesen <= clock.Today)
+        {
+            dokument.DocumentDate = gelesen;
+        }
+    }
+
+    /// <summary>
+    /// Wie der Beleg heißen soll, solange sein Objekt noch unbekannt ist.
+    /// </summary>
+    /// <remarks>
+    /// Erst die erkannte Art — die steht fest, weil eine Leseregel gegriffen hat. Sonst die
+    /// vermutete aus den Schlagwörtern: Sie ist ein Vorschlag, aber „Gebührenbescheid“ ist
+    /// auch als Vermutung mehr wert als „Scannen0007“. Gibt der Text nichts her, bleibt der
+    /// Gerätename stehen — ein erfundener Name wäre schlechter als ein nichtssagender.
+    /// </remarks>
+    private static string? Namensvorschlag(string? typeName, Document dokument)
+        => typeName
+           ?? (dokument.ContentText is { Length: > 0 } text
+               ? FilingSuggestions.For(text)?.TypeName
+               : null);
 
     /// <summary>Was zur vollständigen Zuordnung fehlt — <c>null</c>, wenn nichts fehlt.</summary>
     /// <remarks>

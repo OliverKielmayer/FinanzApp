@@ -539,6 +539,9 @@ namespace FinanzApp.Api.Data.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("HasGeneratedName")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("HouseholdId")
                         .HasColumnType("INTEGER");
 

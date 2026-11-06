@@ -1,8 +1,10 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using FinanzApp.Api.Data;
 using FinanzApp.Api.Data.Entities;
 using FinanzApp.Api.Infrastructure;
 using FinanzApp.Shared.Contracts;
+using FinanzApp.Shared.Formatting;
 using Microsoft.EntityFrameworkCore;
 
 namespace FinanzApp.Api.Application;
@@ -600,8 +602,12 @@ public sealed class DocumentService(
             return null;
         }
 
+        // Angefasst wird, was nach einem Gerätenamen aussieht — oder was die Anwendung selbst
+        // vergeben hat. Letzteres ist der Fall nach dem Einliefern: Dort hieß der Beleg schon
+        // „Gebührenbescheid_2026-10-05“, und erst beim Zuordnen kommt das Objekt dazu. Ohne
+        // das Kennzeichen bliebe der Name auf halber Strecke stehen.
         var stamm = Path.GetFileNameWithoutExtension(document.FileName);
-        if (!GeraeteName.IsMatch(stamm))
+        if (!GeraeteName.IsMatch(stamm) && !document.HasGeneratedName)
         {
             return null;
         }
@@ -631,6 +637,10 @@ public sealed class DocumentService(
 
         document.RelativePath = ziel;
         document.FileName = Path.GetFileName(ziel);
+
+        // Der Name stammt jetzt von der Anwendung. Beim nächsten Schritt — etwa wenn das Objekt
+        // dazukommt — darf sie ihn deshalb schärfen, ohne an einem Muster zu raten.
+        document.HasGeneratedName = true;
         document.UpdatedAt = clock.Now;
         await db.SaveChangesAsync(ct);
 
@@ -874,7 +884,32 @@ public sealed class DocumentService(
            || (document.TypeName?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
            || (document.LinkedLabel?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
            || document.Tags.Any(t => t.Contains(term, StringComparison.OrdinalIgnoreCase))
+           || Datumsformen(document.DocumentDate).Contains(term, StringComparison.OrdinalIgnoreCase)
            || imText.Contains(document.Id);
+
+    /// <summary>
+    /// Das Dokumentdatum in allen Schreibweisen, nach denen jemand suchen würde.
+    /// </summary>
+    /// <remarks>
+    /// <para>„Oktober 2026“, „10/2026“, „2026-10“, „15.10.2026“ — es gibt keinen Grund
+    /// anzunehmen, dass ein Mensch die Form trifft, in der die Datenbank das Datum führt. Eine
+    /// Suche, die nur eine davon kennt, ist für die anderen kaputt, ohne es zu sagen.</para>
+    /// <para>Das bloße Jahr steht mit dabei und trifft damit jeden Beleg dieses Jahres. Das ist
+    /// gewollt: „2024“ ist eine Jahresabfrage und keine zufällige Zeichenfolge.</para>
+    /// <para>Gerechnet statt gespeichert, wie der Ablagevorschlag. Eine zweite Spalte dafür
+    /// liefe dem Datum davon, sobald jemand es berichtigt.</para>
+    /// </remarks>
+    private static string Datumsformen(DateOnly? wert)
+        => wert is not { } datum
+            ? string.Empty
+            : string.Join(
+                ' ',
+                datum.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                datum.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture),
+                datum.ToString("MM/yyyy", CultureInfo.InvariantCulture),
+                datum.ToString("yyyy-MM", CultureInfo.InvariantCulture),
+                GermanFormat.MonthName(datum.Month) + " "
+                    + datum.Year.ToString(CultureInfo.InvariantCulture));
 
     /// <summary>
     /// Welche Dokumente den Suchbegriff <em>im Text</em> tragen.
