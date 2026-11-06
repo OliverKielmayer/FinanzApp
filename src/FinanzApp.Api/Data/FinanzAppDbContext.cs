@@ -40,6 +40,7 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<CategorizationRule> CategorizationRules => Set<CategorizationRule>();
+    public DbSet<FilingRule> FilingRules => Set<FilingRule>();
     public DbSet<Budget> Budgets => Set<Budget>();
     public DbSet<Depot> Depots => Set<Depot>();
     public DbSet<PortfolioPosition> PortfolioPositions => Set<PortfolioPosition>();
@@ -288,6 +289,18 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
             e.HasIndex(x => new { x.HouseholdId, x.PayeePattern }).IsUnique();
             e.HasOne(x => x.Category).WithMany(c => c.Rules)
                 .HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<FilingRule>(e =>
+        {
+            // Dieselbe Länge wie der Absender am Scaneingang: Was dort hineinpasst, muss hier
+            // als Muster Platz haben, sonst lernte die App Regeln, die ihre eigene Quelle
+            // abschneiden.
+            e.Property(x => x.SenderPattern).HasMaxLength(160).IsRequired();
+
+            // Ein Absender, eine Regel. Die zweite Zuordnung desselben Absenders überschreibt
+            // die erste — so heilt sich eine falsche Regel beim nächsten Beleg selbst.
+            e.HasIndex(x => new { x.HouseholdId, x.SenderPattern }).IsUnique();
         });
 
         b.Entity<Budget>(e =>

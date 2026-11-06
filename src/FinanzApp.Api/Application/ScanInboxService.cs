@@ -54,6 +54,8 @@ public sealed class ScanInboxService(FinanzAppDbContext db, DocumentService docu
                 .ToListAsync(ct))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+        var ziele = await AbgeleiteteZieleAsync(rows, ct);
+
         return new ScanInboxDto
         {
             WaitingCount = rows.Count,
@@ -85,10 +87,124 @@ public sealed class ScanInboxService(FinanzAppDbContext db, DocumentService docu
                         : null,
                     SuggestedTypeExists = Vorschlag(x.Document) is { } w
                                           && typen.Contains(w.TypeName),
+                    SuggestedTarget = ziele.GetValueOrDefault(x.Id),
                     ArrivedOn = DateOnly.FromDateTime(x.CreatedAt),
                 }),
             ],
         };
+    }
+
+    /// <summary>
+    /// Ob Post von diesem Absender nachweislich an mehr als ein Objekt gegangen ist.
+    /// </summary>
+    /// <remarks>
+    /// <para>Gefragt wird mit <em>derselben</em> Regel, mit der der Vorschlag später greifen
+    /// würde: Wen das Muster trifft, der zählt. Eine engere Frage ließe Regeln entstehen, die
+    /// breiter wirken, als sie geprüft wurden.</para>
+    /// <para>Ein einziger abweichender Beleg genügt. Das ist streng, und es soll streng sein:
+    /// Der Schaden einer falschen Ablage ist nicht die falsche Zeile, sondern dass niemand sie
+    /// sucht. Wer eine alte Fehlablage berichtigt, macht den Absender damit wieder eindeutig,
+    /// und die Regel entsteht beim nächsten Beleg von selbst.</para>
+    /// </remarks>
+    private async Task<bool> UneinigAsync(
+        string muster, LinkTargetType art, int ziel, CancellationToken ct)
+    {
+        var absender = await db.ScanInbox.AsNoTracking()
+            .Where(x => x.Sender != null)
+            .Select(x => new { x.DocumentId, x.Sender })
+            .ToListAsync(ct);
+
+        var belege = absender
+            .Where(x => Filing.Matches(x.Sender!, muster))
+            .Select(x => x.DocumentId)
+            .Distinct()
+            .ToList();
+
+        if (belege.Count == 0)
+        {
+            return false;
+        }
+
+        return await db.DocumentLinks.AsNoTracking()
+            .AnyAsync(l => belege.Contains(l.DocumentId)
+                           && (l.TargetType != art || l.TargetId != ziel), ct);
+    }
+
+    /// <summary>
+    /// Für welche Eingänge eine gelernte Regel ein Objekt vorschlägt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Vorgeschlagen wird nur, wo noch nichts hängt. Ein Beleg, den eine Leseregel bereits
+    /// verknüpft hat, braucht keinen zweiten Vorschlag — der wäre ein Widerspruch neben einer
+    /// Tatsache.</para>
+    /// <para>Das Objekt wird aufgelöst, bevor der Vorschlag entsteht. Zeigt eine Regel auf
+    /// etwas Gelöschtes, entfällt sie still: Ein Vorschlag mit dem Namen „Nicht mehr vorhanden“
+    /// wäre schlechter als keiner.</para>
+    /// <para>Die Regeln kommen in einem Zug, der Vergleich läuft im Speicher. Ein Präfix an der
+    /// Wortgrenze lässt sich in SQL nicht ausdrücken, ohne die Normalisierung zu verdoppeln —
+    /// und zwei Fassungen derselben Regel wären eine zu viel.</para>
+    /// </remarks>
+    private async Task<Dictionary<int, SuggestedTargetDto>> AbgeleiteteZieleAsync(
+        List<ScanInboxItem> rows, CancellationToken ct)
+    {
+        var offen = rows.Where(x => x.Sender is { Length: > 0 }).ToList();
+        if (offen.Count == 0)
+        {
+            return [];
+        }
+
+        var regeln = await db.FilingRules.AsNoTracking().ToListAsync(ct);
+        if (regeln.Count == 0)
+        {
+            return [];
+        }
+
+        var belege = offen.Select(x => x.DocumentId).Distinct().ToList();
+        var verknuepft = await db.DocumentLinks.AsNoTracking()
+            .Where(l => belege.Contains(l.DocumentId))
+            .Select(l => l.DocumentId)
+            .ToListAsync(ct);
+
+        var schonDa = verknuepft.ToHashSet();
+        var namen = new Dictionary<(LinkTargetType, int), string?>();
+        var ergebnis = new Dictionary<int, SuggestedTargetDto>();
+
+        foreach (var eingang in offen)
+        {
+            if (schonDa.Contains(eingang.DocumentId))
+            {
+                continue;
+            }
+
+            var regel = regeln.FirstOrDefault(r => Filing.Matches(eingang.Sender!, r.SenderPattern));
+            if (regel is null)
+            {
+                continue;
+            }
+
+            var schluessel = (regel.TargetType, regel.TargetId);
+            if (!namen.TryGetValue(schluessel, out var name))
+            {
+                name = await documents.TargetLabelAsync(regel.TargetType, regel.TargetId, ct);
+                namen[schluessel] = name;
+            }
+
+            if (name is not { Length: > 0 })
+            {
+                continue;
+            }
+
+            ergebnis[eingang.Id] = new SuggestedTargetDto
+            {
+                TargetType = regel.TargetType,
+                TargetId = regel.TargetId,
+                Label = name,
+                TargetLabel = ObjectLabelService.TargetLabel(regel.TargetType),
+                LearnedOn = DateOnly.FromDateTime(regel.LearnedAt),
+            };
+        }
+
+        return ergebnis;
     }
 
     /// <summary>Der Prüfschritt, der zu diesem Dokument passt.</summary>
@@ -211,9 +327,81 @@ public sealed class ScanInboxService(FinanzAppDbContext db, DocumentService docu
         await documents.RenameIfScannedAsync(
             item.DocumentId, typ.Name, objekt ?? string.Empty, dokument.DocumentDate, ct);
 
+        // Und hier lernt die App: Wohin Post von diesem Absender gehört, weiß sie erst, wenn es
+        // ihr jemand einmal gezeigt hat. Genau das ist gerade passiert.
+        await LerneAblageAsync(item.Sender, request.TargetType, request.TargetId, ct);
+
         // Über dieselbe Schwelle wie jeder andere Beleg. Die Regel steht einmal, und sie gilt
         // auch für den Weg, der sie gerade erfüllt hat.
         return await FileAsync(id, ct);
+    }
+
+    /// <summary>
+    /// Merkt sich, wohin Post von diesem Absender gehört.
+    /// </summary>
+    /// <remarks>
+    /// <para>Gelernt wird nur aus einer <b>vollständigen</b> Zuordnung: Wer kein Objekt gewählt
+    /// hat, hat nichts über das Objekt gesagt, und „keines“ ist keine Regel — beim nächsten Mal
+    /// soll wieder gefragt werden.</para>
+    /// <para>Die zweite Zuordnung desselben Absenders an dasselbe Objekt bestätigt die Regel und
+    /// frischt ihr Lerndatum auf. An ein <em>anderes</em> Objekt hebt sie die Regel auf, statt
+    /// sie zu berichtigen — siehe <see cref="UneinigAsync"/>.</para>
+    /// <para>Ohne Absender wird nichts gelernt. Ein Muster aus einer leeren Zeile träfe jeden
+    /// Beleg, der ebenfalls keinen Absender trägt — und das sind die unsichersten von allen.</para>
+    /// <para><b>Und nichts, wo der Absender uneins ist.</b> Ein Versicherer schickt die
+    /// Statusreports für sieben Verträge unter demselben Briefkopf; unterschieden werden sie an
+    /// der Vertragsnummer im Text, nicht am Absender. Eine Regel daraus wäre siebenmal von acht
+    /// falsch — und zwar still, mit einem vorgewählten Objekt, das plausibel aussieht. Also
+    /// vorher nachsehen, wohin Post von diesem Absender sonst noch ging.</para>
+    /// </remarks>
+    private async Task LerneAblageAsync(
+        string? sender, LinkTargetType? targetType, int? targetId, CancellationToken ct)
+    {
+        if (sender is not { Length: > 0 } absender
+            || targetType is not { } art || targetId is not { } ziel)
+        {
+            return;
+        }
+
+        var muster = Filing.RulePatternFor(absender);
+        if (muster.Length == 0)
+        {
+            return;
+        }
+
+        if (await UneinigAsync(muster, art, ziel, ct))
+        {
+            // Eine vorhandene Regel ist damit widerlegt. Sie stehen zu lassen hieße, einen
+            // Vorschlag weiterzugeben, von dem die Ablage bereits weiß, dass er nicht trägt.
+            var ueberholt = await db.FilingRules.FirstOrDefaultAsync(r => r.SenderPattern == muster, ct);
+            if (ueberholt is not null)
+            {
+                db.FilingRules.Remove(ueberholt);
+                await db.SaveChangesAsync(ct);
+            }
+
+            return;
+        }
+
+        var regel = await db.FilingRules.FirstOrDefaultAsync(r => r.SenderPattern == muster, ct);
+        if (regel is null)
+        {
+            db.FilingRules.Add(new FilingRule
+            {
+                SenderPattern = muster,
+                TargetType = art,
+                TargetId = ziel,
+                LearnedAt = clock.Now,
+            });
+        }
+        else
+        {
+            regel.TargetType = art;
+            regel.TargetId = ziel;
+            regel.LearnedAt = clock.Now;
+        }
+
+        await db.SaveChangesAsync(ct);
     }
 
     /// <summary>

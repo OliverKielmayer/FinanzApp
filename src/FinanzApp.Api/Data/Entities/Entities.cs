@@ -280,6 +280,57 @@ public class CategorizationRule : IHouseholdOwned
     public DateTime? LearnedAt { get; set; }
 }
 
+/// <summary>
+/// Wohin Post von einem Absender gehört — gelernt aus dem, was der Benutzer zugeordnet hat.
+/// </summary>
+/// <remarks>
+/// <para>Dieselbe Idee wie bei <see cref="CategorizationRule"/>, eine Ebene weiter: Dort merkt
+/// sich die App, in welche Kategorie eine Buchung von „REWE“ gehört; hier, an welches Objekt ein
+/// Schreiben vom Landratsamt gehört. Das Material lag längst da — jedes abgelegte Dokument ist
+/// ein Beispiel.</para>
+/// <para><b>Nur das Objekt, nicht die Art.</b> Welche Art ein Schreiben hat, schlägt
+/// <see cref="Infrastructure.FilingSuggestions"/> aus Schlagwörtern bereits vor, und zwar gut.
+/// Wozu es gehört, schlägt bisher nichts vor — das ist die Lücke. Eine Regel, die beides
+/// behauptete, wäre an der einen Hälfte oft richtig und an der anderen oft falsch, und man
+/// wüsste nie, welcher Hälfte man gerade glaubt.</para>
+/// <para><b>Ein Vorschlag, keine Ablage.</b> Die Regel wählt im Prüfplatz ein Objekt vor; zugeordnet
+/// wird erst mit dem Tipp des Benutzers.</para>
+/// <para><b>Und nur, wo der Absender eindeutig ist.</b> Wählt der Benutzer ein anderes Objekt,
+/// entsteht keine berichtigte Regel, sondern gar keine: Er hat damit gezeigt, dass dieser
+/// Briefkopf nichts über das Objekt verrät. „Ich habe mich vertan“ und „dieser Absender bedient
+/// mehrere Objekte“ sehen in den Daten gleich aus, und bei einem Versicherer mit sieben
+/// Verträgen unter einem Briefkopf ist durchgehend das Zweite gemeint.</para>
+/// </remarks>
+public class FilingRule : IHouseholdOwned
+{
+    public int Id { get; set; }
+    public int HouseholdId { get; set; }
+
+    /// <summary>
+    /// Der Absender, normalisiert verglichen.
+    /// </summary>
+    /// <remarks>
+    /// Anders als beim Empfänger einer Buchung ist das <b>nicht</b> das erste Wort. „Landkreis“
+    /// träfe jeden Landkreis, „Sparkasse“ jede Sparkasse. Ein Briefkopf ist genauer als eine
+    /// Bankzeile, und eine falsche Ablage kostet mehr als eine falsche Kategorie: Sie legt einen
+    /// Beleg still an ein fremdes Objekt. Deshalb der ganze Absender als Muster — breiter machen
+    /// kann man ihn später, eine falsche Zuordnung findet niemand wieder.
+    /// </remarks>
+    public required string SenderPattern { get; set; }
+
+    public LinkTargetType TargetType { get; set; }
+
+    /// <summary>Das Objekt. Verweist bewusst ohne Fremdschlüssel — die Ziele sind polymorph.</summary>
+    /// <remarks>
+    /// Zeigt die Regel auf ein gelöschtes Objekt, löst <see cref="Application.ObjectLabelService"/>
+    /// sie zu <c>null</c> auf, und der Vorschlag entfällt still. Eine Regel ohne Ziel ist kein
+    /// Fehler, sondern eine, die nichts mehr vorschlägt.
+    /// </remarks>
+    public int TargetId { get; set; }
+
+    public DateTime LearnedAt { get; set; }
+}
+
 public class Budget : IHouseholdOwned
 {
     public int Id { get; set; }

@@ -715,6 +715,18 @@ public sealed class DocumentService(
     }
 
     /// <summary>Hängt ein Dokument an ein Fachobjekt. Prüft, dass das Ziel im Haushalt existiert.</summary>
+    /// <summary>
+    /// Der Name eines Verknüpfungsziels — <c>null</c>, wenn es das Objekt nicht (mehr) gibt.
+    /// </summary>
+    /// <remarks>
+    /// Durchgereicht, damit nicht jeder Dienst, der einen Objektnamen braucht, den
+    /// Etikettendienst zusätzlich entgegennehmen muss. Die Auflösung ist polymorph und gehört
+    /// an eine Stelle; wer sie hier erfragt, bekommt dieselbe Antwort wie die Dokumentzeile.
+    /// </remarks>
+    public Task<string?> TargetLabelAsync(
+        LinkTargetType type, int targetId, CancellationToken ct = default)
+        => labels.ResolveAsync(type, targetId, ct);
+
     public async Task<DocumentLinkDto?> LinkAsync(
         int documentId, LinkTargetType type, int targetId, CancellationToken ct = default)
     {

@@ -505,6 +505,29 @@ public sealed record ScanInboxDto
     public required IReadOnlyList<ScanInboxItemDto> Items { get; init; }
 }
 
+/// <summary>
+/// Ein Objekt, das eine gelernte Regel vorschlägt — samt der Herkunft des Vorschlags.
+/// </summary>
+/// <remarks>
+/// Das Lerndatum steht bewusst dabei. Ein Vorschlag ohne Begründung ist Magie, und Magie wird
+/// entweder blind befolgt oder misstrauisch ignoriert; beides ist schlechter als „weil Post von
+/// diesem Absender am 6.11. dorthin ging“.
+/// </remarks>
+public sealed record SuggestedTargetDto
+{
+    public required LinkTargetType TargetType { get; init; }
+    public required int TargetId { get; init; }
+
+    /// <summary>Der Name des Objekts, etwa „Haus Musterweg 3“.</summary>
+    public required string Label { get; init; }
+
+    /// <summary>Die Art des Objekts im Klartext, etwa „Immobilie“.</summary>
+    public required string TargetLabel { get; init; }
+
+    /// <summary>Wann die Regel gelernt wurde.</summary>
+    public required DateOnly LearnedOn { get; init; }
+}
+
 public sealed record ScanInboxItemDto
 {
     public required int Id { get; init; }
@@ -570,6 +593,18 @@ public sealed record ScanInboxItemDto
 
     /// <summary>Der vorgeschlagene Bereich, im Klartext.</summary>
     public string? SuggestedArea { get; init; }
+
+    /// <summary>
+    /// Das Objekt, an das Post von diesem Absender zuletzt ging. <c>null</c>, wenn nichts gelernt ist.
+    /// </summary>
+    /// <remarks>
+    /// <para>Aus einer gelernten Ablageregel, nicht aus dem Text. Der Unterschied steht am
+    /// Vorschlag: Die Art kommt aus Schlagwörtern im Schreiben, das Objekt aus einer früheren
+    /// Entscheidung des Benutzers — und deshalb nennt der Vorschlag sein Lerndatum.</para>
+    /// <para>Nur wo noch nichts verknüpft ist. Wo eine Leseregel das Ziel schon gefunden hat,
+    /// steht eine Tatsache, und daneben gehört keine Vermutung.</para>
+    /// </remarks>
+    public SuggestedTargetDto? SuggestedTarget { get; init; }
 
     /// <summary>
     /// Ob es den vorgeschlagenen Dokumenttyp im Haushalt schon gibt.

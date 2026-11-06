@@ -617,6 +617,22 @@
         typeId = null;
         Reset();
 
+        // Das Objekt aus einer gelernten Regel. Es steht vor dem Typ, weil es die teurere
+        // Entscheidung ist: Die Art schlägt der Text vor, das Objekt musste man bisher jedes Mal
+        // suchen. Vorgewählt, nicht zugeordnet — abgelegt wird erst mit dem Tipp unten.
+        if (beleg.SuggestedTarget is { } geerbt)
+        {
+            picked = new ObjectHitDto
+            {
+                TargetType = geerbt.TargetType,
+                TargetId = geerbt.TargetId,
+                Label = geerbt.Label,
+                TargetLabel = geerbt.TargetLabel,
+                Subtitle = $"vorgeschlagen · Post von diesem Absender ging am "
+                           + $"{GermanFormat.Date(geerbt.LearnedOn)} hierher",
+            };
+        }
+
         if (beleg.SuggestedType is not { Length: > 0 } geraten || !beleg.SuggestedTypeExists)
         {
             return;

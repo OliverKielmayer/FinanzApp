@@ -758,6 +758,37 @@ namespace FinanzApp.Api.Data.Migrations
                     b.ToTable("Employments");
                 });
 
+            modelBuilder.Entity("FinanzApp.Api.Data.Entities.FilingRule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("HouseholdId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("LearnedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SenderPattern")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("TargetId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("TargetType")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HouseholdId", "SenderPattern")
+                        .IsUnique();
+
+                    b.ToTable("FilingRules");
+                });
+
             modelBuilder.Entity("FinanzApp.Api.Data.Entities.Household", b =>
                 {
                     b.Property<int>("Id")
