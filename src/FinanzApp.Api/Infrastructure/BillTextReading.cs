@@ -217,6 +217,18 @@ public static class BillTextReader
     ];
 
     /// <summary>
+    /// Das Datum des Schreibens — sofern es eines nennt und es nicht in der Zukunft liegt.
+    /// </summary>
+    /// <remarks>
+    /// Ein Papier entsteht, bevor es ankommt. Hielte der Leser eine Zahlungsfrist für das
+    /// Briefdatum, sortierte sich der Beleg nach vorn und stünde zwischen Schreiben, die es
+    /// noch nicht gibt. Beide Stellen, die ein Dokument datieren — das Einliefern und das
+    /// Nachziehen am Bestand —, fragen deshalb hier und nicht jede für sich.
+    /// </remarks>
+    public static DateOnly? DocumentDate(string? text, DateOnly notAfter)
+        => Read(text).BillDate is { } datum && datum <= notAfter ? datum : null;
+
+    /// <summary>
     /// Liest, was dasteht — oder gibt zu, nichts gefunden zu haben.
     /// </summary>
     public static ExtractedBillDto Read(string? text)

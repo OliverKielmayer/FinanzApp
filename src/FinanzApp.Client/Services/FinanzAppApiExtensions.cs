@@ -88,6 +88,12 @@ public static class FinanzAppApiExtensions
         => api.SendAsync<object?, BackfillResultDto>(
             HttpMethod.Post, $"api/documents/volltext?limit={limit}", null, ct);
 
+    /// <summary>Zieht Datum und Namen für den Bestand nach, der vor beidem abgelegt wurde.</summary>
+    public static Task<BackfillDatesAndNamesResultDto> BackfillDocumentDatesAndNamesAsync(
+        this FinanzAppApi api, CancellationToken ct = default)
+        => api.SendAsync<object?, BackfillDatesAndNamesResultDto>(
+            HttpMethod.Post, "api/documents/nachziehen", null, ct);
+
     /// <summary>Stellt ein Dokument auf „nur ich“ oder zurück auf den Haushalt.</summary>
     public static Task SetDocumentSharingAsync(
         this FinanzAppApi api, int id, DocumentSharing sharing, CancellationToken ct = default)

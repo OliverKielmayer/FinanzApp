@@ -176,3 +176,26 @@ public sealed record BackfillResultDto
 {
     public required int Gelesen { get; init; }
 }
+
+/// <summary>
+/// Was das Nachziehen am Bestand geändert hat.
+/// </summary>
+/// <remarks>
+/// Drei Zahlen und nicht eine, weil drei verschiedene Dinge geschehen sind und der Nutzer
+/// wissen soll, welches davon seinen Bestand angefasst hat. <c>Umbenannt</c> ist die einzige,
+/// die Dateien auf der Platte bewegt.
+/// </remarks>
+public sealed record BackfillDatesAndNamesResultDto
+{
+    /// <summary>Belege, deren Name nachträglich als von der Anwendung vergeben gilt.</summary>
+    public required int Gekennzeichnet { get; init; }
+
+    /// <summary>Belege, die das Datum vom Blatt statt den Tag ihrer Ablage tragen.</summary>
+    public required int Datiert { get; init; }
+
+    /// <summary>Belege, deren Datei einen neuen Namen bekommen hat.</summary>
+    public required int Umbenannt { get; init; }
+
+    /// <summary>Ob überhaupt etwas geschehen ist.</summary>
+    public bool Nichts => Gekennzeichnet == 0 && Datiert == 0 && Umbenannt == 0;
+}

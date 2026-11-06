@@ -1065,6 +1065,157 @@ public sealed class DocumentService(
         return gelesen;
     }
 
+    /// <summary>
+    /// Zieht Datum und Namen am Bestand nach.
+    /// </summary>
+    /// <remarks>
+    /// <para>Einmalig gedacht, wie das Nachholen des Textes. Seit dem Einliefern datiert ein
+    /// Beleg nach dem Blatt und heißt nach seiner Art — was vorher abgelegt wurde, trägt den
+    /// Tag seiner Ablage und den Namen, den das Gerät vergeben hat.</para>
+    /// <para>Drei Schritte je Beleg, in dieser Reihenfolge, weil jeder auf dem vorigen steht:
+    /// erst das Kennzeichen, dann das Datum, dann der Name — der beides braucht.</para>
+    /// <para>Ohne Obergrenze, anders als beim Text: Hier wird nur gelesen, was längst in der
+    /// Datenbank steht. Keine Texterkennung, keine Minuten.</para>
+    /// </remarks>
+    public async Task<BackfillDatesAndNamesResultDto> BackfillDatesAndNamesAsync(
+        CancellationToken ct = default)
+    {
+        var ids = await db.Documents.AsNoTracking()
+            .OrderBy(d => d.Id)
+            .Select(d => d.Id)
+            .ToListAsync(ct);
+
+        int gekennzeichnet = 0, datiert = 0, umbenannt = 0;
+
+        foreach (var id in ids)
+        {
+            var document = await db.Documents
+                .Include(d => d.DocumentType)
+                .Include(d => d.Links)
+                .FirstOrDefaultAsync(d => d.Id == id, ct);
+
+            if (document is null)
+            {
+                continue;
+            }
+
+            var art = document.DocumentType?.Name
+                      ?? (document.ContentText is { Length: > 0 } text
+                          ? FilingSuggestions.For(text)?.TypeName
+                          : null);
+
+            var ziel = document.Links.FirstOrDefault() is { } verknuepfung
+                ? await labels.ResolveAsync(verknuepfung.TargetType, verknuepfung.TargetId, ct)
+                : null;
+
+            var geaendert = false;
+
+            if (!document.HasGeneratedName && StammtVonDerApp(document, art, ziel))
+            {
+                document.HasGeneratedName = true;
+                gekennzeichnet++;
+                geaendert = true;
+            }
+
+            if (DatumVomAblagetag(document))
+            {
+                datiert++;
+                geaendert = true;
+            }
+
+            if (geaendert)
+            {
+                document.UpdatedAt = clock.Now;
+                await db.SaveChangesAsync(ct);
+            }
+
+            if (!string.IsNullOrWhiteSpace(art)
+                && await RenameIfScannedAsync(
+                       id, art, ziel ?? string.Empty, document.DocumentDate, ct) is not null)
+            {
+                umbenannt++;
+            }
+        }
+
+        return new BackfillDatesAndNamesResultDto
+        {
+            Gekennzeichnet = gekennzeichnet,
+            Datiert = datiert,
+            Umbenannt = umbenannt,
+        };
+    }
+
+    /// <summary>
+    /// Setzt das Datum vom Blatt, wo noch der Tag der Ablage steht.
+    /// </summary>
+    /// <remarks>
+    /// Die Schwelle ist eine andere als beim Einliefern: Dort heißt „noch nicht datiert“, dass
+    /// das Datum der heutige Tag ist — hier, dass es der Tag der Ablage ist. Was davon abweicht,
+    /// hat jemand gesetzt oder ein genauerer Weg, etwa der Stichtag eines Statusreports, und ist
+    /// besser als ein Briefdatum.
+    /// </remarks>
+    private bool DatumVomAblagetag(Document document)
+    {
+        if (document.DocumentDate != DateOnly.FromDateTime(document.CreatedAt)
+            || document.ContentText is not { Length: > 0 } text)
+        {
+            return false;
+        }
+
+        if (BillTextReader.DocumentDate(text, clock.Today) is not { } gelesen
+            || gelesen == document.DocumentDate)
+        {
+            return false;
+        }
+
+        document.DocumentDate = gelesen;
+        return true;
+    }
+
+    /// <summary>
+    /// Ob der Dateiname aufs Zeichen der ist, den die Anwendung selbst vergeben würde.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die nachträgliche Antwort auf eine Frage, die bis zur Einführung von
+    /// <see cref="Document.HasGeneratedName"/> niemand aufschrieb: Stammt dieser Name von der
+    /// Anwendung? Geraten wird dabei nicht an einem Muster. Gefragt wird, was sie mit den
+    /// heutigen Angaben des Belegs erzeugen würde — stimmt das aufs Zeichen überein, stammt der
+    /// Name von ihr oder ist davon nicht zu unterscheiden, was auf dasselbe hinausläuft.</para>
+    /// <para>Ein Mensch, der zufällig genau <c>Art_Objekt_2026-01-15</c> tippt, verlöre damit
+    /// sein Recht am Namen. Das ist der Preis, und er ist mit Absicht so herum gewählt: Die
+    /// Gegenrechnung wäre ein Bestand, dessen Dateinamen ein anderes Datum nennen als die
+    /// Liste daneben.</para>
+    /// </remarks>
+    private static bool StammtVonDerApp(Document document, string? art, string? ziel)
+    {
+        if (string.IsNullOrWhiteSpace(art))
+        {
+            return false;
+        }
+
+        var teile = new List<string> { art, ziel ?? string.Empty };
+        if (document.DocumentDate is { } tag)
+        {
+            teile.Add(tag.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+        }
+
+        var erwartet = DocumentPathService.Sanitize(
+            string.Join("_", teile.Where(s => !string.IsNullOrWhiteSpace(s))));
+        var vorhanden = Path.GetFileNameWithoutExtension(document.FileName);
+
+        if (vorhanden.Equals(erwartet, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // Beim Ablegen weicht ein besetzter Name mit _1, _2 aus. Auch das ist ihr Name.
+        var rest = vorhanden.StartsWith(erwartet + "_", StringComparison.OrdinalIgnoreCase)
+            ? vorhanden[(erwartet.Length + 1)..]
+            : string.Empty;
+
+        return rest.Length > 0 && rest.All(char.IsAsciiDigit);
+    }
+
     private static IReadOnlyList<string> SplitTags(string? tags)
         => string.IsNullOrWhiteSpace(tags)
             ? []

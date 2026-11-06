@@ -57,6 +57,12 @@ public static class ExtensionEndpoints
             => Results.Ok(new BackfillResultDto { Gelesen = await service.BackfillTextAsync(limit ?? 50, ct) }))
             .RequireAuthorization(AuthPolicies.Write);
 
+        // Datum und Namen nachziehen, für alles, was vor dem Lesen des Datums abgelegt wurde.
+        // Ohne Obergrenze: Gelesen wird der gespeicherte Text, nicht die Datei.
+        api.MapPost("/nachziehen", async (DocumentService service, CancellationToken ct)
+            => Results.Ok(await service.BackfillDatesAndNamesAsync(ct)))
+            .RequireAuthorization(AuthPolicies.Write);
+
         api.MapGet("/search", async (string q, DocumentService service, CancellationToken ct)
             => Results.Ok(await service.SearchAsync(q, ct)));
 

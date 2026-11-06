@@ -116,6 +116,25 @@
             </div>
         </AuthorizeView>
     }
+
+    @*
+        Datum und Namen nachziehen. Ein Beleg, der vor dem Lesen des Datums abgelegt wurde,
+        trägt den Tag seiner Ablage — und heißt oft noch, wie das Gerät ihn genannt hat. Hier
+        wird kein Bild erneut gelesen, nur der Text, der längst gespeichert ist; deshalb ohne
+        Schübe und ohne Zahl davor.
+    *@
+    @if (total > 0)
+    {
+        <AuthorizeView Roles="Owner,Member" Context="nachziehen">
+            <div class="doc-foot">
+                <span>Datum und Name aus dem Beleg selbst</span>
+                <button type="button" class="btn btn-secondary" disabled="@catching"
+                        @onclick="CatchUpAsync">
+                    @(catching ? "zieht nach …" : "Datum und Namen nachziehen")
+                </button>
+            </div>
+        </AuthorizeView>
+    }
 </AsyncView>
 </div>
 
@@ -191,6 +210,7 @@
     private int missing;
     private int withoutText;
     private bool reading;
+    private bool catching;
 
     private DocumentArea? area;
     private bool withoutLink;
@@ -257,6 +277,33 @@
         finally
         {
             reading = false;
+        }
+    });
+
+    /// <summary>
+    /// Holt Datum und Namen für den Bestand nach.
+    /// </summary>
+    /// <remarks>
+    /// Die Meldung nennt alle drei Zahlen einzeln. „17 Dokumente nachgezogen“ verschwiege, dass
+    /// darunter Dateien sind, die jetzt anders heißen als gestern — und das ist das einzige,
+    /// was ein Nachlauf hier auf der Platte anrichtet.
+    /// </remarks>
+    private Task CatchUpAsync() => RunAsync(async () =>
+    {
+        catching = true;
+        try
+        {
+            var ergebnis = await Api.BackfillDocumentDatesAndNamesAsync();
+            Toasts.Show(ergebnis.Nichts
+                ? "Nichts nachzuziehen"
+                : $"{ergebnis.Datiert} datiert, {ergebnis.Umbenannt} umbenannt, "
+                  + $"{ergebnis.Gekennzeichnet} gekennzeichnet");
+
+            await ReloadAsync();
+        }
+        finally
+        {
+            catching = false;
         }
     });
 

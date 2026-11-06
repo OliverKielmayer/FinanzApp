@@ -238,6 +238,160 @@ public sealed class DocumentDateAndNameTests : IDisposable
         Assert.DoesNotContain(treffer.Documents, d => d.Id == ergebnis.DocumentId);
     }
 
+    // ── Das Nachziehen am Bestand ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Versetzt einen Beleg in den Zustand vor dieser Fassung.
+    /// </summary>
+    /// <remarks>
+    /// So lag der Bestand bis heute da: das Datum auf dem Tag der Ablage, der Name ohne
+    /// Kennzeichen. Nachgebaut statt angenommen — die Datei wandert dabei wirklich, sonst
+    /// prüfte der Test eine Umbenennung, die auf der Platte gar nicht stattfindet.
+    /// </remarks>
+    private void AlterBestand(int id, string dateiname)
+    {
+        var paths = TestDatabase.PathService(root);
+        using var context = database.Context();
+        var dokument = context.Documents.Single(d => d.Id == id);
+
+        // Nur bewegen, wenn der Name sich unterscheidet: Ein Zug auf den eigenen Pfad sieht
+        // für die Ablage wie ein besetzter Name aus, und sie wiche mit _1 aus.
+        if (!string.Equals(dokument.FileName, dateiname, StringComparison.Ordinal))
+        {
+            var ordner = dokument.RelativePath[..(dokument.RelativePath.LastIndexOf('/') + 1)];
+            var ziel = paths.Move(dokument.RelativePath, ordner + dateiname);
+            Assert.NotNull(ziel);
+
+            dokument.RelativePath = ziel;
+            dokument.FileName = Path.GetFileName(ziel);
+        }
+
+        dokument.HasGeneratedName = false;
+        dokument.DocumentDate = DateOnly.FromDateTime(dokument.CreatedAt);
+        context.SaveChanges();
+    }
+
+    private async Task<BackfillDatesAndNamesResultDto> Nachziehen()
+    {
+        using var context = database.Context();
+        return await Documents(context).BackfillDatesAndNamesAsync();
+    }
+
+    [Fact]
+    public async Task Der_Bestand_bekommt_das_Datum_vom_Blatt_nachgetragen()
+    {
+        var ergebnis = await Einliefern(Bescheid(), "Rechnung Mustermann.pdf");
+        AlterBestand(ergebnis.DocumentId, "Rechnung_Mustermann.pdf");
+
+        var lauf = await Nachziehen();
+
+        Assert.Equal(1, lauf.Datiert);
+        Assert.Equal(0, lauf.Umbenannt);
+        Assert.Equal(0, lauf.Gekennzeichnet);
+        Assert.Equal(new DateOnly(2026, 3, 12), Geladen(ergebnis.DocumentId).DocumentDate);
+    }
+
+    /// <summary>
+    /// Ein von Hand benannter Beleg behält seinen Namen, auch wenn sein Datum wandert.
+    /// </summary>
+    /// <remarks>
+    /// Der Kern der Entscheidung: Das Datum nachzutragen ist eine Berichtigung, den Namen zu
+    /// überschreiben ein Verlust. Nur das erste geschieht ungefragt.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_Name_von_Hand_bleibt_auch_beim_Nachziehen()
+    {
+        var ergebnis = await Einliefern(Bescheid(), "Rechnung Mustermann.pdf");
+        AlterBestand(ergebnis.DocumentId, "Rechnung_Mustermann.pdf");
+
+        await Nachziehen();
+
+        var dokument = Geladen(ergebnis.DocumentId);
+        Assert.Equal("Rechnung_Mustermann.pdf", dokument.FileName);
+        Assert.False(dokument.HasGeneratedName);
+    }
+
+    /// <summary>
+    /// Trägt ein Beleg genau den Namen, den die Anwendung vergeben würde, zieht der Name mit.
+    /// </summary>
+    /// <remarks>
+    /// Sonst stünde in der Liste das Datum vom Blatt und im Dateinamen der Tag der Ablage —
+    /// schlechter als beides, weil die Ablage sich dann selbst widerspricht.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_Name_in_der_Form_der_Anwendung_zieht_mit_dem_Datum_nach()
+    {
+        var ergebnis = await Einliefern(Bescheid(), "Platzhalter.pdf");
+        AlterBestand(ergebnis.DocumentId, "Gebuehrenbescheid_2026-11-06.pdf");
+
+        var lauf = await Nachziehen();
+
+        Assert.Equal(1, lauf.Gekennzeichnet);
+        Assert.Equal(1, lauf.Datiert);
+        Assert.Equal(1, lauf.Umbenannt);
+
+        var dokument = Geladen(ergebnis.DocumentId);
+        Assert.Equal("Gebuehrenbescheid_2026-03-12.pdf", dokument.FileName);
+        Assert.True(dokument.HasGeneratedName);
+    }
+
+    /// <summary>Ein Name, der einem besetzten ausgewichen ist, gilt genauso.</summary>
+    [Fact]
+    public async Task Ein_Ausweichname_gilt_auch_als_von_der_Anwendung_vergeben()
+    {
+        var ergebnis = await Einliefern(Bescheid(), "Platzhalter.pdf");
+        AlterBestand(ergebnis.DocumentId, "Gebuehrenbescheid_2026-11-06_1.pdf");
+
+        var lauf = await Nachziehen();
+
+        Assert.Equal(1, lauf.Gekennzeichnet);
+        Assert.True(Geladen(ergebnis.DocumentId).HasGeneratedName);
+    }
+
+    /// <summary>Ein gepflegtes Datum wird nicht überschrieben.</summary>
+    /// <remarks>
+    /// Weicht das Datum vom Tag der Ablage ab, hat es jemand gesetzt — oder ein genauerer Weg
+    /// als ein Briefdatum, etwa der Stichtag eines Statusreports.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_gepflegtes_Datum_bleibt_beim_Nachziehen_stehen()
+    {
+        var ergebnis = await Einliefern(Bescheid(), "Rechnung Mustermann.pdf");
+        AlterBestand(ergebnis.DocumentId, "Rechnung_Mustermann.pdf");
+
+        using (var context = database.Context())
+        {
+            var dokument = context.Documents.Single(d => d.Id == ergebnis.DocumentId);
+            dokument.DocumentDate = new DateOnly(2026, 1, 9);
+            context.SaveChanges();
+        }
+
+        var lauf = await Nachziehen();
+
+        Assert.Equal(0, lauf.Datiert);
+        Assert.Equal(new DateOnly(2026, 1, 9), Geladen(ergebnis.DocumentId).DocumentDate);
+    }
+
+    /// <summary>
+    /// Der zweite Lauf findet nichts mehr.
+    /// </summary>
+    /// <remarks>
+    /// Ein Nachlauf, der bei jedem Druck etwas tut, ist keiner: Er verschöbe Dateien im Kreis
+    /// und die Meldung sagte jedes Mal dasselbe, ohne dass es stimmt.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_zweiter_Lauf_aendert_nichts_mehr()
+    {
+        var ergebnis = await Einliefern(Bescheid(), "Platzhalter.pdf");
+        AlterBestand(ergebnis.DocumentId, "Gebuehrenbescheid_2026-11-06.pdf");
+
+        var erster = await Nachziehen();
+        Assert.False(erster.Nichts);
+
+        var zweiter = await Nachziehen();
+        Assert.True(zweiter.Nichts);
+    }
+
     public void Dispose()
     {
         database.Dispose();

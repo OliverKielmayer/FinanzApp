@@ -478,7 +478,7 @@ public sealed class ScanIntakeService(
             return;
         }
 
-        if (BillTextReader.Read(text).BillDate is { } gelesen && gelesen <= clock.Today)
+        if (BillTextReader.DocumentDate(text, clock.Today) is { } gelesen)
         {
             dokument.DocumentDate = gelesen;
         }
