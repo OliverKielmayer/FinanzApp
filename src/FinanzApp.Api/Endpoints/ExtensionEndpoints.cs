@@ -63,6 +63,13 @@ public static class ExtensionEndpoints
             => Results.Ok(await service.BackfillDatesAndNamesAsync(ct)))
             .RequireAuthorization(AuthPolicies.Write);
 
+        // Schreiben durch das Sprachmodell ansehen lassen. In Schüben, wie beim Volltext: Jeder
+        // Beleg kostet das Modell ein bis zwei Sekunden.
+        api.MapPost("/durchsehen", async (
+                int? limit, DocumentActionService service, CancellationToken ct)
+            => Results.Ok(await service.ScanAsync(limit ?? 20, ct)))
+            .RequireAuthorization(AuthPolicies.Write);
+
         api.MapGet("/search", async (string q, DocumentService service, CancellationToken ct)
             => Results.Ok(await service.SearchAsync(q, ct)));
 

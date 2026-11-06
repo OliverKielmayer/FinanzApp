@@ -77,7 +77,8 @@ public sealed class ScanIntakeTests : IDisposable
 
         return new ScanIntakeService(
             context, scans, documents, new ScanInboxService(context, documents, clock),
-            new AssetSheetParser(), new CamtStatementParser(), clock);
+            new AssetSheetParser(), new CamtStatementParser(),
+            TestDatabase.NoActions(context, clock), clock);
     }
 
     /// <summary>Zählt die Einlieferungen, damit jede eigene Bytes bekommt.</summary>

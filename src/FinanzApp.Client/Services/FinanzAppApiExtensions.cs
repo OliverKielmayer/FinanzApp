@@ -94,6 +94,12 @@ public static class FinanzAppApiExtensions
         => api.SendAsync<object?, BackfillDatesAndNamesResultDto>(
             HttpMethod.Post, "api/documents/nachziehen", null, ct);
 
+    /// <summary>Lässt das Sprachmodell Schreiben daraufhin ansehen, ob sie etwas verlangen.</summary>
+    public static Task<ActionScanResultDto> ScanDocumentActionsAsync(
+        this FinanzAppApi api, int limit = 20, CancellationToken ct = default)
+        => api.SendAsync<object?, ActionScanResultDto>(
+            HttpMethod.Post, $"api/documents/durchsehen?limit={limit}", null, ct);
+
     /// <summary>Stellt ein Dokument auf „nur ich“ oder zurück auf den Haushalt.</summary>
     public static Task SetDocumentSharingAsync(
         this FinanzAppApi api, int id, DocumentSharing sharing, CancellationToken ct = default)

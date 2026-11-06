@@ -152,6 +152,29 @@ builder.Services.AddSingleton<IBillTextExtractor, ReadingBillTextExtractor>();
 // Anlege-Flow trotzdem — nur mit leerer Maske.
 builder.Services.AddSingleton<IPolicyDocumentAnalyzer, NoPolicyDocumentAnalyzer>();
 
+// Das Sprachmodell, das Schreiben daraufhin durchsieht, ob sie etwas verlangen. Dieselbe
+// Bauart wie die Texterkennung: eine Schnittstelle, abschaltbar, standardmäßig aus. Ohne
+// eingerichtetes Modell findet die Anwendung, was die Leseregeln finden, und sagt das auch.
+//
+// Lokal und nur lokal. Beim Bild ginge eine Seite hinaus, hier der ganze gelesene Text — Name,
+// Anschrift, Kontonummer, Gehalt. Die Adresse zeigt deshalb ab Werk auf den eigenen Rechner.
+var sprachmodell = builder.Configuration.GetSection(LanguageModelOptions.SectionName)
+                       .Get<LanguageModelOptions>() ?? new LanguageModelOptions();
+builder.Services.AddSingleton(sprachmodell);
+
+if (sprachmodell.Enabled)
+{
+    builder.Services.AddHttpClient<IDocumentActionFinder, OllamaActionFinder>(client =>
+    {
+        client.BaseAddress = new Uri(sprachmodell.Url);
+        client.Timeout = TimeSpan.FromSeconds(sprachmodell.TimeoutSeconds);
+    });
+}
+else
+{
+    builder.Services.AddSingleton<IDocumentActionFinder, NoDocumentActionFinder>();
+}
+
 // Der Leser hinter derselben Art Schnittstelle, und hinter ihm zwei: die Textebene eines PDF
 // und, für Fotos und Scans, eine Texterkennung. Welcher zuständig ist, entscheiden die ersten
 // Bytes der Datei.
@@ -178,6 +201,7 @@ builder.Services.AddSingleton<IPdfTextReader, ScanTextReader>();
 builder.Services.AddScoped<PensionGrowthService>();
 builder.Services.AddScoped<ObjectLabelService>();
 builder.Services.AddScoped<DocumentService>();
+builder.Services.AddScoped<DocumentActionService>();
 builder.Services.AddScoped<TaskService>();
 builder.Services.AddScoped<MedicalBillService>();
 builder.Services.AddScoped<PolicyService>();

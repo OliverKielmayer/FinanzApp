@@ -66,6 +66,17 @@ public sealed class TestDatabase : IDisposable
         return household.Id;
     }
 
+    /// <summary>
+    /// Ein Durchseher ohne Sprachmodell dahinter — der eingebaute Stand.
+    /// </summary>
+    /// <remarks>
+    /// Er meldet sich als nicht vorhanden und vermerkt deshalb auch nichts an den Belegen. Ein
+    /// Test, der das Einliefern prüft, soll nicht nebenbei festlegen, was ein Modell findet.
+    /// </remarks>
+    public static DocumentActionService NoActions(FinanzAppDbContext context, IClock clock)
+        => new(context, new NoDocumentActionFinder(), clock,
+            NullLogger<DocumentActionService>.Instance);
+
     public static IClock ClockAt(int year, int month, int day, int hour = 8, int minute = 0)
         => new FixedClock(new DateTime(year, month, day, hour, minute, 0, DateTimeKind.Local));
 

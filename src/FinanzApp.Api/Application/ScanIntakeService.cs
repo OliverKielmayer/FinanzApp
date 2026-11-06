@@ -29,6 +29,7 @@ public sealed class ScanIntakeService(
     ScanInboxService inbox,
     AssetSheetParser sheets,
     IStatementParser statements,
+    DocumentActionService actions,
     IClock clock)
 {
     /// <summary>Höchstlänge der mitgelieferten Herkunft. Sie steht am Dokument, nicht im Protokoll.</summary>
@@ -452,6 +453,12 @@ public sealed class ScanIntakeService(
             await documents.RenameIfScannedAsync(
                 documentId, art, targetName: string.Empty, dokument.DocumentDate, ct);
         }
+
+        // Zuletzt die Frage, die keine Leseregel beantwortet: Verlangt dieses Schreiben etwas?
+        // Sie geht an ein Sprachmodell, wenn eines eingerichtet ist, und kostet ein bis zwei
+        // Sekunden. Ist keines da, geschieht hier nichts — und der Beleg bleibt unvermerkt,
+        // damit ein später eingerichtetes Modell ihn noch zu sehen bekommt.
+        await actions.ExamineAsync(documentId, ct);
     }
 
     /// <summary>

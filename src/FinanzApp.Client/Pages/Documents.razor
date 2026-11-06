@@ -136,6 +136,24 @@
         </AuthorizeView>
     }
 
+    @*
+        Die Frage, die keine Leseregel beantwortet: Verlangt dieses Schreiben etwas? Sie geht
+        an ein lokales Sprachmodell, und zwar in Schüben — jeder Beleg kostet es ein bis zwei
+        Sekunden. Ist keines eingerichtet, sagt die Meldung das; der Knopf steht trotzdem da,
+        weil die Seite nicht wissen kann, was auf dem Rechner läuft.
+    *@
+    @if (total > 0)
+    {
+        <AuthorizeView Roles="Owner,Member" Context="durchsehen">
+            <div class="doc-foot">
+                <span>Verlangt ein Schreiben etwas?</span>
+                <button type="button" class="btn btn-secondary" disabled="@scanning"
+                        @onclick="ScanActionsAsync">
+                    @(scanning ? "sieht durch …" : "Schreiben durchsehen")
+                </button>
+            </div>
+        </AuthorizeView>
+    }
 </AsyncView>
 </div>
 
@@ -212,6 +230,7 @@
     private int withoutText;
     private bool reading;
     private bool catching;
+    private bool scanning;
 
     private DocumentArea? area;
     private bool withoutLink;
@@ -306,6 +325,35 @@
         finally
         {
             catching = false;
+        }
+    });
+
+    /// <summary>
+    /// Lässt das Sprachmodell Schreiben ansehen.
+    /// </summary>
+    /// <remarks>
+    /// Die Meldung nennt beides: was gefunden wurde und wie viel noch aussteht. Ohne die
+    /// zweite Zahl wüsste niemand, ob ein weiterer Druck noch etwas bringt.
+    /// </remarks>
+    private Task ScanActionsAsync() => RunAsync(async () =>
+    {
+        scanning = true;
+        try
+        {
+            var ergebnis = await Api.ScanDocumentActionsAsync(20);
+
+            Toasts.Show(!ergebnis.Verfuegbar
+                ? "Kein Sprachmodell eingerichtet"
+                : ergebnis.Durchgesehen == 0
+                    ? "Alle Schreiben sind durchgesehen"
+                    : $"{ergebnis.Durchgesehen} durchgesehen, {ergebnis.Gefunden} verlangen etwas"
+                      + (ergebnis.Offen > 0 ? $" · noch {ergebnis.Offen} offen" : string.Empty));
+
+            await ReloadAsync();
+        }
+        finally
+        {
+            scanning = false;
         }
     });
 

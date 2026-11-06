@@ -178,6 +178,29 @@ public sealed record BackfillResultDto
 }
 
 /// <summary>
+/// Was das Durchsehen durch das Sprachmodell ergeben hat.
+/// </summary>
+/// <remarks>
+/// <c>Offen</c> steht dabei, weil in Schüben gearbeitet wird: Jeder Beleg kostet das Modell
+/// ein bis zwei Sekunden, und eine Anfrage, die Minuten braucht, bricht unterwegs ab. Die Zahl
+/// sagt, ob sich ein zweiter Druck lohnt.
+/// </remarks>
+public sealed record ActionScanResultDto
+{
+    /// <summary>Ob überhaupt ein Modell eingerichtet ist.</summary>
+    public required bool Verfuegbar { get; init; }
+
+    /// <summary>Belege, die das Modell in diesem Schub angesehen hat.</summary>
+    public required int Durchgesehen { get; init; }
+
+    /// <summary>Davon solche, die etwas verlangen.</summary>
+    public required int Gefunden { get; init; }
+
+    /// <summary>Belege, die danach noch keiner angesehen hat.</summary>
+    public required int Offen { get; init; }
+}
+
+/// <summary>
 /// Was das Nachziehen am Bestand geändert hat.
 /// </summary>
 /// <remarks>
