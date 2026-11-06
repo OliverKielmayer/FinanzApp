@@ -196,6 +196,9 @@ public sealed record BackfillDatesAndNamesResultDto
     /// <summary>Belege, deren Datei einen neuen Namen bekommen hat.</summary>
     public required int Umbenannt { get; init; }
 
+    /// <summary>Belege, die etwas verlangen, ohne dass es bisher jemand wusste.</summary>
+    public int Gefordert { get; init; }
+
     /// <summary>Ob überhaupt etwas geschehen ist.</summary>
-    public bool Nichts => Gekennzeichnet == 0 && Datiert == 0 && Umbenannt == 0;
+    public bool Nichts => Gekennzeichnet == 0 && Datiert == 0 && Umbenannt == 0 && Gefordert == 0;
 }

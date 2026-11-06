@@ -65,6 +65,53 @@ public class Document : IHouseholdOwned
     /// <summary>Datum auf dem Dokument, nicht der Ablagezeitpunkt.</summary>
     public DateOnly? DocumentDate { get; set; }
 
+    /// <summary>
+    /// Der Satz, in dem das Schreiben etwas verlangt — wörtlich, wie er im Text steht.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die Antwort auf „verlangt dieses Schreiben eine Handlung?“ ist nicht ja oder
+    /// nein, sondern <em>diese Zeile</em>. Ein Kennzeichen ohne Beleg wäre eine Behauptung;
+    /// mit der Zeile sieht jeder in zwei Sekunden nach, ob richtig gelesen wurde, ohne das
+    /// Papier zu öffnen.</para>
+    /// <para>Der Satz steht am Beleg und nicht nur im Vorgang: Ein Vorgang wird erledigt und
+    /// verschwindet, der Satz auf dem Papier bleibt stehen und würde beim nächsten Lesen
+    /// wieder gefunden.</para>
+    /// <para>Drei Zustände, wie bei <see cref="ContentText"/>: <c>null</c> heißt <em>noch
+    /// niemand hat nachgesehen</em>, <see cref="string.Empty"/> heißt <em>nachgesehen und
+    /// nichts gefunden</em>, alles andere ist der Satz. Die Unterscheidung verhindert, dass
+    /// derselbe Beleg bei jedem Durchlauf erneut durch das Sprachmodell geht — und sie sagt,
+    /// wie viel noch aussteht.</para>
+    /// </remarks>
+    public string? ActionLine { get; set; }
+
+    /// <summary>
+    /// Der Termin aus <see cref="ActionLine"/>, sofern der Satz einen nennt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Nicht zu verwechseln mit <see cref="ValidUntil"/>: Das ist die Gültigkeit eines
+    /// Papiers, dies hier eine Frist, die es setzt. Ein Ausweis läuft ab, ein Bescheid
+    /// verlangt.</para>
+    /// <para><c>null</c> bei einem Satz ohne Termin — „bitte stellen Sie Ihren Einzug um“
+    /// verlangt etwas, nennt aber kein Datum. Der Vorgang entsteht trotzdem, nur ohne
+    /// Dringlichkeit. Eine erfundene Frist machte daraus eine, die das Papier nicht hergibt.
+    /// </para>
+    /// </remarks>
+    public DateOnly? DueDate { get; set; }
+
+    /// <summary>
+    /// Ob ein Sprachmodell diesen Satz gefunden hat statt einer Leseregel.
+    /// </summary>
+    /// <remarks>
+    /// <para>Beide Wege liefern dieselbe Art Beleg — eine Zeile, die wörtlich im Text steht,
+    /// geprüft, nicht geglaubt. Verschieden ist, <em>warum</em> die Zeile als Forderung gilt:
+    /// Die Leseregel weiß es an einem Wort wie „fällig“, das Modell an seinem Urteil. Das
+    /// zweite ist schwächer, und wer den Vorgang liest, soll das wissen.</para>
+    /// <para>Deshalb das Kennzeichen und keine Konfidenzzahl: Eine Zahl zwischen null und eins
+    /// gibt vor, messbar zu sein, und niemand könnte sagen, ab welchem Wert er ihr glaubt.
+    /// </para>
+    /// </remarks>
+    public bool ActionFromModel { get; set; }
+
     public DateOnly? ValidFrom { get; set; }
     public DateOnly? ValidUntil { get; set; }
 

@@ -1085,7 +1085,7 @@ public sealed class DocumentService(
             .Select(d => d.Id)
             .ToListAsync(ct);
 
-        int gekennzeichnet = 0, datiert = 0, umbenannt = 0;
+        int gekennzeichnet = 0, datiert = 0, umbenannt = 0, gefordert = 0;
 
         foreach (var id in ids)
         {
@@ -1117,11 +1117,20 @@ public sealed class DocumentService(
                 geaendert = true;
             }
 
-            if (DatumVomAblagetag(document))
+            var vomBlatt = PaperFacts.Apply(
+                document, clock.Today, dateMarker: DateOnly.FromDateTime(document.CreatedAt));
+
+            if (vomBlatt.Dated)
             {
                 datiert++;
-                geaendert = true;
             }
+
+            if (vomBlatt.Demanded)
+            {
+                gefordert++;
+            }
+
+            geaendert |= !vomBlatt.Nothing;
 
             if (geaendert)
             {
@@ -1142,34 +1151,8 @@ public sealed class DocumentService(
             Gekennzeichnet = gekennzeichnet,
             Datiert = datiert,
             Umbenannt = umbenannt,
+            Gefordert = gefordert,
         };
-    }
-
-    /// <summary>
-    /// Setzt das Datum vom Blatt, wo noch der Tag der Ablage steht.
-    /// </summary>
-    /// <remarks>
-    /// Die Schwelle ist eine andere als beim Einliefern: Dort heißt „noch nicht datiert“, dass
-    /// das Datum der heutige Tag ist — hier, dass es der Tag der Ablage ist. Was davon abweicht,
-    /// hat jemand gesetzt oder ein genauerer Weg, etwa der Stichtag eines Statusreports, und ist
-    /// besser als ein Briefdatum.
-    /// </remarks>
-    private bool DatumVomAblagetag(Document document)
-    {
-        if (document.DocumentDate != DateOnly.FromDateTime(document.CreatedAt)
-            || document.ContentText is not { Length: > 0 } text)
-        {
-            return false;
-        }
-
-        if (BillTextReader.DocumentDate(text, clock.Today) is not { } gelesen
-            || gelesen == document.DocumentDate)
-        {
-            return false;
-        }
-
-        document.DocumentDate = gelesen;
-        return true;
     }
 
     /// <summary>

@@ -26,6 +26,21 @@ public sealed class TaskService(FinanzAppDbContext db, IClock clock)
     /// um noch zu widersprechen oder Geld bereitzulegen.</summary>
     private const int InvoiceLeadDays = 30;
 
+    /// <summary>Wie früh vor einer Frist aus einem Schreiben erinnert wird.</summary>
+    private const int DocumentDueLeadDays = 30;
+
+    /// <summary>
+    /// Wie lange eine abgelaufene Frist aus einem Schreiben noch auf dem Tisch bleibt.
+    /// </summary>
+    /// <remarks>
+    /// Anders als bei einer erfassten Rechnung weiß die Anwendung hier nicht, ob bezahlt wurde
+    /// — es gibt keinen Status, nur den Satz auf dem Papier. Ohne untere Grenze stünde der
+    /// Vorgänge-Tab irgendwann voller Fristen aus abgelegten Jahren: Archäologie statt Arbeit.
+    /// Einen Monat bleibt sie liegen, danach gilt sie als erledigt oder als verpasst, und
+    /// beides ändert eine Aufgabe nicht mehr.
+    /// </remarks>
+    private const int DocumentDueGraceDays = 30;
+
     public async Task<TaskListDto> GetListAsync(TaskState? state = null, CancellationToken ct = default)
     {
         await SynchroniseAsync(ct);
@@ -339,6 +354,54 @@ public sealed class TaskService(FinanzAppDbContext db, IClock clock)
                      && !offenJeBeleg.ContainsKey(belegId)))
         {
             Close(TaskSource.DocumentValuesOpen, LinkTargetType.Document, vorgang.SourceId!.Value);
+        }
+
+        // Schreiben, die etwas verlangen.
+        //
+        // Die Forderung steht auf dem Papier und sonst nirgends — keine erfasste Rechnung
+        // kennt sie, kein Vertrag, kein Status. Deshalb trägt der Vorgang die Zeile mit, aus
+        // der sie stammt: Eine Forderung ohne ihren Satz ist eine Behauptung; mit ihm sieht
+        // jeder in zwei Sekunden nach, ob richtig gelesen wurde, ohne den Beleg zu öffnen.
+        var mitForderung = await db.Documents.AsNoTracking()
+            .Where(d => d.ActionLine != null && d.ActionLine != "")
+            .ToListAsync(ct);
+
+        var imFenster = new HashSet<int>();
+
+        foreach (var beleg in mitForderung)
+        {
+            // Mit Termin gilt das Fenster. Ohne Termin bleibt der Vorgang stehen, bis ihn
+            // jemand erledigt: Es läuft nichts ab, es liegt nur etwas — und eine erfundene
+            // Frist machte daraus eine Dringlichkeit, die das Papier nicht hergibt.
+            if (beleg.DueDate is { } frist)
+            {
+                var tage = frist.DayNumber - today.DayNumber;
+                if (tage > DocumentDueLeadDays || tage < -DocumentDueGraceDays)
+                {
+                    continue;
+                }
+            }
+
+            imFenster.Add(beleg.Id);
+
+            Upsert(
+                TaskSource.DocumentAction, LinkTargetType.Document, beleg.Id,
+                beleg.DueDate is null ? $"Zu erledigen: {beleg.Title}" : $"Frist: {beleg.Title}",
+                (beleg.DueDate is { } termin ? $"fällig {Format(termin)} · " : string.Empty)
+                    + $"gelesen aus: „{beleg.ActionLine}“"
+                    + (beleg.ActionFromModel ? " · vom Sprachmodell gefunden" : string.Empty),
+                beleg.DueDate);
+        }
+
+        // Auch hier über die vorhandenen Vorgänge und nicht über die Belege: Ein gelöschter
+        // Beleg taucht in keiner Schleife über Belege mehr auf, und sein Vorgang bliebe für
+        // immer offen und führte nirgendwohin.
+        foreach (var vorgang in existing.Where(t =>
+                     t.Source == TaskSource.DocumentAction
+                     && t.SourceId is { } belegId
+                     && !imFenster.Contains(belegId)))
+        {
+            Close(TaskSource.DocumentAction, LinkTargetType.Document, vorgang.SourceId!.Value);
         }
 
         if (changed)

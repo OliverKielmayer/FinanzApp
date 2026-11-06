@@ -507,6 +507,12 @@ namespace FinanzApp.Api.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("ActionFromModel")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ActionLine")
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("Area")
                         .HasColumnType("INTEGER");
 
@@ -529,6 +535,9 @@ namespace FinanzApp.Api.Data.Migrations
 
                     b.Property<int?>("DocumentTypeId")
                         .HasColumnType("INTEGER");
+
+                    b.Property<DateOnly?>("DueDate")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Extension")
                         .HasMaxLength(16)

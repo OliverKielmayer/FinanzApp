@@ -135,6 +135,7 @@
             </div>
         </AuthorizeView>
     }
+
 </AsyncView>
 </div>
 
@@ -297,7 +298,8 @@
             Toasts.Show(ergebnis.Nichts
                 ? "Nichts nachzuziehen"
                 : $"{ergebnis.Datiert} datiert, {ergebnis.Umbenannt} umbenannt, "
-                  + $"{ergebnis.Gekennzeichnet} gekennzeichnet");
+                  + $"{ergebnis.Gekennzeichnet} gekennzeichnet"
+                  + (ergebnis.Gefordert > 0 ? $", {ergebnis.Gefordert} mit Forderung" : string.Empty));
 
             await ReloadAsync();
         }

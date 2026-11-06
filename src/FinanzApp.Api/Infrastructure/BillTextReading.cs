@@ -226,7 +226,11 @@ public static class BillTextReader
     /// Nachziehen am Bestand —, fragen deshalb hier und nicht jede für sich.
     /// </remarks>
     public static DateOnly? DocumentDate(string? text, DateOnly notAfter)
-        => Read(text).BillDate is { } datum && datum <= notAfter ? datum : null;
+        => DocumentDate(Read(text), notAfter);
+
+    /// <summary>Dasselbe für einen Text, der schon gelesen ist — ohne ihn erneut zu lesen.</summary>
+    public static DateOnly? DocumentDate(ExtractedBillDto gelesen, DateOnly notAfter)
+        => gelesen.BillDate is { } datum && datum <= notAfter ? datum : null;
 
     /// <summary>
     /// Liest, was dasteht — oder gibt zu, nichts gefunden zu haben.
@@ -542,6 +546,17 @@ public static class BillTextReader
 
         return (null, null);
     }
+
+    /// <summary>
+    /// Das Datum in einer einzelnen Zeile — für eine Fundstelle, die von außen kommt.
+    /// </summary>
+    /// <remarks>
+    /// Dieselbe Lesart wie überall sonst in diesem Leser, und mit Absicht dieselbe: Was ein
+    /// Sprachmodell als Zeile nennt, soll von demselben geprüften Code zu einem Datum werden
+    /// wie eine Zeile, die eine Leseregel gefunden hat. Zwei Lesarten für dasselbe Format
+    /// wären zwei Gelegenheiten, verschieden zu irren.
+    /// </remarks>
+    public static DateOnly? DateInLine(string line) => LetztesDatum(line);
 
     private static DateOnly? LetztesDatum(string zeile)
     {

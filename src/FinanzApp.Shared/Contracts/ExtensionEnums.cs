@@ -152,6 +152,19 @@ public enum TaskSource
     /// mehr auf seine offenen Werte zeigte.
     /// </remarks>
     DocumentValuesOpen = 6,
+
+    /// <summary>
+    /// Ein Schreiben, das etwas verlangt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die Forderung steht auf dem Papier und sonst nirgends: Es gibt keine Rechnung im
+    /// Bestand, keinen Vertrag, keinen Status, der sie kennt — nur den Satz im Text. Deshalb
+    /// eine eigene Quelle und nicht <see cref="InvoiceDue"/>, die eine erfasste Rechnung
+    /// voraussetzt.</para>
+    /// <para>Mit Termin, wenn der Satz einen nennt, und ohne, wenn nicht. „Bitte stellen Sie
+    /// Ihren Einzug um“ verlangt etwas, ohne ein Datum zu setzen.</para>
+    /// </remarks>
+    DocumentAction = 7,
 }
 
 public enum InvoiceStatus

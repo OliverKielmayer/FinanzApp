@@ -441,7 +441,7 @@ public sealed class ScanIntakeService(
             dokument.Description = "Aus dem überwachten Ordner übernommen: " + herkunft;
         }
 
-        DatumVomBlatt(dokument);
+        PaperFacts.Apply(dokument, clock.Today, dateMarker: clock.Today);
 
         await db.SaveChangesAsync(ct);
 
@@ -451,36 +451,6 @@ public sealed class ScanIntakeService(
         {
             await documents.RenameIfScannedAsync(
                 documentId, art, targetName: string.Empty, dokument.DocumentDate, ct);
-        }
-    }
-
-    /// <summary>
-    /// Setzt das Datum, das auf dem Blatt steht — statt des Tages der Einlieferung.
-    /// </summary>
-    /// <remarks>
-    /// <para>Ein Beleg bekam bisher <c>clock.Today</c>, weil die allgemeine Einlieferung kein
-    /// Datum kennt. Die Dokumentliste sortiert aber nach Dokumentdatum, und so standen zehn
-    /// Schreiben aus zehn Monaten alle am selben Tag — der Stapel war zwar abgelegt, aber nicht
-    /// mehr zeitlich zu lesen.</para>
-    /// <para>Gelesen wird aus demselben Text, aus dem auch der Ablagevorschlag entsteht. Nur
-    /// gesetzt, wenn der Beleg noch das Einlieferungsdatum trägt: Was ein besonderer Weg
-    /// bereits gesetzt hat — der Stichtag eines Statusreports etwa — ist genauer als ein
-    /// Briefdatum und bleibt stehen.</para>
-    /// <para><b>Kein Datum aus der Zukunft.</b> Ein Papier entsteht, bevor es ankommt. Stünde
-    /// eine Zahlungsfrist in der Zeile, die der Leser für das Briefdatum hält, sortierte sich
-    /// der Beleg nach vorn und stünde zwischen Schreiben, die es noch nicht gibt.</para>
-    /// </remarks>
-    private void DatumVomBlatt(Document dokument)
-    {
-        if (dokument.DocumentDate != clock.Today
-            || dokument.ContentText is not { Length: > 0 } text)
-        {
-            return;
-        }
-
-        if (BillTextReader.DocumentDate(text, clock.Today) is { } gelesen)
-        {
-            dokument.DocumentDate = gelesen;
         }
     }
 
