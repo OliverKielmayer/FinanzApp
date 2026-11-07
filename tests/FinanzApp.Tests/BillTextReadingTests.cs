@@ -352,6 +352,73 @@ public sealed class BillTextReadingTests
     }
 
     /// <summary>
+    /// Das Finanzamt sagt nicht „fällig“, sondern „spätestens am“.
+    /// </summary>
+    /// <remarks>
+    /// <para>Gefunden an zwei echten Steuerbescheiden, die mit einem Termin in der Ablage
+    /// lagen, von dem die Anwendung nichts wusste. Das Datumsmuster selbst kam mit dem
+    /// Leerzeichen zurecht, das die Texterkennung hinter den zweiten Punkt setzt — es fehlte
+    /// nur das Wort.</para>
+    /// <para>Der Betrag in derselben Zeile ist kein Datum und darf keines werden: „4.100,00“
+    /// sieht am Anfang aus wie ein Tag und ein Monat, hat aber nach dem zweiten Punkt ein
+    /// Komma statt eines Jahres.</para>
+    /// </remarks>
+    [Fact]
+    public void Ein_Steuerbescheid_nennt_seinen_Termin_mit_spaetestens()
+    {
+        var gelesen = BillTextReader.Read("""
+            Finanzamt Musterstadt
+            Bescheid über Grunderwerbsteuer
+            Noch zu zahlen 4.100,00
+            spätestens am 03.04. 2026 4.100,00
+            Wenn Sie die Steuern nicht bis zum Ablauf des Fälligkeitstages zahlen, ist für
+            """);
+
+        Assert.Equal(new DateOnly(2026, 4, 3), gelesen.DueDate);
+        Assert.Contains("spätestens am", gelesen.DueDateSource);
+    }
+
+    /// <summary>
+    /// „Spätestens“ allein ist kein Zahlungstermin.
+    /// </summary>
+    /// <remarks>
+    /// Das Wort trägt auch Sätze, die etwas ganz anderes meinen. Spränge die Regel darauf an,
+    /// nähme sie sich das nächstbeste Datum der Zeile und machte daraus eine Frist, die
+    /// niemand gesetzt hat — und die stünde dann als Vorgang da.
+    /// </remarks>
+    [Fact]
+    public void Eine_Kuendigungsbelehrung_mit_spaetestens_ist_kein_Zahlungstermin()
+    {
+        var gelesen = BillTextReader.Read("""
+            Musterversicherung AG
+            Ihr Vertrag läuft bis 31.12.2030.
+            Eine Kündigung muss uns spätestens drei Monate vor Ablauf erreichen.
+            """);
+
+        Assert.Null(gelesen.DueDate);
+    }
+
+    /// <summary>
+    /// Die ausdrücklichere Beschriftung gewinnt.
+    /// </summary>
+    /// <remarks>
+    /// Die Wortliste wird Wort für Wort durchgegangen, und „spätestens“ steht hinten. Trägt
+    /// ein Blatt beides — eine Zahlungsfrist und irgendwo ein „spätestens am“ —, soll die
+    /// Zahlungsfrist gelten.
+    /// </remarks>
+    [Fact]
+    public void Eine_ausdrueckliche_Faelligkeit_schlaegt_das_spaetestens()
+    {
+        var gelesen = BillTextReader.Read("""
+            Musterwerke GmbH
+            spätestens am 30.06.2026 ist der Zählerstand zu melden
+            Der Rechnungsbetrag ist am 15.05.2026 zur Zahlung fällig.
+            """);
+
+        Assert.Equal(new DateOnly(2026, 5, 15), gelesen.DueDate);
+    }
+
+    /// <summary>
     /// Auch die neuen Werte nennen ihre Zeile.
     /// </summary>
     /// <remarks>

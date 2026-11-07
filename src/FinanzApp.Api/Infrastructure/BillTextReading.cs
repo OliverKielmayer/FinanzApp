@@ -182,6 +182,17 @@ public static class BillTextReader
         "zur zahlung fällig", "zahlung fällig", "fällig am", "fällig bis", "fälligkeitstag",
         "fälligkeit", "zahlbar bis", "zahlbar am", "zahlungsziel", "bitte bis zum",
         "überweisen sie bis",
+
+        // Das Finanzamt sagt nicht „fällig“, sondern „spätestens am“. Zwei Bescheide lagen
+        // deshalb mit einem Termin in der Ablage, den die Anwendung nicht kannte.
+        //
+        // Hinten in der Liste, weil sie Wort für Wort durchgegangen wird: Trägt ein Blatt
+        // beides, gewinnt die ausdrücklichere Beschriftung.
+        //
+        // Und nicht „spätestens“ allein. Das Wort trägt auch Sätze, die keinen Zahlungstermin
+        // meinen — „spätestens drei Monate vor Ablauf“, „spätestens zum Vertragsende“ —, und
+        // eine Zeile mit irgendeinem Datum darin wäre dann eine Frist, die niemand gesetzt hat.
+        "spätestens am", "spätestens bis", "spätestens zum",
     ];
 
     /// <summary>
