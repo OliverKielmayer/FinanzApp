@@ -402,11 +402,16 @@ public static class FinanzAppApiExtensions
     /// Legt an. Ein Fehlschlag kommt als Ergebnis zurück, nicht als Ausnahme — die Oberfläche
     /// braucht das bemängelte Feld, nicht einen Statuscode.
     /// </summary>
+    /// <param name="documentId">
+    /// Derselbe Beleg, aus dem vorbefüllt wurde. Der Server hängt das neue Objekt an ihn.
+    /// </param>
     public static Task<CreateResultDto> CreateObjectAsync(
         this FinanzAppApi api, CreateObjectType type, Dictionary<string, string?> values,
-        CancellationToken ct = default)
+        int? documentId = null, CancellationToken ct = default)
         => api.PostAsync<CreateRequest, CreateResultDto>(
-            $"api/create/{type}", new CreateRequest { Values = values }, ct);
+            documentId is { } beleg ? $"api/create/{type}?documentId={beleg}" : $"api/create/{type}",
+            new CreateRequest { Values = values },
+            ct);
 
     /// <summary>
     /// Löscht den Dokumenteintrag. Die Datei im Dokumentordner bleibt liegen.

@@ -98,6 +98,30 @@ public sealed record DocumentDetailDto
 
     /// <summary>Wohin der Prüfschritt führt, an dem sie sich übernehmen lassen.</summary>
     public string? ValuesHref { get; init; }
+
+    /// <summary>
+    /// Die Zeile, in der dieses Schreiben etwas verlangt.
+    /// </summary>
+    /// <remarks>
+    /// Drei Zustände, wie am Beleg selbst: <c>null</c> heißt, niemand hat ihn daraufhin
+    /// durchgesehen; leer heißt, durchgesehen und nichts gefunden; ein Satz ist die Fundstelle
+    /// — wörtlich aus dem Beleg und nicht zusammengefasst, damit sich in zwei Sekunden prüfen
+    /// lässt, ob richtig gelesen wurde.
+    /// </remarks>
+    public string? ActionLine { get; init; }
+
+    /// <summary>Die Frist aus dieser Zeile, wenn sie eine nennt.</summary>
+    public DateOnly? ActionDueDate { get; init; }
+
+    /// <summary>
+    /// Ob die Zeile vom Sprachmodell stammt und nicht von einer Leseregel.
+    /// </summary>
+    /// <remarks>
+    /// Die Zeile ist in beiden Fällen gleich geprüft — sie kommt wörtlich aus dem Beleg.
+    /// Schwächer ist nur der Grund, sie für eine Forderung zu halten, und wer sie liest, soll
+    /// das wissen.
+    /// </remarks>
+    public bool ActionFromModel { get; init; }
 }
 
 public sealed record DocumentLinkDto

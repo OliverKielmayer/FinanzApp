@@ -596,10 +596,14 @@ public static class ExtensionEndpoints
             => Results.Ok(await service.ConfirmExtractionsAsync(documentId, ct)))
             .RequireAuthorization(AuthPolicies.Write);
 
+        // documentId: derselbe Beleg wie beim Formular. Was aus ihm entsteht, hängt der Dienst
+        // gleich an ihn — sonst stünde der neue Posten da, ohne das Schreiben zu kennen, aus
+        // dem er stammt.
         api.MapPost("/{type}", async (
-            CreateObjectType type, CreateRequest request, CreateFormService service, CancellationToken ct) =>
+            CreateObjectType type, int? documentId, CreateRequest request,
+            CreateFormService service, CancellationToken ct) =>
         {
-            var result = await service.CreateAsync(type, request.Values, ct);
+            var result = await service.CreateAsync(type, request.Values, documentId, ct);
 
             // Auch das Scheitern ist eine gültige Antwort: die Oberfläche braucht das Feld,
             // nicht nur einen Statuscode.

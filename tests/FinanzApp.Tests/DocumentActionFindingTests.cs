@@ -1,4 +1,5 @@
 using FinanzApp.Api.Application;
+using FinanzApp.Api.Data;
 using FinanzApp.Api.Data.Entities;
 using FinanzApp.Api.Infrastructure;
 using FinanzApp.Shared.Contracts;
@@ -21,6 +22,10 @@ public sealed class DocumentActionFindingTests : IDisposable
 {
     private readonly TestDatabase database = new();
     private readonly IClock clock = TestDatabase.ClockAt(2026, 11, 6);
+
+    /// <summary>Ein Ordner, in dem nichts liegt — geprüft wird der Eintrag, nicht die Datei.</summary>
+    private readonly string ablage =
+        Path.Combine(Path.GetTempPath(), "finanzapp-tests", Guid.NewGuid().ToString("N"));
 
     private const string Beleg =
         "Stadtwerke Musterstadt GmbH\n"
@@ -389,7 +394,62 @@ public sealed class DocumentActionFindingTests : IDisposable
         Assert.Equal(0, ergebnis.Offen);
     }
 
+    // ── Am Beleg ───────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Was der Beleg verlangt, steht auch am Beleg.
+    /// </summary>
+    /// <remarks>
+    /// Es stand bisher nur im Vorgang. Der Vorgang führt zum Beleg — und dort sah man das
+    /// Papier und nicht mehr den Satz, um den es ging. Wer hier ankommt, soll beides vor sich
+    /// haben: die Forderung, ihre Frist und den Hinweis, woher sie stammt.
+    /// </remarks>
+    [Fact]
+    public async Task Am_Beleg_steht_was_er_verlangt()
+    {
+        var id = Abgelegt(Beleg);
+        var sucher = new StubFinder(
+            "Bitte stellen Sie Ihren Lastschrifteinzug bis zum 30.11.2026 auf das neue Konto um.");
+
+        Assert.True(await Dienst(sucher).ExamineAsync(id));
+
+        using var context = database.Context();
+        var beleg = await Documents(context).GetAsync(id);
+
+        Assert.NotNull(beleg);
+        Assert.Contains("Lastschrifteinzug", beleg.ActionLine);
+        Assert.Equal(new DateOnly(2026, 11, 30), beleg.ActionDueDate);
+        Assert.True(beleg.ActionFromModel);
+    }
+
+    /// <summary>
+    /// Ein durchgesehener Beleg ohne Forderung behauptet keine.
+    /// </summary>
+    /// <remarks>
+    /// Die leere Zeile heißt „durchgesehen, nichts gefunden“ und darf am Schirm nicht als
+    /// Forderung erscheinen — sonst stünde an vierundneunzig Belegen ein leerer Kasten.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_Beleg_ohne_Forderung_zeigt_keine()
+    {
+        var id = Abgelegt(Beleg);
+
+        Assert.False(await Dienst(new StubFinder(null)).ExamineAsync(id));
+
+        using var context = database.Context();
+        var beleg = await Documents(context).GetAsync(id);
+
+        Assert.NotNull(beleg);
+        Assert.Equal(string.Empty, beleg.ActionLine);
+        Assert.Null(beleg.ActionDueDate);
+        Assert.False(beleg.ActionFromModel);
+    }
+
     // ── Aufbau ─────────────────────────────────────────────────────────────────────────────
+
+    private DocumentService Documents(FinanzAppDbContext context)
+        => new(context, TestDatabase.PathService(ablage), new ObjectLabelService(context), clock,
+            new PdfPigTextReader(), NullLogger<DocumentService>.Instance);
 
     private sealed class StubFinder(string? antwort, bool available = true) : IDocumentActionFinder
     {

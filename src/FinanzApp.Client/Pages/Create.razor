@@ -196,6 +196,18 @@ else
     /// <summary>Gesetzt, wenn ein vorhandener Datensatz bearbeitet wird.</summary>
     [Parameter] public int? Id { get; set; }
 
+    /// <summary>
+    /// Ein Beleg, aus dem vorbefüllt wird — der Weg von einem Schreiben zu dem Objekt, das es
+    /// verlangt.
+    /// </summary>
+    /// <remarks>
+    /// Was auf dem Blatt steht, holt der Server aus dem gelesenen Text und setzt es als
+    /// Vorgabe in die Felder; was er nicht lesen konnte, bleibt leer. Gespeichert wird nichts,
+    /// bis jemand den Knopf drückt — und danach hängt der Beleg am neuen Objekt.
+    /// </remarks>
+    [SupplyParameterFromQuery(Name = "beleg")]
+    public int? Beleg { get; set; }
+
     private bool confirmingDelete;
 
     private CreateFormDto? form;
@@ -237,7 +249,7 @@ else
 
         form = Id is { } id
             ? await Api.GetEditFormAsync(Parsed, id)
-            : await Api.GetCreateFormAsync(Parsed);
+            : await Api.GetCreateFormAsync(Parsed, Beleg);
 
         values.Clear();
         problem = null;
@@ -371,7 +383,7 @@ else
         {
             var result = Id is { } id
                 ? await Api.UpdateObjectAsync(Parsed, id, values)
-                : await Api.CreateObjectAsync(Parsed, values);
+                : await Api.CreateObjectAsync(Parsed, values, Beleg);
 
             if (!result.Ok)
             {

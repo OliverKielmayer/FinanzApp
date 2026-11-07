@@ -126,8 +126,13 @@ public sealed class CreateFormService(
             _ => null,
         };
 
+    /// <param name="fromDocumentId">
+    /// Der Beleg, aus dem vorbefüllt wurde. Was aus ihm entsteht, hängt sich gleich an ihn —
+    /// siehe <see cref="MitZielAsync"/>.
+    /// </param>
     public async Task<CreateResultDto> CreateAsync(
-        CreateObjectType type, IReadOnlyDictionary<string, string?> values, CancellationToken ct = default)
+        CreateObjectType type, IReadOnlyDictionary<string, string?> values,
+        int? fromDocumentId = null, CancellationToken ct = default)
     {
         var form = await BuildFormAsync(type, ct);
         if (form is null)
@@ -162,23 +167,32 @@ public sealed class CreateFormService(
             _ => Fail(null, "Diesen Objekttyp gibt es noch nicht."),
         };
 
-        return await MitZielAsync(type, ergebnis, ct);
+        return await MitZielAsync(type, ergebnis, fromDocumentId, ct);
     }
 
     /// <summary>
-    /// Trägt am Ergebnis nach, was gerade entstanden ist: Zielart und Name.
+    /// Trägt am Ergebnis nach, was gerade entstanden ist: Zielart und Name — und hängt den
+    /// Beleg daran, aus dem es entstanden ist.
     /// </summary>
     /// <remarks>
-    /// Hier und nicht in den zehn Anlegemethoden. Die geben alle über dieselbe kleine Hilfe
-    /// zurück, die den Namen nicht kennt; ihn durch zehn Methoden zu fädeln hieße, zehnmal
-    /// dasselbe zu vergessen zu können.
+    /// <para>Hier und nicht in den zehn Anlegemethoden. Die geben alle über dieselbe kleine
+    /// Hilfe zurück, die den Namen nicht kennt; ihn durch zehn Methoden zu fädeln hieße,
+    /// zehnmal dasselbe vergessen zu können.</para>
+    /// <para><b>Die Verknüpfung hier und nicht in der Oberfläche.</b> Ein zweiter Aufruf von
+    /// dort könnte scheitern, und zurück bliebe ein Posten, dem niemand ansieht, aus welchem
+    /// Schreiben er stammt — während der Beleg weiter aussieht, als hinge er an nichts.</para>
     /// </remarks>
     private async Task<CreateResultDto> MitZielAsync(
-        CreateObjectType type, CreateResultDto ergebnis, CancellationToken ct)
+        CreateObjectType type, CreateResultDto ergebnis, int? fromDocumentId, CancellationToken ct)
     {
         if (ergebnis is not { Ok: true, Id: { } id } || Zielart(type) is not { } ziel)
         {
             return ergebnis;
+        }
+
+        if (fromDocumentId is { } beleg)
+        {
+            await documents.LinkAsync(beleg, ziel, id, ct);
         }
 
         return ergebnis with

@@ -130,6 +130,13 @@ public static class BillTextReader
     private static readonly string[] BetragWoerter =
     [
         "rechnungsbetrag", "zu zahlender betrag", "zahlbetrag", "endbetrag", "rechnungssumme",
+
+        // Ein Bescheid rechnet vor und sagt am Ende, was davon offen ist. Das Wort steht
+        // deshalb vor den Summenwörtern: Auf einem Steuerbescheid trägt der „Gesamtbetrag der
+        // Gegenleistung“ den Kaufpreis und nicht die Steuer, und wer diese Zeile zuerst nähme,
+        // legte einen offenen Posten über den Kaufpreis an.
+        "noch zu zahlen",
+
         "gesamtbetrag", "gesamtsumme", "bruttobetrag", "summe brutto", "gesamt brutto",
 
         // Händlerrechnungen stellen Netto und Brutto untereinander und nennen beide „Endsumme“.

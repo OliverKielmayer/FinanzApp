@@ -379,6 +379,34 @@ public sealed class BillTextReadingTests
     }
 
     /// <summary>
+    /// Ein Bescheid nennt seinen Betrag unter „Noch zu zahlen“.
+    /// </summary>
+    /// <remarks>
+    /// <para>Eine Behörde stellt keine Rechnung. Sie rechnet vor und sagt am Ende, was davon
+    /// offen ist — und ohne dieses Wort stand ein Steuerbescheid mit Frist und Forderung in der
+    /// Ablage, dessen Betrag nirgends stand.</para>
+    /// <para><b>Die Reihenfolge entscheidet hier wirklich.</b> Auf demselben Blatt steht der
+    /// „Gesamtbetrag der Gegenleistung“: der Kaufpreis, auf den die Steuer berechnet wird, und
+    /// ein Vielfaches von ihr. Stünde das Summenwort vorn, trüge der offene Posten den
+    /// Kaufpreis.</para>
+    /// </remarks>
+    [Fact]
+    public void Ein_Bescheid_nennt_seinen_Betrag_unter_Noch_zu_zahlen()
+    {
+        var gelesen = BillTextReader.Read("""
+            Finanzamt Musterstadt
+            Bescheid über Grunderwerbsteuer
+            Gesamtbetrag der Gegenleistung 164.000,00
+            Die Steuer wird festgesetzt auf 5,00 % von 82.000 4.100,00
+            Bereits getilgt/ausgezahlt 0,00
+            Noch zu zahlen 4.100,00
+            """);
+
+        Assert.Equal(4100.00m, gelesen.GrossAmount);
+        Assert.Contains("Noch zu zahlen", gelesen.GrossAmountSource);
+    }
+
+    /// <summary>
     /// „Spätestens“ allein ist kein Zahlungstermin.
     /// </summary>
     /// <remarks>

@@ -929,6 +929,113 @@ public sealed class CreateFormTests : IDisposable
         Assert.Contains(maske.Fields, f => f.Key == "bereich");
     }
 
+    // ── Aus einem Schreiben ────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Aus einem Schreiben wird ein offener Posten — und der Beleg hängt danach an ihm.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Weg, den ein Bescheid nimmt. Er verlangt Geld, und ein Vorgang aus einem Beleg
+    /// kennt keines: Die Zahl steht in seiner Zeile als Text, und keine Buchung findet sie. Als
+    /// offener Posten hat sie einen Betrag, eine Frist und eine Zahlungssuche.</para>
+    /// <para><b>Die Verknüpfung macht der Server</b> und nicht die Oberfläche. Ein zweiter
+    /// Aufruf von dort könnte scheitern, und zurück bliebe ein Posten, dem niemand ansieht, aus
+    /// welchem Schreiben er stammt — während der Beleg weiter aussieht, als hinge er an nichts.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public async Task Ein_offener_Posten_aus_einem_Beleg_haengt_danach_an_ihm()
+    {
+        var belegId = Bescheid();
+
+        var formular = await Service().GetFormAsync(CreateObjectType.Invoice, null, belegId);
+        var werte = Vorbelegt(formular!);
+
+        // Was auf dem Blatt steht, muss niemand abtippen.
+        Assert.Equal("Finanzamt Musterstadt", werte["payee"]);
+        Assert.Equal("2026-11-02", werte["issued"]);
+        Assert.Equal("2026-11-27", werte["due"]);
+        Assert.Equal("4100,00", werte["amount"]);
+
+        var ergebnis = await Service().CreateAsync(CreateObjectType.Invoice, werte, belegId);
+        Assert.True(ergebnis.Ok);
+
+        using var context = database.Context();
+
+        var verknuepfung = Assert.Single(context.DocumentLinks.Where(l => l.DocumentId == belegId));
+        Assert.Equal(LinkTargetType.Invoice, verknuepfung.TargetType);
+        Assert.Equal(ergebnis.Id, verknuepfung.TargetId);
+
+        var posten = context.Invoices.Single(i => i.Id == ergebnis.Id);
+        Assert.Equal(4100.00m, posten.Amount);
+        Assert.Equal(new DateOnly(2026, 11, 27), posten.DueOn);
+        Assert.Equal(InvoiceStatus.Open, posten.Status);
+    }
+
+    /// <summary>Ohne Beleg bleibt es beim bloßen Anlegen.</summary>
+    [Fact]
+    public async Task Ein_Posten_ohne_Beleg_haengt_an_nichts()
+    {
+        Bescheid();
+
+        var ergebnis = await Service().CreateAsync(CreateObjectType.Invoice, new Dictionary<string, string?>
+        {
+            ["subject"] = "Grunderwerbsteuer",
+            ["amount"] = "4100,00",
+            ["issued"] = "2026-11-02",
+            ["due"] = "2026-11-27",
+        });
+
+        Assert.True(ergebnis.Ok);
+
+        using var context = database.Context();
+        Assert.Empty(context.DocumentLinks);
+    }
+
+    /// <summary>
+    /// Ein Bescheid in der Ablage, mit seinem gelesenen Text.
+    /// </summary>
+    /// <remarks>
+    /// Erfunden, in der Gestalt eines echten: dieselben Beschriftungen, dieselbe Macke der
+    /// Texterkennung hinter dem zweiten Punkt — ausgedachter Ort, ausgedachte Zahlen.
+    /// </remarks>
+    private int Bescheid()
+    {
+        using var context = database.Context();
+
+        var dokument = new Document
+        {
+            Title = "Steuerbescheid Musterstadt",
+            RelativePath = $"Wohnen/{Guid.NewGuid():N}.pdf",
+            FileName = "Steuerbescheid Musterstadt.pdf",
+            Extension = ".pdf",
+            Area = DocumentArea.Housing,
+            DocumentDate = new DateOnly(2026, 11, 2),
+            ContentText = """
+                Finanzamt Musterstadt
+                Bescheid über Grunderwerbsteuer
+                Bescheid vom 02.11.2026
+                Gesamtbetrag der Gegenleistung 164.000,00
+                Bereits getilgt/ausgezahlt 0,00
+                Noch zu zahlen 4.100,00
+                Bitte zahlen Sie
+                spätestens am 27.11. 2026 4.100,00
+                """,
+            CreatedAt = clock.Now,
+            UpdatedAt = clock.Now,
+        };
+
+        context.Documents.Add(dokument);
+        context.SaveChanges();
+        return dokument.Id;
+    }
+
+    /// <summary>Die Vorgabewerte eines Formulars als Eingabe — so wie die Maske sie übernimmt.</summary>
+    private static Dictionary<string, string?> Vorbelegt(CreateFormDto formular)
+        => formular.Fields
+            .Where(f => f.DefaultValue is { Length: > 0 })
+            .ToDictionary(f => f.Key, f => (string?)f.DefaultValue);
+
     public void Dispose()
     {
         database.Dispose();

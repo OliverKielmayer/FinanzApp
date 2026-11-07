@@ -88,6 +88,48 @@
         }
 
         @*
+            Was dieses Schreiben verlangt.
+
+            Es stand bisher nur im Vorgang. Wer von dort hierher kam — und der Vorgang führt
+            genau hierher —, sah das Papier und nicht mehr den Satz, um den es ging.
+
+            Der Satz steht wörtlich da und nicht zusammengefasst: Er ist die Fundstelle, an der
+            sich in zwei Sekunden prüfen lässt, ob richtig gelesen wurde.
+        *@
+        @if (document.ActionLine is { Length: > 0 } forderung)
+        {
+            <div class="notice">
+                <span class="notice-title">
+                    @(document.ActionDueDate is { } frist
+                        ? $"Verlangt etwas — spätestens {GermanFormat.Date(frist)}"
+                        : "Verlangt etwas")
+                </span>
+                <span class="notice-text">„@forderung“</span>
+
+                @if (document.ActionFromModel)
+                {
+                    <span class="meta">Vom Sprachmodell gefunden</span>
+                }
+
+                @*
+                    Der Weg zum offenen Posten. Ein Vorgang aus einem Schreiben kennt keinen
+                    Betrag — die Zahl steht in seiner Zeile als Text, und keine Buchung findet
+                    ihn. Ein offener Posten kennt ihn, und die Zahlungssuche kommt an ihn heran.
+
+                    Das Formular steht vorbefüllt da, geschrieben wird nichts, bis jemand
+                    „Posten anlegen“ drückt.
+                *@
+                <AuthorizeView Roles="Owner,Member" Context="posten">
+                    <div class="doc-actions">
+                        <a class="btn btn-primary" href="@($"/neu/invoice?beleg={document.Id}")">
+                            Als offenen Posten erfassen
+                        </a>
+                    </div>
+                </AuthorizeView>
+            </div>
+        }
+
+        @*
             Gelesene Werte, die nie jemand übernommen hat. Von außen sah so ein Beleg aus wie
             ein übernommener: eingelesen, abgelegt, mit dem Vertrag verknüpft — und im Vertrag
             stand trotzdem nichts. Wer im Scaneingang „Wegräumen“ drückt, erzeugt genau das.

@@ -257,6 +257,12 @@ public sealed class DocumentService(
             // Nur wo etwas offen ist. Ein Weg zum Prüfschritt an einem Beleg ohne gelesene Werte
             // führte in eine Meldung statt in eine Fläche — angeboten wird, was auch hält.
             ValuesHref = offen == 0 ? null : ScanReview.Href(document.ScanKind, document.Id),
+
+            // Was das Schreiben verlangt. Es stand bisher nur im Vorgang; wer von dort zum
+            // Beleg kam, sah das Papier und nicht mehr den Satz, um den es ging.
+            ActionLine = document.ActionLine,
+            ActionDueDate = document.DueDate,
+            ActionFromModel = document.ActionFromModel,
         };
     }
 
