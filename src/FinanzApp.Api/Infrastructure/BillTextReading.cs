@@ -103,6 +103,24 @@ public static class BillTextReader
         new(@"^datum\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     /// <summary>
+    /// Die Überschrift eines Bescheids mit seinem Datum: „Bescheid über Grunderwerbsteuer vom
+    /// 12.03.2026“.
+    /// </summary>
+    /// <remarks>
+    /// <para>„Bescheid vom“ steht in der Wortliste und trifft genau dann nicht, wenn dazwischen
+    /// steht, worum es geht — und das ist die übliche Form: Eine Behörde überschreibt ihr Blatt
+    /// mit dem, was sie entscheidet, und hängt das Datum an.</para>
+    /// <para><b>Am Zeilenanfang</b>, und darauf kommt alles an. Dieselbe Seite trägt die
+    /// Rechtsbehelfsbelehrung, und die spricht in jedem zweiten Satz vom Bescheid — von dem
+    /// Tag, an dem er bekannt gegeben wurde, und von Verwaltungsakten, die er ändert. Eine
+    /// Überschrift beginnt die Zeile; in einem Satz steht der Bescheid mittendrin.</para>
+    /// <para>Ohne diese Regel blieb das Datum zweier Steuerbescheide leer, obwohl es zweimal
+    /// auf dem Blatt stand — und am Beleg stand stattdessen der Tag der Ablage.</para>
+    /// </remarks>
+    private static readonly Regex BescheidUeberschrift =
+        new(@"^bescheid\b.*\bvom\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>
     /// Das Ortsdatum eines Behördenbriefs: „Musterstadt, den 12.03.2026“.
     /// </summary>
     /// <remarks>
@@ -508,6 +526,16 @@ public static class BillTextReader
                 {
                     return (darunter, zeile + " → " + zeilen[index + 1]);
                 }
+            }
+        }
+
+        // Dann die Überschrift eines Bescheids. Sie trägt eine Beschriftung — „vom“ — und steht
+        // damit vor dem Ortsdatum, das nur an seiner Stelle auf dem Blatt zu erkennen ist.
+        foreach (var zeile in zeilen)
+        {
+            if (BescheidUeberschrift.IsMatch(zeile) && LetztesDatum(zeile) is { } ueberschrift)
+            {
+                return (ueberschrift, zeile);
             }
         }
 

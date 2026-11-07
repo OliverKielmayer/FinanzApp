@@ -105,13 +105,31 @@
                     @* Dieselbe Mechanik wie beim PKV-Vorgang: vorschlagen, nicht entscheiden. *@
                     @foreach (var candidate in candidates)
                     {
+                        @* Eine vergebene Buchung bleibt stehen und lässt sich nicht wählen. Sie
+                           verschwinden zu lassen hieße, jemanden nach einer Abbuchung suchen zu
+                           lassen, die er im Konto mit eigenen Augen gesehen hat. *@
+                        var vergeben = candidate.AssignedTo is { Length: > 0 };
+
                         <button type="button" class="tap candidate-row @(candidate.IsBestMatch ? "best" : null)"
-                                disabled="@busy" @onclick="() => PayAsync(candidate.TransactionId)">
+                                disabled="@(busy || vergeben)" @onclick="() => PayAsync(candidate.TransactionId)">
                             <span class="stack">
                                 <span class="work-title num">
                                     @State.Euro(-candidate.Amount) · @GermanFormat.DateShort(candidate.BookingDate)
                                 </span>
                                 <span class="work-due">@candidate.AccountName · @candidate.Payee · @candidate.Reason</span>
+
+                                @* Der Verwendungszweck. Bei zwei gleich hohen Buchungen desselben
+                                   Absenders am selben Tag ist er das Einzige, was sie
+                                   unterscheidet. *@
+                                @if (candidate.Purpose is { Length: > 0 } zweck)
+                                {
+                                    <span class="candidate-purpose">@zweck</span>
+                                }
+
+                                @if (candidate.AssignedTo is { Length: > 0 } belegt)
+                                {
+                                    <span class="candidate-taken">Schon zugeordnet: @belegt</span>
+                                }
                             </span>
                             <span class="candidate-amount num">@candidate.Score</span>
                         </button>

@@ -344,6 +344,7 @@ public sealed class MedicalBillService(
             Payee = transaction.Payee,
             Amount = amount,
             AccountName = transaction.Account?.Name ?? string.Empty,
+            Purpose = transaction.Purpose,
             Score = Math.Min(100, score),
             Reason = string.Join(" · ", reasons),
             IsBestMatch = false,
