@@ -28,6 +28,21 @@ public sealed class DocumentActionService(
     ILogger<DocumentActionService> log)
 {
     /// <summary>
+    /// Belegarten, die von sich aus nichts verlangen.
+    /// </summary>
+    /// <remarks>
+    /// Aus den Arten selbst zusammengesetzt und nicht hier aufgezählt: Wer eine neue Art
+    /// anlegt, entscheidet dort, ob sie berichtet oder verlangt, und muss diese Stelle nicht
+    /// kennen. Der Kontoauszug kommt dazu, weil seine Kennung nicht aus der Artenliste stammt,
+    /// sondern aus dem Import.
+    /// </remarks>
+    private static readonly HashSet<string> Mitteilungen =
+    [
+        .. DocumentKindLibrary.All.Where(art => art.IsNotice).Select(art => art.Key),
+        StatementKind.Key,
+    ];
+
+    /// <summary>
     /// Sieht einen einzelnen Beleg durch. <c>true</c>, wenn er etwas verlangt.
     /// </summary>
     /// <remarks>
@@ -48,6 +63,19 @@ public sealed class DocumentActionService(
             || dokument.ActionLine is not null
             || dokument.ContentText is not { Length: > 0 } text)
         {
+            return false;
+        }
+
+        // Eine erkannte Mitteilung geht gar nicht erst durch das Modell. Ein Statusreport
+        // berichtet einen Stand, ein Kontoauszug eine Reihe von Buchungen — sie verlangen
+        // nichts, und das ist bekannt, weil die Art erkannt wurde.
+        //
+        // Das spart nicht nur Zeit. Gerade an solchen Belegen irrt ein Modell am ehesten: Sie
+        // sind voll von Daten und Beträgen in Sätzen, die wie Forderungen klingen und keine
+        // sind.
+        if (dokument.ScanKind is { Length: > 0 } art && Mitteilungen.Contains(art))
+        {
+            await VermerkeAsync(dokument, string.Empty, due: null, ct);
             return false;
         }
 

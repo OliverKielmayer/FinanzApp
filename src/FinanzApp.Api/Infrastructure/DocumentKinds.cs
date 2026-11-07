@@ -285,6 +285,25 @@ public sealed record DocumentKind
     public required string Label { get; init; }
 
     /// <summary>
+    /// Ob ein Beleg dieser Art berichtet, statt etwas zu verlangen.
+    /// </summary>
+    /// <remarks>
+    /// <para>Ein Statusreport nennt einen Stand, ein Quartalsbericht eine Reihe von Werten.
+    /// Beide verlangen nichts: Wer sie liest, hat danach nichts zu tun. Das folgt aus der Art
+    /// und ist keine Vermutung — deshalb steht es hier und nicht als Liste von Schlüsseln an
+    /// der Stelle, die es gerade braucht.</para>
+    /// <para>Es hält das Sprachmodell von ihnen fern. Am 07.11.2026 an der gewachsenen Ablage
+    /// gemessen: Von dreiundfünfzig Funden kamen zweiundvierzig aus Statusreporten, und alle
+    /// zweiundvierzig waren falsch — „Garantierte finanzielle Leistungen zum Ablauf bei
+    /// Beitragsfreistellung zum 01.01.2031“ ist eine Rechengröße und keine Forderung. Die elf
+    /// übrigen, alle ohne erkannte Art, waren richtig.</para>
+    /// <para><c>false</c> ist die Vorgabe, und mit Absicht: Eine neue Art, die doch etwas
+    /// verlangt — eine Rechnung, ein Bescheid —, soll angesehen werden, ohne dass jemand daran
+    /// denken muss.</para>
+    /// </remarks>
+    public bool IsNotice { get; init; }
+
+    /// <summary>
     /// Der Dokumenttyp, unter dem ein Beleg dieser Art abgelegt gehört.
     /// </summary>
     /// <remarks>
@@ -376,6 +395,7 @@ public static class DocumentKindLibrary
     public static readonly DocumentKind Statusreport = new()
     {
         Key = "statusreport-lv",
+        IsNotice = true,
         Label = "Statusreport Lebensversicherung",
         TypeName = "Statusreport",
         Area = DocumentArea.Insurance,
@@ -584,6 +604,7 @@ public static class DocumentKindLibrary
     public static readonly DocumentKind FundStatusreport = new()
     {
         Key = "statusreport-fonds-lv",
+        IsNotice = true,
         Label = "Statusreport fondsgebundene Lebensversicherung",
 
         // Derselbe Typ wie beim klassischen Bericht: für die Ablage ist beides ein Statusreport,
@@ -802,6 +823,7 @@ public static class DocumentKindLibrary
     public static readonly DocumentKind RiesterStatusreport = new()
     {
         Key = "statusreport-riester",
+        IsNotice = true,
         Label = "Statusreport staatlich geförderte Altersvorsorge",
 
         // Dieselbe Schublade wie die anderen beiden: für die Ablage ist es ein Statusreport.
@@ -1100,6 +1122,7 @@ public static class DocumentKindLibrary
     public static readonly DocumentKind QuarterlyStatement = new()
     {
         Key = "quartalsaufstellung",
+        IsNotice = true,
         Label = "Quartalsaufstellung MiFID II",
         TypeName = "Quartalsaufstellung",
         Area = DocumentArea.Finance,

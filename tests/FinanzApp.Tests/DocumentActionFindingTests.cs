@@ -317,6 +317,67 @@ public sealed class DocumentActionFindingTests : IDisposable
         Assert.Equal(3, ergebnis.Offen);
     }
 
+    // ── Mitteilungen ───────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Eine erkannte Mitteilung geht gar nicht erst durch das Modell.
+    /// </summary>
+    /// <remarks>
+    /// <para>An der gewachsenen Ablage gemessen und dort schmerzhaft gelernt: Von
+    /// dreiundfünfzig Funden kamen zweiundvierzig aus Statusreporten, und alle zweiundvierzig
+    /// waren falsch. Solche Belege sind voll von Daten und Beträgen in Sätzen, die wie
+    /// Forderungen klingen — „Garantierte finanzielle Leistungen zum Ablauf bei
+    /// Beitragsfreistellung zum 01.01.2031“ — und keine sind.</para>
+    /// <para>Gemessen hatte ich vorher an den zwanzig neuesten Belegen. Darunter war kein
+    /// einziger Statusreport, und deshalb sah die Trefferquote gut aus.</para>
+    /// </remarks>
+    [Theory]
+    [InlineData("statusreport-lv")]
+    [InlineData("statusreport-fonds-lv")]
+    [InlineData("statusreport-riester")]
+    [InlineData("quartalsaufstellung")]
+    [InlineData("kontoauszug")]
+    public async Task Eine_erkannte_Mitteilung_geht_nicht_durch_das_Modell(string art)
+    {
+        var id = Abgelegt(Beleg, scanKind: art);
+        var sucher = new StubFinder(
+            "Bitte stellen Sie Ihren Lastschrifteinzug bis zum 30.11.2026 auf das neue Konto um.");
+
+        Assert.False(await Dienst(sucher).ExamineAsync(id));
+
+        Assert.Equal(0, sucher.Aufrufe);
+        Assert.Equal(string.Empty, Geladen(id).ActionLine);
+    }
+
+    /// <summary>
+    /// Ohne erkannte Art geht der Beleg durch.
+    /// </summary>
+    /// <remarks>
+    /// Das ist der Normalfall für Post, die etwas verlangt: Eine Rechnung, ein Bescheid, ein
+    /// Anschreiben trägt keine der Arten, für die es Leseregeln gibt.
+    /// </remarks>
+    [Fact]
+    public async Task Ohne_erkannte_Art_geht_der_Beleg_durch_das_Modell()
+    {
+        var id = Abgelegt(Beleg, scanKind: null);
+        var sucher = new StubFinder(
+            "Bitte stellen Sie Ihren Lastschrifteinzug bis zum 30.11.2026 auf das neue Konto um.");
+
+        Assert.True(await Dienst(sucher).ExamineAsync(id));
+        Assert.Equal(1, sucher.Aufrufe);
+    }
+
+    /// <summary>Eine unbekannte Kennung hält nichts auf.</summary>
+    [Fact]
+    public async Task Eine_unbekannte_Art_haelt_den_Beleg_nicht_auf()
+    {
+        var id = Abgelegt(Beleg, scanKind: "rechnung-handwerker");
+        var sucher = new StubFinder(
+            "Bitte stellen Sie Ihren Lastschrifteinzug bis zum 30.11.2026 auf das neue Konto um.");
+
+        Assert.True(await Dienst(sucher).ExamineAsync(id));
+    }
+
     [Fact]
     public async Task Ein_Beleg_ohne_Text_wird_nicht_durchgesehen()
     {
@@ -346,7 +407,7 @@ public sealed class DocumentActionFindingTests : IDisposable
     private DocumentActionService Dienst(IDocumentActionFinder sucher)
         => new(database.Context(), sucher, clock, NullLogger<DocumentActionService>.Instance);
 
-    private int Abgelegt(string? text)
+    private int Abgelegt(string? text, string? scanKind = null)
     {
         using var context = database.Context();
 
@@ -358,6 +419,7 @@ public sealed class DocumentActionFindingTests : IDisposable
             Extension = ".pdf",
             Area = DocumentArea.Housing,
             ContentText = text,
+            ScanKind = scanKind,
             DocumentDate = new DateOnly(2026, 11, 2),
             CreatedAt = clock.Now,
             UpdatedAt = clock.Now,
