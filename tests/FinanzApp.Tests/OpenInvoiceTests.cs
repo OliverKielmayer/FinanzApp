@@ -89,6 +89,42 @@ public sealed class OpenInvoiceTests : IDisposable
         return buchung.Id;
     }
 
+    /// <summary>
+    /// Füllt das Suchfenster mit Alltagsbuchungen.
+    /// </summary>
+    /// <remarks>
+    /// Zwei Girokonten eines Haushalts bringen rund sechzig Ausgaben im Monat; über ein Fenster
+    /// von sieben Wochen sind das weit mehr, als eine feste Obergrenze durchlässt. Beträge und
+    /// Empfänger sind erfunden und liegen bewusst weit von der Rechnungssumme entfernt — sie
+    /// sollen das Fenster füllen, nicht um den besten Treffer mitspielen.
+    /// </remarks>
+    private static void Alltagsbuchungen(
+        FinanzAppDbContext context, DateOnly ab, DateOnly bis, int jeTag)
+    {
+        var konto = context.Accounts.First();
+        string[] empfaenger =
+            ["Mustermarkt", "Musterbäckerei", "Mustertankstelle", "Musterdrogerie"];
+
+        var i = 0;
+        for (var tag = ab; tag <= bis; tag = tag.AddDays(1))
+        {
+            for (var n = 0; n < jeTag; n++, i++)
+            {
+                context.Transactions.Add(new Transaction
+                {
+                    AccountId = konto.Id,
+                    BookingDate = tag,
+                    Amount = -(12.50m + (i % 37)),
+                    Kind = TransactionKind.Expense,
+                    Payee = empfaenger[i % empfaenger.Length],
+                    Purpose = "Einkauf",
+                });
+            }
+        }
+
+        context.SaveChanges();
+    }
+
     // ── Der Einstieg ───────────────────────────────────────────────────────────────────────
 
     /// <summary>Ein offener Posten entsteht über denselben Anlegeweg wie jedes Objekt.</summary>
@@ -229,6 +265,39 @@ public sealed class OpenInvoiceTests : IDisposable
         var treffer = Assert.Single(kandidaten, k => k.TransactionId == buchung);
         Assert.True(treffer.IsBestMatch);
         Assert.Contains("Anbieter passt", treffer.Reason, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Sie findet sie auch unter hundert jüngeren Buchungen.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die Vorauswahl nahm die jüngsten achtzig Buchungen des Fensters und schnitt damit
+    /// dessen ältestes Ende ab — dort, wo eine früh beglichene Rechnung liegt. Wer nach der
+    /// Fälligkeit noch einen Monat Kontoauszüge importiert hatte, bekam „keine passende
+    /// Buchung“ zu sehen, während sie im Bestand stand.</para>
+    /// <para>Der Posten hier wird einen Monat vor Fälligkeit bezahlt; danach füllen hundertvierzig
+    /// Alltagsbuchungen das Fenster von vorne. Nach Buchungstag steht die Zahlung ganz hinten,
+    /// nach Betrag und Nähe zur Fälligkeit ganz vorne — und danach wird gesucht.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Die_Zahlungssuche_findet_die_Buchung_hinter_hundert_juengeren()
+    {
+        using var context = database.Context();
+        var ergebnis = await Forms(context).CreateAsync(CreateObjectType.Invoice, Felder());
+
+        var buchung = Buchung(
+            context, 1204.00m, new DateOnly(2026, 7, 20), "Musterelektro Handels GmbH");
+
+        // Bis an den Rand des Fensters: Fälligkeit 14.08. plus fünfundvierzig Tage.
+        Alltagsbuchungen(context, new DateOnly(2026, 7, 21), new DateOnly(2026, 9, 28), 2);
+
+        Assert.True(context.Transactions.Count() > 100);
+
+        var kandidaten = await Properties(context).GetPaymentCandidatesAsync(ergebnis.Id!.Value);
+
+        var treffer = Assert.Single(kandidaten, k => k.TransactionId == buchung);
+        Assert.True(treffer.IsBestMatch);
+        Assert.Equal(1204.00m, treffer.Amount);
     }
 
     /// <summary>Zugeordnet wird erst auf Bestätigung — und mit dem Buchungstag als Zahltag.</summary>
