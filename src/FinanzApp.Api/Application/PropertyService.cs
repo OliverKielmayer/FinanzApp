@@ -22,6 +22,17 @@ public sealed class PropertyService(
 {
     private const int NoticeWindowDays = 90;
 
+    /// <summary>
+    /// Wie viele Buchungen die Zahlungssuche je Richtung aus dem Fenster holt.
+    /// </summary>
+    /// <remarks>
+    /// Eine Obergrenze bleibt nötig: Bei einer Jahresrechnung, die im Januar kommt und im
+    /// Dezember fällig wird, spannt das Fenster elf Monate auf. Bei rund sechzig Ausgaben im
+    /// Monat über zwei Girokonten deckt dieser Vorrat gut zwei Monate je Seite ab — mehr, als
+    /// ein übliches Zahlungsziel je umfasst.
+    /// </remarks>
+    private const int CandidatePoolPerSide = 150;
+
     public async Task<IReadOnlyList<PropertyListItemDto>> GetListAsync(CancellationToken ct = default)
         => await db.Properties.AsNoTracking()
             .OrderBy(p => p.Name)
@@ -177,6 +188,18 @@ public sealed class PropertyService(
     /// Buchungen, die zu einer offenen Rechnung passen könnten. Dieselbe Mechanik wie beim
     /// PKV-Vorgang: die Bewertung schlägt vor, bestätigt wird von Hand.
     /// </summary>
+    /// <remarks>
+    /// <para><b>Die Vorauswahl sucht, wonach die Bewertung sucht.</b> Sie nahm vorher die
+    /// jüngsten achtzig Buchungen des Fensters — und schnitt damit genau dessen ältestes Ende
+    /// ab. Dort liegt die gesuchte Zahlung, sobald nach der Fälligkeit noch ein Monat
+    /// Kontoauszüge dazugekommen ist: Rund sechzig Ausgaben im Monat über zwei Girokonten
+    /// füllen ein Fenster von sieben Wochen mühelos über achtzig. Der Posten meldete dann
+    /// „keine passende Buchung“, während sie im Bestand stand.</para>
+    /// <para>Begrenzt wird deshalb nicht mehr nach Buchungstag, sondern von der Fälligkeit aus
+    /// nach beiden Seiten — und ein eigener Griff holt die Buchungen mit passendem Betrag,
+    /// wo immer im Fenster sie liegen. Genau diese beiden Merkmale gewichtet die Bewertung
+    /// darunter am höchsten; die Vorauswahl trifft jetzt dieselbe Wahl wie sie.</para>
+    /// </remarks>
     public async Task<IReadOnlyList<PaymentCandidateDto>> GetPaymentCandidatesAsync(
         int invoiceId, CancellationToken ct = default)
     {
@@ -198,12 +221,53 @@ public sealed class PropertyService(
         var keyword = (invoice.Payee ?? invoice.Contract?.Provider)
             ?.Split(' ', '-')[0].ToLowerInvariant();
 
-        var rows = await db.Transactions.AsNoTracking()
+        var due = invoice.DueOn;
+        var window = db.Transactions.AsNoTracking()
             .Include(t => t.Account)
-            .Where(t => t.Kind == TransactionKind.Expense && t.BookingDate >= from && t.BookingDate <= to)
+            .Where(t => t.Kind == TransactionKind.Expense && t.BookingDate >= from && t.BookingDate <= to);
+
+        // Von der Fälligkeit aus nach beiden Seiten, jede Seite mit eigenem Vorrat. Nach
+        // |Buchungstag − Fälligkeit| ließe sich in SQL nicht sortieren — DateOnly.DayNumber
+        // übersetzt kein Anbieter; zwei gegenläufige Sortierungen ergeben dieselbe Reihenfolge.
+        var before = await window
+            .Where(t => t.BookingDate <= due)
             .OrderByDescending(t => t.BookingDate)
-            .Take(80)
+            .Take(CandidatePoolPerSide)
             .ToListAsync(ct);
+
+        var after = await window
+            .Where(t => t.BookingDate > due)
+            .OrderBy(t => t.BookingDate)
+            .Take(CandidatePoolPerSide)
+            .ToListAsync(ct);
+
+        // Das zweite, worauf die Bewertung schaut: der Betrag. Eine Buchung über die
+        // Rechnungssumme gehört auch dann in die Auswahl, wenn sie weit von der Fälligkeit
+        // entfernt im Fenster liegt. Die Spanne ist die, die unten noch Punkte gibt, um einen
+        // Cent geweitet — in der Datenbank liegen Beträge auf Cent gerundet, und eine Grenze
+        // genau dazwischen soll nicht entscheiden. Das Vorzeichen bleibt offen: gewertet wird
+        // ohnehin der Betrag ohne es.
+        var sameAmount = new List<Transaction>();
+        if (invoice.Amount > 0m)
+        {
+            var low = (invoice.Amount * 0.95m) - 0.01m;
+            var high = (invoice.Amount * 1.05m) + 0.01m;
+
+            sameAmount = await window
+                .Where(t => (t.Amount >= low && t.Amount <= high)
+                            || (t.Amount <= -low && t.Amount >= -high))
+                .OrderByDescending(t => t.BookingDate)
+                .Take(CandidatePoolPerSide)
+                .ToListAsync(ct);
+        }
+
+        // Drei Abfragen, eine Liste: dieselbe Buchung kann in zweien stecken, und ungetrackt
+        // ist sie dann zweimal dasselbe Objekt mit zwei Instanzen. Die Id trennt sie.
+        var rows = before.Concat(after).Concat(sameAmount)
+            .DistinctBy(t => t.Id)
+            .OrderByDescending(t => t.BookingDate)
+            .ThenByDescending(t => t.Id)
+            .ToList();
 
         // Buchungen, die schon einen anderen Posten begleichen. Sie fallen nicht aus der Liste:
         // Wer die Abbuchung sucht, die er mit eigenen Augen im Konto gesehen hat, und sie hier
