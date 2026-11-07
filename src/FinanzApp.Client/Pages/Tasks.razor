@@ -30,17 +30,35 @@
 
         @foreach (var item in list.Items)
         {
-            <button type="button" class="tap work-row @(item.IsOverdue ? "overdue" : null)"
-                    @onclick="() => Open(item)">
-                <span class="stack">
-                    <span class="work-title">@item.Title</span>
-                    <span class="work-due">@Describe(item)</span>
-                </span>
-                @if (item.Amount is { } amount)
+            <div class="work-row @(item.IsOverdue ? "overdue" : null)">
+                @* Betrag innerhalb der Fläche, die weiterführt: Wer auf die Zahl tippt, meint
+                   die Zeile. *@
+                <button type="button" class="tap work-open" @onclick="() => Open(item)">
+                    <span class="stack">
+                        <span class="work-title">@item.Title</span>
+                        <span class="work-due">@Describe(item)</span>
+                    </span>
+
+                    @if (item.Amount is { } amount)
+                    {
+                        <span class="work-amount num">@State.Euro0(amount)</span>
+                    }
+                </button>
+
+                @*
+                    Abhaken gibt es nur, wo kein Objekt den Stand trägt. Eine offene Rechnung
+                    wird an der Rechnung bezahlt; hier abgehakt bliebe sie offen, und der
+                    einzige Hinweis darauf wäre weg.
+                *@
+                @if (item.CanComplete)
                 {
-                    <span class="work-amount num">@State.Euro0(amount)</span>
+                    <AuthorizeView Roles="Owner,Member" Context="abhaken">
+                        <button type="button" class="btn btn-ghost" disabled="@busy"
+                                title="Abhaken — der Vorgang kommt nicht wieder"
+                                @onclick="() => CompleteAsync(item)">Erledigt</button>
+                    </AuthorizeView>
                 }
-            </button>
+            </div>
         }
 
         <div class="spacer"></div>
@@ -57,6 +75,7 @@
 
     private TaskListDto? data;
     private TaskState? filter = TaskState.Open;
+    private bool busy;
 
     protected override async Task LoadAsync() => data = await Api.GetTasksAsync(filter);
 
@@ -112,6 +131,29 @@
 
         return string.Join(" · ", parts);
     }
+
+    /// <summary>
+    /// Hakt einen Vorgang ab.
+    /// </summary>
+    /// <remarks>
+    /// Danach wird neu geladen, statt die Zeile wegzunehmen: Die Zahlen an den Filtern gehören
+    /// zur Liste, und eine Liste mit einer Zeile weniger und derselben Zahl daneben wäre
+    /// falsch.
+    /// </remarks>
+    private Task CompleteAsync(TaskItemDto item) => RunAsync(async () =>
+    {
+        busy = true;
+        try
+        {
+            await Api.SetTaskStateAsync(item.Id, TaskState.Done);
+            Toasts.Show("Erledigt", ToastKind.Saved);
+            await ReloadAsync();
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
 
     private void Open(TaskItemDto item)
     {

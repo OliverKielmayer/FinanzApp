@@ -3687,6 +3687,30 @@ body {
   border-left: 2px solid var(--color-accent);
 }
 
+/*
+  Die Zeile führt zum Objekt, der Haken schließt den Vorgang. Sie liegen nebeneinander und
+  nicht übereinander: Wer abhaken will, soll nicht erst dorthin müssen, wo der Vorgang
+  herkommt — und wer nachsehen will, nicht danebengreifen.
+
+  Alles außer dem Haken gehört zur weiterführenden Fläche, der Betrag eingeschlossen: Wer auf
+  einem Telefon auf die Zahl tippt, meint die Zeile und nicht die Lücke daneben.
+*/
+.work-row > .work-open {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.work-row > .btn {
+  flex: 0 0 auto;
+  align-self: center;
+  min-height: 36px;
+  padding: 6px 12px;
+}
+
 .work-title {
   font-size: 14px;
   font-weight: 600;

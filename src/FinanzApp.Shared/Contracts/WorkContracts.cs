@@ -19,6 +19,22 @@ public sealed record TaskItemDto
     public required int DaysOverdue { get; init; }
 
     public bool IsOverdue => DaysOverdue > 0 && State != TaskState.Done;
+
+    /// <summary>
+    /// Darf dieser Vorgang von Hand abgehakt werden?
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Abhaken darf, wer sonst niemanden hat.</b> Die meisten Vorgänge spiegeln den
+    /// Stand eines Objekts — eine offene Rechnung, eine nicht eingereichte Arztrechnung, eine
+    /// Kündigungsfrist. Sie schließen sich dort, wo dieser Stand sich ändert. Hier abgehakt
+    /// hieße: Die Rechnung bleibt offen, und der einzige Hinweis darauf ist weg — und da ein
+    /// erledigter Vorgang nicht wiederbelebt wird, käme er auch nicht zurück.</para>
+    /// <para>Ein Schreiben hat kein solches Objekt. Was es verlangt, steht auf dem Papier und
+    /// sonst nirgends; ob es jemand getan hat, weiß nur er selbst. Dasselbe gilt für eine
+    /// Aufgabe, die jemand von Hand angelegt hat.</para>
+    /// </remarks>
+    public bool CanComplete => State != TaskState.Done
+        && Source is TaskSource.Manual or TaskSource.DocumentAction;
 }
 
 public sealed record TaskListDto
