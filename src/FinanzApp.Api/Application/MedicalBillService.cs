@@ -224,10 +224,23 @@ public sealed class MedicalBillService(
         var from = DateOnly.FromDateTime(bill.SubmittedAt ?? bill.BillDate.ToDateTime(TimeOnly.MinValue));
         var to = from.AddDays(120);
 
+        // Die ältesten des Fensters, nicht die jüngsten.
+        //
+        // Das Fenster läuft von der Einreichung vier Monate vorwärts, und eine
+        // Erstattung kommt in den Wochen danach — sie liegt also am Anfang, nicht am Ende. Die
+        // jüngsten fünfzig zu nehmen schnitt genau dort ab, wo die gesuchte Buchung steht.
+        //
+        // Die Bewertung darunter sagt dasselbe: Sie gibt dreißig Punkte für den ersten Monat
+        // nach der Einreichung und keine mehr nach dem zweiten. Die Vorauswahl holte bisher das
+        // Gegenteil dessen, was die Bewertung bevorzugt.
+        //
+        // Am echten Bestand gemessen reicht der Vorrat heute mit Abstand — Eingänge sind selten
+        // gegenüber Ausgaben. Die Richtung entscheidet erst, wenn er einmal nicht reicht, und
+        // dann lautlos: Der Vorgang meldete einfach keine passende Buchung.
         var rows = await db.Transactions.AsNoTracking()
             .Include(t => t.Account)
             .Where(t => t.Kind == TransactionKind.Income && t.BookingDate >= from && t.BookingDate <= to)
-            .OrderByDescending(t => t.BookingDate)
+            .OrderBy(t => t.BookingDate)
             .Take(50)
             .ToListAsync(ct);
 

@@ -106,6 +106,50 @@ public sealed class MedicalBillTests : IDisposable
         Assert.True(candidates[0].Score > candidates.Skip(1).Select(c => c.Score).DefaultIfEmpty(0).Max());
     }
 
+    /// <summary>
+    /// Auch wenn das Fenster voll ist, kommt die Erstattung zum Vorschein.
+    /// </summary>
+    /// <remarks>
+    /// <para>Das Suchfenster läuft von der Einreichung vier Monate vorwärts; die Erstattung
+    /// trifft in den Wochen danach ein, also an seinem Anfang. Die Vorauswahl nahm daraus aber
+    /// die jüngsten fünfzig Eingänge und schnitt damit genau diesen Anfang ab.</para>
+    /// <para>Die Bewertung sagt das Gegenteil: Der erste Monat nach der Einreichung bringt die
+    /// volle Punktzahl für das Datum. Hier wird die Erstattung früh gutgeschrieben und das
+    /// Fenster danach gefüllt — nach Buchungstag steht sie damit ganz hinten.</para>
+    /// <para>Die Beträge und Empfänger sind erfunden.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Die_Erstattung_wird_nicht_von_juengeren_Eingaengen_verdraengt()
+    {
+        var service = CreateService();
+        var bill = await CreateBillAsync(gross: 780m, ownShare: 100m, billNumber: "R-2026-311",
+            submittedAt: new DateTime(2026, 7, 25, 9, 0, 0, DateTimeKind.Local));
+
+        var erwartet = AddIncome(680m, new DateOnly(2026, 7, 28), "Erstattung PKV R-2026-311");
+
+        // Das Fenster von vorne auffüllen, alles jünger als die Erstattung.
+        string[] empfaenger = ["Musterkasse", "Mustergenossenschaft", "Musterbund", "Musterwerk"];
+        var i = 0;
+        for (var tag = new DateOnly(2026, 8, 1); tag <= new DateOnly(2026, 8, 18); tag = tag.AddDays(1))
+        {
+            for (var n = 0; n < 3; n++, i++)
+            {
+                AddIncome(25m + (i % 40), tag, empfaenger[i % empfaenger.Length]);
+            }
+        }
+
+        using (var context = database.Context())
+        {
+            Assert.True(context.Transactions.Count(t => t.Kind == TransactionKind.Income) > 50);
+        }
+
+        var candidates = await service.GetPaymentCandidatesAsync(bill.Id);
+
+        var treffer = Assert.Single(candidates, c => c.TransactionId == erwartet);
+        Assert.True(treffer.IsBestMatch);
+        Assert.Equal(680m, treffer.Amount);
+    }
+
     private MedicalBillService CreateService()
     {
         var context = database.Context();
