@@ -105,6 +105,26 @@ public sealed record PaymentCandidateDto
 
     /// <summary>Der beste Treffer, im Akzent hervorgehoben.</summary>
     public required bool IsBestMatch { get; init; }
+
+    /// <summary>
+    /// Der Verwendungszweck der Buchung.
+    /// </summary>
+    /// <remarks>
+    /// Das Einzige, woran sich zwei gleiche Buchungen unterscheiden lassen. Zwei Bescheide
+    /// desselben Absenders über denselben Betrag am selben Tag ergeben zwei Vorschläge, die
+    /// Zeile für Zeile gleich aussehen — der Verwendungszweck trägt die Steuernummer, und ohne
+    /// ihn ist die Wahl ein Münzwurf.
+    /// </remarks>
+    public string? Purpose { get; init; }
+
+    /// <summary>
+    /// Der Posten, dem diese Buchung schon zugeordnet ist. <c>null</c> heißt: frei.
+    /// </summary>
+    /// <remarks>
+    /// Eine Buchung begleicht einen Posten. Wäre sie zweimal vergeben, stünde eine Zahlung
+    /// doppelt in den Büchern und eine andere gar nicht — und beide Posten sähen bezahlt aus.
+    /// </remarks>
+    public string? AssignedTo { get; init; }
 }
 
 public sealed record LinkPaymentRequest

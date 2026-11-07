@@ -4052,6 +4052,31 @@ body {
   border-left: 2px solid var(--color-accent);
 }
 
+/*
+  Der Verwendungszweck einer Buchung. Eine Zeile, abgeschnitten statt umbrochen: Was eine
+  Buchung von der nächsten unterscheidet, steht vorn — die Steuernummer, die Rechnungsnummer,
+  der Name —, und drei Zeilen Bankentext je Vorschlag machten die Liste unlesbar.
+*/
+.candidate-purpose {
+  font-size: 11px;
+  color: var(--color-neutral-600);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.candidate-taken {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-accent-800);
+}
+
+/* Vergeben oder gerade am Speichern: sichtbar, lesbar, nicht wählbar. */
+.candidate-row:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
 .candidate-amount {
   flex: none;
   font-family: var(--font-heading);

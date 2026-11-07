@@ -348,6 +348,7 @@ public sealed class EmploymentService(FinanzAppDbContext db, IClock clock)
             Payee = buchung.Payee,
             Amount = betrag,
             AccountName = buchung.Account?.Name ?? string.Empty,
+            Purpose = buchung.Purpose,
             Score = Math.Min(100, punkte),
             Reason = string.Join(" · ", gruende),
             IsBestMatch = false,

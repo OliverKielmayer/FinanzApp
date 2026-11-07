@@ -128,6 +128,11 @@
                             @State.Euro(candidate.Amount, withPlusSign: true) · @GermanFormat.DateShort(candidate.BookingDate)
                         </span>
                         <span class="work-due">@candidate.AccountName · @candidate.Payee · @candidate.Reason</span>
+
+                        @if (candidate.Purpose is { Length: > 0 } zweck)
+                        {
+                            <span class="candidate-purpose">@zweck</span>
+                        }
                     </span>
                     <span class="candidate-amount num">@candidate.Score</span>
                 </button>

@@ -754,7 +754,7 @@ public static class ExtensionEndpoints
                 var invoice = await service.PayAsync(id, request, ct);
                 return invoice is null ? Results.NotFound() : Results.Ok(invoice);
             }
-            catch (ArgumentException ex)
+            catch (Exception ex) when (ex is ArgumentException or RuleViolationException)
             {
                 return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
             }

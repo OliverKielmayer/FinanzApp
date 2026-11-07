@@ -407,6 +407,50 @@ public sealed class BillTextReadingTests
     }
 
     /// <summary>
+    /// Die Überschrift eines Bescheids trägt sein Datum.
+    /// </summary>
+    /// <remarks>
+    /// <para>„Bescheid vom" steht seit je in der Wortliste und traf trotzdem nicht: Dazwischen
+    /// steht, worum es geht. Das ist die übliche Form — eine Behörde überschreibt ihr Blatt mit
+    /// dem, was sie entscheidet, und hängt das Datum an.</para>
+    /// <para>Der Briefkopf hilft hier nicht. Er trägt das Datum neben dem Ort, aber ohne „den",
+    /// und die Texterkennung bricht ihn außerdem mitten im Ortsnamen um.</para>
+    /// </remarks>
+    [Fact]
+    public void Die_Ueberschrift_eines_Bescheids_traegt_sein_Datum()
+    {
+        var gelesen = BillTextReader.Read("""
+            Finanzamt Musterstadt 11111 Musterstadt
+            Stadt 12.03.2026
+            Steuernummer 11111/22222
+            Bescheid über Grunderwerbsteue r vom 12.03. 2026
+            Noch zu zahlen 4.100,00
+            """);
+
+        Assert.Equal(new DateOnly(2026, 3, 12), gelesen.BillDate);
+        Assert.Contains("Bescheid über", gelesen.BillDateSource);
+    }
+
+    /// <summary>
+    /// Mitten im Satz ist „Bescheid" keine Überschrift.
+    /// </summary>
+    /// <remarks>
+    /// Die Rechtsbehelfsbelehrung steht auf demselben Blatt und spricht in jedem zweiten Satz
+    /// vom Bescheid. Nähme die Regel eine dieser Zeilen, trüge der Beleg das Datum eines
+    /// Verwaltungsakts von vorgestern.
+    /// </remarks>
+    [Fact]
+    public void Ein_Satz_ueber_den_Bescheid_ist_keine_Ueberschrift()
+    {
+        var gelesen = BillTextReader.Read("""
+            Musterbehörde
+            Gegen diesen Bescheid, der den Verwaltungsakt vom 07.07.2017 ändert, ist der Einspruch gegeben.
+            """);
+
+        Assert.Null(gelesen.BillDate);
+    }
+
+    /// <summary>
     /// „Spätestens“ allein ist kein Zahlungstermin.
     /// </summary>
     /// <remarks>

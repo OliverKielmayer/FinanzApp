@@ -241,6 +241,11 @@
                                             <span class="work-due">
                                                 @treffer.AccountName · @treffer.Payee · @treffer.Reason
                                             </span>
+
+                                            @if (treffer.Purpose is { Length: > 0 } zweck)
+                                            {
+                                                <span class="candidate-purpose">@zweck</span>
+                                            }
                                         </span>
                                         <span class="candidate-amount num">@treffer.Score</span>
                                     </button>

@@ -60,7 +60,8 @@ public sealed class OpenInvoiceTests : IDisposable
 
     /// <summary>Eine Buchung, die zur Rechnung passen könnte.</summary>
     private int Buchung(
-        FinanzAppDbContext context, decimal betrag, DateOnly tag, string payee)
+        FinanzAppDbContext context, decimal betrag, DateOnly tag, string payee,
+        string zweck = "Rechnung VR5000012345")
     {
         var konto = context.Accounts.FirstOrDefault();
         if (konto is null)
@@ -81,7 +82,7 @@ public sealed class OpenInvoiceTests : IDisposable
             Amount = -betrag,
             Kind = TransactionKind.Expense,
             Payee = payee,
-            Purpose = "Rechnung VR5000012345",
+            Purpose = zweck,
         };
 
         context.Transactions.Add(buchung);
@@ -361,6 +362,192 @@ public sealed class OpenInvoiceTests : IDisposable
             ergebnis.Id!.Value, new PayInvoiceRequest());
 
         Assert.Equal(clock.Today, danach!.PaidOn);
+    }
+
+    // ── Zwei Buchungen, die gleich aussehen ────────────────────────────────────────────────
+
+    /// <summary>
+    /// Der Vorschlag nennt den Verwendungszweck.
+    /// </summary>
+    /// <remarks>
+    /// Zwei Bescheide desselben Absenders über denselben Betrag am selben Tag ergeben zwei
+    /// Vorschläge, die Zeile für Zeile gleich aussehen: Betrag, Tag, Konto, Empfänger, sogar
+    /// die Begründung. Unterscheiden lassen sie sich allein am Verwendungszweck — dort steht
+    /// die Steuernummer. Ohne ihn ist die Wahl ein Münzwurf.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_Vorschlag_nennt_den_Verwendungszweck()
+    {
+        using var context = database.Context();
+
+        var posten = await Forms(context).CreateAsync(CreateObjectType.Invoice, Felder());
+        Buchung(context, 1204.00m, new DateOnly(2026, 8, 12), "Musterelektro Handels GmbH",
+            "Steuernummer 11111/22222");
+
+        var vorschlag = Assert.Single(
+            await Properties(context).GetPaymentCandidatesAsync(posten.Id!.Value));
+
+        Assert.Equal("Steuernummer 11111/22222", vorschlag.Purpose);
+    }
+
+    /// <summary>
+    /// Eine vergebene Buchung steht in der Liste, beschriftet und nicht hervorgehoben.
+    /// </summary>
+    /// <remarks>
+    /// Sie verschwinden zu lassen wäre das Nächstliegende und das Falsche: Wer die Abbuchung
+    /// sucht, die er im Konto mit eigenen Augen gesehen hat, und sie hier nicht findet, sucht
+    /// weiter oder glaubt der Anwendung nicht mehr.
+    /// </remarks>
+    [Fact]
+    public async Task Eine_vergebene_Buchung_steht_beschriftet_und_nicht_hervorgehoben()
+    {
+        using var context = database.Context();
+        var (erster, zweiter) = await ZweiPostenAsync(context);
+
+        var eine = Buchung(context, 1204.00m, new DateOnly(2026, 8, 12),
+            "Musterelektro Handels GmbH", "Steuernummer 11111/22222");
+        var andere = Buchung(context, 1204.00m, new DateOnly(2026, 8, 12),
+            "Musterelektro Handels GmbH", "Steuernummer 33333/44444");
+
+        await Properties(context).PayAsync(erster, new PayInvoiceRequest { TransactionId = eine });
+
+        var vorschlaege = await Properties(context).GetPaymentCandidatesAsync(zweiter);
+
+        var vergeben = vorschlaege.Single(v => v.TransactionId == eine);
+        Assert.Equal("Rechnung Musterelektro", vergeben.AssignedTo);
+        Assert.False(vergeben.IsBestMatch);
+
+        var frei = vorschlaege.Single(v => v.TransactionId == andere);
+        Assert.Null(frei.AssignedTo);
+        Assert.True(frei.IsBestMatch);
+    }
+
+    /// <summary>
+    /// Dieselbe Buchung kann nicht zwei Posten begleichen.
+    /// </summary>
+    /// <remarks>
+    /// Die Liste beschriftet eine vergebene Buchung bereits, und der Knopf daran ist tot. Das
+    /// hier ist die Sperre dahinter: Eine Beschriftung ist keine Regel. Ohne sie stünde eine
+    /// Zahlung doppelt in den Büchern und eine andere gar nicht — und beide Posten sähen
+    /// bezahlt aus.
+    /// </remarks>
+    [Fact]
+    public async Task Dieselbe_Buchung_kann_nicht_zwei_Posten_begleichen()
+    {
+        using var context = database.Context();
+        var (erster, zweiter) = await ZweiPostenAsync(context);
+
+        var eine = Buchung(context, 1204.00m, new DateOnly(2026, 8, 12),
+            "Musterelektro Handels GmbH", "Steuernummer 11111/22222");
+
+        await Properties(context).PayAsync(erster, new PayInvoiceRequest { TransactionId = eine });
+
+        var fehler = await Assert.ThrowsAsync<RuleViolationException>(
+            () => Properties(context).PayAsync(zweiter, new PayInvoiceRequest { TransactionId = eine }));
+
+        Assert.Contains("bereits", fehler.Message);
+
+        // Abgewiesen heißt unverändert: Der zweite Posten steht weiter offen. Geprüft wird am
+        // verfolgten Datensatz — so fällt auch auf, wenn etwas geändert und nur nicht
+        // gespeichert wurde.
+        var unberuehrt = context.Invoices.Single(i => i.Id == zweiter);
+        Assert.Equal(InvoiceStatus.Open, unberuehrt.Status);
+        Assert.Null(unberuehrt.TransactionId);
+    }
+
+    /// <summary>
+    /// Eine vergebene Buchung wird nicht von schwachen Vorschlägen verdrängt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der erste Versuch sortierte vergebene Buchungen ans Ende — und damit aus der
+    /// Liste, denn sie zeigt sechs. Im Probelauf gegen den echten Bestand war die gesuchte
+    /// Abbuchung danach spurlos weg, während ein halbes Dutzend Vorschläge mit zehn Punkten
+    /// dastand. Zwei Tests mit zwei Buchungen hatten das nicht gezeigt: Dort griff die Grenze
+    /// nie.</para>
+    /// <para>Die Punktzahl sagt, wie gut eine Buchung passt. Ob sie frei ist, sagt die
+    /// Beschriftung.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Eine_vergebene_Buchung_wird_nicht_verdraengt()
+    {
+        using var context = database.Context();
+        var (erster, zweiter) = await ZweiPostenAsync(context);
+
+        var passend = Buchung(context, 1204.00m, new DateOnly(2026, 8, 12),
+            "Musterelektro Handels GmbH", "Steuernummer 11111/22222");
+
+        // Acht Buchungen, die nur über das Datum punkten — mehr als die Liste zeigt.
+        for (var i = 1; i <= 8; i++)
+        {
+            Buchung(context, 10m * i, new DateOnly(2026, 8, 20), $"Musterhandel {i}", $"Einkauf {i}");
+        }
+
+        await Properties(context).PayAsync(erster, new PayInvoiceRequest { TransactionId = passend });
+
+        var vorschlaege = await Properties(context).GetPaymentCandidatesAsync(zweiter);
+
+        var vergeben = vorschlaege.Single(v => v.TransactionId == passend);
+        Assert.Equal("Rechnung Musterelektro", vergeben.AssignedTo);
+        Assert.False(vergeben.IsBestMatch);
+    }
+
+    /// <summary>Ein Posten darf seine eigene Buchung behalten.</summary>
+    /// <remarks>
+    /// Die Sperre fragt nach <em>anderen</em> Posten. Fragte sie nach allen, ließe sich eine
+    /// einmal zugeordnete Zahlung nie wieder bestätigen.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_Posten_darf_seine_eigene_Buchung_behalten()
+    {
+        using var context = database.Context();
+        var posten = (await Forms(context).CreateAsync(CreateObjectType.Invoice, Felder())).Id!.Value;
+
+        var eine = Buchung(context, 1204.00m, new DateOnly(2026, 8, 12), "Musterelektro Handels GmbH");
+
+        await Properties(context).PayAsync(posten, new PayInvoiceRequest { TransactionId = eine });
+        var nochmal = await Properties(context).PayAsync(posten, new PayInvoiceRequest { TransactionId = eine });
+
+        Assert.Equal(eine, nochmal!.TransactionId);
+    }
+
+    /// <summary>
+    /// Ein stornierter Posten hält seine Buchung nicht fest.
+    /// </summary>
+    /// <remarks>
+    /// Storniert heißt: Diesen Posten gibt es nicht mehr. Hielte er die Buchung weiter, wäre
+    /// eine Zahlung für immer vergeben, ohne dass noch eine Forderung dahinterstünde.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_stornierter_Posten_gibt_seine_Buchung_frei()
+    {
+        using var context = database.Context();
+        var (erster, zweiter) = await ZweiPostenAsync(context);
+
+        var eine = Buchung(context, 1204.00m, new DateOnly(2026, 8, 12), "Musterelektro Handels GmbH");
+        await Properties(context).PayAsync(erster, new PayInvoiceRequest { TransactionId = eine });
+
+        context.Invoices.Single(i => i.Id == erster).Status = InvoiceStatus.Cancelled;
+        context.SaveChanges();
+
+        var vorschlag = Assert.Single(await Properties(context).GetPaymentCandidatesAsync(zweiter));
+        Assert.Null(vorschlag.AssignedTo);
+
+        var danach = await Properties(context).PayAsync(zweiter, new PayInvoiceRequest { TransactionId = eine });
+        Assert.Equal(eine, danach!.TransactionId);
+    }
+
+    /// <summary>Zwei offene Posten über denselben Betrag, unterscheidbar am Betreff.</summary>
+    private async Task<(int Erster, int Zweiter)> ZweiPostenAsync(FinanzAppDbContext context)
+    {
+        var erster = await Forms(context).CreateAsync(CreateObjectType.Invoice, Felder());
+
+        var zweiteFelder = Felder();
+        zweiteFelder["subject"] = "Rechnung Musterelektro, zweites Gerät";
+        zweiteFelder["number"] = "VR5000012346";
+
+        var zweiter = await Forms(context).CreateAsync(CreateObjectType.Invoice, zweiteFelder);
+
+        return (erster.Id!.Value, zweiter.Id!.Value);
     }
 
     public void Dispose()

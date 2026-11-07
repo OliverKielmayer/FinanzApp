@@ -269,6 +269,21 @@ public sealed class PropertyService(
             .ThenByDescending(t => t.Id)
             .ToList();
 
+        // Buchungen, die schon einen anderen Posten begleichen. Sie fallen nicht aus der Liste:
+        // Wer die Abbuchung sucht, die er mit eigenen Augen im Konto gesehen hat, und sie hier
+        // nicht findet, sucht weiter. Sie stehen an ihrem Platz, beschriftet, und lassen sich
+        // nicht wählen.
+        //
+        // Gruppiert und nicht als Wörterbuch aus der Abfrage: Es kann zwei Posten auf dieselbe
+        // Buchung geben — das ist ja gerade der Zustand, gegen den hier gearbeitet wird.
+        var vergeben = (await db.Invoices.AsNoTracking()
+                .Where(i => i.Id != invoiceId && i.TransactionId != null
+                            && i.Status != InvoiceStatus.Cancelled)
+                .Select(i => new { Buchung = i.TransactionId!.Value, i.Subject })
+                .ToListAsync(ct))
+            .GroupBy(i => i.Buchung)
+            .ToDictionary(g => g.Key, g => g.First().Subject);
+
         var scored = new List<PaymentCandidateDto>();
         foreach (var transaction in rows)
         {
@@ -319,15 +334,28 @@ public sealed class PropertyService(
                     Payee = transaction.Payee,
                     Amount = amount,
                     AccountName = transaction.Account?.Name ?? string.Empty,
+                    Purpose = transaction.Purpose,
                     Score = Math.Min(100, score),
                     Reason = string.Join(" · ", reasons),
                     IsBestMatch = false,
+                    AssignedTo = vergeben.GetValueOrDefault(transaction.Id),
                 });
             }
         }
 
         var best = scored.OrderByDescending(c => c.Score).ThenByDescending(c => c.BookingDate).Take(6).ToList();
-        return best.Count == 0 ? [] : [.. best.Select((c, index) => c with { IsBestMatch = index == 0 })];
+
+        // Hervorgehoben wird der beste Vorschlag, der noch zu haben ist. Ein vergebener nie —
+        // der Akzent auf einer Zeile, die sich nicht wählen lässt, wäre eine Aufforderung ins
+        // Leere.
+        //
+        // Seinen Platz behält er trotzdem: Die Zahl daneben sagt, wie gut eine Buchung passt,
+        // und nicht, ob sie noch frei ist. Sie nach hinten zu sortieren hieße, sie aus der
+        // Liste zu drängen, sobald sechs andere da sind — und dann fehlte genau die Buchung,
+        // die jemand mit eigenen Augen im Konto gesehen hat.
+        var hervorgehoben = best.FirstOrDefault(c => c.AssignedTo is null)?.TransactionId;
+
+        return [.. best.Select(c => c with { IsBestMatch = c.TransactionId == hervorgehoben })];
     }
 
     /// <summary>
@@ -359,6 +387,25 @@ public sealed class PropertyService(
             var buchung = await db.Transactions.AsNoTracking()
                               .FirstOrDefaultAsync(t => t.Id == transactionId, ct)
                           ?? throw new ArgumentException("Die Buchung gibt es nicht.");
+
+            // Eine Buchung begleicht einen Posten. Zwei gleich hohe Bescheide desselben
+            // Absenders am selben Tag ergeben zwei Vorschläge, die Zeile für Zeile gleich
+            // aussehen; wer zweimal denselben nimmt, hat einen Posten doppelt belegt und den
+            // anderen nie. Beide sähen danach bezahlt aus, und niemandem fiele es auf.
+            //
+            // Die Liste beschriftet solche Buchungen bereits. Das hier ist die Sperre dahinter:
+            // Die Zuordnung ginge auch ohne sie, und eine Beschriftung ist keine Regel.
+            var schon = await db.Invoices.AsNoTracking()
+                .Where(i => i.Id != invoiceId && i.TransactionId == transactionId
+                            && i.Status != InvoiceStatus.Cancelled)
+                .Select(i => i.Subject)
+                .FirstOrDefaultAsync(ct);
+
+            if (schon is not null)
+            {
+                throw new RuleViolationException(
+                    $"Diese Buchung ist bereits „{schon}“ zugeordnet.");
+            }
 
             invoice.TransactionId = transactionId;
             gebucht = buchung.BookingDate;
