@@ -17,11 +17,21 @@ namespace FinanzApp.Api.Infrastructure;
 /// <para><b>Die PIN steht in keiner Meldung.</b> Auch nicht in einer Fehlermeldung, auch nicht
 /// im Protokoll. Was von der Bank zurückkommt, wird unverändert durchgereicht; was die
 /// Anwendung hinschickt, bleibt hier.</para>
+/// <para><b>Der Dialog selbst darf ins Protokoll</b>, und zwar genau auf einem Weg: Die
+/// Bibliothek bekommt eine <see cref="ILoggerFactory"/> und setzt an die Stelle von PIN und
+/// Benutzerkennung <c>XXXXXX</c>, bevor sie eine Zeile abgibt. Nachgemessen, nicht geglaubt —
+/// siehe die Tests zum Bankdialog. Ohne diesen Weg bliebe ein Abbruch beim Zerlegen der
+/// Bankantwort unaufklärbar: Man sähe, <em>dass</em> die Antwort nicht lesbar war, nie
+/// <em>was</em> die Bank geschickt hat.</para>
 /// <para><b>Gelesen wird, nicht geschrieben.</b> Von allem, was FinTS kann — Überweisung,
 /// Lastschrift, Dauerauftrag — wird genau ein Geschäftsvorfall verwendet: der Saldo. Eine
 /// Anwendung, die den Haushalt aufschreibt, braucht keinen Zugriff, der ihn verändert.</para>
 /// </remarks>
-public sealed class FinTsBalanceSource(BankAccessOptions options, IClock clock, ILogger<FinTsBalanceSource> log)
+public sealed class FinTsBalanceSource(
+    BankAccessOptions options,
+    IClock clock,
+    ILogger<FinTsBalanceSource> log,
+    ILoggerFactory loggerFactory)
     : IBankBalanceSource
 {
     public async Task<BankBalanceReading> FetchAsync(
@@ -63,7 +73,17 @@ public sealed class FinTsBalanceSource(BankAccessOptions options, IClock clock, 
         FinTsGlobals.Version = options.ProductVersion;
 
         var verbindung = Verbindung(account, pin);
-        var kunde = new FinTsClient(verbindung);
+
+        // Das Protokoll der Bibliothek läuft durch das der Anwendung. Ob etwas davon ankommt,
+        // entscheidet allein die Stufe für den Bereich „libfintx“ in appsettings.json — normal
+        // schweigt er, zur Fehlersuche sagt er, was die Bank geschickt hat. Der Bereich steht
+        // nur dort und nicht zusätzlich als Konstante hier: Zwei Orte, die denselben Namen
+        // nennen sollen, laufen auseinander, und bemerkt würde es an einem stillen Protokoll.
+        //
+        // Das ist der einzige Weg zu dieser Auskunft, der die PIN nicht preisgibt: Die
+        // Bibliothek setzt an ihrer Stelle XXXXXX, bevor sie die Zeile abgibt. Die Ausnahme
+        // selbst ins Protokoll zu schreiben bliebe verboten — ihr Text ist ungeprüft.
+        var kunde = new FinTsClient(verbindung, loggerFactory: loggerFactory);
 
         log.LogInformation(
             "Bankabruf für Konto {Konto} bei BLZ {Blz}.", account.Id, verbindung.Blz);
