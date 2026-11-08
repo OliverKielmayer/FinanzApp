@@ -47,6 +47,7 @@ public sealed class BankBalanceTests : IDisposable
             OpeningBalance = 1200m, OwnerUserId = benutzer.Id,
             Iban = "DE66999999991234567890",
             Blz = "99999999",
+            Bic = "MUSTDEFFXXX",
             FinTsUrl = "https://banking.example.test/fints30",
             FinTsUserId = "mustermann1",
             FinTsTanMethod = 921,

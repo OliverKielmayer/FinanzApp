@@ -112,6 +112,17 @@ public static class BankAccessReadiness
                 + "Prüfziffer.");
         }
 
+        // Die BIC steht hier bei der Bankleitzahl und nicht bei den Zugangsdaten: Sie ist
+        // keine Kennung des Benutzers, sondern gehört zum Konto. Gebraucht wird sie erst beim
+        // Abruf — die Saldenabfrage benennt das Konto als IBAN und BIC. Ohne sie weist die
+        // Bank die Nachricht mit einem fehlenden Mussfeld ab und sagt nicht, welchem.
+        if (string.IsNullOrWhiteSpace(account.Bic))
+        {
+            probleme.Add(
+                $"Dem Konto „{account.Name}“ fehlt die BIC. Sie steht auf jedem Kontoauszug — "
+                + "die Saldenabfrage benennt das Konto mit IBAN und BIC.");
+        }
+
         if (string.IsNullOrWhiteSpace(account.FinTsUrl))
         {
             probleme.Add($"Dem Konto „{account.Name}“ fehlt die FinTS-Adresse der Bank.");

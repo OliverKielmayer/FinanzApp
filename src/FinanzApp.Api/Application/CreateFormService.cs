@@ -604,6 +604,7 @@ public sealed class CreateFormService(
                     ["opening"] = Money(a.OpeningBalance),
                     ["asOf"] = Iso(a.BalanceAsOf),
                     ["blz"] = a.Blz,
+                    ["bic"] = a.Bic,
                     ["fintsUrl"] = a.FinTsUrl,
                     ["fintsUser"] = a.FinTsUserId,
                     ["fintsCustomer"] = a.FinTsCustomerId,
@@ -860,6 +861,7 @@ public sealed class CreateFormService(
         account.OpeningBalance = opening;
         account.BalanceAsOf = asOf;
         account.Blz = Value(values, "blz")?.Trim();
+        account.Bic = Value(values, "bic")?.Trim();
         account.FinTsUrl = Value(values, "fintsUrl")?.Trim();
         account.FinTsUserId = Value(values, "fintsUser")?.Trim();
         account.FinTsCustomerId = Value(values, "fintsCustomer")?.Trim();
@@ -1246,6 +1248,9 @@ public sealed class CreateFormService(
                 // den Abruf — und erfährt beim ersten Versuch, was davon noch fehlt.
                 Text("blz", "Bankleitzahl", required: false, placeholder: "12345678",
                     help: "Nur für den Abruf über FinTS. Steht im Zugangsdatenblatt der Bank."),
+                Text("bic", "BIC", required: false, placeholder: "GENODEF1XXX",
+                    help: "Steht auf jedem Kontoauszug. Die Saldenabfrage benennt das Konto "
+                          + "mit IBAN und BIC; ohne sie weist die Bank die Nachricht ab."),
                 Text("fintsUrl", "FinTS-Adresse", required: false,
                     placeholder: "https://banking.example.de/fints30"),
                 Text("fintsUser", "Benutzerkennung", required: false,
@@ -1303,6 +1308,7 @@ public sealed class CreateFormService(
             OpeningBalance = opening,
             BalanceAsOf = asOf,
             Blz = Value(values, "blz")?.Trim(),
+            Bic = Value(values, "bic")?.Trim(),
             FinTsUrl = Value(values, "fintsUrl")?.Trim(),
             FinTsUserId = Value(values, "fintsUser")?.Trim(),
             FinTsCustomerId = Value(values, "fintsCustomer")?.Trim(),

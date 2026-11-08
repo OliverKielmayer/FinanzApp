@@ -61,6 +61,64 @@ public sealed class CreateFormTests : IDisposable
         Assert.Equal("Art fehlt", result.Message);
     }
 
+    /// <summary>
+    /// Der Bankzugang geht durch das Formular und kommt auch wieder heraus.
+    /// </summary>
+    /// <remarks>
+    /// <para>Diese Felder sind nur Verdrahtung — ein Schlüssel im Formular, einer beim
+    /// Anlegen, einer beim Ändern, einer beim Zurücklesen. Genau deshalb gehören sie geprüft:
+    /// Ein Tippfehler in einem der vier fällt niemandem auf. Der Benutzer trägt ein, speichert,
+    /// und nichts geschieht; am Konto steht weiter nichts, und beim Abruf fehlt ein Wert, den
+    /// er zu kennen glaubt.</para>
+    /// <para>Die BIC ist dabei der jüngste und teuerste Zuwachs: Ohne sie weist die Bank die
+    /// Saldenabfrage ab, und ihre Meldung nennt nur ein fehlendes Mussfeld.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Der_Bankzugang_ueberlebt_Anlegen_Lesen_und_Aendern()
+    {
+        var angelegt = await Service().CreateAsync(CreateObjectType.Account, new Dictionary<string, string?>
+        {
+            ["kind"] = "checking",
+            ["bank"] = "Musterbank",
+            ["opening"] = "0,00",
+            ["asOf"] = "2026-08-01",
+            ["blz"] = "99999999",
+            ["bic"] = "MUSTDEFFXXX",
+            ["fintsUrl"] = "https://banking.example.test/fints30",
+            ["fintsUser"] = "mustermann1",
+            ["fintsTan"] = "921",
+        });
+
+        Assert.True(angelegt.Ok);
+        var id = angelegt.Id!.Value;
+
+        using (var context = database.Context())
+        {
+            var konto = context.Accounts.Single(a => a.Id == id);
+            Assert.Equal("99999999", konto.Blz);
+            Assert.Equal("MUSTDEFFXXX", konto.Bic);
+            Assert.Equal(921, konto.FinTsTanMethod);
+        }
+
+        // Zurückgelesen: Das Bearbeiten-Formular muss die Werte mitbringen, sonst löscht das
+        // nächste Speichern sie.
+        var formular = await Service().GetFormAsync(CreateObjectType.Account, id);
+        Assert.NotNull(formular);
+        Assert.Equal("MUSTDEFFXXX", formular!.Values.GetValueOrDefault("bic"));
+        Assert.Equal("99999999", formular.Values.GetValueOrDefault("blz"));
+
+        // Und geändert bleibt geändert.
+        var geaendert = await Service().UpdateAsync(CreateObjectType.Account, id,
+            new Dictionary<string, string?>(formular.Values) { ["bic"] = "ANDRDEFFXXX" });
+
+        Assert.True(geaendert.Ok);
+
+        using (var context = database.Context())
+        {
+            Assert.Equal("ANDRDEFFXXX", context.Accounts.Single(a => a.Id == id).Bic);
+        }
+    }
+
     [Fact]
     public async Task Konto_wird_wirklich_angelegt_und_ist_danach_waehlbar()
     {

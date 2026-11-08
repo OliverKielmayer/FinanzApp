@@ -29,6 +29,7 @@ public sealed class BankAccessOptionsTests
         Kind = AccountKind.Checking,
         Iban = "DE66999999991234567890",
         Blz = "99999999",
+        Bic = "MUSTDEFFXXX",
         FinTsUrl = "https://banking.example.test/fints30",
         FinTsUserId = "mustermann1",
         FinTsTanMethod = 921,
@@ -123,6 +124,34 @@ public sealed class BankAccessOptionsTests
 
         Assert.Contains("Bankleitzahl", problem, StringComparison.Ordinal);
         Assert.Contains("acht Ziffern", problem, StringComparison.Ordinal);
+        Assert.Contains("Musterbank Giro", problem, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Ohne BIC lässt sich nicht abrufen.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Am echten Konto gelernt, nicht aus der Spezifikation.</b> Der Abruf scheiterte
+    /// mit „Nachrichtenaufbau fehlerhaft (Mussfeld). Nachricht nicht verarbeitbar.“ — einem
+    /// Satz, der auf alles zeigt. Im mitgeschnittenen Dialog stand, worauf er zeigte: Das
+    /// gesendete Segment benannte das Konto mit der IBAN und einem leeren zweiten Feld.</para>
+    /// <para>Die Saldenabfrage nach FinTS 3.0 gibt das Konto als Kontoverbindung international
+    /// an, und die ist IBAN <em>und</em> BIC. Dass FinTS die Bank über die Bankleitzahl
+    /// anspricht, hat damit nichts zu tun — das eine benennt das Haus, das andere das
+    /// Konto.</para>
+    /// <para>Deshalb steht sie in der Mängelliste: Wer den Zugang einrichtet, soll sie
+    /// eintragen, bevor der erste Abruf an einem Satz scheitert, der nichts erklärt.</para>
+    /// </remarks>
+    [Fact]
+    public void Ohne_BIC_laesst_sich_nicht_abrufen()
+    {
+        var konto = Konto();
+        konto.Bic = null;
+
+        var problem = Assert.Single(BankAccessReadiness.Problems(konto, Produkt()));
+
+        Assert.Contains("fehlt die BIC", problem, StringComparison.Ordinal);
+        Assert.Contains("Kontoauszug", problem, StringComparison.Ordinal);
         Assert.Contains("Musterbank Giro", problem, StringComparison.Ordinal);
     }
 

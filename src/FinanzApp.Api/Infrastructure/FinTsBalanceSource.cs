@@ -111,9 +111,33 @@ public sealed class FinTsBalanceSource(
             throw new BankAccessException(Meldung(anmeldung.Messages, "Die Anmeldung"));
         }
 
+        // Was die Bibliothek aus den Bankparametern abgeleitet hat, bevor wir eingreifen.
+        //
+        // Zwei Werte gehören zusammen: das TAN-Verfahren und die Version des Segments, in dem
+        // danach gefragt wird. Wer nur das Verfahren überschreibt, kann sie auseinanderbringen
+        // — und die Bank antwortet dann nicht mit einem Hinweis auf das Verfahren, sondern mit
+        // „Nachrichtenaufbau fehlerhaft (Mussfeld)“, einem Satz, der auf alles zeigt.
+        //
+        // Die Zeile steht hier, weil sie beim ersten echten Abruf gefehlt hat: Der Abruf
+        // scheiterte, und ob die Segmentversion dabei leer, alt oder richtig war, ließ sich
+        // nirgends ablesen.
+        log.LogInformation(
+            "Konto {Konto} nach der Anmeldung: Verfahren {Abgeleitet}, Segmentversion "
+                + "{Version}. Am Konto eingetragen: {Eingetragen}. Die Bank meldete: {Bank}",
+            account.Id,
+            string.IsNullOrEmpty(kunde.HIRMS) ? "keines" : kunde.HIRMS,
+            kunde.HITANS,
+            account.FinTsTanMethod,
+            Alles(anmeldung.Messages));
+
         // Das TAN-Verfahren muss die Bibliothek wissen, bevor sie fragt — sonst wählt sie eines
         // aus der Liste der Bank, und das muss nicht das sein, das freigeschaltet ist.
         kunde.HIRMS = account.FinTsTanMethod!.Value.ToString();
+
+        log.LogInformation(
+            "Konto {Konto} fragt nach dem Saldo mit Verfahren {Verfahren}, Segmentversion "
+                + "{Version}.",
+            account.Id, kunde.HIRMS, kunde.HITANS);
 
         var ergebnis = await kunde.Balance(new TANDialog(OhneTan));
         if (!ergebnis.IsSuccess || ergebnis.Data is null)
@@ -139,6 +163,12 @@ public sealed class FinTsBalanceSource(
         UserId = account.FinTsUserId,
         Pin = pin,
         Iban = account.Iban,
+
+        // Die Bankleitzahl spricht die Bank an, die BIC gehört zum Konto: Eine Saldenabfrage
+        // nach FinTS 3.0 benennt es als Kontoverbindung international, und das ist IBAN und
+        // BIC. Fehlt sie, sendet die Bibliothek „DE…:“ mit leerem zweiten Feld, und die Bank
+        // antwortet mit einem fehlenden Mussfeld — ohne zu sagen, welchem.
+        Bic = account.Bic,
         Account = KontonummerAusIban(account.Iban),
         FinTSVersion = FinTsVersion.v300,
     };
@@ -168,6 +198,23 @@ public sealed class FinTsBalanceSource(
     /// gesperrt“ schon. Nur Fehler und Warnungen — die Hinweise der Bank sind Begrüssungen und
     /// Werbung und stünden hier im Weg.
     /// </remarks>
+    /// <summary>
+    /// Alle Rückmeldungen der Bank, auch die, die kein Fehler sind.
+    /// </summary>
+    /// <remarks>
+    /// <para>Für die Fehlersuche, nicht für den Bildschirm: Gerade die Hinweise tragen, was
+    /// weiterhilft — die Liste der zugelassenen TAN-Verfahren etwa kommt als Hinweis und nicht
+    /// als Fehler. <see cref="Meldung"/> wirft sie weg, und das ist dort richtig.</para>
+    /// <para>Diese Texte stammen von der Bank und nicht aus dem Nachrichtenstrom: Codes und
+    /// Sätze, die sie selbst formuliert hat. Eine PIN steht darin nicht.</para>
+    /// </remarks>
+    private static string Alles(IEnumerable<HBCIBankMessage> meldungen)
+    {
+        var alle = meldungen.Select(m => $"{m.Code} {m.Message}".Trim()).ToList();
+
+        return alle.Count > 0 ? string.Join("; ", alle) : "nichts";
+    }
+
     private static string Meldung(IEnumerable<HBCIBankMessage> meldungen, string was)
     {
         var wichtig = meldungen

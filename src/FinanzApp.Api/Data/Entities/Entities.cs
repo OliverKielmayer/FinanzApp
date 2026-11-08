@@ -69,8 +69,30 @@ public class Account : IHouseholdOwned
     // Dialog; die Datenbank ist eine unverschlüsselte Datei, und eine Banking-PIN darin wäre
     // eine andere Größenordnung als ein Mail-Passwort.
 
-    /// <summary>Die Bankleitzahl. FinTS spricht Banken darüber an, nicht über die BIC.</summary>
+    /// <summary>
+    /// Die Bankleitzahl. Über sie spricht FinTS die <em>Bank</em> an.
+    /// </summary>
+    /// <remarks>
+    /// Hier stand einmal „nicht über die BIC“. Das gilt für die Bank und führte am
+    /// <em>Konto</em> in die Irre: Eine Saldenabfrage nach FinTS 3.0 benennt das Konto als
+    /// Kontoverbindung international, und die besteht aus IBAN und BIC. Siehe
+    /// <see cref="Bic"/>.
+    /// </remarks>
     public string? Blz { get; set; }
+
+    /// <summary>
+    /// Die BIC der Bank — für die Saldenabfrage ein Pflichtfeld.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Am echten Konto gelernt.</b> Der Abruf scheiterte mit „Nachrichtenaufbau
+    /// fehlerhaft (Mussfeld). Nachricht nicht verarbeitbar.“ — einem Satz, der auf alles und
+    /// nichts zeigt. Im mitgeschnittenen Dialog stand die Antwort: Das gesendete Segment
+    /// lautete <c>HKSAL:3:7+DE…:+N</c>, und hinter dem Doppelpunkt, wo die BIC steht, war
+    /// nichts. Die Anwendung kannte das Feld gar nicht.</para>
+    /// <para>Sie bezeichnet die Bank und nicht das Konto: Alle Kunden desselben Hauses haben
+    /// dieselbe. Sie steht auf jedem Kontoauszug.</para>
+    /// </remarks>
+    public string? Bic { get; set; }
 
     /// <summary>Der PIN/TAN-Endpunkt der Bank, etwa <c>https://banking.example.de/fints30</c>.</summary>
     public string? FinTsUrl { get; set; }

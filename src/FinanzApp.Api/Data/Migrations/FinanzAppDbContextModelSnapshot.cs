@@ -31,6 +31,9 @@ namespace FinanzApp.Api.Data.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Bic")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Blz")
                         .HasColumnType("TEXT");
 
