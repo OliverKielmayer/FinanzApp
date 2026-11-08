@@ -105,41 +105,33 @@ public sealed class FinTsBalanceSource(
         log.LogInformation(
             "Bankabruf für Konto {Konto} bei BLZ {Blz}.", account.Id, verbindung.Blz);
 
-        var anmeldung = await kunde.Synchronization();
-        if (!anmeldung.IsSuccess)
-        {
-            throw new BankAccessException(Meldung(anmeldung.Messages, "Die Anmeldung"));
-        }
+        // Direkt fragen, ohne vorher anzumelden — so führt es das Beispielprogramm der
+        // Bibliothek vor, und so ist es gemeint: Balance() baut die Verbindung selbst auf und
+        // synchronisiert dabei.
+        //
+        // Hier stand einmal ein eigener Aufruf von Synchronization() davor, dazu das Setzen
+        // des TAN-Verfahrens von Hand. Beides sah nach Sorgfalt aus und war das Gegenteil: Das
+        // Protokoll zeigte zwei Synchronisierungen und zwei verschiedene System-Kennungen. Die
+        // zweite entwertet die erste, und der Auftrag ging mit einem Zustand hinaus, den die
+        // Bank nicht erwartete — sie antwortete „Ungültige Auftragsnachricht: Unbekannter
+        // Aufbau“.
+        //
+        // Das Verfahren wählt die Bibliothek seitdem selbst aus dem, was die Bank anbietet.
+        // Das ist nicht schlechter: Die Bank nennt in ihrer Antwort die für diesen Benutzer
+        // zugelassenen Verfahren, und eines davon muss es sein. Das Feld am Konto bleibt
+        // trotzdem gebraucht — ohne es meldet die Mängelliste nichts, und wer den Zugang
+        // einrichtet, bekäme keinen Hinweis.
+        var ergebnis = await kunde.Balance(new TANDialog(OhneTan));
 
-        // Was die Bibliothek aus den Bankparametern abgeleitet hat, bevor wir eingreifen.
-        //
-        // Zwei Werte gehören zusammen: das TAN-Verfahren und die Version des Segments, in dem
-        // danach gefragt wird. Wer nur das Verfahren überschreibt, kann sie auseinanderbringen
-        // — und die Bank antwortet dann nicht mit einem Hinweis auf das Verfahren, sondern mit
-        // „Nachrichtenaufbau fehlerhaft (Mussfeld)“, einem Satz, der auf alles zeigt.
-        //
-        // Die Zeile steht hier, weil sie beim ersten echten Abruf gefehlt hat: Der Abruf
-        // scheiterte, und ob die Segmentversion dabei leer, alt oder richtig war, ließ sich
-        // nirgends ablesen.
         log.LogInformation(
-            "Konto {Konto} nach der Anmeldung: Verfahren {Abgeleitet}, Segmentversion "
-                + "{Version}. Am Konto eingetragen: {Eingetragen}. Die Bank meldete: {Bank}",
+            "Konto {Konto}: Verfahren {Verfahren}, Segmentversion {Version}. Am Konto "
+                + "eingetragen: {Eingetragen}. Die Bank meldete: {Bank}",
             account.Id,
             string.IsNullOrEmpty(kunde.HIRMS) ? "keines" : kunde.HIRMS,
             kunde.HITANS,
             account.FinTsTanMethod,
-            Alles(anmeldung.Messages));
+            Alles(ergebnis.Messages));
 
-        // Das TAN-Verfahren muss die Bibliothek wissen, bevor sie fragt — sonst wählt sie eines
-        // aus der Liste der Bank, und das muss nicht das sein, das freigeschaltet ist.
-        kunde.HIRMS = account.FinTsTanMethod!.Value.ToString();
-
-        log.LogInformation(
-            "Konto {Konto} fragt nach dem Saldo mit Verfahren {Verfahren}, Segmentversion "
-                + "{Version}.",
-            account.Id, kunde.HIRMS, kunde.HITANS);
-
-        var ergebnis = await kunde.Balance(new TANDialog(OhneTan));
         if (!ergebnis.IsSuccess || ergebnis.Data is null)
         {
             throw new BankAccessException(Meldung(ergebnis.Messages, "Der Abruf"));
