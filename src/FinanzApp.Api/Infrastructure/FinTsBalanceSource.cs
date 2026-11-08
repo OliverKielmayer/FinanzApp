@@ -105,31 +105,43 @@ public sealed class FinTsBalanceSource(
         log.LogInformation(
             "Bankabruf für Konto {Konto} bei BLZ {Blz}.", account.Id, verbindung.Blz);
 
-        // Direkt fragen, ohne vorher anzumelden — so führt es das Beispielprogramm der
-        // Bibliothek vor, und so ist es gemeint: Balance() baut die Verbindung selbst auf und
-        // synchronisiert dabei.
+        // Die Reihenfolge stammt aus dem README der Bibliothek und nicht aus ihrem
+        // Beispielprogramm: anmelden, Verfahren setzen, TAN-Medium holen, fragen.
         //
-        // Hier stand einmal ein eigener Aufruf von Synchronization() davor, dazu das Setzen
-        // des TAN-Verfahrens von Hand. Beides sah nach Sorgfalt aus und war das Gegenteil: Das
-        // Protokoll zeigte zwei Synchronisierungen und zwei verschiedene System-Kennungen. Die
-        // zweite entwertet die erste, und der Auftrag ging mit einem Zustand hinaus, den die
-        // Bank nicht erwartete — sie antwortete „Ungültige Auftragsnachricht: Unbekannter
-        // Aufbau“.
-        //
-        // Das Verfahren wählt die Bibliothek seitdem selbst aus dem, was die Bank anbietet.
-        // Das ist nicht schlechter: Die Bank nennt in ihrer Antwort die für diesen Benutzer
-        // zugelassenen Verfahren, und eines davon muss es sein. Das Feld am Konto bleibt
-        // trotzdem gebraucht — ohne es meldet die Mängelliste nichts, und wer den Zugang
-        // einrichtet, bekäme keinen Hinweis.
-        var ergebnis = await kunde.Balance(new TANDialog(OhneTan));
+        // Das Beispielprogramm ist kürzer — es baut den Klienten und fragt sofort. Danach ist
+        // hier schon einmal umgebaut worden, und es war falsch: Das Beispielprogramm ist ein
+        // Kommandozeilen-Demo, der README beschreibt den vollständigen Weg. Wer sich am
+        // kürzeren ausrichtet, lässt zwei Schritte weg, die die Bibliothek selbst vorführt.
+        var anmeldung = await kunde.Synchronization();
+        if (!anmeldung.IsSuccess)
+        {
+            throw new BankAccessException(Meldung(anmeldung.Messages, "Die Anmeldung"));
+        }
 
         log.LogInformation(
-            "Konto {Konto}: Verfahren {Verfahren}, Segmentversion {Version}. Am Konto "
-                + "eingetragen: {Eingetragen}. Die Bank meldete: {Bank}",
+            "Konto {Konto} nach der Anmeldung: Verfahren {Abgeleitet}, Segmentversion "
+                + "{Version}. Am Konto eingetragen: {Eingetragen}. Die Bank meldete: {Bank}",
             account.Id,
             string.IsNullOrEmpty(kunde.HIRMS) ? "keines" : kunde.HIRMS,
             kunde.HITANS,
             account.FinTsTanMethod,
+            Alles(anmeldung.Messages));
+
+        // Das TAN-Verfahren muss die Bibliothek wissen, bevor sie fragt — sonst wählt sie eines
+        // aus der Liste der Bank, und das muss nicht das sein, das freigeschaltet ist.
+        kunde.HIRMS = account.FinTsTanMethod!.Value.ToString();
+
+        await TanMediumAsync(kunde, account);
+
+        var ergebnis = await kunde.Balance(new TANDialog(OhneTan));
+
+        log.LogInformation(
+            "Konto {Konto} hat gefragt mit Verfahren {Verfahren}, Segmentversion {Version}, "
+                + "TAN-Medium {Medium}. Die Bank meldete: {Bank}",
+            account.Id,
+            kunde.HIRMS,
+            kunde.HITANS,
+            string.IsNullOrEmpty(kunde.HITAB) ? "keines" : kunde.HITAB,
             Alles(ergebnis.Messages));
 
         if (!ergebnis.IsSuccess || ergebnis.Data is null)
@@ -190,6 +202,61 @@ public sealed class FinTsBalanceSource(
     /// gesperrt“ schon. Nur Fehler und Warnungen — die Hinweise der Bank sind Begrüssungen und
     /// Werbung und stünden hier im Weg.
     /// </remarks>
+    /// <summary>
+    /// Fragt die Bank, welches TAN-Medium der Benutzer hat, und trägt es ein.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Der Schritt, den wir übersehen hatten.</b> Im Beispiel des README steht
+    /// zwischen dem Setzen des Verfahrens und der Abfrage ein <c>InitTANMedium</c>. Was es tut,
+    /// zeigt der README nicht — die Bibliothek bietet dafür <c>RequestTANMediumName</c> und das
+    /// Feld <c>HITAB</c>. Bei TAN-Verfahren, die ein Medium kennen, geht dessen Bezeichnung in
+    /// das Segment ein, mit dem gefragt wird.</para>
+    /// <para><b>Es darf scheitern.</b> Nicht jede Bank und nicht jedes Verfahren kennt ein
+    /// Medium; dann kommt nichts zurück, und der Abruf geht ohne weiter — so wie bisher. Ein
+    /// fehlgeschlagener Nebenschritt darf den Hauptweg nicht mitreißen.</para>
+    /// <para><b>Nur bei genau einem Medium.</b> Kommen mehrere, wäre die Wahl eine Frage an den
+    /// Benutzer und keine, die hier zu treffen ist. Dann bleibt das Feld leer und das Protokoll
+    /// sagt, was zur Wahl stand.</para>
+    /// </remarks>
+    private async Task TanMediumAsync(FinTsClient kunde, Account account)
+    {
+        try
+        {
+            var medien = await kunde.RequestTANMediumName();
+
+            if (!medien.IsSuccess || medien.Data is not { Count: > 0 } namen)
+            {
+                log.LogInformation(
+                    "Konto {Konto}: Die Bank nennt kein TAN-Medium. {Bank}",
+                    account.Id, Alles(medien.Messages));
+                return;
+            }
+
+            if (namen.Count > 1)
+            {
+                log.LogInformation(
+                    "Konto {Konto}: Die Bank nennt {Anzahl} TAN-Medien. Welches gemeint ist, "
+                        + "kann hier niemand entscheiden; das Feld bleibt leer.",
+                    account.Id, namen.Count);
+                return;
+            }
+
+            kunde.HITAB = namen[0];
+
+            log.LogInformation(
+                "Konto {Konto}: TAN-Medium von der Bank übernommen.", account.Id);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Der Nebenschritt reißt den Abruf nicht mit. Ohne Medium ging es bisher auch —
+            // nur eben vielleicht nicht bei dieser Bank, und das zeigt erst der Abruf.
+            log.LogWarning(
+                "Konto {Konto}: Das TAN-Medium ließ sich nicht holen ({Art}). Der Abruf läuft "
+                    + "ohne weiter.",
+                account.Id, ex.GetType().Name);
+        }
+    }
+
     /// <summary>
     /// Alle Rückmeldungen der Bank, auch die, die kein Fehler sind.
     /// </summary>
