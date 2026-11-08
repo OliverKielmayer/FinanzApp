@@ -42,11 +42,28 @@ public sealed class FinTsBalanceSource(
         // ein Serverfehler übrig, und am Bildschirm stünde „Der Server hat die Anfrage
         // abgelehnt“: ein Satz, der nichts sagt und auf die PIN zeigt, wo die Leitung schuld
         // ist. Abbruch durch den Aufrufer ist kein Bankfehler und bleibt durch.
+        //
+        // Zwei Fänge, weil zwei verschiedene Dinge zu tun sind: Eine Zurückweisung der Bank
+        // trägt schon die richtige Meldung und wird nur protokolliert; alles andere muss erst
+        // übersetzt werden, und sein Text darf dabei nicht mitkommen.
         try
         {
             return await AbrufenAsync(account, pin, ct);
         }
-        catch (Exception ex) when (ex is not BankAccessException and not OperationCanceledException)
+        catch (BankAccessException ex)
+        {
+            // Diese Meldung ist die eigene: Sie entsteht aus den Rückmeldungen, die die Bank
+            // geschickt hat, und steht ohnehin am Bildschirm. Sie vom Protokoll auszunehmen
+            // war die Regel für fremde Texte, auf einen eigenen übertragen — und sie kostete
+            // genau die Auskunft, die den Fall erklärt: Weist die Bank den Abruf zurück, stand
+            // der Grund nur dort, wo gerade jemand hinsah, und nirgends zum Nachlesen.
+            log.LogWarning(
+                "Der Bankabruf für Konto {Konto} wurde abgelehnt: {Meldung}",
+                account.Id, ex.Message);
+
+            throw;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Die Ausnahme kommt nicht als Objekt ins Protokoll: Ihr Text ist aus demselben
             // Grund nicht zu trauen wie der Nachrichtenstrom der Bibliothek — darin kann die
