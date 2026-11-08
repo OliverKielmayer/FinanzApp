@@ -89,7 +89,10 @@ public sealed class DocumentActionService(
             return false;
         }
 
-        if (ActionEvidence.Verify(text, behauptet, clock.Today) is not { } gefunden)
+        // Mit dem Datum des Belegs, damit „innerhalb von 14 Tagen“ einen Tag ergibt. Fehlt es,
+        // bleibt der Satz ohne Termin — gerechnet wird nur ab einem Anfang, der dasteht.
+        if (ActionEvidence.Verify(text, behauptet, clock.Today, dokument.DocumentDate)
+            is not { } gefunden)
         {
             log.LogInformation(
                 "Beleg {Id}: Das Modell nannte einen Satz, der so nicht im Beleg steht. "

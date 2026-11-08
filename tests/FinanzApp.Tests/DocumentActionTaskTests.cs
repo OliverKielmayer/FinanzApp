@@ -290,19 +290,141 @@ public sealed class DocumentActionTaskTests : IDisposable
         Assert.DoesNotContain("Sprachmodell", (await EinzigerVorgangAsync()).Detail);
     }
 
+    // ── Wie der Vorgang heißt ──────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Ein Vorgang heißt nicht nach dem Gerät, das den Beleg eingescannt hat.
+    /// </summary>
+    /// <remarks>
+    /// Der Scanner zählt seine Seiten durch; der Dateiname dagegen wird von der Ablage gebaut
+    /// und kennt Art, Objekt und Datum. „Zu erledigen: Scannen0003“ zwang dazu, den Beleg zu
+    /// öffnen, nur um zu sehen, worum es überhaupt geht.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_Scannertitel_wird_zum_Namen_aus_der_Ablage()
+    {
+        Beleg("Scannen0003", frist: null, "Bitte überweisen Sie den Rechnungsbetrag.",
+            datum: new DateOnly(2026, 4, 3),
+            dateiname: "Arztrechnung_Musterklinik_Nordstadt_2026-04-03.pdf", nameErzeugt: true);
+
+        var vorgang = await EinzigerVorgangAsync();
+
+        Assert.Equal("Zu erledigen: Arztrechnung Musterklinik Nordstadt · 03.04.2026", vorgang.Title);
+        Assert.DoesNotContain("Scannen", vorgang.Title);
+    }
+
+    /// <summary>Ein Titel, den ein Mensch gewählt hat, bleibt im Vorgang stehen.</summary>
+    [Fact]
+    public async Task Ein_gepflegter_Titel_bleibt_im_Vorgang()
+    {
+        Beleg("Gebührenbescheid Musterkreis", new DateOnly(2026, 11, 20),
+            "Dieser Betrag ist am 20.11.2026 zur Zahlung fällig.",
+            dateiname: "Gebuehrenbescheid_Musterkreis_2026-11-20.pdf", nameErzeugt: true);
+
+        Assert.Equal("Frist: Gebührenbescheid Musterkreis", (await EinzigerVorgangAsync()).Title);
+    }
+
+    // ── Eine Frist, die niemand abgelesen hat ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Eine gerechnete Frist sagt, dass sie gerechnet ist.
+    /// </summary>
+    /// <remarks>
+    /// Sie steht so nicht auf dem Papier: Dort steht eine Spanne. Wer den Tag dort nachschlägt,
+    /// findet ihn nicht — und würde die Anwendung für falsch halten, statt den Zusatz zu lesen.
+    /// </remarks>
+    [Fact]
+    public async Task Eine_gerechnete_Frist_sagt_es_dazu()
+    {
+        Beleg("Arztrechnung Musterklinik", new DateOnly(2026, 11, 10),
+            "Bitte überweisen Sie den Rechnungsbetrag innerhalb von 7 Tagen.",
+            datum: new DateOnly(2026, 11, 2));
+
+        var vorgang = await EinzigerVorgangAsync();
+
+        Assert.Equal(new DateOnly(2026, 11, 10), vorgang.DueOn);
+        Assert.Contains("vom Belegdatum errechnet", vorgang.Detail);
+    }
+
+    /// <summary>Ein abgelesener Tag braucht den Zusatz nicht.</summary>
+    [Fact]
+    public async Task Eine_abgelesene_Frist_sagt_nichts_dazu()
+    {
+        Beleg("Gebührenbescheid", new DateOnly(2026, 11, 20),
+            "Dieser Betrag ist am 20.11.2026 zur Zahlung fällig.");
+
+        Assert.DoesNotContain("errechnet", (await EinzigerVorgangAsync()).Detail);
+    }
+
+    /// <summary>Ohne Frist gibt es nichts zu erklären.</summary>
+    [Fact]
+    public async Task Ohne_Frist_steht_kein_Zusatz_da()
+    {
+        Beleg("Betreiberwechsel", frist: null, "Bitte stellen Sie Ihren Einzug um.");
+
+        Assert.DoesNotContain("errechnet", (await EinzigerVorgangAsync()).Detail);
+    }
+
+    /// <summary>
+    /// Eine gerechnete Frist schließt keinen Vorgang, auch wenn sie längst verstrichen ist.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Am echten Bestand gefunden, nicht am Reißbrett.</b> Beim Probelauf gegen eine
+    /// Kopie trugen zwei Arztrechnungen vom Frühjahr ihre Spanne nach — und verschwanden
+    /// dadurch aus der Liste: Die gerechnete Frist lag ein halbes Jahr zurück, weit außerhalb
+    /// des Fensters, und der Vorgang wurde geschlossen. Vorher stand er ohne Frist da und
+    /// blieb sichtbar. Das Nachtragen hätte ihn gekostet, und erledigt bleibt erledigt.</para>
+    /// <para>Das Fenster entscheidet über Termine, die der Absender gesetzt hat. Eine Spanne,
+    /// die wir selbst in einen Tag umgerechnet haben, ist unsere Rechnung — sie darf anzeigen,
+    /// aber nicht aufräumen.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Eine_laengst_verstrichene_gerechnete_Frist_schliesst_nicht()
+    {
+        Beleg("Arztrechnung Musterklinik", new DateOnly(2026, 4, 17),
+            "Bitte überweisen Sie den Rechnungsbetrag innerhalb von 14 Tagen.",
+            datum: new DateOnly(2026, 4, 3));
+
+        var vorgang = await EinzigerVorgangAsync();
+
+        Assert.Equal(TaskState.Open, vorgang.State);
+        Assert.Equal(new DateOnly(2026, 4, 17), vorgang.DueOn);
+        Assert.True(vorgang.IsOverdue);
+    }
+
+    /// <summary>
+    /// Ein Termin, den der Absender gesetzt hat, räumt weiterhin auf.
+    /// </summary>
+    /// <remarks>
+    /// Die Ausnahme gilt nur für Gerechnetes. Ein Bescheid, dessen genannter Tag ein halbes
+    /// Jahr zurückliegt, ist erledigt oder vergessen — in beiden Fällen gehört er nicht mehr
+    /// auf den Tisch, und daran ändert sich nichts.
+    /// </remarks>
+    [Fact]
+    public async Task Eine_genannte_verstrichene_Frist_schliesst_weiterhin()
+    {
+        Beleg("Gebührenbescheid Musterkreis", new DateOnly(2026, 4, 17),
+            "Dieser Betrag ist am 17.04.2026 zur Zahlung fällig.",
+            datum: new DateOnly(2026, 4, 3));
+
+        Assert.Empty(await VorgaengeAsync());
+    }
+
     // ── Aufbau ─────────────────────────────────────────────────────────────────────────────
 
     private int Beleg(
         string titel, DateOnly? frist, string? quelle,
-        DateOnly? datum = null, bool vomModell = false)
+        DateOnly? datum = null, bool vomModell = false,
+        string? dateiname = null, bool nameErzeugt = false)
     {
         using var context = database.Context();
 
         var dokument = new Document
         {
             Title = titel,
+            HasGeneratedName = nameErzeugt,
             RelativePath = $"Wohnen/{Guid.NewGuid():N}.pdf",
-            FileName = $"{titel}.pdf",
+            FileName = dateiname ?? $"{titel}.pdf",
             Extension = ".pdf",
             Area = DocumentArea.Housing,
             DocumentDate = datum ?? new DateOnly(2026, 10, 1),

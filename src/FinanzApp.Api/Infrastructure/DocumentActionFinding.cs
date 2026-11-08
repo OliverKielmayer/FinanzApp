@@ -167,6 +167,30 @@ public static class ActionEvidence
     public readonly record struct Finding(string Line, DateOnly? Due);
 
     /// <summary>
+    /// Eine Frist, die kein Datum nennt, sondern eine Spanne.
+    /// </summary>
+    /// <remarks>
+    /// <para>„Bitte überweisen Sie den Rechnungsbetrag innerhalb von 14 Tagen“ setzt eine
+    /// Frist, nennt aber keinen Tag. Bisher blieb der Vorgang dadurch ohne Termin: Er stand in
+    /// der Liste, wurde nie dringend und sortierte sich ans Ende — ausgerechnet bei Rechnungen,
+    /// die am ehesten eine Zahlung verlangen.</para>
+    /// <para><b>Drei Formen, an den echten Schreiben gemessen</b> (08.11.2026, über den
+    /// gelesenen Text von hundertneun Belegen): „innerhalb von 14 Tagen“, „innerhalb 8 Tagen“
+    /// ohne das <em>von</em>, und „binnen“ als drittes Wort, das dasselbe meint. Mehr kam nicht
+    /// vor. „Zahlbar innerhalb 8 Tagen nach Rechnungseingang“ fällt unter dieselbe Form; der
+    /// Nachsatz verschiebt den Anfang um die Postlaufzeit, und die kennt niemand.</para>
+    /// <para><b>„Sofort“ bleibt ohne Termin.</b> Acht Belege sagen es, und es ist keine Frist,
+    /// sondern eine Haltung. Daraus ein Datum zu machen hieße, eine Dringlichkeit zu erfinden,
+    /// die das Papier nicht hergibt — dieselbe Linie wie bei einem Satz ganz ohne Termin.</para>
+    /// </remarks>
+    private static readonly Regex Spanne =
+        new(@"\b(?:innerhalb\s+von|innerhalb|binnen)\s+(\d{1,3})\s*Tag(?:e|en)?\b",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    /// <summary>Längere Zahlungsziele gibt es, aber keine über ein Jahr.</summary>
+    private const int PlausibleDays = 365;
+
+    /// <summary>
     /// Die Zeilen, die überhaupt eine Forderung sein können.
     /// </summary>
     /// <remarks>
@@ -297,7 +321,13 @@ public static class ActionEvidence
     /// Zeilenumbrüchen und doppelten Leerzeichen, wo ein Mensch eines sieht. Die Eigenschaft,
     /// auf die es ankommt — <em>die Wörter stammen aus diesem Beleg</em> —, bleibt erhalten.</para>
     /// </remarks>
-    public static Finding? Verify(string? text, string? claimed, DateOnly today)
+    /// <param name="paperDate">
+    /// Das Datum des Belegs. Nur dafür da, eine Spanne wie „innerhalb von 14 Tagen“ in einen
+    /// Tag umzurechnen — ohne es bleibt ein solcher Satz ohne Termin, denn eine Spanne ohne
+    /// Anfang ist keine Frist.
+    /// </param>
+    public static Finding? Verify(
+        string? text, string? claimed, DateOnly today, DateOnly? paperDate = null)
     {
         if (text is not { Length: > 0 } || claimed is not { Length: > 0 })
         {
@@ -318,7 +348,10 @@ public static class ActionEvidence
         }
 
         var ausDemBeleg = beleg.Substring(stelle, satz.Length);
-        var termin = BillTextReader.DateInLine(ausDemBeleg);
+
+        // Erst das genannte Datum, dann die Spanne. Nie umgekehrt: Wo ein Tag dasteht, ist er
+        // die Frist, auch wenn im selben Satz noch eine Zahlungsfrist in Tagen steht.
+        var termin = BillTextReader.DateInLine(ausDemBeleg) ?? AusSpanne(ausDemBeleg, paperDate);
 
         if (termin is { } tag
             && (tag < today.AddYears(-PlausibleYears) || tag > today.AddYears(PlausibleYears)))
@@ -327,6 +360,46 @@ public static class ActionEvidence
         }
 
         return new Finding(ausDemBeleg, termin);
+    }
+
+    /// <summary>
+    /// Ob dieser Satz seinen Termin selbst nennt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die Gegenfrage zu <see cref="AusSpanne"/>, und der Grund, warum am Beleg kein
+    /// Kennzeichen dafür liegt: Ob eine gespeicherte Frist abgelesen oder gerechnet wurde,
+    /// steht in der Zeile, die daneben liegt. Eine zweite Spalte könnte von ihr abweichen —
+    /// diese Frage kann es nicht.</para>
+    /// <para>Wer eine gerechnete Frist anzeigt, soll es dazusagen: Sie steht so nicht auf dem
+    /// Papier, und wer sie nachschlägt, findet dort nur die Spanne.</para>
+    /// </remarks>
+    public static bool StatesDate(string? line)
+        => line is { Length: > 0 } && BillTextReader.DateInLine(line) is not null;
+
+    /// <summary>
+    /// Rechnet eine Spanne wie „innerhalb von 14 Tagen“ in einen Tag um.
+    /// </summary>
+    /// <remarks>
+    /// Ohne Belegdatum gibt es nichts zu rechnen, und geraten wird nicht: Die Spanne beginnt am
+    /// Papier, und wenn dessen Datum fehlt, bleibt der Vorgang ohne Termin stehen — so wie
+    /// jeder Satz, der gar keine Frist nennt.
+    /// </remarks>
+    private static DateOnly? AusSpanne(string line, DateOnly? paperDate)
+    {
+        if (paperDate is not { } ab || Spanne.Match(line) is not { Success: true } treffer)
+        {
+            return null;
+        }
+
+        if (!int.TryParse(
+                treffer.Groups[1].Value, NumberStyles.None, CultureInfo.InvariantCulture,
+                out var tage)
+            || tage is < 1 or > PlausibleDays)
+        {
+            return null;
+        }
+
+        return ab.AddDays(tage);
     }
 
     /// <summary>Für Protokollzeilen: der Satz, auf eine Zeile gekürzt.</summary>

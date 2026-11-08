@@ -66,6 +66,25 @@ public static class PaperFacts
             demanded = true;
         }
 
+        // Eine Zeile, die schon dasteht, kann eine Frist tragen, die beim ersten Lesen niemand
+        // rechnen konnte: „innerhalb von 14 Tagen“ nennt keinen Tag, sondern eine Spanne, und
+        // die beginnt am Datum des Belegs.
+        //
+        // Deshalb steht das hier und nicht beim Finden: Das Datum wird ein paar Zeilen weiter
+        // oben nachgetragen, und ein Beleg, der es gerade erst bekommen hat, soll seine Frist
+        // im selben Durchgang bekommen. Umgekehrt wäre er einen Durchlauf im Rückstand.
+        //
+        // Nur wo keine Frist steht. Eine eingetragene stammt von einem Menschen oder aus einem
+        // früheren Lesen, und eine gerechnete weiß es nicht besser.
+        if (document.DueDate is null
+            && document.ActionLine is { Length: > 0 } vorhanden
+            && ActionEvidence.Verify(vorhanden, vorhanden, today, document.DocumentDate)
+                is { Due: { } gerechnet })
+        {
+            document.DueDate = gerechnet;
+            demanded = true;
+        }
+
         return new Result(dated, demanded);
     }
 }

@@ -106,6 +106,13 @@
                 </span>
                 <span class="notice-text">„@forderung“</span>
 
+                @* Eine gerechnete Frist steht so nicht auf dem Papier. Wer sie dort sucht,
+                   findet nur die Spanne — das muss dabeistehen, sonst sucht er vergeblich. *@
+                @if (document.ActionDueComputed)
+                {
+                    <span class="meta">Frist aus der Spanne im Satz errechnet, ab dem Belegdatum</span>
+                }
+
                 @if (document.ActionFromModel)
                 {
                     <span class="meta">Vom Sprachmodell gefunden</span>

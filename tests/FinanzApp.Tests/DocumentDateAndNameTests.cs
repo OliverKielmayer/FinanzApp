@@ -393,6 +393,86 @@ public sealed class DocumentDateAndNameTests : IDisposable
         Assert.True(zweiter.Nichts);
     }
 
+    // ── Spannen, die beim ersten Lesen niemand rechnen konnte ──────────────────────────────
+
+    /// <summary>
+    /// Das Nachziehen rechnet eine Spanne aus einer Zeile, die längst dasteht.
+    /// </summary>
+    /// <remarks>
+    /// <para>Ohne diesen Schritt wirkte die Regel nur auf künftige Post. Die Schreiben, die
+    /// schon im Bestand liegen, haben ihre Zeile gespeichert und ihre Frist nicht: Sie wurde
+    /// gelesen, als die Spanne noch keinen Tag ergab. Sie stünden auf immer ohne Termin — und
+    /// genau sie sind die Rechnungen, bei denen eine Frist zählt.</para>
+    /// <para>Geprüft wird <see cref="PaperFacts.Apply"/> unmittelbar: Das ist das Stück, das
+    /// der Knopf „Datum und Namen nachziehen“ für jeden Beleg aufruft.</para>
+    /// </remarks>
+    [Fact]
+    public void Das_Nachziehen_rechnet_eine_Spanne_an_einer_vorhandenen_Zeile()
+    {
+        var beleg = MitZeile("Bitte überweisen Sie den Rechnungsbetrag innerhalb von 14 Tagen.",
+            new DateOnly(2026, 4, 3));
+
+        var ergebnis = PaperFacts.Apply(beleg, new DateOnly(2026, 11, 6), dateMarker: null);
+
+        Assert.True(ergebnis.Demanded);
+        Assert.Equal(new DateOnly(2026, 4, 17), beleg.DueDate);
+    }
+
+    /// <summary>Eine Frist, die schon dasteht, wird nicht überschrieben.</summary>
+    /// <remarks>
+    /// Sie stammt von einem Menschen oder aus einem früheren Lesen. Eine gerechnete weiß es
+    /// nicht besser — und zweimal nachziehen dürfte nichts verschieben.
+    /// </remarks>
+    [Fact]
+    public void Eine_vorhandene_Frist_bleibt_beim_Nachziehen_stehen()
+    {
+        var beleg = MitZeile("Bitte überweisen Sie den Rechnungsbetrag innerhalb von 14 Tagen.",
+            new DateOnly(2026, 4, 3));
+        beleg.DueDate = new DateOnly(2026, 11, 20);
+
+        PaperFacts.Apply(beleg, new DateOnly(2026, 11, 6), dateMarker: null);
+
+        Assert.Equal(new DateOnly(2026, 11, 20), beleg.DueDate);
+    }
+
+    /// <summary>Ohne Datum am Beleg bleibt die Spanne ohne Anfang — und ohne Termin.</summary>
+    [Fact]
+    public void Ohne_Belegdatum_traegt_das_Nachziehen_keine_Frist_nach()
+    {
+        var beleg = MitZeile("Bitte überweisen Sie den Rechnungsbetrag innerhalb von 14 Tagen.",
+            datum: null);
+
+        PaperFacts.Apply(beleg, new DateOnly(2026, 11, 6), dateMarker: null);
+
+        Assert.Null(beleg.DueDate);
+    }
+
+    /// <summary>Eine Zeile ohne Spanne bleibt, was sie war.</summary>
+    [Fact]
+    public void Eine_Zeile_ohne_Spanne_bekommt_keine_Frist()
+    {
+        var beleg = MitZeile("Bitte stellen Sie Ihren Einzug auf das neue Konto um.",
+            new DateOnly(2026, 4, 3));
+
+        PaperFacts.Apply(beleg, new DateOnly(2026, 11, 6), dateMarker: null);
+
+        Assert.Null(beleg.DueDate);
+    }
+
+    /// <summary>Ein Beleg mit gespeicherter Zeile, Datum und ohne Frist.</summary>
+    private static Document MitZeile(string zeile, DateOnly? datum) => new()
+    {
+        Title = "Arztrechnung Musterklinik",
+        RelativePath = "Gesundheit/arztrechnung.pdf",
+        FileName = "arztrechnung.pdf",
+        Extension = ".pdf",
+        Area = DocumentArea.Health,
+        DocumentDate = datum,
+        ContentText = zeile,
+        ActionLine = zeile,
+        ActionFromModel = true,
+    };
+
     public void Dispose()
     {
         database.Dispose();

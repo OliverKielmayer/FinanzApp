@@ -373,7 +373,20 @@ public sealed class TaskService(FinanzAppDbContext db, IClock clock)
             // Mit Termin gilt das Fenster. Ohne Termin bleibt der Vorgang stehen, bis ihn
             // jemand erledigt: Es läuft nichts ab, es liegt nur etwas — und eine erfundene
             // Frist machte daraus eine Dringlichkeit, die das Papier nicht hergibt.
-            if (beleg.DueDate is { } frist)
+            //
+            // Das Fenster gilt nur für Termine, die auf dem Papier stehen. Eine Frist, die aus
+            // einer Spanne gerechnet wurde, ist unsere Rechnung und nicht die Aussage des
+            // Absenders. Sie einen Vorgang schließen zu lassen wäre das Gegenteil dessen,
+            // wofür sie da ist: Eine Arztrechnung vom Frühjahr mit „innerhalb von 14 Tagen“
+            // liegt beim ersten Nachziehen weit außerhalb des Fensters, verschwände aus der
+            // Liste — und erledigt bleibt erledigt. Vorher stand sie ohne Frist da und blieb
+            // sichtbar; das Nachtragen darf sie nicht kosten.
+            //
+            // Sie steht danach überfällig in der Liste, und das ist richtig: Das Papier
+            // verlangt etwas, der Termin ist verstrichen, und abhaken kann es nur ein Mensch.
+            var genannt = ActionEvidence.StatesDate(beleg.ActionLine);
+
+            if (beleg.DueDate is { } frist && genannt)
             {
                 var tage = frist.DayNumber - today.DayNumber;
                 if (tage > DocumentDueLeadDays || tage < -DocumentDueGraceDays)
@@ -384,10 +397,25 @@ public sealed class TaskService(FinanzAppDbContext db, IClock clock)
 
             imFenster.Add(beleg.Id);
 
+            // Der hergeleitete Name und nicht der gespeicherte Titel: Ein Scanner nennt seine
+            // Seiten durch, und „Zu erledigen: Scannen0003“ zwingt dazu, den Beleg zu öffnen,
+            // nur um zu sehen, worum es geht. Elf der hundertfünfundfünfzig Belege im echten
+            // Bestand heißen so.
+            var name = BelegName.Fuer(
+                beleg.Title, beleg.FileName, beleg.HasGeneratedName, beleg.DocumentDate);
+
+            // Eine Frist, die der Satz nicht nennt, ist gerechnet — und das gehört dazu. Wer
+            // sie am Papier nachschlägt, findet dort „innerhalb von 14 Tagen“ und kein Datum.
+            var errechnet = beleg.DueDate is not null && !genannt;
+
             Upsert(
                 TaskSource.DocumentAction, LinkTargetType.Document, beleg.Id,
-                beleg.DueDate is null ? $"Zu erledigen: {beleg.Title}" : $"Frist: {beleg.Title}",
-                (beleg.DueDate is { } termin ? $"fällig {Format(termin)} · " : string.Empty)
+                beleg.DueDate is null ? $"Zu erledigen: {name}" : $"Frist: {name}",
+                (beleg.DueDate is { } termin
+                        ? $"fällig {Format(termin)}"
+                            + (errechnet ? " (vom Belegdatum errechnet)" : string.Empty)
+                            + " · "
+                        : string.Empty)
                     + $"gelesen aus: „{beleg.ActionLine}“"
                     + (beleg.ActionFromModel ? " · vom Sprachmodell gefunden" : string.Empty),
                 beleg.DueDate);

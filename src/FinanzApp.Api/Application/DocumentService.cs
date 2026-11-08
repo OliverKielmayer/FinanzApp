@@ -262,6 +262,11 @@ public sealed class DocumentService(
             // Beleg kam, sah das Papier und nicht mehr den Satz, um den es ging.
             ActionLine = document.ActionLine,
             ActionDueDate = document.DueDate,
+
+            // Aus der Zeile hergeleitet und nicht gespeichert: Steht kein Datum darin, kann
+            // die Frist nur aus einer Spanne gerechnet sein.
+            ActionDueComputed = document.DueDate is not null
+                && !ActionEvidence.StatesDate(document.ActionLine),
             ActionFromModel = document.ActionFromModel,
         };
     }
@@ -576,15 +581,16 @@ public sealed class DocumentService(
     /// Die Namen, die ein Gerät vergibt, wenn niemand einen nennt.
     /// </summary>
     /// <remarks>
-    /// Sie sind nicht falsch, sie sagen nur nichts: Ein Scanner zählt durch, ein Telefon nimmt
-    /// das Datum der Aufnahme. Wer im Dateimanager sucht, unterscheidet daran keine zwei
+    /// <para>Sie sind nicht falsch, sie sagen nur nichts: Ein Scanner zählt durch, ein Telefon
+    /// nimmt das Datum der Aufnahme. Wer im Dateimanager sucht, unterscheidet daran keine zwei
     /// Belege. Alles andere gilt als <em>gepflegt</em> und bleibt stehen — die Grenze muss
-    /// eng sein, denn ein überschriebener Name ist nicht zurückzuholen.
+    /// eng sein, denn ein überschriebener Name ist nicht zurückzuholen.</para>
+    /// <para>Dasselbe Muster entscheidet an zwei Stellen: hier, ob ein Dateiname überschrieben
+    /// werden darf, und in <see cref="BelegName"/>, ob ein Titel etwas aussagt. Zwei Fassungen
+    /// liefen auseinander, sobald eine um eine Scannerform erweitert würde — deshalb steht es
+    /// dort und wird hier nur geholt.</para>
     /// </remarks>
-    private static readonly System.Text.RegularExpressions.Regex GeraeteName =
-        new(@"^(scannen|scan|bild|image|img|dokument|document|doc|pdf|datei|file)[ _-]*\d*$",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase
-            | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+    private static System.Text.RegularExpressions.Regex GeraeteName => BelegName.Geraetename;
 
     /// <summary>
     /// Benennt einen Beleg um, der noch den Namen seines Geräts trägt.

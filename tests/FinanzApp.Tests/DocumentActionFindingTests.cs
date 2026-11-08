@@ -496,5 +496,96 @@ public sealed class DocumentActionFindingTests : IDisposable
         return context.Documents.Single(d => d.Id == id);
     }
 
+    // ── Eine Frist, die kein Datum nennt ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// „Innerhalb von 14 Tagen“ ist eine Frist und wird vom Belegdatum aus gerechnet.
+    /// </summary>
+    /// <remarks>
+    /// <para>Bisher blieb ein solcher Satz ohne Termin: Der Vorgang stand in der Liste, wurde
+    /// nie dringend und sortierte sich ans Ende — ausgerechnet bei Rechnungen, die am ehesten
+    /// eine Zahlung verlangen.</para>
+    /// <para>Die drei Formen stammen aus den echten Schreiben, nicht aus der Vorstellung: über
+    /// den gelesenen Text aller Belege gezählt kamen „innerhalb von N Tagen“, „innerhalb N
+    /// Tagen“ ohne das <em>von</em> und sonst nichts vor. „Binnen“ ist mitgenommen, weil es
+    /// dasselbe Wort ist.</para>
+    /// </remarks>
+    [Theory]
+    [InlineData("Bitte überweisen Sie den Betrag innerhalb von 14 Tagen.", 14)]
+    [InlineData("Zahlbar innerhalb 8 Tagen nach Rechnungseingang.", 8)]
+    [InlineData("Wir bitten um Ausgleich binnen 30 Tagen.", 30)]
+    [InlineData("Bitte überweisen Sie den Betrag innerhalb von 1 Tag.", 1)]
+    public void Eine_Spanne_wird_vom_Belegdatum_aus_gerechnet(string satz, int tage)
+    {
+        var papier = new DateOnly(2026, 4, 3);
+        var gefunden = ActionEvidence.Verify(satz, satz, clock.Today, papier);
+
+        Assert.NotNull(gefunden);
+        Assert.Equal(papier.AddDays(tage), gefunden!.Value.Due);
+    }
+
+    /// <summary>
+    /// Ohne Belegdatum bleibt die Spanne eine Spanne.
+    /// </summary>
+    /// <remarks>
+    /// Eine Frist ohne Anfang ist keine. Hier wäre das Erfinden besonders verlockend — heute
+    /// als Anfang zu nehmen läge nahe und wäre falsch: Das Schreiben kann Monate alt sein.
+    /// </remarks>
+    [Fact]
+    public void Ohne_Belegdatum_bleibt_die_Spanne_ohne_Termin()
+    {
+        const string satz = "Bitte überweisen Sie den Betrag innerhalb von 14 Tagen.";
+
+        Assert.Null(ActionEvidence.Verify(satz, satz, clock.Today, paperDate: null)!.Value.Due);
+    }
+
+    /// <summary>Ein genannter Tag schlägt die Spanne im selben Satz.</summary>
+    /// <remarks>
+    /// „Zahlbar innerhalb von 14 Tagen, spätestens am 27.11.2026“ nennt beides. Der Tag steht
+    /// da; die Spanne ist nur seine Begründung.
+    /// </remarks>
+    [Fact]
+    public void Ein_genannter_Tag_schlaegt_die_Spanne()
+    {
+        const string satz = "Zahlbar innerhalb von 14 Tagen, spätestens am 27.11.2026.";
+
+        var gefunden = ActionEvidence.Verify(satz, satz, clock.Today, new DateOnly(2026, 4, 3));
+
+        Assert.Equal(new DateOnly(2026, 11, 27), gefunden!.Value.Due);
+    }
+
+    /// <summary>
+    /// Was keine Frist ist, wird keine.
+    /// </summary>
+    /// <remarks>
+    /// „Sofort“ sagen mehrere Schreiben im echten Bestand. Es ist keine Frist, sondern eine
+    /// Haltung — daraus ein Datum zu machen hieße, eine Dringlichkeit zu erfinden, die das
+    /// Papier nicht hergibt. Eine Spanne über ein Jahr ist ebenso wenig ein Zahlungsziel.
+    /// </remarks>
+    [Theory]
+    [InlineData("Bitte überweisen Sie den Betrag sofort auf unser Konto.")]
+    [InlineData("Bitte überweisen Sie den Betrag umgehend auf unser Konto.")]
+    [InlineData("Bitte überweisen Sie den Betrag innerhalb von 400 Tagen.")]
+    [InlineData("Bitte überweisen Sie den Betrag innerhalb von 0 Tagen.")]
+    [InlineData("Wir bitten um Antwort innerhalb von zwei Wochen.")]
+    public void Was_keine_Spanne_in_Tagen_ist_bleibt_ohne_Termin(string satz)
+        => Assert.Null(
+            ActionEvidence.Verify(satz, satz, clock.Today, new DateOnly(2026, 4, 3))!.Value.Due);
+
+    /// <summary>
+    /// Ob die Frist abgelesen oder gerechnet wurde, steht in der Zeile selbst.
+    /// </summary>
+    /// <remarks>
+    /// Deshalb liegt am Beleg kein Kennzeichen dafür. Eine zweite Spalte könnte von der Zeile
+    /// abweichen — diese Frage kann es nicht, denn sie liest dieselbe Zeile noch einmal.
+    /// </remarks>
+    [Theory]
+    [InlineData("Dieser Betrag ist am 20.11.2026 zur Zahlung fällig.", true)]
+    [InlineData("Bitte überweisen Sie den Betrag innerhalb von 14 Tagen.", false)]
+    [InlineData("Bitte stellen Sie Ihren Einzug um.", false)]
+    [InlineData(null, false)]
+    public void Die_Zeile_sagt_selbst_ob_sie_einen_Tag_nennt(string? satz, bool nennt)
+        => Assert.Equal(nennt, ActionEvidence.StatesDate(satz));
+
     public void Dispose() => database.Dispose();
 }

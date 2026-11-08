@@ -114,6 +114,16 @@ public sealed record DocumentDetailDto
     public DateOnly? ActionDueDate { get; init; }
 
     /// <summary>
+    /// Ob diese Frist gerechnet ist statt abgelesen.
+    /// </summary>
+    /// <remarks>
+    /// „Innerhalb von 14 Tagen“ setzt eine Frist, nennt aber keinen Tag; der Tag entsteht erst
+    /// aus dem Datum des Belegs. Wer ihn angezeigt bekommt, soll das wissen — am Papier steht
+    /// er nicht, und eine Spanne beginnt im Zweifel beim Zugang und nicht beim Ausstellen.
+    /// </remarks>
+    public bool ActionDueComputed { get; init; }
+
+    /// <summary>
     /// Ob die Zeile vom Sprachmodell stammt und nicht von einer Leseregel.
     /// </summary>
     /// <remarks>
