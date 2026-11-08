@@ -66,7 +66,7 @@ Die vorherige Sammelkategorie „Versicherungen" ist aufgeteilt — Entscheidung
 
 Technisch **ein** Objektmodell mit Flag `kapitalbildend`, zwei Einstiege — keine doppelte Verwaltung. Ein Risikoleben-Vertrag darf nie im Nettovermögen erscheinen. Die Kfz-Versicherung erscheint unter Absicherung **und** auf der Fahrzeugseite als verknüpfter Vertrag (wie der Stromvertrag an der Immobilie). Krankenversicherung bleibt Absicherung, ihre Erstattungen laufen in Gesundheit.
 
-Beispieldaten im Prototyp (aus der echten Ablage des Nutzers abgeleitet): Vorsorge = Musterleben 20.481,52 € (Stand 31.07.2025), Musterbank LV, Riester Musterkasse, Bausparen BSK MST (zuteilungsreif, als Frist markiert) → 58.940 €. Absicherung = 8 Verträge → 12.330 €/Jahr.
+Beispieldaten im Prototyp (erfunden, keine Werte eines echten Haushalts): Vorsorge = Musterleben 17.307,06 € (Stand 31.07.2025), Musterbank LV, Riester Musterkasse, Bausparen BSK MST (zuteilungsreif, als Frist markiert) → 59.955 €. Absicherung = 8 Verträge → 12.330 €/Jahr.
 
 ## 5. Zwei neue Objekttypen
 

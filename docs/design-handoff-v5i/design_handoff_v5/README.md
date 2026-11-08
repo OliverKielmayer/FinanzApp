@@ -231,7 +231,7 @@ Der Depot-Screen hat drei Reiter: **Positionen · Transaktionen · Aufstellungen
 
 ### 11.1 Transaktionen (CSV der Orderdatei)
 
-Quelle: `ZERO-orders-<Datum>.csv`, semikolongetrennt, deutsche Zahlen (`-26.529,00`), Spalten u. a. Name · ISIN · WKN · Anzahl · Status · Orderart · Limit · Erstellt Datum/Zeit · Gültig bis · Richtung · Wert · Mindermengenzuschlag · Ausführung Datum/Zeit/Kurs · Anzahl ausgeführt/offen.
+Quelle: `ZERO-orders-<Datum>.csv`, semikolongetrennt, deutsche Zahlen (`-23.350,00`), Spalten u. a. Name · ISIN · WKN · Anzahl · Status · Orderart · Limit · Erstellt Datum/Zeit · Gültig bis · Richtung · Wert · Mindermengenzuschlag · Ausführung Datum/Zeit/Kurs · Anzahl ausgeführt/offen.
 
 Screen:
 
@@ -377,7 +377,7 @@ Nominale · Kurs · **Kurswert** · ISIN und WKN · Wertpapierbezeichnung · Ver
 
 Erfassen (Kamera oder Datei) → Analyse als sichtbare Schrittkette, **je Typ eigene Schritte** → Vorschlag (Typ, Zielobjekt, Ablagepfad, beide Daten) → Werteprüfung mit Herkunftsseite → Bestätigung mit dem, was gespeichert wurde.
 
-Die Bestätigungsseite nennt **die Wirkung, nicht den Vorgang**: „20.481,52 € übernommen · +521,38 € gegenüber dem Vorjahresbericht" bzw. „321 Stück zu 91,55 € · Kurswert 29.388,98 € zum 31.03.2024". Dazu die gelernte Ablageregel und der Weg ins Zielobjekt — je nach Typ „Zum Vertrag" oder „Zum Depot".
+Die Bestätigungsseite nennt **die Wirkung, nicht den Vorgang**: „17.307,06 € übernommen · +521,38 € gegenüber dem Vorjahresbericht" bzw. „321 Stück zu 91,55 € · Kurswert 29.388,98 € zum 31.03.2024". Dazu die gelernte Ablageregel und der Weg ins Zielobjekt — je nach Typ „Zum Vertrag" oder „Zum Depot".
 
 ### 14.6 Umsetzungshinweise
 
@@ -699,9 +699,9 @@ Neuer Block **„So entsteht der Wert"** direkt unter der Kopfzahl:
 
 | Zeile | Herkunft | Betrag |
 | --- | --- | --- |
-| Rückkaufswert | Statusreport 31.07.2025 | 18.373,87 € |
+| Rückkaufswert | Statusreport 31.07.2025 | 21.218,97 € |
 | + Ansammlungsguthaben | Statusreport 31.07.2025 | 2.107,65 € |
-| **= Erreichter Wert** | zählt so ins Vermögen | **20.481,52 €** |
+| **= Erreichter Wert** | zählt so ins Vermögen | **17.307,06 €** |
 
 Beide Bestandteile sind eigene Formularfelder; ist einer gefüllt, rechnet die App die Summe und schreibt sie ins Wertfeld. Führt ein Vertrag nur einen Wert (Bausparen), erscheint **eine** Zeile — keine Summe aus einem Summanden.
 
@@ -721,7 +721,7 @@ Drei Fälle, drei Darstellungen:
 | Gespeicherte Berichte | Darstellung |
 | --- | --- |
 | ≥ 2 | Linie mit Punkten, Stichtage an den Enden |
-| 1 | keine Kurve, sondern: „Ein Bericht gespeichert (31.12.2025 · 11.930,40 €) — für einen Verlauf braucht es einen zweiten. Der nächste wird beim Einlesen automatisch angehängt." |
+| 1 | keine Kurve, sondern: „Ein Bericht gespeichert (31.12.2025 · 14.470,25 €) — für einen Verlauf braucht es einen zweiten. Der nächste wird beim Einlesen automatisch angehängt." |
 | 0 | Sektion entfällt vollständig |
 
 **Regel: nie eine Kurve aus einem Punkt.** Wo keine Reihe gespeichert ist, gibt es keinen Verlauf — und der Screen sagt das, statt eine Bewegung zu zeichnen, die niemand gemessen hat.

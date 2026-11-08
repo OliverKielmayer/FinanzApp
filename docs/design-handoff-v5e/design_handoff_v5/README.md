@@ -231,7 +231,7 @@ Der Depot-Screen hat drei Reiter: **Positionen · Transaktionen · Aufstellungen
 
 ### 11.1 Transaktionen (CSV der Orderdatei)
 
-Quelle: `ZERO-orders-<Datum>.csv`, semikolongetrennt, deutsche Zahlen (`-26.529,00`), Spalten u. a. Name · ISIN · WKN · Anzahl · Status · Orderart · Limit · Erstellt Datum/Zeit · Gültig bis · Richtung · Wert · Mindermengenzuschlag · Ausführung Datum/Zeit/Kurs · Anzahl ausgeführt/offen.
+Quelle: `ZERO-orders-<Datum>.csv`, semikolongetrennt, deutsche Zahlen (`-23.350,00`), Spalten u. a. Name · ISIN · WKN · Anzahl · Status · Orderart · Limit · Erstellt Datum/Zeit · Gültig bis · Richtung · Wert · Mindermengenzuschlag · Ausführung Datum/Zeit/Kurs · Anzahl ausgeführt/offen.
 
 Screen:
 
@@ -377,7 +377,7 @@ Nominale · Kurs · **Kurswert** · ISIN und WKN · Wertpapierbezeichnung · Ver
 
 Erfassen (Kamera oder Datei) → Analyse als sichtbare Schrittkette, **je Typ eigene Schritte** → Vorschlag (Typ, Zielobjekt, Ablagepfad, beide Daten) → Werteprüfung mit Herkunftsseite → Bestätigung mit dem, was gespeichert wurde.
 
-Die Bestätigungsseite nennt **die Wirkung, nicht den Vorgang**: „20.481,52 € übernommen · +521,38 € gegenüber dem Vorjahresbericht" bzw. „321 Stück zu 91,55 € · Kurswert 29.388,98 € zum 31.03.2024". Dazu die gelernte Ablageregel und der Weg ins Zielobjekt — je nach Typ „Zum Vertrag" oder „Zum Depot".
+Die Bestätigungsseite nennt **die Wirkung, nicht den Vorgang**: „17.307,06 € übernommen · +521,38 € gegenüber dem Vorjahresbericht" bzw. „321 Stück zu 91,55 € · Kurswert 29.388,98 € zum 31.03.2024". Dazu die gelernte Ablageregel und der Weg ins Zielobjekt — je nach Typ „Zum Vertrag" oder „Zum Depot".
 
 ### 14.6 Umsetzungshinweise
 

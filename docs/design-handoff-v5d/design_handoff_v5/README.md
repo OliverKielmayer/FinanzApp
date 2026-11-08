@@ -231,7 +231,7 @@ Der Depot-Screen hat drei Reiter: **Positionen · Transaktionen · Aufstellungen
 
 ### 11.1 Transaktionen (CSV der Orderdatei)
 
-Quelle: `ZERO-orders-<Datum>.csv`, semikolongetrennt, deutsche Zahlen (`-26.529,00`), Spalten u. a. Name · ISIN · WKN · Anzahl · Status · Orderart · Limit · Erstellt Datum/Zeit · Gültig bis · Richtung · Wert · Mindermengenzuschlag · Ausführung Datum/Zeit/Kurs · Anzahl ausgeführt/offen.
+Quelle: `ZERO-orders-<Datum>.csv`, semikolongetrennt, deutsche Zahlen (`-23.350,00`), Spalten u. a. Name · ISIN · WKN · Anzahl · Status · Orderart · Limit · Erstellt Datum/Zeit · Gültig bis · Richtung · Wert · Mindermengenzuschlag · Ausführung Datum/Zeit/Kurs · Anzahl ausgeführt/offen.
 
 Screen:
 

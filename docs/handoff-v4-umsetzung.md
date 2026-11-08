@@ -68,10 +68,10 @@ Ausrichtung muss daher aus `app.css` kommen, nicht aus dem System.
 
 ## Zahlen, die sich mitverschieben
 
-Der Prototyp zeigt **Nettovermögen 99.879,95 €** (Brutto 248.179,95 €, Verbindlichkeiten
-−148.300,00 €) gegenüber bisher 125.839,95 € / 274.139,95 €. Die Differenz von 25.960 € entsteht
+Der Prototyp zeigt **Nettovermögen 30.185,38 €** (Brutto 178.485,38 €, Verbindlichkeiten
+−148.300,00 €) gegenüber bisher 56.145,38 € / 204.445,38 €. Die Differenz von 25.960 € entsteht
 dadurch, dass Risikoverträge nicht mehr ins Vermögen zählen (Abschnitt 4). Vorsorge summiert auf
-58.940 €, Absicherung auf 12.330 €/Jahr.
+59.955 €, Absicherung auf 12.330 €/Jahr.
 
 Die Beispieldaten müssen also mit Schritt 3 nachgezogen werden — sonst zeigt die App weiter die
 alte Bilanz. „Bleibt übrig" bleibt bei 1.628 €.
@@ -165,10 +165,10 @@ Gegengeprüft über die laufende API, nicht geschätzt:
 
 | | Soll (Prototyp) | Ist |
 | --- | --- | --- |
-| Vorsorge, 4 Verträge | 58.940,00 € | 58.940,00 € |
+| Vorsorge, 4 Verträge | 59.955,43 € | 59.955,43 € |
 | Absicherung, 8 Verträge | 12.330 €/Jahr | 12.330 €/Jahr |
-| Bruttovermögen | 248.179,95 € | 248.179,95 € |
-| Nettovermögen | 99.879,95 € | 99.879,95 € |
+| Bruttovermögen | 178.485,38 € | 178.485,38 € |
+| Nettovermögen | 30.185,38 € | 30.185,38 € |
 | zum Vormonat | +2.140,80 € | +2.140,80 € |
 
 Die Verlaufsreihe ist um 25.960 € nach unten **verschoben**, nicht skaliert: der Unterschied

@@ -705,13 +705,13 @@ class Component extends DCLogic {
     digits: '', kind: 'Ausgabe', cat: null, acct: 'Sparkasse Giro', step: 1,
     sheetId: null, ruleOn: true, toast: '', period: 'Monat',
     tx: [
-      { id: 1, date: '22.08', payee: 'REWE Markt Heidelberg', cat: 'Lebensmittel', acct: 'Sparkasse Giro', amount: -68.42 },
-      { id: 2, date: '21.08', payee: 'Shell Tankstelle', cat: null, acct: 'Sparkasse Giro', amount: -84.10 },
+      { id: 1, date: '22.08', payee: 'REWE Markt Heidelberg', cat: 'Lebensmittel', acct: 'Sparkasse Giro', amount: -77.62 },
+      { id: 2, date: '21.08', payee: 'Shell Tankstelle', cat: null, acct: 'Sparkasse Giro', amount: -94.56 },
       { id: 3, date: '20.08', payee: 'Stadtwerke Strom', cat: 'Wohnen', acct: 'Sparkasse Giro', amount: -96.00 },
-      { id: 4, date: '19.08', payee: 'Umbuchung → Tagesgeld', cat: 'Umbuchung', acct: 'Sparkasse Giro', amount: -1500.00 },
+      { id: 4, date: '19.08', payee: 'Umbuchung → Tagesgeld', cat: 'Umbuchung', acct: 'Sparkasse Giro', amount: -1930.00 },
       { id: 5, date: '18.08', payee: 'Musterleben Beitrag', cat: 'Versicherung', acct: 'Musterbank Giro', amount: -212.00 },
-      { id: 6, date: '15.08', payee: 'PAYPAL .PAYCOMET SL', cat: null, acct: 'Musterbank Giro', amount: -39.99 },
-      { id: 7, date: '01.08', payee: 'Gehalt EWV', cat: 'Gehalt', acct: 'Sparkasse Giro', amount: 5240.00 },
+      { id: 6, date: '15.08', payee: 'PAYPAL .PAYCOMET SL', cat: null, acct: 'Musterbank Giro', amount: -50.20 },
+      { id: 7, date: '01.08', payee: 'Gehalt Nordwind', cat: 'Gehalt', acct: 'Sparkasse Giro', amount: 5950.00 },
     ],
   };
 
@@ -881,7 +881,7 @@ class Component extends DCLogic {
 
       netWorth: mask(eur(net)), gross: mask(eur(gross)), debt: mask(eur(-debt)),
       deltaMonth: mask('+2.140,80 €') + ' zum Vormonat', deltaYear: '+11,4 % im Jahr',
-      incomeMonth: mask(eur0(5240)), expenseMonth: mask(eur0(3612)), savingsRate: '31 %',
+      incomeMonth: mask(eur0(5950)), expenseMonth: mask(eur0(3612)), savingsRate: '31 %',
       assets: assetsRaw.map(a => ({
         label: a.label, sub: a.sub, value: mask(eur(a.v)),
         pct: Math.round(a.v / gross * 100) + '%', onOpen: () => this.go(a.to),
@@ -893,7 +893,7 @@ class Component extends DCLogic {
       accountList: [
         { name: 'Sparkasse Giro', sub: 'DE44 6725 0020 0034 8891 02', value: mask(eur(4812.60)), note: 'heute' },
         { name: 'Musterbank Giro', sub: 'DE12 6706 2366 0009 1140 07', value: mask(eur(1947.35)), note: 'heute' },
-        { name: 'Tagesgeld Raiffeisen', sub: '2,35 % · Zinsen 98,12 € YTD', value: mask(eur(50000)), note: '19.08.' },
+        { name: 'Tagesgeld Raiffeisen', sub: '2,35 % · Zinsen 98,12 € YTD', value: mask(eur(41570)), note: '19.08.' },
       ],
       query: s.query,
       onQuery: (e) => this.set({ query: e.target.value }),
@@ -966,12 +966,12 @@ class Component extends DCLogic {
       budgetRemaining: mask(eur0(1250 - 892)),
       budgetSummary: mask('892 €') + ' von ' + mask('1.250 €') + ' · 1 Überschreitung',
 
-      depotValue: mask(eur(132480)), depotGain: mask('+18.940,20 €') + ' G/V', depotGainPct: '+16,7 % · TTWROR 9,8 % p. a.',
+      depotValue: mask(eur(152250)), depotGain: mask('+18.940,20 €') + ' G/V', depotGainPct: '+16,7 % · TTWROR 9,8 % p. a.',
       positions: [
-        { name: 'Vanguard FTSE All-World', meta: '412 St. · ' + mask('118,40 €') + ' · IE00BK5BQT80', value: mask(eur(48780.80)), gain: '+21,4 %', color: 'var(--color-accent-700)' },
-        { name: 'iShares Core MSCI World', meta: '386 St. · ' + mask('102,15 €') + ' · IE00B4L5Y983', value: mask(eur(39429.90)), gain: '+18,1 %', color: 'var(--color-accent-700)' },
-        { name: 'Xtrackers MSCI EM', meta: '540 St. · ' + mask('52,80 €') + ' · IE00BTJRMP35', value: mask(eur(28512.00)), gain: '+19,2 %', color: 'var(--color-accent-700)' },
-        { name: 'Musterschutz SE', meta: '46 St. · ' + mask('342,55 €') + ' · DE0008404005', value: mask(eur(15757.30)), gain: '−1,8 %', color: 'var(--color-neutral-700)' },
+        { name: 'Vanguard FTSE All-World', meta: '412 St. · ' + mask('146,39 €') + ' · IE00BK5BQT80', value: mask(eur(48780.80)), gain: '+21,4 %', color: 'var(--color-accent-700)' },
+        { name: 'iShares Core MSCI World', meta: '386 St. · ' + mask('118,94 €') + ' · IE00B4L5Y983', value: mask(eur(39429.90)), gain: '+18,1 %', color: 'var(--color-accent-700)' },
+        { name: 'Xtrackers MSCI EM', meta: '540 St. · ' + mask('39,63 €') + ' · IE00BTJRMP35', value: mask(eur(28512.00)), gain: '+19,2 %', color: 'var(--color-accent-700)' },
+        { name: 'Musterschutz SE', meta: '46 St. · ' + mask('419,95 €') + ' · DE0008404005', value: mask(eur(15757.30)), gain: '−1,8 %', color: 'var(--color-neutral-700)' },
       ],
 
       moreItems: [

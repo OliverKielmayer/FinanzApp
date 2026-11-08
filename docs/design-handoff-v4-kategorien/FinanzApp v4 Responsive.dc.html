@@ -1168,7 +1168,7 @@ a{color:var(--color-accent-700)}a:hover{color:var(--color-accent-800)}
               <div style="padding:0 16px">
                 <div style="padding:11px 0;border-bottom:1px solid var(--color-divider);display:flex;justify-content:space-between">
                   <span style="font-size:14px">Erreichter Wert</span>
-                  <span style="font-family:'Barlow Condensed';font-weight:700;font-size:15px;font-variant-numeric:tabular-nums">20.481,52 €</span>
+                  <span style="font-family:'Barlow Condensed';font-weight:700;font-size:15px;font-variant-numeric:tabular-nums">17.307,06 €</span>
                 </div>
                 <div style="padding:11px 0;border-bottom:1px solid var(--color-text);display:flex;justify-content:space-between">
                   <span style="font-size:14px;color:var(--color-neutral-700)">Vorjahr 19.960,14 €</span>
@@ -1438,7 +1438,7 @@ a{color:var(--color-accent-700)}a:hover{color:var(--color-accent-800)}
           <div style="padding:18px 16px 16px;display:flex;flex-direction:column;gap:6px">
             <span style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">Erreichter Wert · Stand 31.07.2025</span>
             <span style="font-family:'Barlow Condensed';font-weight:700;font-size:46px;line-height:1;letter-spacing:-.035em">{{ lvValue }}</span>
-            <span style="font-size:12px;color:var(--color-neutral-700)">Rückkaufswert 18.373,87 € + Ansammlungsguthaben 2.107,65 €</span>
+            <span style="font-size:12px;color:var(--color-neutral-700)">Rückkaufswert 21.218,97 € + Ansammlungsguthaben 2.107,65 €</span>
           </div>
           <div style="border-top:1px solid var(--color-text);padding:14px 16px 10px">
             <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
@@ -1541,7 +1541,7 @@ a{color:var(--color-accent-700)}a:hover{color:var(--color-accent-800)}
           <div style="padding:0 16px">
             <div style="padding:12px 0;border-bottom:1px solid var(--color-divider);display:flex;justify-content:space-between">
               <span style="font-size:14px">Abschlag · Konto</span>
-              <span style="font-size:14px;font-weight:600">142,50 € · Sparkasse</span>
+              <span style="font-size:14px;font-weight:600">191,18 € · Sparkasse</span>
             </div>
           </div>
           <div style="margin:14px 16px 0;padding:12px 14px;background:var(--color-accent-100);border-left:2px solid var(--color-accent);display:flex;flex-direction:column;gap:3px">
@@ -2159,29 +2159,29 @@ class Component extends DCLogic {
       { name: 'Rechtsschutz', note: '', amount: 231, cycle: 'jährlich', f: { art: 'Rechtsschutz', versicherer: 'ARAG', beitrag: '231,00', intervall: 'jährlich', ende: '31.05.2027', frist: '3 Monate' } },
       { name: 'Krankenversicherung Musterkasse', note: 'PKV · Erstattungen unter Gesundheit', amount: 742, cycle: 'monatlich', to: 'pkv', keepName: true, f: { art: 'Krankenversicherung', versicherer: 'Musterkasse', beitrag: '742,00', intervall: 'monatlich', frist: '3 Monate' } },
     ],
-    propertiesX: [{ name: 'Haus Birkenstetter Straße 10', note: '142 m²', value: 395000, main: true, f: { bez: 'Haus Birkenstetter Straße 10', adresse: 'Birkenstetter Straße 10, Musterbach', typ: 'Haus', kauf: '2019 · 340.000', markt: '395.000', darlehen: 'Sparkasse · 148.300 €' } }],
+    propertiesX: [{ name: 'Haus Birkenstetter Straße 10', note: '142 m²', value: 304520, main: true, f: { bez: 'Haus Birkenstetter Straße 10', adresse: 'Birkenstetter Straße 10, Musterbach', typ: 'Haus', kauf: '2019 · 340.000', markt: '395.000', darlehen: 'Sparkasse · 148.300 €' } }],
     contractsX: [
-      { name: 'Strom Stadtwerke', note: '1 Rechnung offen', amount: 142.50, urgent: true, to: 'contract', f: { art: 'Strom', anbieter: 'Stadtwerke', nummer: 'SW-993 210', abschlag: '142,50', frist: '6 Wochen' } },
-      { name: 'Internet Telekom', note: 'bis 31.12.2026', amount: 39.99, f: { art: 'Internet', anbieter: 'Telekom', abschlag: '39,99', frist: '4 Wochen' } },
+      { name: 'Strom Stadtwerke', note: '1 Rechnung offen', amount: 191.18, urgent: true, to: 'contract', f: { art: 'Strom', anbieter: 'Stadtwerke', nummer: 'SW-993 210', abschlag: '191,18', frist: '6 Wochen' } },
+      { name: 'Internet Telekom', note: 'bis 31.12.2026', amount: 50.20, f: { art: 'Internet', anbieter: 'Telekom', abschlag: '50,20', frist: '4 Wochen' } },
       { name: 'Gas Stadtwerke', note: '', amount: 98, f: { art: 'Gas', anbieter: 'Stadtwerke', abschlag: '98,00', frist: '6 Wochen' } },
       { name: 'Wartung Heizung', note: 'nächste Wartung fällig', amount: 189, f: { art: 'Wartung', anbieter: 'Heizung Grau', abschlag: '189,00', frist: '3 Monate' } },
     ],
-    depotsX: [{ name: 'finanzen.net ZERO', sub: 'Einzeldepot · Hauptdepot', value: 132480, asOf: 'Stand 22.08.2026' }],
+    depotsX: [{ name: 'finanzen.net ZERO', sub: 'Einzeldepot · Hauptdepot', value: 152250, asOf: 'Stand 22.08.2026' }],
     pensionsX: [
-      { name: 'Musterleben', note: 'MLP bestpartner classic', value: 20481.52, asOf: 'Stand 07/2025', to: 'insurance', f: { art: 'Kapital-LV', versicherer: 'Musterleben', nummer: '10020030-01', wert: '20.481,52', stichtag: '07/2025', ablauf: '01.08.2031' } },
-      { name: 'Musterbank LV', note: '', value: 14208, asOf: 'Stand 12/2025', f: { art: 'Kapital-LV', versicherer: 'Musterbank LV', wert: '14.208,00', stichtag: '12/2025', ablauf: '2034' } },
-      { name: 'Riester Musterkasse', note: 'Zulagen 2025 gebucht', value: 11930.40, asOf: 'Stand 12/2025', f: { art: 'Riester', versicherer: 'Riester Musterkasse', wert: '11.930,40', stichtag: '12/2025' } },
-      { name: 'Bausparen BSK MST', note: 'Zuteilung möglich', value: 12320.08, asOf: 'Stand 12/2025', urgent: true, f: { art: 'Bausparen', versicherer: 'Bausparen BSK MST', wert: '12.320,08', stichtag: '12/2025' } },
+      { name: 'Musterleben', note: 'MLP bestpartner classic', value: 17307.06, asOf: 'Stand 07/2025', to: 'insurance', f: { art: 'Kapital-LV', versicherer: 'Musterleben', nummer: '10020030-01', wert: '17.307,06', stichtag: '07/2025', ablauf: '01.08.2031' } },
+      { name: 'Musterbank LV', note: '', value: 12380, asOf: 'Stand 12/2025', f: { art: 'Kapital-LV', versicherer: 'Musterbank LV', wert: '12.380,00', stichtag: '12/2025', ablauf: '2034' } },
+      { name: 'Riester Musterkasse', note: 'Zulagen 2025 gebucht', value: 14470.25, asOf: 'Stand 12/2025', f: { art: 'Riester', versicherer: 'Riester Musterkasse', wert: '14.470,25', stichtag: '12/2025' } },
+      { name: 'Bausparen BSK MST', note: 'Zuteilung möglich', value: 15798.12, asOf: 'Stand 12/2025', urgent: true, f: { art: 'Bausparen', versicherer: 'Bausparen BSK MST', wert: '15.798,12', stichtag: '12/2025' } },
     ],
     vehiclesX: [
       { name: 'VW Passat Variant · L-2905', note: 'Versicherung, Steuer, Werkstatt · 1 Frist', cost: 4120, urgent: true, to: 'vehicle', f: { bez: 'VW Passat Variant', kennzeichen: 'L-2905', art: 'Privat', ez: '03/2019', kfz: 'MGV · 618 €' } },
       { name: 'Skoda Fabia · L-1113', note: 'Zweitwagen · Werkstatt 04/2026', cost: 1980, f: { bez: 'Skoda Fabia', kennzeichen: 'L-1113', art: 'Privat', ez: '06/2016', kfz: 'MGV · 618 €' } },
-      { name: 'Firmenwagen EWV', note: 'Dienstwagen · 1 % Regelung', cost: 0, f: { bez: 'Firmenwagen EWV', kennzeichen: 'L-EW 100', art: 'Dienstwagen', kfz: 'Keine' } },
+      { name: 'Firmenwagen Nordwind', note: 'Dienstwagen · 1 % Regelung', cost: 0, f: { bez: 'Firmenwagen Nordwind', kennzeichen: 'L-EW 100', art: 'Dienstwagen', kfz: 'Keine' } },
     ],
     accts: [
       { name: 'Sparkasse Giro', sub: 'DE44 6725 0020 0034 8891 02', value: 4812.60, note: 'heute' },
       { name: 'Musterbank Giro', sub: 'DE12 6706 2366 0009 1140 07', value: 1947.35, note: 'heute' },
-      { name: 'Tagesgeld Raiffeisen', sub: '2,35 % · Zinsen 98,12 € YTD', value: 50000, note: '19.08.' },
+      { name: 'Tagesgeld Raiffeisen', sub: '2,35 % · Zinsen 98,12 € YTD', value: 41570, note: '19.08.' },
     ],
     selTx: [], entrySheet: false, caseFilter: 'Offen', docFilter: 'Alle', docQuery: '', docId: 'police',
     scanStep: 1, scanPages: 0, pkvStep: 1, liqTab: 'Jetzt', invoicePaid: false, docFixed: false,
@@ -2203,16 +2203,16 @@ class Component extends DCLogic {
       { match: 'Stadtwerke', cat: 'Wohnen' },
     ],
     tx: [
-      { id: 1, date: '22.08', payee: 'REWE Markt Heidelberg', cat: 'Lebensmittel', acct: 'Sparkasse Giro', amount: -68.42 },
-      { id: 2, date: '21.08', payee: 'Shell Tankstelle', cat: null, acct: 'Sparkasse Giro', amount: -84.10 },
+      { id: 1, date: '22.08', payee: 'REWE Markt Heidelberg', cat: 'Lebensmittel', acct: 'Sparkasse Giro', amount: -77.62 },
+      { id: 2, date: '21.08', payee: 'Shell Tankstelle', cat: null, acct: 'Sparkasse Giro', amount: -94.56 },
       { id: 3, date: '20.08', payee: 'Stadtwerke Strom', cat: 'Wohnen', acct: 'Sparkasse Giro', amount: -96.00,
         info: 'Abschlag Strom 07/2026 Vertrag SW-993 210', iban: 'DE96 6225 0030 0000 1188 02', bic: 'SOLADES1SHA',
         ref: 'camt053-2026-07-18-9600', src: 'camt053_2026-07.xml' },
-      { id: 4, date: '19.08', payee: 'Umbuchung → Tagesgeld', cat: 'Umbuchung', acct: 'Sparkasse Giro', amount: -1500.00 },
+      { id: 4, date: '19.08', payee: 'Umbuchung → Tagesgeld', cat: 'Umbuchung', acct: 'Sparkasse Giro', amount: -1930.00 },
       { id: 5, date: '18.08', payee: 'Musterleben Beitrag', cat: 'Versicherung', acct: 'Musterbank Giro', amount: -212.00 },
-      { id: 6, date: '15.08', payee: 'PAYPAL .PAYCOMET SL', cat: null, acct: 'Musterbank Giro', amount: -39.99 },
-      { id: 7, date: '01.08', payee: 'Gehalt EWV', cat: 'Gehalt', acct: 'Sparkasse Giro', amount: 5240.00,
-        info: 'LOHN/GEHALT 08/2026 EWV Kontrollsysteme GmbH', iban: 'DE44 6725 0020 0011 4400 07', bic: 'SOLADES1HDB',
+      { id: 6, date: '15.08', payee: 'PAYPAL .PAYCOMET SL', cat: null, acct: 'Musterbank Giro', amount: -50.20 },
+      { id: 7, date: '01.08', payee: 'Gehalt Nordwind', cat: 'Gehalt', acct: 'Sparkasse Giro', amount: 5950.00,
+        info: 'LOHN/GEHALT 08/2026 Nordwind Messtechnik GmbH', iban: 'DE44 6725 0020 0011 4400 07', bic: 'SOLADES1HDB',
         ref: 'camt053-2026-08-02-524000', src: 'camt053_2026-08.xml' },
     ],
   };
@@ -2348,7 +2348,7 @@ class Component extends DCLogic {
       'REWE Markt Heidelberg': { iban: 'DE33 6729 0000 0011 7788 04', bic: 'GENODE61HD1', typ: 'PMNT-CCRD-POSD', txt: 'Kartenzahlung', info: 'REWE SAGT DANKE 4471//HEIDELBERG/DE' },
       'Telekom Deutschland': { iban: 'DE11 3807 0059 0018 0000 00', bic: 'DEUTDEDK380', typ: 'PMNT-ICDT-ESCT', txt: 'Lastschrift', info: 'Rechnung 08/2026 Kundennummer 3388119024' },
       'Amazon EU Sarl': { iban: 'LU95 0000 0000 0000 1234 56', bic: 'BILLLULL', typ: 'PMNT-ICDT-ESCT', txt: 'Lastschrift', info: 'AMZN Mktp DE 302-8841190-2288114' },
-      'Gehalt EWV': { iban: 'DE44 6725 0020 0011 4400 07', bic: 'SOLADES1HDB', typ: 'PMNT-RCDT-SALA', txt: 'Gutschrift', info: 'LOHN/GEHALT 08/2026 EWV Kontrollsysteme GmbH' },
+      'Gehalt Nordwind': { iban: 'DE44 6725 0020 0011 4400 07', bic: 'SOLADES1HDB', typ: 'PMNT-RCDT-SALA', txt: 'Gutschrift', info: 'LOHN/GEHALT 08/2026 Nordwind Messtechnik GmbH' },
       'Apotheke am Markt': { iban: 'DE72 6009 0100 0002 8841 19', bic: 'VOBADESSXXX', typ: 'PMNT-CCRD-POSD', txt: 'Kartenzahlung', info: 'APOTHEKE AM MARKT//BUEHLERZELL/DE' },
       'Stadtwerke Abschlag': { iban: 'DE96 6225 0030 0000 1188 02', bic: 'SOLADES1SHA', typ: 'PMNT-ICDT-ESCT', txt: 'Lastschrift', info: 'Abschlag Strom 08/2026 Vertrag SW-993 210' },
       'DM Drogeriemarkt': { iban: 'DE29 6009 0700 0004 8811 90', bic: 'GENODEF1S02', typ: 'PMNT-CCRD-POSD', txt: 'Kartenzahlung', info: 'DM FIL.1147//SCHWAEB HALL/DE' },
@@ -2357,17 +2357,17 @@ class Component extends DCLogic {
     };
     const impFile0 = [
       ['01','23.08','Kaufland Sindelfingen',-52.18],['02','23.08','Aral Tankstelle',-71.40],
-      ['03','23.08','Bäckerei Rutz',-8.40],['04','22.08','REWE Markt Heidelberg',-68.42],
-      ['05','22.08','Telekom Deutschland',-39.99],['06','22.08','Amazon EU Sarl',-24.99],
-      ['07','21.08','Gehalt EWV',5240.00],['08','21.08','Apotheke am Markt',-24.60],
-      ['09','21.08','Bäckerei Rutz',-6.20],['10','20.08','Stadtwerke Abschlag',-142.50],
+      ['03','23.08','Bäckerei Rutz',-8.40],['04','22.08','REWE Markt Heidelberg',-77.62],
+      ['05','22.08','Telekom Deutschland',-50.20],['06','22.08','Amazon EU Sarl',-24.99],
+      ['07','21.08','Gehalt Nordwind',5950.00],['08','21.08','Apotheke am Markt',-24.60],
+      ['09','21.08','Bäckerei Rutz',-6.20],['10','20.08','Stadtwerke Abschlag',-191.18],
       ['11','20.08','DM Drogeriemarkt',-31.75],['12','20.08','Amazon EU Sarl',-89.90],
       ['13','19.08','Kaufland Sindelfingen',-41.06],['14','19.08','Deutsche Bahn',-58.00],
       ['15','18.08','Aral Tankstelle',-68.75],['16','18.08','DM Drogeriemarkt',-18.40],
       ['17','17.08','Bäckerei Rutz',-11.80],['18','16.08','Amazon EU Sarl',-34.50],
-      ['19','15.08','Netflix International',-17.99],['20','15.08','Apotheke am Markt',-42.30],
-      ['21','14.08','Kaufland Sindelfingen',-63.24],['22','13.08','Deutsche Bahn',-24.90],
-      ['23','12.08','DM Drogeriemarkt',-27.10],['24','11.08','Amazon EU Sarl',-12.99],
+      ['19','15.08','Netflix International',-20.63],['20','15.08','Apotheke am Markt',-42.30],
+      ['21','14.08','Kaufland Sindelfingen',-63.24],['22','13.08','Deutsche Bahn',-30.22],
+      ['23','12.08','DM Drogeriemarkt',-27.10],['24','11.08','Amazon EU Sarl',-17.23],
       ['25','10.08','REWE Markt Heidelberg',-54.80],
     ];
     const ruleFor = (payee) => {
@@ -2600,14 +2600,14 @@ class Component extends DCLogic {
       }),
       caseList: (s.caseFilter === 'Erledigt' ? [
         { title: 'PKV-Erstattung Dr. Sanders', amount: '+412,00 €', meta: 'erstattet 14.07.2026', urgent: false, to: 'pkv' },
-        { title: 'Stromrechnung 07/2026', amount: '−142,50 €', meta: 'bezahlt 15.08.2026', urgent: false, to: 'invoice' },
+        { title: 'Stromrechnung 07/2026', amount: '−191,18 €', meta: 'bezahlt 15.08.2026', urgent: false, to: 'invoice' },
       ] : s.caseFilter === 'Wartet' ? [
         { title: 'Statusreport 2026 erwartet', amount: '', meta: 'kam bisher jeden August · noch nicht da', urgent: true, to: 'insurance' },
         { title: 'Beitragsanpassung Kfz', amount: '', meta: 'angekündigt für Oktober', urgent: false, to: 'vehicle' },
         { title: 'Jahresabrechnung Strom', amount: '', meta: 'erwartet im März', urgent: false, to: 'contract' },
       ] : [
         { title: 'PKV-Erstattung Dr. Meyer', amount: '+680,00 €', meta: 'eingereicht 02.08. · überfällig seit 12 Tagen', urgent: true, to: 'pkv' },
-        { title: 'Stromrechnung 08/2026', amount: '−142,50 €', meta: 'fällig in 5 Tagen · Stadtwerke', urgent: true, to: 'invoice' },
+        { title: 'Stromrechnung 08/2026', amount: '−191,18 €', meta: 'fällig in 5 Tagen · Stadtwerke', urgent: true, to: 'invoice' },
         { title: 'Kündigungsfrist Hausrat', amount: '', meta: 'Kündigung bis 30.09.2027 · in 18 Tagen erinnern', urgent: false, to: 'protection' },
         { title: 'Arztrechnung noch nicht eingereicht', amount: '−210,00 €', meta: 'erfasst 09.08.2026', urgent: false, to: 'pkv' },
         { title: 'Wartung Heizung fällig', amount: '', meta: 'Birkenstetter Straße · letzte Wartung 09/2025', urgent: false, to: 'property' },
@@ -2697,9 +2697,9 @@ class Component extends DCLogic {
       restartScan: () => this.setState({ scanStep: 1, scanPages: 0, analysisAt: 0 }),
       goInsurance: () => this.go('insurance'),
       extracted: [
-        { label: 'Rückkaufswert', src: 'Seite 2', value: '18.373,87 €' },
+        { label: 'Rückkaufswert', src: 'Seite 2', value: '21.218,97 €' },
         { label: 'Ansammlungsguthaben', src: 'Seite 2', value: '2.107,65 €' },
-        { label: 'Erreichter Wert gesamt', src: 'Seite 2', value: '20.481,52 €' },
+        { label: 'Erreichter Wert gesamt', src: 'Seite 2', value: '17.307,06 €' },
         { label: 'Leistung bei Ablauf', src: 'Seite 1', value: '28.825,65 €' },
         { label: 'Ablauf', src: 'Seite 1', value: '01.08.2031' },
         { label: 'Monatliche BU-Rente', src: 'Seite 2 · unsicher', value: '3.871,36 €', weak: true },
@@ -2740,7 +2740,7 @@ class Component extends DCLogic {
       prevKind: s.docId === 'lohn' && !s.docFixed ? 'Datei nicht gefunden' : (({ status25: 'Statusreport · 3 Seiten · Stichtag 31.07.2025', police: 'Versicherungsschein · gültig ab 01.02.2026', strom: 'Stromrechnung · 08/2026', lohn: 'Lohnabrechnung · 07/2026', arzt: 'Arztrechnung · R-2026-114', kauf: 'Kaufvertrag · Notar Dr. Bauer' })[s.docId] || 'Links eine Zeile wählen'),
       prevColor: s.docId === 'lohn' && !s.docFixed ? 'var(--color-accent)' : 'var(--color-neutral-700)',
       prevPath: ({ status25: 'Versicherungen/Lebensversicherung/Musterleben/2025/Statusreport_2025-07-31.pdf', police: 'Versicherungen/Risikoleben/Police_2026.pdf', strom: 'Wohnen/Energie/Strom/Rechnung_2026_08.pdf', lohn: 'Arbeit/Lohn/2026/Lohn_07_2026.pdf', arzt: 'Gesundheit/Rechnungen/2026/R-2026-114.pdf', kauf: 'Wohnen/Immobilie/Kaufvertrag_2019.pdf' })[s.docId] || '—',
-      prevLink: ({ status25: 'Musterleben (Vorsorge)', police: 'Risikoleben (Absicherung)', strom: 'Strom Stadtwerke · Birkenstetter Straße 10', lohn: 'Lohnabrechnung 07/2026 · EWV', arzt: 'PKV-Vorgang Dr. Meyer', kauf: 'Birkenstetter Straße 10' })[s.docId] || '—',
+      prevLink: ({ status25: 'Musterleben (Vorsorge)', police: 'Risikoleben (Absicherung)', strom: 'Strom Stadtwerke · Birkenstetter Straße 10', lohn: 'Lohnabrechnung 07/2026 · Nordwind', arzt: 'PKV-Vorgang Dr. Meyer', kauf: 'Birkenstetter Straße 10' })[s.docId] || '—',
       prevPlaceholder: s.docId === 'lohn' && !s.docFixed ? 'Datei fehlt — Pfad prüfen' : (s.docId ? 'Seite 1' : 'Vorschau erscheint hier'),
       prevAction: s.docId === 'lohn' && !s.docFixed ? 'Pfad korrigieren' : 'Details öffnen',
       openPrevDoc: () => s.docId ? this.setState({ screen: 'docdetail', prev: 'docs' }) : this.flash('Kein Dokument gewählt'),
@@ -2750,7 +2750,7 @@ class Component extends DCLogic {
         status25: [{ label: 'Musterleben', kind: 'Lebensversicherung', to: 'insurance' }],
         police: [{ label: 'Risikoleben', kind: 'Versicherung', to: 'insurances' }],
         strom: [{ label: 'Rechnung 08/2026', kind: 'Rechnung', to: 'invoice' }, { label: 'Strom Stadtwerke', kind: 'Vertrag', to: 'contract' }],
-        lohn: [{ label: 'Lohnabrechnung 07/2026', kind: 'Arbeitgeber EWV', to: 'more' }],
+        lohn: [{ label: 'Lohnabrechnung 07/2026', kind: 'Arbeitgeber Nordwind', to: 'more' }],
         arzt: [{ label: 'PKV-Vorgang Dr. Meyer', kind: 'Vorgang', to: 'pkv' }],
         kauf: [{ label: 'Birkenstetter Straße 10', kind: 'Immobilie', to: 'property' }],
       })[s.docId] : []) || []).map(l => ({ label: l.label, kind: l.kind, onOpen: () => this.go(l.to) })),
@@ -2778,12 +2778,12 @@ class Component extends DCLogic {
       }),
       liqNow: s.liqTab === 'Jetzt', liqFlow: s.liqTab === 'Wohin', liqSave: s.liqTab === 'Sparen',
       pending: [
-        { label: 'Stromrechnung', meta: 'fällig 15.09.2026', amount: mask('−142,50 €'), color: 'var(--color-accent)' },
+        { label: 'Stromrechnung', meta: 'fällig 15.09.2026', amount: mask('−191,18 €'), color: 'var(--color-accent)' },
         { label: 'Eigenanteil Arztrechnung', meta: 'Dr. Meyer · gebucht', amount: mask('−170,00 €'), color: 'var(--color-text)' },
         { label: 'PKV-Erstattung', meta: 'erwartet seit 02.08.', amount: mask('+680,00 €'), color: 'var(--color-accent-700)' },
       ],
       flows: [
-        { name: 'Wohnen', amount: mask(eur0(1480)), pct: '100%', meta: '41 % · Darlehen, Energie', color: 'var(--color-neutral-800)' },
+        { name: 'Wohnen', amount: mask(eur0(1960)), pct: '100%', meta: '41 % · Darlehen, Energie', color: 'var(--color-neutral-800)' },
         { name: 'Gesundheit', amount: mask(eur0(912)), pct: '62%', meta: '25 % · PKV Musterkasse 742 € + Eigenanteile 170 €', color: 'var(--color-neutral-800)' },
         { name: 'Lebensmittel', amount: mask(eur0(412)), pct: '28%', meta: '11 % · Budget 500 €', color: 'var(--color-neutral-800)' },
         { name: 'Absicherung', amount: mask(eur0(286)), pct: '19%', meta: '8 % · Risikoleben, BU, Sach- und Kfz-Verträge', color: 'var(--color-neutral-800)' },
@@ -2815,7 +2815,7 @@ class Component extends DCLogic {
         metaColor: i.urgent ? 'var(--color-accent-800)' : 'var(--color-neutral-600)',
         onOpen: () => i.to ? this.go(i.to) : this.flash(i.name + ' · Detail folgt'),
       })),
-      lvValue: mask('20.481,52 €'),
+      lvValue: mask('17.307,06 €'),
       lvFacts: [
         { label: 'Leistung bei Ablauf 01.08.2031', value: mask('28.825,65 €') },
         { label: 'Todesfallleistung', value: mask('28.825,65 €') },
@@ -2832,7 +2832,7 @@ class Component extends DCLogic {
         onOpen: () => this.setState({ docId: d.id, screen: 'docdetail', prev: 'insurance' }),
       })),
 
-      propValue: mask(eur0(395000)), propCost: mask(eur0(18420)),
+      propValue: mask(eur0(304520)), propCost: mask(eur0(18420)),
       otherProperties: s.propertiesX.map((p, ix) => ({ p: p, ix: ix })).filter(x => !x.p.main).map(x => ({
         name: x.p.name, meta: metaProp(x.p), value: mask(eur0(x.p.value)), bg: 'var(--color-accent-100)',
         onEdit: () => this.openEditRow('property', 'propertiesX', x.ix, Object.assign({}, x.p.f), 'property'),
@@ -2853,8 +2853,8 @@ class Component extends DCLogic {
         onOpen: () => c.to ? this.go(c.to) : this.flash(c.name + ' · Detail folgt'),
       })),
       invoices: [
-        { name: '08/2026', meta: s.invoicePaid ? 'bezahlt · Buchung verknüpft' : 'offen · fällig 15.09.', amount: mask('142,50 €'), urgent: !s.invoicePaid, to: 'invoice' },
-        { name: '07/2026', meta: 'bezahlt → Buchung 15.08.', amount: mask('142,50 €') },
+        { name: '08/2026', meta: s.invoicePaid ? 'bezahlt · Buchung verknüpft' : 'offen · fällig 15.09.', amount: mask('191,18 €'), urgent: !s.invoicePaid, to: 'invoice' },
+        { name: '07/2026', meta: 'bezahlt → Buchung 15.08.', amount: mask('191,18 €') },
         { name: 'Jahresabrechnung 2025', meta: 'Guthaben 84,20 €', amount: mask('−84,20 €') },
       ].map(i => ({
         name: i.name, meta: i.meta, amount: i.amount,
@@ -2863,7 +2863,7 @@ class Component extends DCLogic {
         metaColor: i.urgent ? 'var(--color-accent-800)' : 'var(--color-neutral-600)',
         onOpen: () => i.to ? this.go(i.to) : this.flash('Rechnung ' + i.name),
       })),
-      invoiceAmount: mask(eur(142.50)),
+      invoiceAmount: mask(eur(191.18)),
       invoiceDue: s.invoicePaid ? 'Bezahlt am 23.08.2026' : 'Fällig in 5 Tagen',
       invoicePayment: s.invoicePaid ? 'Verknüpft mit Buchung Sparkasse · 23.08.2026' : 'Noch keine Buchung zugeordnet',
       invoiceChain: [
@@ -2871,7 +2871,7 @@ class Component extends DCLogic {
         { kind: 'Vertrag', label: 'Strom Stadtwerke', to: 'contract' },
         { kind: 'Immobilie', label: 'Birkenstetter Straße 10', to: 'property' },
       ].map(c => ({ kind: c.kind, label: c.label, onOpen: () => c.to === 'docdetail' ? this.setState({ docId: 'strom', screen: 'docdetail', prev: 'invoice' }) : this.go(c.to) })),
-      assignInvoice: () => this.flash('Passende Buchung: 142,50 € am 23.08.'),
+      assignInvoice: () => this.flash('Passende Buchung: 191,18 € am 23.08.'),
       markPaid: () => { this.setState({ invoicePaid: true }); this.flash('Als bezahlt markiert'); },
 
 
@@ -2894,7 +2894,7 @@ class Component extends DCLogic {
           fg: done || now ? 'var(--color-text)' : 'var(--color-neutral-600)',
         };
       }),
-      policyFields: {"pension":[["art","Vertragsart","Kapital-LV","Seite 1"],["versicherer","Anbieter","Musterleben","Seite 1"],["nummer","Vertragsnummer","10020030-01","Seite 1"],["beitrag","Beitrag monatlich","42,00","Seite 2"],["wert","Erreichter Wert","20.481,52","Seite 2"],["stichtag","Stichtag des Werts","31.07.2025","Seite 2"],["ablauf","Ablauf","01.08.2031","Seite 1"]],"insurance":[["art","Versicherungsart","Hausrat","Seite 1"],["versicherer","Versicherer","HUK-Coburg","Seite 1"],["nummer","Versicherungsnummer","HR-88 421","Seite 1"],["beitrag","Beitrag","156,00","Seite 2"],["intervall","Zahlungsintervall","jährlich","Seite 2"],["ende","Vertragsende","31.12.2027","Seite 1"],["frist","Kündigungsfrist","3 Monate","Seite 2"]]}[s.createKind === 'insurance' ? 'insurance' : 'pension'].map(r => {
+      policyFields: {"pension":[["art","Vertragsart","Kapital-LV","Seite 1"],["versicherer","Anbieter","Musterleben","Seite 1"],["nummer","Vertragsnummer","10020030-01","Seite 1"],["beitrag","Beitrag monatlich","42,00","Seite 2"],["wert","Erreichter Wert","17.307,06","Seite 2"],["stichtag","Stichtag des Werts","31.07.2025","Seite 2"],["ablauf","Ablauf","01.08.2031","Seite 1"]],"insurance":[["art","Versicherungsart","Hausrat","Seite 1"],["versicherer","Versicherer","HUK-Coburg","Seite 1"],["nummer","Versicherungsnummer","HR-88 421","Seite 1"],["beitrag","Beitrag","156,00","Seite 2"],["intervall","Zahlungsintervall","jährlich","Seite 2"],["ende","Vertragsende","31.12.2027","Seite 1"],["frist","Kündigungsfrist","3 Monate","Seite 2"]]}[s.createKind === 'insurance' ? 'insurance' : 'pension'].map(r => {
         const unsure = r[0] === 'beitrag';
         return {
           label: r[1], value: r[2],
@@ -2903,10 +2903,10 @@ class Component extends DCLogic {
           bg: unsure ? 'var(--color-accent-100)' : 'transparent',
         };
       }),
-      policyTakeLabel: 'Alle ' + {"pension":[["art","Vertragsart","Kapital-LV","Seite 1"],["versicherer","Anbieter","Musterleben","Seite 1"],["nummer","Vertragsnummer","10020030-01","Seite 1"],["beitrag","Beitrag monatlich","42,00","Seite 2"],["wert","Erreichter Wert","20.481,52","Seite 2"],["stichtag","Stichtag des Werts","31.07.2025","Seite 2"],["ablauf","Ablauf","01.08.2031","Seite 1"]],"insurance":[["art","Versicherungsart","Hausrat","Seite 1"],["versicherer","Versicherer","HUK-Coburg","Seite 1"],["nummer","Versicherungsnummer","HR-88 421","Seite 1"],["beitrag","Beitrag","156,00","Seite 2"],["intervall","Zahlungsintervall","jährlich","Seite 2"],["ende","Vertragsende","31.12.2027","Seite 1"],["frist","Kündigungsfrist","3 Monate","Seite 2"]]}[s.createKind === 'insurance' ? 'insurance' : 'pension'].length + ' Werte übernehmen',
+      policyTakeLabel: 'Alle ' + {"pension":[["art","Vertragsart","Kapital-LV","Seite 1"],["versicherer","Anbieter","Musterleben","Seite 1"],["nummer","Vertragsnummer","10020030-01","Seite 1"],["beitrag","Beitrag monatlich","42,00","Seite 2"],["wert","Erreichter Wert","17.307,06","Seite 2"],["stichtag","Stichtag des Werts","31.07.2025","Seite 2"],["ablauf","Ablauf","01.08.2031","Seite 1"]],"insurance":[["art","Versicherungsart","Hausrat","Seite 1"],["versicherer","Versicherer","HUK-Coburg","Seite 1"],["nummer","Versicherungsnummer","HR-88 421","Seite 1"],["beitrag","Beitrag","156,00","Seite 2"],["intervall","Zahlungsintervall","jährlich","Seite 2"],["ende","Vertragsende","31.12.2027","Seite 1"],["frist","Kündigungsfrist","3 Monate","Seite 2"]]}[s.createKind === 'insurance' ? 'insurance' : 'pension'].length + ' Werte übernehmen',
       policyNote: 'Pfad: ' + (s.createKind === 'insurance' ? 'Versicherungen/Hausrat/' : 'Versicherungen/Lebensversicherung/') + (s.policySource || 'Police_2024.pdf') + ' — Datei wird nicht verschoben.',
       takePolicy: () => {
-        const rows = {"pension":[["art","Vertragsart","Kapital-LV","Seite 1"],["versicherer","Anbieter","Musterleben","Seite 1"],["nummer","Vertragsnummer","10020030-01","Seite 1"],["beitrag","Beitrag monatlich","42,00","Seite 2"],["wert","Erreichter Wert","20.481,52","Seite 2"],["stichtag","Stichtag des Werts","31.07.2025","Seite 2"],["ablauf","Ablauf","01.08.2031","Seite 1"]],"insurance":[["art","Versicherungsart","Hausrat","Seite 1"],["versicherer","Versicherer","HUK-Coburg","Seite 1"],["nummer","Versicherungsnummer","HR-88 421","Seite 1"],["beitrag","Beitrag","156,00","Seite 2"],["intervall","Zahlungsintervall","jährlich","Seite 2"],["ende","Vertragsende","31.12.2027","Seite 1"],["frist","Kündigungsfrist","3 Monate","Seite 2"]]}[s.createKind === 'insurance' ? 'insurance' : 'pension'];
+        const rows = {"pension":[["art","Vertragsart","Kapital-LV","Seite 1"],["versicherer","Anbieter","Musterleben","Seite 1"],["nummer","Vertragsnummer","10020030-01","Seite 1"],["beitrag","Beitrag monatlich","42,00","Seite 2"],["wert","Erreichter Wert","17.307,06","Seite 2"],["stichtag","Stichtag des Werts","31.07.2025","Seite 2"],["ablauf","Ablauf","01.08.2031","Seite 1"]],"insurance":[["art","Versicherungsart","Hausrat","Seite 1"],["versicherer","Versicherer","HUK-Coburg","Seite 1"],["nummer","Versicherungsnummer","HR-88 421","Seite 1"],["beitrag","Beitrag","156,00","Seite 2"],["intervall","Zahlungsintervall","jährlich","Seite 2"],["ende","Vertragsende","31.12.2027","Seite 1"],["frist","Kündigungsfrist","3 Monate","Seite 2"]]}[s.createKind === 'insurance' ? 'insurance' : 'pension'];
         const filled = {};
         rows.forEach(r => { filled[r[0]] = r[2]; });
         this.setState({ form: Object.assign({}, this.state.form, filled), policy: 'idle', policyAt: 0 });
@@ -2998,7 +2998,7 @@ class Component extends DCLogic {
           { key: 'bank', label: 'Broker / Bank', ph: 'z. B. finanzen.net ZERO', req: true },
           { key: 'nummer', label: 'Depotnummer', ph: '1234567890' },
           { key: 'art', label: 'Depotart', chips: ['Einzeldepot', 'Gemeinschaftsdepot', 'Sparplandepot'], def: 'Einzeldepot' },
-          { key: 'saldo', label: 'Depotwert zum Stichtag', ph: '132.480,00', req: true },
+          { key: 'saldo', label: 'Depotwert zum Stichtag', ph: '152.250,00', req: true },
           { key: 'stichtag', label: 'Stichtag', ph: '01.08.2026', req: true },
           { key: 'konto', label: 'Verrechnungskonto', chips: s.accts.map(a => a.name), def: s.accts[0].name },
           { key: 'kurse', label: 'Kursdaten', chips: ['Automatisch', 'Manuell pflegen'], def: 'Automatisch', hint: 'optional' },
@@ -3008,7 +3008,7 @@ class Component extends DCLogic {
           { key: 'versicherer', label: 'Anbieter', ph: 'z. B. Musterleben', req: true },
           { key: 'nummer', label: 'Vertragsnummer', ph: '10020030-01' },
           { key: 'beitrag', label: 'Beitrag monatlich', ph: '42,00' },
-          { key: 'wert', label: 'Erreichter Wert', ph: '20.481,52', req: true, hint: 'zählt ins Vermögen' },
+          { key: 'wert', label: 'Erreichter Wert', ph: '17.307,06', req: true, hint: 'zählt ins Vermögen' },
           { key: 'stichtag', label: 'Stichtag des Werts', ph: '31.07.2025', req: true },
           { key: 'ablauf', label: 'Ablauf', ph: '01.08.2031' },
           { key: 'bericht', label: 'Statusbericht', chips: ['jährlich erwartet', 'kein Bericht'], def: 'jährlich erwartet', hint: 'erzeugt Frist' },
@@ -3031,7 +3031,7 @@ class Component extends DCLogic {
           { key: 'anbieter', label: 'Anbieter', ph: 'z. B. Stadtwerke Musterstadt', req: true },
           { key: 'art', label: 'Vertragsart', chips: ['Strom', 'Gas', 'Wasser', 'Internet', 'Wartung'], def: 'Strom', req: true },
           { key: 'nummer', label: 'Vertragsnummer', ph: 'SW-993 210' },
-          { key: 'abschlag', label: 'Abschlag monatlich', ph: '142,50', req: true },
+          { key: 'abschlag', label: 'Abschlag monatlich', ph: '191,18', req: true },
           { key: 'konto', label: 'Bankkonto', chips: s.accts.map(a => a.name), def: s.accts[0].name },
           { key: 'objekt', label: 'Immobilie', chips: s.propertiesX.map(p => p.name).concat(['Keine']), def: s.propertiesX[0].name },
           { key: 'frist', label: 'Kündigungsfrist', chips: ['4 Wochen', '6 Wochen', '3 Monate'], def: '6 Wochen' },
@@ -3159,7 +3159,7 @@ class Component extends DCLogic {
         { name: 'Statusreport_scan_0824.pdf', meta: 'Musterleben · Vorsorge · 3 Seiten', state: 'erkannt', ok: true, to: 'proposal' },
         { name: 'MGV_Beitrag_2026.pdf', meta: 'MGV · Kfz L-2905 · Beitragsrechnung', state: 'erkannt', ok: true },
         { name: 'scan_0819_002.pdf', meta: 'Absender unklar · 1 Seite, unscharf', state: 'prüfen' },
-        { name: 'EWV_Lohn_08.pdf', meta: 'Arbeitgeber EWV · Lohnabrechnung 08/2026', state: 'erkannt', ok: true },
+        { name: 'Nordwind_Lohn_08.pdf', meta: 'Arbeitgeber Nordwind · Lohnabrechnung 08/2026', state: 'erkannt', ok: true },
       ].map(i => ({
         name: i.name, meta: i.meta, state: i.state,
         bg: i.ok ? 'transparent' : 'var(--color-accent-100)',
@@ -3258,7 +3258,7 @@ class Component extends DCLogic {
 
       netWorth: mask(eur(net)), gross: mask(eur(gross)), debt: mask(eur(-debt)),
       deltaMonth: mask('+2.140,80 €') + ' zum Vormonat', deltaYear: '+11,4 % im Jahr',
-      incomeMonth: mask(eur0(5240)), expenseMonth: mask(eur0(3612)), savingsRate: '31 %',
+      incomeMonth: mask(eur0(5950)), expenseMonth: mask(eur0(3612)), savingsRate: '31 %',
       assets: assetsRaw.map(a => ({
         label: a.label, sub: a.sub, value: mask(eur(a.v)),
         pct: Math.round(a.v / gross * 100) + '%', onOpen: () => this.go(a.to),
@@ -3435,10 +3435,10 @@ class Component extends DCLogic {
         bg: d.fresh ? 'var(--color-accent-100)' : 'transparent',
       })),
       positions: [
-        { name: 'Vanguard FTSE All-World', meta: '412 St. · ' + mask('118,40 €') + ' · IE00BK5BQT80', value: mask(eur(48780.80)), gain: '+21,4 %', color: 'var(--color-accent-700)' },
-        { name: 'iShares Core MSCI World', meta: '386 St. · ' + mask('102,15 €') + ' · IE00B4L5Y983', value: mask(eur(39429.90)), gain: '+18,1 %', color: 'var(--color-accent-700)' },
-        { name: 'Xtrackers MSCI EM', meta: '540 St. · ' + mask('52,80 €') + ' · IE00BTJRMP35', value: mask(eur(28512.00)), gain: '+19,2 %', color: 'var(--color-accent-700)' },
-        { name: 'Musterschutz SE', meta: '46 St. · ' + mask('342,55 €') + ' · DE0008404005', value: mask(eur(15757.30)), gain: '−1,8 %', color: 'var(--color-neutral-700)' },
+        { name: 'Vanguard FTSE All-World', meta: '412 St. · ' + mask('146,39 €') + ' · IE00BK5BQT80', value: mask(eur(48780.80)), gain: '+21,4 %', color: 'var(--color-accent-700)' },
+        { name: 'iShares Core MSCI World', meta: '386 St. · ' + mask('118,94 €') + ' · IE00B4L5Y983', value: mask(eur(39429.90)), gain: '+18,1 %', color: 'var(--color-accent-700)' },
+        { name: 'Xtrackers MSCI EM', meta: '540 St. · ' + mask('39,63 €') + ' · IE00BTJRMP35', value: mask(eur(28512.00)), gain: '+19,2 %', color: 'var(--color-accent-700)' },
+        { name: 'Musterschutz SE', meta: '46 St. · ' + mask('419,95 €') + ' · DE0008404005', value: mask(eur(15757.30)), gain: '−1,8 %', color: 'var(--color-neutral-700)' },
       ],
 
       moreItems: [
@@ -3449,8 +3449,8 @@ class Component extends DCLogic {
         { label: 'Absicherung', sub: s.protectionX.length + ' Verträge · ' + (protectionDeadlines === 1 ? '1 Frist läuft' : protectionDeadlines + ' Fristen'), value: mask(eur0(protectionSum)), onOpen: () => this.go('protection') },
         { label: 'Fahrzeuge', sub: s.vehiclesX.length + ' Objekte · Versicherung, Steuer, Werkstatt', value: mask(eur0(s.vehiclesX.reduce((a, v) => a + v.cost, 0))), onOpen: () => this.go('vehicles') },
         { label: 'Gesundheit / PKV', sub: '1 Erstattung überfällig', value: '4 offen', onOpen: () => this.go('pkv') },
-        { label: 'Wohnen & Immobilien', sub: s.propertiesX.length + ' Objekt' + (s.propertiesX.length === 1 ? '' : 'e') + ' · ' + s.contractsX.length + ' Verträge', value: mask(eur0(395000)), onOpen: () => this.go('property') },
-        { label: 'Arbeit & Beruf', sub: 'EWV · Lohn 08/2026', value: mask(eur0(5240)), onOpen: () => this.flash('Bereich noch nicht gestaltet') },
+        { label: 'Wohnen & Immobilien', sub: s.propertiesX.length + ' Objekt' + (s.propertiesX.length === 1 ? '' : 'e') + ' · ' + s.contractsX.length + ' Verträge', value: mask(eur0(304520)), onOpen: () => this.go('property') },
+        { label: 'Arbeit & Beruf', sub: 'Nordwind · Lohn 08/2026', value: mask(eur0(5950)), onOpen: () => this.flash('Bereich noch nicht gestaltet') },
         { label: 'Darlehen', sub: 'Sparkasse · Rate 1.180 €', value: mask(eur0(-148300)), onOpen: () => this.go('loan') },
         { label: 'Auswertungen', sub: 'Liquidität · Sparpotential', value: '', onOpen: () => this.go('liq') },
         { label: 'Scaneingang', sub: 'Belege warten auf Zuordnung', value: '4', onOpen: () => this.go('inbox') },

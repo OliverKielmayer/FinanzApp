@@ -72,7 +72,7 @@ Globaler Aufbau jedes Screens:
 
 Kicker „Übersicht", Titel „Vermögen".
 
-- **Hero**: `padding 18px 16px 16px`, Label „Nettovermögen" (10px uppercase neutral-600), Wert 42px/800 tabular (`125.839,95 €`), darunter zwei Deltas in einer Reihe (`gap 16px`): „+2.140,80 € zum Vormonat" (13px/600, `--color-accent-700`) und „+11,4 % im Jahr" (13px, neutral-700).
+- **Hero**: `padding 18px 16px 16px`, Label „Nettovermögen" (10px uppercase neutral-600), Wert 42px/800 tabular (`56.145,38 €`), darunter zwei Deltas in einer Reihe (`gap 16px`): „+2.140,80 € zum Vormonat" (13px/600, `--color-accent-700`) und „+11,4 % im Jahr" (13px, neutral-700).
 - **Vermögensentwicklung**: Sektion mit 2px Oberlinie. Kopfzeile: Label uppercase links, „12 Monate" rechts. Chart: SVG `viewBox 0 0 358 96`, `preserveAspectRatio="none"`, Höhe 96px — Grundlinie 1px `#bab6b6` bei y=95, Hilfslinie 1px `#d7d3d3` bei y=48, Datenlinie `polyline` 2,5px `#ec3013`, kein Fill, keine Punkte. Achsenbeschriftung: SEP 25 / FEB 26 / AUG 26 (10px, `space-between`).
 - **Vermögenswerte als Kacheln**: 2-Spalten-Grid, jede Zelle `padding 14px 14px 16px`, 1px Linie rechts und unten. Zellinhalt von oben: Kategoriename (10px uppercase accent), Wert (19px/800 tabular), Untertitel (11px neutral-600), unten ein 4px-Balken (Spur `--color-neutral-300`, Füllung `--color-accent`, Breite = Anteil am Bruttovermögen). Zellen sind tappbar (Hover `rgba(32,30,29,.04)`) und navigieren: Girokonten → Konten, Tagesgeld → Konten, Depot → Depot, Lebensvers. → Mehr.
 - **Bilanzblock** (`padding 0 16px`): drei Zeilen à 12px vertikal, je 1px Unterlinie: „Bruttovermögen" (14px/600 · 15px/800), „Verbindlichkeiten / Darlehen · Sparkasse" (Wert 15px/600 in `--color-accent-700`, tappbar → Darlehen), „Nettovermögen" (15px/800 · 17px/800, ohne Unterlinie).
@@ -85,7 +85,7 @@ Kicker „Übersicht", Titel „Vermögen".
 Kicker „Finanzen", Titel „Konten & Buchungen".
 
 - **Suchzeile**: `.input` „Buchungen durchsuchen" (`flex:1`, min-height 42) + `.btn-secondary` „Reset". Filtert Buchungen live über Empfänger und Kategorie (case-insensitive Substring).
-- **Kontoliste**: je Zeile `padding 13px 16px`, 1px Unterlinie, links Kontoname (15px/600) über IBAN bzw. Zinsinfo (11px neutral-600), rechts Saldo (15px/800 tabular) über Aktualität (11px). Beispieldaten: Sparkasse Giro `DE44 6725 0020 0034 8891 02` — 4.812,60 €; Musterbank Giro `DE12 6706 2366 0009 1140 07` — 1.947,35 €; Tagesgeld Raiffeisen (2,35 % · Zinsen 98,12 € YTD) — 50.000,00 €.
+- **Kontoliste**: je Zeile `padding 13px 16px`, 1px Unterlinie, links Kontoname (15px/600) über IBAN bzw. Zinsinfo (11px neutral-600), rechts Saldo (15px/800 tabular) über Aktualität (11px). Beispieldaten: Sparkasse Giro `DE44 6725 0020 0034 8891 02` — 4.812,60 €; Musterbank Giro `DE12 6706 2366 0009 1140 07` — 1.947,35 €; Tagesgeld Raiffeisen (2,35 % · Zinsen 98,12 € YTD) — 41.570,00 €.
 - **Abschnittskopf** „Buchungen" mit Zähler „7 von 7".
 - **Triage-Banner** (nur wenn unkategorisierte Buchungen existieren): `margin 0 16px 10px`, `padding 12px 14px`, Fläche `--color-accent-100`, links 2px Akzentbalken, Text „N Buchungen ohne Kategorie" (13px/600, accent-800) + „Jetzt zuordnen", rechts Pfeil „→" (18px/800 accent). Tap öffnet das Kategorie-Sheet für die erste unkategorisierte Buchung.
 - **Buchungsliste**: je Zeile `padding 11px 16px`, 1px Unterlinie, drei Spalten: Datum (11px, Breite 36px, tabular), Mitte Empfänger (14px/600, einzeilig mit Ellipsis) über Chip-Reihe, rechts Betrag (14px/600 tabular; Einnahmen `--color-accent-700`, Ausgaben `--color-text`, Vorzeichen `+`/`−`). Chips: `.tag-neutral` bei gesetzter Kategorie, `.tag-accent` bei „Nicht zugeordnet", `.tag-outline` bei „Umbuchung"; daneben Kontokürzel (10px). Tap öffnet das Kategorie-Sheet.
@@ -100,7 +100,7 @@ Kicker „Erfassen", Titel „Neue Buchung".
 - **Schritt 3 — Konto & Notiz**: Kontoliste als Zeilen (`padding 12px 0`, 1px Unterlinie), gewähltes Konto in Akzent mit Marker „gewählt". Darunter Feld „Notiz" (`.input`, Platzhalter „z. B. Wocheneinkauf").
 - **Aktionsleiste** (immer sichtbar, `padding 16px`): `.btn-primary` „Weiter" (Schritt 1–2) bzw. „Buchung speichern" (Schritt 3), daneben `.btn-secondary` „Leeren" (Schritt 1) bzw. „Zurück" (Schritt 2–3). Unter der Leiste eine Zusammenfassungszeile (11px neutral-600): „Kategorie offen · Sparkasse Giro · 23.08.2026".
 - **Validierung**: „Weiter" ohne Betrag → Toast „Betrag fehlt", kein Schrittwechsel. Speichern ohne Betrag ebenso.
-- **Speichern**: legt die Buchung mit Vorzeichen nach Art oben in der Liste an (Empfänger = Notiz, sonst „Manuelle Buchung"), setzt Betrag/Kategorie/Notiz/Schritt zurück, wechselt auf „Konten" und zeigt Toast „−68,42 € erfasst".
+- **Speichern**: legt die Buchung mit Vorzeichen nach Art oben in der Liste an (Empfänger = Notiz, sonst „Manuelle Buchung"), setzt Betrag/Kategorie/Notiz/Schritt zurück, wechselt auf „Konten" und zeigt Toast „−77,62 € erfasst".
 
 ### 4. Budgets
 
@@ -115,9 +115,9 @@ Kicker „Planung", Titel „Budgets".
 
 Kicker „Investments", Titel „Depot".
 
-- **Hero**: „Depotwert · finanzen.net ZERO" über 38px/800-Wert `132.480,00 €`, darunter „+18.940,20 € G/V" (accent-700) und „+16,7 % · TTWROR 9,8 % p. a." (neutral-700).
+- **Hero**: „Depotwert · finanzen.net ZERO" über 38px/800-Wert `152.250,00 €`, darunter „+18.940,20 € G/V" (accent-700) und „+16,7 % · TTWROR 9,8 % p. a." (neutral-700).
 - **Depotentwicklung**: Chart wie Dashboard, `viewBox 0 0 358 84`, Kopfzeile rechts mit Kursstand „Kurse: 22.08.2026, 17:35" (wichtig: sichtbarer Zeitstempel, weil Kursdaten aus einem austauschbaren Provider stammen und veralten können).
-- **Positionen**: je Zeile Name (14px/600, Ellipsis) + Wert (14px/800 tabular); Metazeile 11px mit „412 St. · 118,40 € · IE00BK5BQT80" links und Performance rechts (600, accent-700 positiv, neutral-700 negativ). Beispiele: Vanguard FTSE All-World, iShares Core MSCI World, Xtrackers MSCI EM, Musterschutz SE.
+- **Positionen**: je Zeile Name (14px/600, Ellipsis) + Wert (14px/800 tabular); Metazeile 11px mit „412 St. · 146,39 € · IE00BK5BQT80" links und Performance rechts (600, accent-700 positiv, neutral-700 negativ). Beispiele: Vanguard FTSE All-World, iShares Core MSCI World, Xtrackers MSCI EM, Musterschutz SE.
 
 ### 6. Darlehen (aus Dashboard/Mehr erreichbar)
 
