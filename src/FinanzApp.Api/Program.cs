@@ -237,10 +237,19 @@ builder.Services.AddSingleton(bankOptions);
 builder.Services.AddSingleton<IBankBalanceSource, FinTsBalanceSource>();
 builder.Services.AddScoped<BankBalanceService>();
 
-// Die FinTS-Bibliothek bekommt kein eigenes Protokoll: Was sie unterhalb von „Warnung“
-// schreibt, ist der Nachrichtenstrom selbst — und darin steht die PIN. Der Filter steht hier
-// und nicht in appsettings.json, damit ihn niemand versehentlich wegkonfiguriert.
-builder.Logging.AddFilter("libfintx", LogLevel.Warning);
+// Hier stand ein fester Filter, der das Protokoll der FinTS-Bibliothek unterhalb von
+// „Warnung“ abschnitt — mit der Begründung, in ihrem Nachrichtenstrom stehe die PIN.
+//
+// Das ist nachgemessen und trifft nicht zu: Die Bibliothek ersetzt PIN und Benutzerkennung
+// durch XXXXXX, bevor sie eine Zeile abgibt (siehe BankDialogLoggingTests). Der feste Filter
+// hat dafür etwas anderes gekostet — er übersteuert jede Einstellung, auch die in
+// appsettings.json, und damit war ein Abbruch beim Zerlegen der Bankantwort nicht
+// aufzuklären: Man sah, dass die Antwort unlesbar war, nie, was die Bank geschickt hatte.
+//
+// Die Stufe steht jetzt allein in appsettings.json, voreingestellt auf „Warnung“. Wer sie
+// anhebt, bekommt den Dialog — ohne Zugangsdaten, aber mit Bankleitzahl, Kontonummer und
+// Saldo. Das sagt der Kommentar dort, und es ist eine Entscheidung, die jemand treffen soll,
+// statt sie nicht treffen zu können.
 
 // ── Kurse ─────────────────────────────────────────────────────────────────────────────────
 var quoteOptions = builder.Configuration.GetSection(QuoteOptions.SectionName)

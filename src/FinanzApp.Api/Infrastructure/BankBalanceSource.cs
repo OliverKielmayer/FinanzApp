@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Text.RegularExpressions;
 using FinanzApp.Api.Data.Entities;
 
 namespace FinanzApp.Api.Infrastructure;
@@ -58,14 +59,25 @@ public static class BankAccessFailure
     /// <param name="url">Die FinTS-Adresse am Konto, soweit eine da ist.</param>
     public static string Describe(Exception fehler, string? url)
     {
+        // Das abgelehnte TAN-Verfahren zuerst: Es ist die einzige Zurückweisung, aus der sich
+        // sagen lässt, was zu tun ist — und sie kommt als dieselbe Ausnahmeart wie ein
+        // Verbindungsabbruch.
+        if (TanVerfahren(fehler) is { } verfahren)
+        {
+            return verfahren;
+        }
+
         if (Netzgrund(fehler) is not { } grund)
         {
-            // Kein Netzfehler. Dann ist nicht gesagt, dass die Bank unerreichbar war — also
-            // wird es auch nicht behauptet. Die Art der Ausnahme reicht, um im Protokoll die
-            // richtige Stelle zu finden.
-            return "Der Abruf ist abgebrochen, bevor die Bank geantwortet hat "
-                   + $"({fehler.GetType().Name}). Das ist kein Fehler der PIN. Was genau "
-                   + "passiert ist, steht im Protokoll der Anwendung.";
+            // Kein Netzfehler und nichts Erkanntes. Dann ist weder gesagt, dass die Bank
+            // unerreichbar war, noch dass sie geantwortet hat — also wird beides nicht
+            // behauptet. Genau das stand hier einmal falsch: „bevor die Bank geantwortet hat“
+            // galt auch dann, wenn sie geantwortet und den Dialog zurückgewiesen hatte, und
+            // schickte die Suche in die falsche Richtung.
+            return $"Der Abruf ist abgebrochen ({fehler.GetType().Name}). Das ist kein Fehler "
+                   + "der PIN. Ob und was die Bank geantwortet hat, steht im Protokoll der "
+                   + "Anwendung — den Dialog selbst zeigt es, sobald die Stufe für „libfintx“ "
+                   + "in appsettings.json angehoben ist.";
         }
 
         var wo = string.IsNullOrWhiteSpace(url) ? "Die Bank" : $"Die Bank unter „{url.Trim()}“";
@@ -73,6 +85,56 @@ public static class BankAccessFailure
         return $"{wo} war nicht zu erreichen: {grund}. Das ist kein Fehler der PIN, sondern "
                + "der Verbindung — nachzusehen ist die FinTS-Adresse am Konto und ob dieser "
                + "Rechner überhaupt ins Netz kommt.";
+    }
+
+    /// <summary>Das zurückgewiesene Verfahren und die, die gingen.</summary>
+    private static readonly Regex Abgelehnt =
+        new(@"Tan-Mode\s+(\d{3})\s+detected",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    private static readonly Regex Erlaubt =
+        new(@"allowed modes:\s*(\d{3}(?:\s*,\s*\d{3})*)",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    /// <summary>
+    /// Sagt, wenn die Bank das TAN-Verfahren am Konto nicht anbietet.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Der einzige Satz, der aus einem fremden Text entsteht — und doch keinen
+    /// durchreicht.</b> Genommen werden allein die Ziffernfolgen, die zwei enge Muster
+    /// hergeben: die abgelehnte Nummer und die erlaubten. Alles andere am Text bleibt
+    /// draussen; daraus wird hier ein eigener Satz gebaut. Ein Verfahren hat drei Ziffern,
+    /// eine PIN steht in keinem dieser Muster.</para>
+    /// <para><b>Warum es diesen Umweg überhaupt gibt.</b> Die Bibliothek wirft die
+    /// Zurückweisung als <see cref="InvalidOperationException"/> — dieselbe Art, die auch ein
+    /// Verbindungsabbruch trägt. Ohne diesen Blick stünde am Bildschirm, der Abruf sei
+    /// gescheitert, und die Zahl, die ihn flottmacht, läge im Protokoll und würde übersehen.
+    /// Am echten Konto des Inhabers am 08.11.2026 war es genau dieser Fall.</para>
+    /// <para>Gesucht wird über die ganze Kette: Die Bibliothek packt die eigentliche Meldung
+    /// in eine innere Ausnahme.</para>
+    /// </remarks>
+    private static string? TanVerfahren(Exception fehler)
+    {
+        for (var e = fehler; e is not null; e = e.InnerException)
+        {
+            if (e.Message is not { Length: > 0 } text || Erlaubt.Match(text) is not { Success: true } gut)
+            {
+                continue;
+            }
+
+            var moeglich = string.Join(", ", gut.Groups[1].Value
+                .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries));
+
+            var genannt = Abgelehnt.Match(text) is { Success: true } schlecht
+                ? $"Das TAN-Verfahren {schlecht.Groups[1].Value} am Konto wird von dieser Bank "
+                  + "nicht angeboten."
+                : "Das TAN-Verfahren am Konto wird von dieser Bank nicht angeboten.";
+
+            return $"{genannt} Erlaubt {(moeglich.Contains(',') ? "sind" : "ist")}: {moeglich}. "
+                   + "Die Nummer wird am Konto eingetragen; das ist kein Fehler der PIN.";
+        }
+
+        return null;
     }
 
     /// <summary>

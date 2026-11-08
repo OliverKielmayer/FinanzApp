@@ -75,6 +75,95 @@ public sealed class BankAccessFailureTests
     }
 
     /// <summary>
+    /// Und es wird auch nicht behauptet, die Bank habe nicht geantwortet.
+    /// </summary>
+    /// <remarks>
+    /// <para>Genau das stand hier einmal: „Der Abruf ist abgebrochen, bevor die Bank
+    /// geantwortet hat.“ Der Satz galt für jede Ausnahme, die kein Netzfehler war — also auch
+    /// dann, wenn die Bank sehr wohl geantwortet und den Dialog zurückgewiesen hatte.</para>
+    /// <para>Am echten Konto hat er die Suche in die falsche Richtung geschickt: geprüft
+    /// wurden Leitung, Adresse und Zugangsdaten, während die Antwort der Bank im Protokoll
+    /// stand und sagte, woran es lag.</para>
+    /// </remarks>
+    [Fact]
+    public void Ohne_Netzfehler_wird_auch_kein_Schweigen_der_Bank_behauptet()
+    {
+        var meldung = BankAccessFailure.Describe(
+            new InvalidOperationException("Unerwartetes Segment."), Adresse);
+
+        Assert.DoesNotContain("bevor die Bank geantwortet", meldung, StringComparison.Ordinal);
+    }
+
+    // ── Wenn die Bank das TAN-Verfahren nicht anbietet ─────────────────────────────────────
+
+    /// <summary>
+    /// Aus der Zurückweisung wird ein Satz, der sagt, was zu tun ist.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die Bibliothek wirft das als <see cref="InvalidOperationException"/> — dieselbe
+    /// Art, die auch ein Verbindungsabbruch trägt. Ohne diesen Blick stünde am Bildschirm, der
+    /// Abruf sei gescheitert, und die eine Zahl, die ihn flottmacht, bliebe im Protokoll
+    /// liegen.</para>
+    /// <para>Die eigentliche Meldung steckt in der inneren Ausnahme; gesucht wird deshalb über
+    /// die ganze Kette.</para>
+    /// </remarks>
+    [Fact]
+    public void Ein_abgelehntes_TAN_Verfahren_nennt_das_erlaubte()
+    {
+        var meldung = BankAccessFailure.Describe(Zurueckgewiesen("901", "972"), Adresse);
+
+        Assert.Contains("901", meldung, StringComparison.Ordinal);
+        Assert.Contains("972", meldung, StringComparison.Ordinal);
+        Assert.Contains("am Konto", meldung, StringComparison.Ordinal);
+        Assert.DoesNotContain("nicht zu erreichen", meldung, StringComparison.Ordinal);
+    }
+
+    /// <summary>Mehrere erlaubte Verfahren werden alle genannt.</summary>
+    [Fact]
+    public void Mehrere_erlaubte_Verfahren_werden_alle_genannt()
+    {
+        var meldung = BankAccessFailure.Describe(Zurueckgewiesen("901", "972, 944"), Adresse);
+
+        Assert.Contains("972, 944", meldung, StringComparison.Ordinal);
+        Assert.Contains("Erlaubt sind", meldung, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Auch hier kommt kein fremder Text mit — nur die Ziffern.
+    /// </summary>
+    /// <remarks>
+    /// Das ist die Bedingung, unter der dieser eine Satz überhaupt aus einer fremden Meldung
+    /// entstehen darf: Genommen wird, was zwei enge Muster hergeben, und sonst nichts. Hängt
+    /// die Bibliothek die Nachricht an, an der sie gescheitert ist, bleibt sie draussen.
+    /// </remarks>
+    [Fact]
+    public void Aus_der_Zurueckweisung_kommt_kein_fremder_Text_mit()
+    {
+        const string pin = "987654";
+
+        var fehler = new InvalidOperationException(
+            "Fehler beim Zerlegen.",
+            new Exception(
+                $"Invalid HIRMS/Tan-Mode 901 detected. Please choose one of the allowed "
+                + $"modes: 972 HNSHA:6:2+1234++{pin}'"));
+
+        var meldung = BankAccessFailure.Describe(fehler, Adresse);
+
+        Assert.Contains("972", meldung, StringComparison.Ordinal);
+        Assert.DoesNotContain(pin, meldung, StringComparison.Ordinal);
+        Assert.DoesNotContain("HNSHA", meldung, StringComparison.Ordinal);
+        Assert.DoesNotContain("Zerlegen", meldung, StringComparison.Ordinal);
+    }
+
+    /// <summary>Die Zurückweisung, so wie die Bibliothek sie wirft.</summary>
+    private static InvalidOperationException Zurueckgewiesen(string genannt, string erlaubt)
+        => new(
+            "Fehler beim Zerlegen der Antwort.",
+            new Exception(
+                $"Invalid HIRMS/Tan-Mode {genannt} detected. Please choose one of the "
+                + $"allowed modes: {erlaubt}"));
+
+    /// <summary>
     /// Was die Bibliothek in ihre Ausnahme schreibt, kommt nicht in die Meldung.
     /// </summary>
     /// <remarks>
