@@ -122,6 +122,23 @@ public static class BankAccessReadiness
                 $"Dem Konto „{account.Name}“ fehlt die BIC. Sie steht auf jedem Kontoauszug — "
                 + "die Saldenabfrage benennt das Konto mit IBAN und BIC.");
         }
+        else if (account.Bic.Trim() is not { Length: 8 or 11 } bic
+                 || !bic.All(char.IsAsciiLetterOrDigit))
+        {
+            // Dieselbe Falle wie bei der Bankleitzahl, und sie ist zugeschnappt: Am echten
+            // Konto stand eine BIC mit zwölf Zeichen — ein Buchstabe zu viel beim Abtippen.
+            // Die Bank wies den Abruf daraufhin mit „Ungültige Auftragsnachricht: Unbekannter
+            // Aufbau“ ab, einem Satz, der von der BIC kein Wort sagt. Das Feld in der
+            // FinTS-Nachricht fasst elf Zeichen; ein zwölftes sprengt den Aufbau.
+            //
+            // Nach ISO 9362 hat eine BIC acht Zeichen oder elf — vier für das Institut, zwei
+            // fürs Land, zwei für den Ort, und wahlweise drei für die Filiale. Neun, zehn oder
+            // zwölf gibt es nicht.
+            probleme.Add(
+                $"Die BIC am Konto „{account.Name}“ hat {account.Bic.Trim().Length} Zeichen. "
+                + "Eine BIC hat acht oder elf — die ersten acht bezeichnen Institut, Land und "
+                + "Ort, die drei weiteren die Filiale. Sie steht auf jedem Kontoauszug.");
+        }
 
         if (string.IsNullOrWhiteSpace(account.FinTsUrl))
         {

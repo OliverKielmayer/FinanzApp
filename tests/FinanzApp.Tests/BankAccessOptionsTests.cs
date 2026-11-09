@@ -155,6 +155,50 @@ public sealed class BankAccessOptionsTests
         Assert.Contains("Musterbank Giro", problem, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Eine BIC mit der falschen Zeichenzahl fällt auf.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Am echten Konto passiert, und es hat einen Abend gekostet.</b> Dort stand eine
+    /// BIC mit zwölf Zeichen — ein Buchstabe zu viel beim Abtippen. Die Bank wies den Abruf
+    /// daraufhin mit „Ungültige Auftragsnachricht: Unbekannter Aufbau“ ab, einem Satz, der von
+    /// der BIC kein Wort sagt; das Feld in der FinTS-Nachricht fasst elf Zeichen, und ein
+    /// zwölftes sprengt den Aufbau. Gesucht wurde daraufhin in der Bibliothek, in der
+    /// Segmentfassung und im Dialogablauf — überall, nur nicht im Feld, das kurz zuvor neu
+    /// eingetragen worden war.</para>
+    /// <para>Nach ISO 9362 hat eine BIC acht oder elf Zeichen. Neun, zehn oder zwölf gibt es
+    /// nicht. Dieselbe Prüfung gab es für die Bankleitzahl längst, aus demselben Anlass.</para>
+    /// </remarks>
+    [Theory]
+    [InlineData("MUSTDEFFXXXX")]
+    [InlineData("MUSTDEFFX")]
+    [InlineData("MUSTDEF")]
+    [InlineData("MUST DEFF")]
+    [InlineData("MUSTDEFF-XX")]
+    public void Eine_falsche_BIC_faellt_auf(string bic)
+    {
+        var konto = Konto();
+        konto.Bic = bic;
+
+        var problem = Assert.Single(BankAccessReadiness.Problems(konto, Produkt()));
+
+        Assert.Contains("BIC", problem, StringComparison.Ordinal);
+        Assert.Contains("acht oder elf", problem, StringComparison.Ordinal);
+        Assert.Contains("Musterbank Giro", problem, StringComparison.Ordinal);
+    }
+
+    /// <summary>Acht Zeichen reichen — die Filiale ist freiwillig.</summary>
+    [Theory]
+    [InlineData("MUSTDEFF")]
+    [InlineData("MUSTDEFFXXX")]
+    public void Eine_richtige_BIC_geht_durch(string bic)
+    {
+        var konto = Konto();
+        konto.Bic = bic;
+
+        Assert.Empty(BankAccessReadiness.Problems(konto, Produkt()));
+    }
+
     /// <summary>Ein TAN-Verfahren von null ist keines.</summary>
     [Fact]
     public void Ein_fehlendes_TAN_Verfahren_faellt_auf()
