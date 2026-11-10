@@ -173,6 +173,12 @@ public static class FinanzAppApiExtensions
         => api.SendWithoutResultAsync(
             HttpMethod.Patch, $"api/tasks/{id}/state", new UpdateTaskStateRequest { State = state }, ct);
 
+    /// <summary>Ordnet einem Vorgang die Buchung zu, die ihn bezahlt hat, und schliesst ihn.</summary>
+    public static Task AssignTaskPaymentAsync(
+        this FinanzAppApi api, int taskId, int transactionId, CancellationToken ct = default)
+        => api.SendWithoutResultAsync<object?>(
+            HttpMethod.Post, $"api/tasks/{taskId}/zahlung/{transactionId}", null, ct);
+
     // ── Gesundheit / PKV ───────────────────────────────────────────────────────────────────
 
     public static Task<IReadOnlyList<MedicalBillListItemDto>> GetMedicalBillsAsync(

@@ -59,6 +59,38 @@
                     </AuthorizeView>
                 }
             </div>
+
+            @*
+                Was der Abgleich gefunden, aber nicht entschieden hat. Eindeutig Belegtes ist
+                längst zugeordnet und der Vorgang zu; hier steht, wo es mehr als eine Buchung
+                gibt oder keine Nummer vom Papier zur Zahlung führt. Beides sieht ein Mensch in
+                einem Blick und die Anwendung nie.
+            *@
+            @foreach (var fund in item.PaymentSuggestions)
+            {
+                <div class="work-match">
+                    <span class="work-match-text">
+                        <span class="work-match-line">
+                            Bezahlt? @GermanFormat.Date(fund.BookedOn) ·
+                            @State.Euro(fund.Amount)@(fund.Payee is { Length: > 0 } wer ? " · " + wer : null)
+                        </span>
+
+                        <span class="work-match-why">
+                            @(fund.Evidence is { } beweis
+                                ? $"Nummer {beweis} steht auch im Beleg"
+                                : "nur Betrag und Zeitraum passen")@(fund.Purpose is { Length: > 0 } zweck
+                                    ? " · " + zweck
+                                    : null)
+                        </span>
+                    </span>
+
+                    <AuthorizeView Roles="Owner,Member" Context="zuordnen">
+                        <button type="button" class="btn btn-secondary" disabled="@busy"
+                                title="Buchung zuordnen und den Vorgang schliessen"
+                                @onclick="() => AssignAsync(item, fund)">Zuordnen</button>
+                    </AuthorizeView>
+                </div>
+            }
         }
 
         <div class="spacer"></div>
@@ -147,6 +179,29 @@
         {
             await Api.SetTaskStateAsync(item.Id, TaskState.Done);
             Toasts.Show("Erledigt", ToastKind.Saved);
+            await ReloadAsync();
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    /// <summary>
+    /// Nimmt einen Vorschlag an: Buchung zuordnen, Vorgang schliessen.
+    /// </summary>
+    /// <remarks>
+    /// Derselbe Ausgang wie beim Abhaken, nur mit einem Grund daran. Im Vorgang steht danach,
+    /// woran es festgemacht wurde — ein geschlossener Vorgang ohne Begründung wäre schlimmer
+    /// als ein offener, denn beim offenen sieht man wenigstens, dass etwas fehlt.
+    /// </remarks>
+    private Task AssignAsync(TaskItemDto item, TaskPaymentDto fund) => RunAsync(async () =>
+    {
+        busy = true;
+        try
+        {
+            await Api.AssignTaskPaymentAsync(item.Id, fund.TransactionId);
+            Toasts.Show("Zugeordnet und erledigt", ToastKind.Saved);
             await ReloadAsync();
         }
         finally

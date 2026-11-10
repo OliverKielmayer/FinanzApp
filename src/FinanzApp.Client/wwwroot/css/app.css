@@ -3740,6 +3740,51 @@ body {
   color: var(--color-accent-800);
 }
 
+/*
+  Ein Fund, der sich nicht von allein entschieden hat.
+
+  Unter der Zeile und nicht darin: Er gehört zu diesem Vorgang, stellt aber eine eigene Frage
+  — „ist das die Zahlung?“ —, und wer sie gerade nicht beantworten will, soll die Liste
+  weiterlesen können. Leiser gesetzt als die Zeile selbst, aus demselben Grund.
+*/
+.work-match {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 16px 10px;
+  border-bottom: 1px solid var(--color-divider);
+  background: var(--color-neutral-100);
+}
+
+.work-match-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.work-match-line {
+  font-size: 12px;
+  color: var(--color-neutral-800);
+}
+
+/* Der Verwendungszweck ist lang und darf die Zeile nicht sprengen. */
+.work-match-why {
+  font-size: 11px;
+  color: var(--color-neutral-600);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.work-match > .btn {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 5px 11px;
+}
+
 /* ── Dokumente ──────────────────────────────────────────────────────────── */
 
 .doc-row {
