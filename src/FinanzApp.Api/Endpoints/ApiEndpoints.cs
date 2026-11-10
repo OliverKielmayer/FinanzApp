@@ -57,6 +57,36 @@ public static class ApiEndpoints
             }
         });
 
+        // Die Umsätze holen. Die PIN steht im Rumpf, aus demselben Grund wie beim Saldo.
+        //
+        // Hier reicht Lesen nicht: Der Abruf legt eine Vorschau an, und aus ihr wird gebucht.
+        // Gebucht wird zwar erst im Übernahmeschritt, aber wer die Vorschau anlegen darf,
+        // bestimmt, was dort zur Übernahme steht.
+        api.MapPost("/accounts/{id:int}/umsaetze", async (
+            int id, StatementFetchRequest request, BankStatementService service,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(
+                    await service.FetchAsync(id, request.Pin, request.From, request.To, ct));
+            }
+            catch (RuleViolationException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+            catch (StatementFormatException ex)
+            {
+                // Die Bank hat geantwortet, nur nicht so, wie ihr Format es verlangt. Das ist
+                // kein Fehler des Aufrufers und keiner der Verbindung.
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status502BadGateway);
+            }
+            catch (BankAccessException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status502BadGateway);
+            }
+        }).RequireAuthorization(AuthPolicies.Write);
+
         // Die Gemeinschaftskonten mit Soll und Eingang. Fertig gerechnet: der Schirm stellt
         // gegenüber, er rechnet nicht.
         api.MapGet("/accounts/gemeinschaft", async (

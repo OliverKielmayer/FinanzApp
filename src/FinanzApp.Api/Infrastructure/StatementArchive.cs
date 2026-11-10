@@ -122,11 +122,15 @@ public sealed class ZipStatementReader(IStatementParser parser)
     /// Aus vielen Auszügen wird einer.
     /// </summary>
     /// <remarks>
-    /// Die IBAN muss überall dieselbe sein: die Übernahme bucht alle Sätze auf <em>ein</em>
+    /// <para>Die IBAN muss überall dieselbe sein: die Übernahme bucht alle Sätze auf <em>ein</em>
     /// Konto. Ein Archiv mit zwei Konten stillschweigend auf eines zu buchen wäre der
-    /// schlimmere Fehler — lieber abweisen und sagen, welche beiden es sind.
+    /// schlimmere Fehler — lieber abweisen und sagen, welche beiden es sind.</para>
+    /// <para>Auch der Bankabruf legt zusammen: Die Bank schickt pro Zeitraum mehrere
+    /// camt-Dokumente, und daraus soll eine Vorschau werden. Deshalb nicht privat — zwei
+    /// Fassungen desselben Zusammenlegens liefen auseinander, und bemerkt würde es an einem
+    /// Schlusssaldo von vorgestern.</para>
     /// </remarks>
-    private static ParsedStatement Merge(
+    internal static ParsedStatement Merge(
         string fileName, List<ParsedStatement> statements, List<ImportRecord> records)
     {
         var ibans = statements

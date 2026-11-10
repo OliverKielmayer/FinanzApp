@@ -237,6 +237,11 @@ builder.Services.AddSingleton(bankOptions);
 builder.Services.AddSingleton<IBankBalanceSource, FinTsBalanceSource>();
 builder.Services.AddScoped<BankBalanceService>();
 
+// Der Umsatzabruf. Eigene Quelle, weil es eine andere Frage ist — was beide brauchen, steht in
+// FinTsDialog. Er endet in derselben Vorschau wie ein hochgeladener Auszug und bucht nichts.
+builder.Services.AddSingleton<IBankStatementSource, FinTsStatementSource>();
+builder.Services.AddScoped<BankStatementService>();
+
 // Hier stand ein fester Filter, der das Protokoll der FinTS-Bibliothek unterhalb von
 // „Warnung“ abschnitt — mit der Begründung, in ihrem Nachrichtenstrom stehe die PIN.
 //

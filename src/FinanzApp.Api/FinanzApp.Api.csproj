@@ -6,6 +6,19 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!--
+      Das Testprojekt darf hineinsehen.
+
+      Nur fuer einen Schritt: das Lesen dessen, was die FinTS-Bibliothek in ihren
+      Ablageordner geschrieben hat. Er laesst sich nicht ueber die Oberflaeche pruefen -
+      davor steht ein Dialog mit einer echten Bank und einer echten PIN. Geprueft wird
+      deshalb der Ordner: ein Beispielauszug darin, daneben die Zwischenspeicher der
+      Bibliothek, und die Frage, was davon als Auszug gilt.
+    -->
+    <InternalsVisibleTo Include="FinanzApp.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="libfintx.FinTS" Version="1.4.0" />
     <PackageReference Include="MailKit" Version="4.17.0" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.14" />

@@ -1,6 +1,7 @@
 @page "/konten"
 @attribute [Authorize]
 @inherits AppPage
+@inject ImportDraft Draft
 
 <PageTitle>Konten &amp; Buchungen — FinanzApp</PageTitle>
 
@@ -224,14 +225,25 @@
                                        @onkeydown="BankPinKey" disabled="@bankBusy" />
                                 <span class="meta">
                                     Die PIN wird nicht gespeichert und bei jedem Abruf neu
-                                    gefragt. Der Abruf liest nur den Stand und ändert nichts.
+                                    gefragt. Keiner der beiden Abrufe ändert etwas am Konto.
                                 </span>
 
+                                @* Zwei Fragen an dieselbe Bank, mit derselben PIN. „Stand“
+                                   holt eine Zahl, „Umsätze“ einen Auszug — und der endet in
+                                   derselben Vorschau wie eine hochgeladene Datei, nicht in
+                                   gebuchten Zeilen. Deshalb steht hier nicht „Übernehmen“. *@
                                 <div class="acct-sheet-actions">
                                     <button type="button" class="btn btn-primary"
                                             @onclick="RunBankCheck"
                                             disabled="@(bankBusy || string.IsNullOrWhiteSpace(bankPin))">
-                                        @(bankBusy ? "Bank wird gefragt …" : "Abfragen")
+                                        @(bankBusy && !fetchingStatement
+                                            ? "Bank wird gefragt …" : "Stand abfragen")
+                                    </button>
+                                    <button type="button" class="btn btn-secondary"
+                                            @onclick="RunStatementFetch"
+                                            disabled="@(bankBusy || string.IsNullOrWhiteSpace(bankPin))">
+                                        @(fetchingStatement
+                                            ? "Umsätze werden geholt …" : "Umsätze holen")
                                     </button>
                                     <button type="button" class="btn btn-secondary"
                                             @onclick="CloseBankCheck" disabled="@bankBusy">
@@ -617,6 +629,16 @@ else if (sheetTransaction is { } sheet)
     private string? bankError;
 
     /// <summary>
+    /// Ob gerade der Umsatzabruf läuft und nicht die Saldenabfrage.
+    /// </summary>
+    /// <remarks>
+    /// <c>bankBusy</c> sperrt beide Schaltflächen; dieses Feld entscheidet nur, an welcher
+    /// von beiden „…“ steht. Ohne es stünde beim Umsatzabruf „Bank wird gefragt …“ an der
+    /// Saldo-Schaltfläche — die falsche Auskunft darüber, was gerade passiert.
+    /// </remarks>
+    private bool fetchingStatement;
+
+    /// <summary>
     /// Öffnet den Abruf und fragt zuerst, ob er überhaupt geht.
     /// </summary>
     /// <remarks>
@@ -699,6 +721,67 @@ else if (sheetTransaction is { } sheet)
         finally
         {
             bankPin = string.Empty;
+            bankBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// Holt die Umsätze und übergibt sie der Importvorschau.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Abruf bucht nichts. Er endet in derselben Vorschau wie eine hochgeladene
+    /// Datei: Was die Anwendung schon kennt, steht dort abgewählt und mit Begründung, das Neue
+    /// angehakt. Gebucht wird auf der Importseite, mit einem Klick auf Übernehmen.</para>
+    /// <para>Daher der Seitenwechsel, statt hier eine zweite Liste aufzubauen: Eine Vorschau
+    /// kann dreihundert Sätze lang sein und braucht Kategorien, Empfängergruppen und die Wahl
+    /// je Zeile. Das ist die Importseite — und sie nimmt einen begonnenen Entwurf von selbst
+    /// auf. Der Abruf legt ihn nur hin.</para>
+    /// </remarks>
+    private async Task RunStatementFetch()
+    {
+        if (bankAccountId is not { } id || string.IsNullOrWhiteSpace(bankPin))
+        {
+            return;
+        }
+
+        bankBusy = true;
+        fetchingStatement = true;
+        bankError = null;
+
+        try
+        {
+            var vorschau = await Api.FetchBankStatementAsync(id, bankPin);
+
+            // Ein leerer Auszug ist kein Fehler, aber auch kein Grund zum Seitenwechsel: Die
+            // Importseite zeigte eine leere Liste, und warum sie leer ist, stünde nirgends.
+            if (vorschau.RecordCount == 0)
+            {
+                Toasts.Show("Die Bank hat für den Zeitraum keine Umsätze gemeldet.");
+                return;
+            }
+
+            Draft.Start(vorschau);
+
+            // Das Konto ist hier bekannt und kein Vorschlag: Genau dieses wurde gefragt.
+            Draft.AccountId = id;
+
+            // Eine Teilaussage, keine Zerlegung. „Davon neu“ ist die Zahl, nach der gefragt
+            // wird; mögliche Duplikate und unlesbare Sätze stehen auf der Importseite, wo auch
+            // das Kriterium dazu steht.
+            Toasts.Show($"{vorschau.RecordCount} "
+                        + $"{(vorschau.RecordCount == 1 ? "Umsatz" : "Umsätze")} geholt, "
+                        + $"davon {vorschau.NewCount} neu.");
+
+            Navigation.NavigateTo("/import");
+        }
+        catch (ApiException ex)
+        {
+            bankError = ex.Message;
+        }
+        finally
+        {
+            bankPin = string.Empty;
+            fetchingStatement = false;
             bankBusy = false;
         }
     }

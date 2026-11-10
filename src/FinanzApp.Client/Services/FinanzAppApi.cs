@@ -110,6 +110,24 @@ public sealed class FinanzAppApi(HttpClient http)
         => PostAsync<BalanceCheckRequest, BankBalanceDto>(
             $"api/accounts/{id}/kontostand", new BalanceCheckRequest { Pin = pin }, ct);
 
+    /// <summary>
+    /// Holt die Umsätze bei der Bank und legt die Vorschau bereit.
+    /// </summary>
+    /// <remarks>
+    /// <para>Gebucht wird nichts: Zurück kommt dieselbe Vorschau wie bei einer hochgeladenen
+    /// Auszugsdatei — neue Sätze angehakt, erkannte Doppelte abgewählt. Die Übernahme ist der
+    /// nächste, eigene Schritt.</para>
+    /// <para>Ohne Zeitraum fragt der Abruf die letzten neunzig Tage. Das dauert länger als der
+    /// Saldo: ein Dialog mit Anmeldung und ein Auszug obendrein.</para>
+    /// </remarks>
+    public Task<ImportPreviewDto> FetchBankStatementAsync(
+        int id, string pin, DateOnly? from = null, DateOnly? to = null,
+        CancellationToken ct = default)
+        => PostAsync<StatementFetchRequest, ImportPreviewDto>(
+            $"api/accounts/{id}/umsaetze",
+            new StatementFetchRequest { Pin = pin, From = from, To = to },
+            ct);
+
     /// <summary>Ändert die Freigabe eines Kontos. Nur der Eigentümer darf das.</summary>
     public Task<AccountDto> SetAccountSharingAsync(
         int id, AccountSharing sharing, IReadOnlyList<int> userIds, CancellationToken ct = default)

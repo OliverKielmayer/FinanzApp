@@ -64,6 +64,22 @@ public sealed class ImportService(
         Stream content, string fileName, CancellationToken ct = default)
         => ReadCoreAsync(content, fileName, documentId: null, ct);
 
+    /// <summary>
+    /// Legt die Vorschau für einen Auszug bereit, der nicht aus einer Datei stammt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Weg für den Bankabruf. Was die Bank schickt, ist camt wie jede Auszugsdatei und
+    /// geht durch denselben Leser — hier kommt es schon gelesen an, und von da ab unterscheidet
+    /// sich nichts: dieselbe Duplikatprüfung, dieselbe Vorschau, dieselbe Übernahme.</para>
+    /// <para><b>Darum ist der Abruf so klein.</b> Die Frage „welche Buchungen habe ich schon?“
+    /// war beantwortet, bevor es ihn gab; es fehlte allein eine Quelle. Hätte der Abruf eine
+    /// eigene Prüfung bekommen, gäbe es zwei Antworten auf dieselbe Frage — und die zweite wäre
+    /// die schlechtere, weil die Referenzen der Bibliothek andere sind als die des Lesers.</para>
+    /// </remarks>
+    public Task<ImportPreviewDto> ReadStatementAsync(
+        ParsedStatement statement, CancellationToken ct = default)
+        => PrepareAsync(statement, documentId: null, ct);
+
     private async Task<ImportPreviewDto> ReadCoreAsync(
         Stream content, string fileName, int? documentId, CancellationToken ct)
     {
@@ -74,6 +90,21 @@ public sealed class ImportService(
             ? await new ZipStatementReader(parser).ReadAsync(content, fileName, ct)
             : await ReadSingleAsync(content, fileName, ct);
 
+        return await PrepareAsync(statement, documentId, ct);
+    }
+
+    /// <summary>
+    /// Aus einem gelesenen Auszug wird ein Stapel mit Vorschau.
+    /// </summary>
+    /// <remarks>
+    /// Eine Stelle für alle Herkünfte — hochgeladene Datei, abgelegter Beleg, Bankabruf. Der
+    /// Stapel liegt im Arbeitsspeicher und nicht beim Aufrufer: Käme er zurückgereicht,
+    /// entschiede dieser über Beträge und Referenzen, und die Duplikatprüfung liefe gegen
+    /// Daten, die sie selbst nicht gelesen hat.
+    /// </remarks>
+    private async Task<ImportPreviewDto> PrepareAsync(
+        ParsedStatement statement, int? documentId, CancellationToken ct)
+    {
         var batch = new Batch(
             Id: Guid.NewGuid(),
             FileName: statement.FileName,

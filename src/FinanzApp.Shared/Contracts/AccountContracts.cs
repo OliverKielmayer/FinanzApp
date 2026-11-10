@@ -122,3 +122,25 @@ public sealed record BalanceCheckRequest
 {
     public required string Pin { get; init; }
 }
+
+/// <summary>
+/// Was der Umsatzabruf braucht: die PIN und wahlweise einen Zeitraum.
+/// </summary>
+/// <remarks>
+/// <para>Der Zeitraum ist freiwillig. Ohne ihn fragt der Abruf die letzten neunzig Tage ab —
+/// weiter geben die meisten Banken ohnehin nicht her, und was doppelt kommt, erkennt die
+/// Duplikatprüfung.</para>
+/// <para>Eine eigene Anfrage und nicht dieselbe wie beim Saldo: Der Saldo kennt keinen
+/// Zeitraum, und ein gemeinsames Feld, das bei der einen Hälfte der Aufrufe leer bleibt, sagt
+/// niemandem mehr, wozu es da ist.</para>
+/// </remarks>
+public sealed record StatementFetchRequest
+{
+    public required string Pin { get; init; }
+
+    /// <summary>Erster Tag des Zeitraums. Leer heißt: neunzig Tage zurück.</summary>
+    public DateOnly? From { get; init; }
+
+    /// <summary>Letzter Tag des Zeitraums. Leer heißt: heute.</summary>
+    public DateOnly? To { get; init; }
+}
