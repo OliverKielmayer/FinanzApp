@@ -89,7 +89,7 @@ public sealed class FinTsBalanceSource(
         FinTsGlobals.ProductId = options.ProductId;
         FinTsGlobals.Version = options.ProductVersion;
 
-        var verbindung = Verbindung(account, pin);
+        var verbindung = FinTsDialog.Verbindung(account, pin);
 
         // Das Protokoll der Bibliothek läuft durch das der Anwendung. Ob etwas davon ankommt,
         // entscheidet allein die Stufe für den Bereich „libfintx“ in appsettings.json — normal
@@ -115,7 +115,7 @@ public sealed class FinTsBalanceSource(
         var anmeldung = await kunde.Synchronization();
         if (!anmeldung.IsSuccess)
         {
-            throw new BankAccessException(Meldung(anmeldung.Messages, "Die Anmeldung"));
+            throw new BankAccessException(FinTsDialog.Meldung(anmeldung.Messages, "Die Anmeldung"));
         }
 
         log.LogInformation(
@@ -125,15 +125,15 @@ public sealed class FinTsBalanceSource(
             string.IsNullOrEmpty(kunde.HIRMS) ? "keines" : kunde.HIRMS,
             kunde.HITANS,
             account.FinTsTanMethod,
-            Alles(anmeldung.Messages));
+            FinTsDialog.Alles(anmeldung.Messages));
 
         // Das TAN-Verfahren muss die Bibliothek wissen, bevor sie fragt — sonst wählt sie eines
         // aus der Liste der Bank, und das muss nicht das sein, das freigeschaltet ist.
         kunde.HIRMS = account.FinTsTanMethod!.Value.ToString();
 
-        await TanMediumAsync(kunde, account);
+        await FinTsDialog.TanMediumAsync(kunde, account.Id, log);
 
-        var ergebnis = await kunde.Balance(new TANDialog(OhneTan));
+        var ergebnis = await kunde.Balance(new TANDialog(FinTsDialog.OhneTan));
 
         log.LogInformation(
             "Konto {Konto} hat gefragt mit Verfahren {Verfahren}, Segmentversion {Version}, "
@@ -142,58 +142,17 @@ public sealed class FinTsBalanceSource(
             kunde.HIRMS,
             kunde.HITANS,
             string.IsNullOrEmpty(kunde.HITAB) ? "keines" : kunde.HITAB,
-            Alles(ergebnis.Messages));
+            FinTsDialog.Alles(ergebnis.Messages));
 
         if (!ergebnis.IsSuccess || ergebnis.Data is null)
         {
-            throw new BankAccessException(Meldung(ergebnis.Messages, "Der Abruf"));
+            throw new BankAccessException(FinTsDialog.Meldung(ergebnis.Messages, "Der Abruf"));
         }
 
         return new BankBalanceReading(ergebnis.Data.Balance, clock.Now);
     }
 
     /// <summary>
-    /// Was die Bibliothek der Bank über Konto und Zugang sagt.
-    /// </summary>
-    /// <remarks>
-    /// Alles daraus steht am Konto; nichts wird erfunden. Die Kontonummer ist die eine
-    /// Ausnahme, und auch sie wird nicht geraten, sondern aus der deutschen IBAN gelesen, in der
-    /// sie wörtlich enthalten ist.
-    /// </remarks>
-    private static ConnectionDetails Verbindung(Account account, string pin) => new()
-    {
-        Blz = int.Parse(account.Blz!),
-        Url = account.FinTsUrl,
-        UserId = account.FinTsUserId,
-        Pin = pin,
-        Iban = account.Iban,
-
-        // Die Bankleitzahl spricht die Bank an, die BIC gehört zum Konto: Eine Saldenabfrage
-        // nach FinTS 3.0 benennt es als Kontoverbindung international, und das ist IBAN und
-        // BIC. Fehlt sie, sendet die Bibliothek „DE…:“ mit leerem zweiten Feld, und die Bank
-        // antwortet mit einem fehlenden Mussfeld — ohne zu sagen, welchem.
-        Bic = account.Bic,
-        Account = KontonummerAusIban(account.Iban),
-        FinTSVersion = FinTsVersion.v300,
-    };
-
-    /// <summary>
-    /// Die Kontonummer aus einer deutschen IBAN.
-    /// </summary>
-    /// <remarks>
-    /// Eine deutsche IBAN ist aufgebaut aus DE, zwei Prüfziffern, acht Stellen Bankleitzahl und
-    /// zehn Stellen Kontonummer — die Nummer steht also wörtlich darin und wird nicht abgeleitet.
-    /// Bei jeder anderen IBAN gilt das nicht, und dann bleibt das Feld leer: Die Bank findet das
-    /// Konto auch über die IBAN selbst.
-    /// </remarks>
-    private static string? KontonummerAusIban(string? iban)
-    {
-        var sauber = iban?.Replace(" ", "");
-        return sauber is { Length: 22 } && sauber.StartsWith("DE", StringComparison.Ordinal)
-            ? sauber[12..].TrimStart('0')
-            : null;
-    }
-
     /// <summary>
     /// Was die Bank gesagt hat, in einem Satz.
     /// </summary>
@@ -202,105 +161,4 @@ public sealed class FinTsBalanceSource(
     /// gesperrt“ schon. Nur Fehler und Warnungen — die Hinweise der Bank sind Begrüssungen und
     /// Werbung und stünden hier im Weg.
     /// </remarks>
-    /// <summary>
-    /// Fragt die Bank, welches TAN-Medium der Benutzer hat, und trägt es ein.
-    /// </summary>
-    /// <remarks>
-    /// <para><b>Der Schritt, den wir übersehen hatten.</b> Im Beispiel des README steht
-    /// zwischen dem Setzen des Verfahrens und der Abfrage ein <c>InitTANMedium</c>. Was es tut,
-    /// zeigt der README nicht — die Bibliothek bietet dafür <c>RequestTANMediumName</c> und das
-    /// Feld <c>HITAB</c>. Bei TAN-Verfahren, die ein Medium kennen, geht dessen Bezeichnung in
-    /// das Segment ein, mit dem gefragt wird.</para>
-    /// <para><b>Es darf scheitern.</b> Nicht jede Bank und nicht jedes Verfahren kennt ein
-    /// Medium; dann kommt nichts zurück, und der Abruf geht ohne weiter — so wie bisher. Ein
-    /// fehlgeschlagener Nebenschritt darf den Hauptweg nicht mitreißen.</para>
-    /// <para><b>Nur bei genau einem Medium.</b> Kommen mehrere, wäre die Wahl eine Frage an den
-    /// Benutzer und keine, die hier zu treffen ist. Dann bleibt das Feld leer und das Protokoll
-    /// sagt, was zur Wahl stand.</para>
-    /// </remarks>
-    private async Task TanMediumAsync(FinTsClient kunde, Account account)
-    {
-        try
-        {
-            var medien = await kunde.RequestTANMediumName();
-
-            if (!medien.IsSuccess || medien.Data is not { Count: > 0 } namen)
-            {
-                log.LogInformation(
-                    "Konto {Konto}: Die Bank nennt kein TAN-Medium. {Bank}",
-                    account.Id, Alles(medien.Messages));
-                return;
-            }
-
-            if (namen.Count > 1)
-            {
-                log.LogInformation(
-                    "Konto {Konto}: Die Bank nennt {Anzahl} TAN-Medien. Welches gemeint ist, "
-                        + "kann hier niemand entscheiden; das Feld bleibt leer.",
-                    account.Id, namen.Count);
-                return;
-            }
-
-            kunde.HITAB = namen[0];
-
-            log.LogInformation(
-                "Konto {Konto}: TAN-Medium von der Bank übernommen.", account.Id);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            // Der Nebenschritt reißt den Abruf nicht mit. Ohne Medium ging es bisher auch —
-            // nur eben vielleicht nicht bei dieser Bank, und das zeigt erst der Abruf.
-            log.LogWarning(
-                "Konto {Konto}: Das TAN-Medium ließ sich nicht holen ({Art}). Der Abruf läuft "
-                    + "ohne weiter.",
-                account.Id, ex.GetType().Name);
-        }
-    }
-
-    /// <summary>
-    /// Alle Rückmeldungen der Bank, auch die, die kein Fehler sind.
-    /// </summary>
-    /// <remarks>
-    /// <para>Für die Fehlersuche, nicht für den Bildschirm: Gerade die Hinweise tragen, was
-    /// weiterhilft — die Liste der zugelassenen TAN-Verfahren etwa kommt als Hinweis und nicht
-    /// als Fehler. <see cref="Meldung"/> wirft sie weg, und das ist dort richtig.</para>
-    /// <para>Diese Texte stammen von der Bank und nicht aus dem Nachrichtenstrom: Codes und
-    /// Sätze, die sie selbst formuliert hat. Eine PIN steht darin nicht.</para>
-    /// </remarks>
-    private static string Alles(IEnumerable<HBCIBankMessage> meldungen)
-    {
-        var alle = meldungen.Select(m => $"{m.Code} {m.Message}".Trim()).ToList();
-
-        return alle.Count > 0 ? string.Join("; ", alle) : "nichts";
-    }
-
-    private static string Meldung(IEnumerable<HBCIBankMessage> meldungen, string was)
-    {
-        var wichtig = meldungen
-            .Where(m => m.IsError || m.IsWarning)
-            .Select(m => $"{m.Code} {m.Message}".Trim())
-            .ToList();
-
-        return wichtig.Count > 0
-            ? $"{was} bei der Bank ist fehlgeschlagen: {string.Join("; ", wichtig)}"
-            : $"{was} bei der Bank ist fehlgeschlagen, ohne dass sie einen Grund genannt hat.";
-    }
-
-    /// <summary>
-    /// Wenn die Bank eine TAN verlangt.
-    /// </summary>
-    /// <remarks>
-    /// <para>Dann endet der Abruf hier. Eine TAN einzugeben hiesse, den Benutzer mitten im
-    /// Dialog zu fragen und die Verbindung so lange offen zu halten — das ist zu bauen, aber es
-    /// ist nicht dieser Schritt.</para>
-    /// <para>Der Saldo ist meist ohne TAN zu haben: Er ändert nichts, und die meisten Banken
-    /// verlangen eine Freigabe nur alle 90 Tage. Wer hier landet, muss sich einmal im
-    /// Online-Banking anmelden; danach geht es wieder.</para>
-    /// </remarks>
-    private static Task<string> OhneTan(TANDialog dialog)
-        => throw new BankAccessException(
-            "Die Bank verlangt für diesen Abruf eine TAN. Die Anwendung kann keine TAN "
-            + "entgegennehmen — sie fragt nur nach dem Stand und ändert nichts. Melden Sie sich "
-            + "einmal im Online-Banking an; danach lässt die Bank den Abruf in der Regel wieder "
-            + "ohne TAN zu.");
 }
