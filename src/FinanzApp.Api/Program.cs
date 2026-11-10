@@ -242,6 +242,10 @@ builder.Services.AddScoped<BankBalanceService>();
 builder.Services.AddSingleton<IBankStatementSource, FinTsStatementSource>();
 builder.Services.AddScoped<BankStatementService>();
 
+// Der Abgleich zwischen gerechnetem und tatsächlichem Stand. Kein Bankdienst: Er schreibt nur,
+// was ihm gesagt wird, und das kann genauso gut von Hand kommen.
+builder.Services.AddScoped<BalanceCheckpointService>();
+
 // Hier stand ein fester Filter, der das Protokoll der FinTS-Bibliothek unterhalb von
 // „Warnung“ abschnitt — mit der Begründung, in ihrem Nachrichtenstrom stehe die PIN.
 //

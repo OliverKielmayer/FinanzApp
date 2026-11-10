@@ -46,7 +46,7 @@ public sealed class HoldingsTests : IDisposable
             new PdfPigTextReader(), NullLogger<DocumentService>.Instance);
 
         return new HoldingsService(
-            context, dashboard, new VehicleService(context, documents, clock), TestDatabase.Portfolio(context), clock);
+            context, dashboard, new VehicleService(context, documents, clock), TestDatabase.Portfolio(context), new AccountService(context), clock);
     }
 
     private void Arbeitsverhaeltnis(string arbeitgeber, decimal brutto, DateOnly? ende = null)
@@ -368,5 +368,67 @@ public sealed class HoldingsTests : IDisposable
         {
             Directory.Delete(root, recursive: true);
         }
+    }
+
+    /// <summary>
+    /// Die Bestandsseite nennt denselben Saldo wie der Kontodienst.
+    /// </summary>
+    /// <remarks>
+    /// Sie rechnete ihn früher selbst aus Anfangsbestand und Buchungen zusammen. Seit es
+    /// Kontrollpunkte gibt, wäre das eine zweite Wahrheit — bemerkt hätte man es an zwei
+    /// Bildschirmen mit verschiedenen Zahlen. Dieselbe Falle ist im Depot eine Zeile tiefer
+    /// schon einmal zugeschnappt.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_Kontrollpunkt_wirkt_auch_auf_der_Bestandsseite()
+    {
+        int kontoId;
+
+        using (var context = database.Context())
+        {
+            var konto = new Account
+            {
+                Name = "Abgleichkonto",
+                ShortName = "Abgleich",
+                BankName = "Musterbank",
+                Kind = AccountKind.Checking,
+                OpeningBalance = 100m,
+                BalanceAsOf = new DateOnly(2026, 1, 1),
+            };
+
+            context.Accounts.Add(konto);
+            context.SaveChanges();
+            kontoId = konto.Id;
+
+            context.Transactions.Add(new Transaction
+            {
+                AccountId = kontoId,
+                BookingDate = new DateOnly(2026, 3, 1),
+                Payee = "Prüfung",
+                Amount = -30m,
+                Kind = TransactionKind.Expense,
+                CreatedAt = clock.Now,
+            });
+
+            context.SaveChanges();
+        }
+
+        // Gerechnet wären 70; festgestellt sind 55.
+        using (var context = database.Context())
+        {
+            await new BalanceCheckpointService(context, new AccountService(context), clock)
+                .AddAsync(kontoId, new BalanceCheckpointRequest
+                {
+                    AsOf = new DateOnly(2026, 6, 30),
+                    Balance = 55m,
+                });
+        }
+
+        using var pruefkontext = database.Context();
+        var erwartet = (await new AccountService(pruefkontext).GetBalancesAsync())[kontoId];
+        var zeilen = await Service().GetAsync(HoldingClass.Accounts);
+
+        Assert.Equal(55m, erwartet);
+        Assert.Equal(erwartet, zeilen.Rows.Single(r => r.Name == "Abgleichkonto").Value);
     }
 }

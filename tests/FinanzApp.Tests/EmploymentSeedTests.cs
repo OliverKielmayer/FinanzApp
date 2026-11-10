@@ -135,6 +135,7 @@ public sealed class EmploymentSeedTests : IDisposable
                 new ParticipationService(context, TestDatabase.SignedIn(null))),
             new VehicleService(context, dokumente, uhr),
             TestDatabase.Portfolio(context),
+            new AccountService(context),
             uhr);
 
         Assert.Equal(bereich, (await bestand.GetAsync(HoldingClass.Work)).Head.Value);

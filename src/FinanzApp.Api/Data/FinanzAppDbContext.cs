@@ -37,6 +37,7 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
 
     public DbSet<Account> Accounts => Set<Account>();
     public DbSet<AccountShare> AccountShares => Set<AccountShare>();
+    public DbSet<BalanceCheckpoint> BalanceCheckpoints => Set<BalanceCheckpoint>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<CategorizationRule> CategorizationRules => Set<CategorizationRule>();
@@ -165,6 +166,17 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
                      || t.Account.Sharing == AccountSharing.Shared)
                     && t.Account.Shares.Any(s => s.UserId == CurrentUserId))));
 
+        // Ein Kontrollpunkt ist eine Aussage über ein Konto und erbt dessen Sichtbarkeit.
+        // Ausgeschrieben und nicht über die Navigation erschlossen — aus demselben Grund wie
+        // bei den Buchungen: Was EF von allein mitzieht, ist keine Zusicherung.
+        b.Entity<BalanceCheckpoint>().HasQueryFilter(k =>
+            k.HouseholdId == CurrentHouseholdId
+            && (k.Account!.OwnerUserId == CurrentUserId
+                || k.Account.Sharing == AccountSharing.Household
+                || ((k.Account.Sharing == AccountSharing.Named
+                     || k.Account.Sharing == AccountSharing.Shared)
+                    && k.Account.Shares.Any(s => s.UserId == CurrentUserId))));
+
         // Ein Dokument gehört dem Haushalt, solange niemand es auf „nur ich“ gestellt hat.
         // Danach ist es eigentümerrelativ wie ein privates Konto — und darf aus demselben Grund
         // nie global ausgewertet werden.
@@ -247,6 +259,21 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
             e.Property(x => x.OpeningBalance).HasConversion(MoneyConverter);
             e.Property(x => x.InterestYearToDate).HasConversion(NullableMoneyConverter);
             e.HasIndex(x => x.HouseholdId);
+        });
+
+        b.Entity<BalanceCheckpoint>(e =>
+        {
+            e.Property(x => x.Balance).HasConversion(MoneyConverter);
+            e.Property(x => x.LedgerBalance).HasConversion(MoneyConverter);
+            e.Property(x => x.Note).HasMaxLength(300);
+
+            // Verschwindet das Konto, verschwinden seine Kontrollpunkte: Ein festgestellter
+            // Stand ohne das Konto, zu dem er gehört, ist keine Aussage mehr.
+            e.HasOne(x => x.Account).WithMany()
+                .HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
+
+            // Gesucht wird immer dasselbe: der jüngste Punkt je Konto.
+            e.HasIndex(x => new { x.AccountId, x.AsOf });
         });
 
         b.Entity<Category>(e =>

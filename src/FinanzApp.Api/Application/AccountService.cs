@@ -89,24 +89,96 @@ public sealed class AccountService(FinanzAppDbContext db)
         return (await GetAccountsAsync(ct)).Single(a => a.Id == id);
     }
 
-    /// <summary>Saldo je Konto-Id.</summary>
+    /// <summary>
+    /// Saldo je Konto-Id.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Die eine Stelle, an der ein Kontostand entsteht.</b> Wer ihn anderswo noch
+    /// einmal zusammenrechnet, bekommt irgendwann eine zweite Wahrheit — und bemerkt es an zwei
+    /// Seiten, die verschiedene Zahlen zeigen.</para>
+    /// <para>Ohne Kontrollpunkt gilt die alte Rechnung: Anfangsbestand plus alle Buchungen. Mit
+    /// Kontrollpunkt setzt sie dort neu auf — der festgestellte Stand plus alles, was
+    /// <em>danach</em> gebucht wurde. Buchungen vom Stichtag selbst stecken schon in der Zahl
+    /// der Bank; sie noch einmal zu addieren, zählte sie doppelt.</para>
+    /// <para>Eine Lücke vor dem Stichtag verschwindet damit aus dem heutigen Saldo, aber nicht
+    /// aus der Welt: Sie steht als Differenz am Kontrollpunkt. Die Historie bleibt schief, und
+    /// das ist richtig so — schief war sie vorher auch, nur unsichtbar.</para>
+    /// </remarks>
     public async Task<Dictionary<int, decimal>> GetBalancesAsync(CancellationToken ct = default)
     {
         var opening = await db.Accounts.AsNoTracking()
             .Select(a => new { a.Id, a.OpeningBalance })
             .ToListAsync(ct);
 
+        // Der jüngste Punkt je Konto. Bei zwei Punkten auf denselben Stichtag gilt der zuletzt
+        // angelegte: Wer denselben Tag noch einmal einträgt, korrigiert sich.
+        var anker = (await db.BalanceCheckpoints.AsNoTracking()
+                .Select(k => new { k.Id, k.AccountId, k.AsOf, k.Balance })
+                .ToListAsync(ct))
+            .GroupBy(k => k.AccountId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(k => k.AsOf).ThenByDescending(k => k.Id).First());
+
         var booked = await db.Transactions.AsNoTracking()
-            .Select(t => new { t.AccountId, t.Amount })
+            .Select(t => new { t.AccountId, t.Amount, t.BookingDate })
             .ToListAsync(ct);
 
         var sums = booked
             .GroupBy(t => t.AccountId)
-            .ToDictionary(g => g.Key, g => g.Sum(t => t.Amount));
+            .ToDictionary(
+                g => g.Key,
+                g => anker.TryGetValue(g.Key, out var punkt)
+                    ? g.Where(t => t.BookingDate > punkt.AsOf).Sum(t => t.Amount)
+                    : g.Sum(t => t.Amount));
 
         return opening.ToDictionary(
             a => a.Id,
-            a => a.OpeningBalance + (sums.TryGetValue(a.Id, out var s) ? s : 0m));
+            a => (anker.TryGetValue(a.Id, out var punkt) ? punkt.Balance : a.OpeningBalance)
+                 + (sums.TryGetValue(a.Id, out var s) ? s : 0m));
+    }
+
+    /// <summary>
+    /// Was die Anwendung für einen bestimmten Stichtag rechnet.
+    /// </summary>
+    /// <remarks>
+    /// <para>Für den Abgleich: Ein Kontrollpunkt vergleicht den festgestellten Stand mit dem
+    /// gerechneten <em>desselben Tages</em>. Den heutigen danebenzustellen wäre ein Vergleich
+    /// zweier verschiedener Zeitpunkte — und die Differenz daraus beschriebe nichts.</para>
+    /// <para>Dieselbe Regel wie in <see cref="GetBalancesAsync"/>, nur auf einen Tag begrenzt:
+    /// Grundlage ist der letzte Kontrollpunkt, der nicht nach dem Stichtag liegt, sonst der
+    /// Anfangsbestand.</para>
+    /// </remarks>
+    public async Task<decimal> GetBalanceAtAsync(
+        int accountId, DateOnly asOf, CancellationToken ct = default)
+    {
+        var account = await db.Accounts.AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Id == accountId, ct);
+
+        if (account is null)
+        {
+            return 0m;
+        }
+
+        var punkt = await db.BalanceCheckpoints.AsNoTracking()
+            .Where(k => k.AccountId == accountId && k.AsOf <= asOf)
+            .OrderByDescending(k => k.AsOf)
+            .ThenByDescending(k => k.Id)
+            .FirstOrDefaultAsync(ct);
+
+        var gebucht = db.Transactions.AsNoTracking()
+            .Where(t => t.AccountId == accountId && t.BookingDate <= asOf);
+
+        if (punkt is not null)
+        {
+            gebucht = gebucht.Where(t => t.BookingDate > punkt.AsOf);
+        }
+
+        // SumAsync auf einer leeren Menge wirft bei decimal nicht, es kommt 0 zurück — anders
+        // als bei MinAsync. Deshalb genügt hier der eine Aufruf.
+        var summe = await gebucht.SumAsync(t => t.Amount, ct);
+
+        return (punkt?.Balance ?? account.OpeningBalance) + summe;
     }
 
     /// <summary>Bestand je Kontoart in einem Durchgang — das Dashboard braucht beide Summen.</summary>

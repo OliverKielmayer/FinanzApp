@@ -160,6 +160,62 @@ public class AccountShare : IHouseholdOwned
     public int? DueDay { get; set; }
 }
 
+/// <summary>
+/// Ein festgestellter Kontostand zu einem Stichtag.
+/// </summary>
+/// <remarks>
+/// <para><b>Warum es das gibt.</b> Der Saldo ergibt sich aus Anfangsbestand plus allen
+/// Buchungen. Fehlt irgendwo in der Mitte ein Monat, schleppt sich die Lücke bis heute durch,
+/// und der angezeigte Stand stimmt nie wieder. Ein Kontrollpunkt setzt die Rechnung auf einem
+/// bekannten Wert neu auf: Ab hier gilt diese Zahl, und was danach gebucht wurde, kommt
+/// darauf.</para>
+/// <para><b>Was er ausdrücklich nicht tut: den Anfangsbestand ändern.</b> Der bleibt, was er
+/// war. Die Differenz verschwindet dadurch nicht, sie bekommt nur ein Datum — und steht in
+/// <see cref="LedgerBalance"/> für immer daneben. Hätte man sie auf den Anfangsbestand addiert,
+/// wäre sie spurlos weg, und käme der fehlende Monat später doch noch, stünde der Fehler
+/// zweimal drin.</para>
+/// <para>Mehrere je Konto sind der Normalfall, nicht die Ausnahme: Jeder Abgleich legt einen
+/// neuen an. Gerechnet wird mit dem jüngsten.</para>
+/// </remarks>
+public class BalanceCheckpoint : IHouseholdOwned
+{
+    public int Id { get; set; }
+    public int HouseholdId { get; set; }
+
+    public int AccountId { get; set; }
+    public Account? Account { get; set; }
+
+    /// <summary>
+    /// Der Stichtag, zu dem der Stand gilt.
+    /// </summary>
+    /// <remarks>
+    /// Buchungen <em>nach</em> diesem Tag kommen oben darauf; Buchungen an diesem Tag und davor
+    /// stecken bereits darin. Deshalb ist der Stichtag die eigentliche Angabe und der Betrag
+    /// nur die halbe Auskunft: Ein Kontostand ohne Datum sagt nichts.
+    /// </remarks>
+    public DateOnly AsOf { get; set; }
+
+    /// <summary>Was zum Stichtag tatsächlich auf dem Konto war.</summary>
+    public decimal Balance { get; set; }
+
+    /// <summary>
+    /// Was die Anwendung beim Anlegen dieses Punktes gerechnet hatte.
+    /// </summary>
+    /// <remarks>
+    /// Festgehalten und nicht neu berechnet: Es ist eine Aussage über den damaligen Zustand.
+    /// Kommen später Buchungen nach, ändert sich die heutige Rechnung — dieser Wert nicht, und
+    /// genau das macht ihn als Beleg brauchbar.
+    /// </remarks>
+    public decimal LedgerBalance { get; set; }
+
+    public BalanceCheckpointSource Source { get; set; }
+
+    /// <summary>Freier Vermerk, etwa woher die Zahl stammt. Darf leer bleiben.</summary>
+    public string? Note { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+}
+
 public class Category : IHouseholdOwned
 {
     public int Id { get; set; }

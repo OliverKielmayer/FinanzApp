@@ -35,6 +35,26 @@ public enum CategoryDirection
 /// „Nur ich“ ist eigentümerrelativ und darf nie global ausgewertet werden: die Sichtbarkeit
 /// entscheidet sich immer am angemeldeten Benutzer.
 /// </remarks>
+/// <summary>
+/// Woher ein Kontrollpunkt stammt.
+/// </summary>
+/// <remarks>
+/// Steht dabei, weil es den Wert unterschiedlich belastbar macht: Was die Bank gemeldet hat,
+/// ist eine Auskunft; was jemand abgetippt hat, ist eine Behauptung. Beides darf den Saldo
+/// setzen, aber wer später auf eine Abweichung stößt, soll sehen, woran er ist.
+/// </remarks>
+public enum BalanceCheckpointSource
+{
+    /// <summary>Von Hand eingetragen — für Konten ohne Abruf und wenn der Abruf nicht geht.</summary>
+    Manual = 0,
+
+    /// <summary>Aus der Saldenabfrage bei der Bank.</summary>
+    BankFetch = 1,
+
+    /// <summary>Aus dem Schlusssaldo eines eingelesenen Kontoauszugs.</summary>
+    Statement = 2,
+}
+
 public enum AccountSharing
 {
     /// <summary>Alle Mitglieder des Haushalts.</summary>

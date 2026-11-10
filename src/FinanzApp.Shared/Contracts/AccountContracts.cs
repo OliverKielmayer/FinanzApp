@@ -144,3 +144,63 @@ public sealed record StatementFetchRequest
     /// <summary>Letzter Tag des Zeitraums. Leer heißt: heute.</summary>
     public DateOnly? To { get; init; }
 }
+
+/// <summary>
+/// Ein festgestellter Kontostand zu einem Stichtag.
+/// </summary>
+/// <remarks>
+/// Beide Zahlen stehen nebeneinander, die der Bank und die der Anwendung. Die Differenz ist
+/// nicht der Fehler, sondern der Befund: Sie beziffert, wie viel an Buchungen bis zu diesem Tag
+/// fehlte oder zu viel dastand.
+/// </remarks>
+public sealed record BalanceCheckpointDto
+{
+    public required int Id { get; init; }
+    public required int AccountId { get; init; }
+
+    /// <summary>Der Tag, zu dem der Stand gilt.</summary>
+    public required DateOnly AsOf { get; init; }
+
+    /// <summary>Was tatsächlich auf dem Konto war.</summary>
+    public required decimal Balance { get; init; }
+
+    /// <summary>Was die Anwendung zu diesem Stichtag gerechnet hatte.</summary>
+    public required decimal LedgerBalance { get; init; }
+
+    public required BalanceCheckpointSource Source { get; init; }
+
+    public string? Note { get; init; }
+
+    public required DateTime CreatedAt { get; init; }
+
+    /// <summary>Festgestellt minus gerechnet. Positiv heißt: es fehlten Eingänge.</summary>
+    public decimal Difference => Balance - LedgerBalance;
+
+    /// <summary>Ob beide Zahlen schon dasselbe sagten — dann war nichts auszugleichen.</summary>
+    public bool WasAligned => Difference == 0m;
+}
+
+/// <summary>
+/// Was ein neuer Kontrollpunkt braucht.
+/// </summary>
+/// <remarks>
+/// Der Stichtag ist Pflicht und nicht vorbelegt: Ein Kontostand ohne Datum ist keine halbe
+/// Auskunft, sondern gar keine. Wer den Stand von Hand abliest, liest ihn zu einem Tag ab.
+/// </remarks>
+public sealed record BalanceCheckpointRequest
+{
+    public required DateOnly AsOf { get; init; }
+
+    public required decimal Balance { get; init; }
+
+    /// <summary>
+    /// Woher die Zahl stammt.
+    /// </summary>
+    /// <remarks>
+    /// Vorbelegt mit „von Hand“, weil das der Weg ist, den ein Mensch nimmt. Die Oberfläche
+    /// setzt ihn auf <c>BankFetch</c>, wenn der Wert aus einer Saldenabfrage übernommen wird.
+    /// </remarks>
+    public BalanceCheckpointSource Source { get; init; } = BalanceCheckpointSource.Manual;
+
+    public string? Note { get; init; }
+}

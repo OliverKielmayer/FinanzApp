@@ -124,6 +124,44 @@ namespace FinanzApp.Api.Data.Migrations
                     b.ToTable("AccountShares");
                 });
 
+            modelBuilder.Entity("FinanzApp.Api.Data.Entities.BalanceCheckpoint", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateOnly>("AsOf")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("Balance")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("HouseholdId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("LedgerBalance")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId", "AsOf");
+
+                    b.ToTable("BalanceCheckpoints");
+                });
+
             modelBuilder.Entity("FinanzApp.Api.Data.Entities.Budget", b =>
                 {
                     b.Property<int>("Id")
@@ -2031,6 +2069,17 @@ namespace FinanzApp.Api.Data.Migrations
                     b.Navigation("Account");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("FinanzApp.Api.Data.Entities.BalanceCheckpoint", b =>
+                {
+                    b.HasOne("FinanzApp.Api.Data.Entities.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Account");
                 });
 
             modelBuilder.Entity("FinanzApp.Api.Data.Entities.Budget", b =>

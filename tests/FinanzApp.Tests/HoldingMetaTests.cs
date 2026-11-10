@@ -48,7 +48,7 @@ public sealed class HoldingMetaTests : IDisposable
             new ParticipationService(context, TestDatabase.SignedIn(null)));
 
         return new HoldingsService(
-            context, dashboard, new VehicleService(context, Documents(), clock), TestDatabase.Portfolio(context), clock);
+            context, dashboard, new VehicleService(context, Documents(), clock), TestDatabase.Portfolio(context), new AccountService(context), clock);
     }
 
     private PolicyService Policies() => new(database.Context(), Documents(), clock);

@@ -57,6 +57,49 @@ public static class ApiEndpoints
             }
         });
 
+        // ── Kontrollpunkte ────────────────────────────────────────────────────────────────
+        //
+        // Der Abgleich zwischen dem, was die Anwendung rechnet, und dem, was auf dem Konto
+        // steht. Bewusst ein eigener Schritt und nicht die Nebenwirkung eines Abrufs: Eine
+        // Zahl zum Saldo zu erheben verschiebt alles, was die Anwendung künftig über dieses
+        // Konto sagt.
+
+        api.MapGet("/accounts/{id:int}/kontrollpunkte", async (
+                int id, BalanceCheckpointService service, CancellationToken ct)
+            => Results.Ok(await service.ListAsync(id, ct)));
+
+        // Schreiben, und zwar an jedem Konto — auch an einem ohne Bankzugang. Das ist der
+        // Punkt: Wo nichts abzurufen ist, bleibt die Tastatur, und sie ist kein zweitklassiger
+        // Weg.
+        api.MapPost("/accounts/{id:int}/kontrollpunkte", async (
+            int id, BalanceCheckpointRequest request, BalanceCheckpointService service,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                return Results.Ok(await service.AddAsync(id, request, ct));
+            }
+            catch (RuleViolationException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.Write);
+
+        api.MapDelete("/accounts/{id:int}/kontrollpunkte/{checkpointId:int}", async (
+            int id, int checkpointId, BalanceCheckpointService service,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                await service.RemoveAsync(id, checkpointId, ct);
+                return Results.NoContent();
+            }
+            catch (RuleViolationException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.Write);
+
         // Die Umsätze holen. Die PIN steht im Rumpf, aus demselben Grund wie beim Saldo.
         //
         // Hier reicht Lesen nicht: Der Abruf legt eine Vorschau an, und aus ihr wird gebucht.

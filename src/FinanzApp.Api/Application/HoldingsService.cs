@@ -20,7 +20,7 @@ namespace FinanzApp.Api.Application;
 /// </remarks>
 public sealed class HoldingsService(
     FinanzAppDbContext db, DashboardService dashboard, VehicleService vehicles,
-    PortfolioService portfolio, IClock clock)
+    PortfolioService portfolio, AccountService accounts, IClock clock)
 {
     public async Task<HoldingsDto> GetAsync(
         HoldingClass? filter = null, CancellationToken ct = default)
@@ -113,15 +113,17 @@ public sealed class HoldingsService(
     {
         var zeilen = new List<HoldingRowDto>();
 
+        // Vom Kontodienst, nicht noch einmal selbst gerechnet — dieselbe Lehre wie beim Depot
+        // eine Zeile tiefer. Hier stand „Anfangsbestand plus alle Buchungen“, und seit es
+        // Kontrollpunkte gibt, ist das nicht mehr der Saldo: Diese Seite hätte weiter die alte
+        // Summe genannt, während die Kontenseite daneben die abgeglichene zeigt.
+        var salden = await accounts.GetBalancesAsync(ct);
+
         foreach (var konto in await db.Accounts.AsNoTracking().OrderBy(a => a.Id).ToListAsync(ct))
         {
-            var gebucht = await db.Transactions.AsNoTracking()
-                .Where(t => t.AccountId == konto.Id)
-                .SumAsync(t => t.Amount, ct);
-
             zeilen.Add(Row(
                 HoldingClass.Accounts, konto.Name, HoldingMeta.ForAccount(konto),
-                value: konto.OpeningBalance + gebucht,
+                value: salden.TryGetValue(konto.Id, out var saldo) ? saldo : 0m,
                 note: $"Stand {GermanFormat.Date(konto.BalanceAsOf)}",
                 route: "/konten"));
         }
