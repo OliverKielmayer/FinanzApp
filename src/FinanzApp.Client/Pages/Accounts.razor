@@ -115,6 +115,16 @@
                             </button>
 
                             @*
+                                An jedem Konto. Der Abgleich braucht keine Bank: Er trägt ein,
+                                was auf dem Kontoauszug steht, und genau dafür ist er da —
+                                Konten ohne Zugang sind sonst für immer schief.
+                            *@
+                            <button type="button" class="btn btn-secondary"
+                                    @onclick="() => OpenReconcile(konto)">
+                                Stand abgleichen
+                            </button>
+
+                            @*
                                 Nur wo ein Zugang steht. Ein Schalter, der bei jedem Konto
                                 anbietet, bei der Bank nachzufragen, verspricht etwas, das die
                                 meisten Konten nicht halten können.
@@ -129,6 +139,86 @@
                             }
                         </div>
                     </AuthorizeView>
+
+                    @*
+                        Der Abgleich von Hand. Zwei Felder, und das Datum ist das wichtigere:
+                        Ein Kontostand ohne Stichtag ist keine Auskunft.
+                    *@
+                    @if (reconcileAccountId == konto.Id)
+                    {
+                        <section class="acct-bank">
+                            <span class="label-muted">Stand abgleichen</span>
+
+                            <span class="meta">
+                                @("Tragen Sie ein, was laut Auszug oder Online-Banking an diesem "
+                                  + "Tag auf dem Konto war. Die Anwendung rechnet ab da vorwärts; "
+                                  + "Buchungen bis zu diesem Tag stecken schon in der Zahl.")
+                            </span>
+
+                            <div class="field">
+                                <label for="abgleich-stichtag">Stichtag</label>
+                                <input id="abgleich-stichtag" type="date" class="input"
+                                       @bind="reconcileAsOf" />
+                            </div>
+
+                            <div class="field">
+                                <label for="abgleich-stand">Stand an diesem Tag (€)</label>
+                                <input id="abgleich-stand" type="number" step="0.01" class="input"
+                                       @bind="reconcileBalance" />
+                            </div>
+
+                            <div class="field">
+                                <label for="abgleich-vermerk">Vermerk (freiwillig)</label>
+                                <input id="abgleich-vermerk" type="text" class="input"
+                                       maxlength="300" placeholder="z. B. Auszug Nr. 11"
+                                       @bind="reconcileNote" />
+                            </div>
+
+                            @if (reconcileError is { } abgleichfehler)
+                            {
+                                <div class="state-error" role="alert">
+                                    <span class="state-error-text">@abgleichfehler</span>
+                                </div>
+                            }
+
+                            <div class="acct-sheet-actions">
+                                <button type="button" class="btn btn-primary"
+                                        @onclick="() => SaveReconcile(konto.Id)"
+                                        disabled="@reconcileBusy">
+                                    @(reconcileBusy ? "Wird eingetragen …" : "Eintragen")
+                                </button>
+
+                                <button type="button" class="btn btn-secondary"
+                                        @onclick="CloseReconcile">Abbrechen</button>
+                            </div>
+
+                            @*
+                                Was bisher abgeglichen wurde. Die Differenz steht dabei: Sie ist
+                                der eigentliche Befund — so viel fehlte bis zu dem Tag an
+                                Buchungen oder stand zu viel da.
+                            *@
+                            @if (reconcilePoints.Count > 0)
+                            {
+                                <div class="acct-bank-rows">
+                                    @foreach (var punkt in reconcilePoints.Take(5))
+                                    {
+                                        <div class="acct-bank-row">
+                                            <span class="label-muted">
+                                                @AsOfLabel(punkt.AsOf) · @SourceLabel(punkt.Source)
+                                            </span>
+                                            <span class="num">@State.Euro(punkt.Balance)</span>
+                                            <span class="num">@Signed(punkt.Difference)</span>
+                                            <button type="button" class="btn btn-ghost"
+                                                    @onclick="() => DropReconcile(konto.Id, punkt.Id)"
+                                                    disabled="@reconcileBusy">
+                                                Zurücknehmen
+                                            </button>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </section>
+                    }
 
                     @*
                         Der Abruf: PIN eingeben, fragen, die Zahlen nebeneinander stellen. Alles
@@ -189,8 +279,25 @@
                                 </span>
                                 <span class="meta">Abgerufen @befund.RetrievedAt.ToString("dd.MM.yyyy HH:mm")</span>
 
-                                <button type="button" class="btn btn-secondary"
-                                        @onclick="CloseBankCheck">Schliessen</button>
+                                @*
+                                    Die Zahl der Bank zum Saldo zu erheben ist eine Entscheidung
+                                    und keine Nebenwirkung des Abrufs: Sie verschiebt alles, was
+                                    die Anwendung künftig über dieses Konto sagt. Deshalb ein
+                                    eigener Schalter — und nur, wenn es etwas zu entscheiden gibt.
+                                *@
+                                <div class="acct-sheet-actions">
+                                    @if (!befund.Matches)
+                                    {
+                                        <button type="button" class="btn btn-primary"
+                                                @onclick="() => AdoptBankBalance(befund)"
+                                                disabled="@reconcileBusy">
+                                            Als Stand übernehmen
+                                        </button>
+                                    }
+
+                                    <button type="button" class="btn btn-secondary"
+                                            @onclick="CloseBankCheck">Schliessen</button>
+                                </div>
                             }
                             else
                             {
@@ -637,6 +744,140 @@ else if (sheetTransaction is { } sheet)
     /// Saldo-Schaltfläche — die falsche Auskunft darüber, was gerade passiert.
     /// </remarks>
     private bool fetchingStatement;
+
+    // ── Abgleich ──────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Welches Konto gerade abgeglichen wird. <c>null</c> heisst: keines.</summary>
+    private int? reconcileAccountId;
+
+    private DateOnly reconcileAsOf = DateOnly.FromDateTime(DateTime.Today);
+    private decimal reconcileBalance;
+    private string reconcileNote = string.Empty;
+    private bool reconcileBusy;
+    private string? reconcileError;
+    private IReadOnlyList<BalanceCheckpointDto> reconcilePoints = [];
+
+    /// <summary>
+    /// Öffnet den Abgleich und legt den gerechneten Stand als Vorschlag hinein.
+    /// </summary>
+    /// <remarks>
+    /// Vorbelegt mit dem, was die Anwendung rechnet, und nicht mit null: Stimmen beide Zahlen
+    /// ohnehin, soll das Eintragen ein Druck auf eine Schaltfläche sein. Weicht es ab, ist die
+    /// Zahl im Feld genau die, die überschrieben gehört.
+    /// </remarks>
+    private async Task OpenReconcile(AccountDto konto)
+    {
+        reconcileAccountId = konto.Id;
+        reconcileAsOf = DateOnly.FromDateTime(DateTime.Today);
+        reconcileBalance = konto.Balance;
+        reconcileNote = string.Empty;
+        reconcileError = null;
+        reconcilePoints = [];
+
+        try
+        {
+            reconcilePoints = await Api.GetBalanceCheckpointsAsync(konto.Id);
+        }
+        catch (ApiException ex)
+        {
+            reconcileError = ex.Message;
+        }
+    }
+
+    private void CloseReconcile()
+    {
+        reconcileAccountId = null;
+        reconcileNote = string.Empty;
+        reconcileError = null;
+        reconcilePoints = [];
+    }
+
+    /// <summary>Trägt den eingetippten Stand ein.</summary>
+    private Task SaveReconcile(int accountId)
+        => WriteReconcileAsync(accountId, new BalanceCheckpointRequest
+        {
+            AsOf = reconcileAsOf,
+            Balance = reconcileBalance,
+            Source = BalanceCheckpointSource.Manual,
+            Note = reconcileNote,
+        });
+
+    /// <summary>
+    /// Übernimmt die Zahl aus der Saldenabfrage.
+    /// </summary>
+    /// <remarks>
+    /// Der Stichtag ist heute und nicht der Buchungstag der Bank: Den nennt sie zwar, aber die
+    /// verwendete Bibliothek reicht ihn nicht durch. Ein anderes Datum hier wäre erfunden.
+    /// </remarks>
+    private Task AdoptBankBalance(BankBalanceDto befund)
+        => WriteReconcileAsync(befund.AccountId, new BalanceCheckpointRequest
+        {
+            AsOf = DateOnly.FromDateTime(befund.RetrievedAt),
+            Balance = befund.BankBalance,
+            Source = BalanceCheckpointSource.BankFetch,
+        });
+
+    private async Task WriteReconcileAsync(int accountId, BalanceCheckpointRequest anfrage)
+    {
+        reconcileBusy = true;
+        reconcileError = null;
+
+        try
+        {
+            var punkt = await Api.AddBalanceCheckpointAsync(accountId, anfrage);
+
+            Toasts.Show(punkt.WasAligned
+                ? "Stand bestätigt — beide Zahlen stimmten schon überein."
+                : $"Stand eingetragen. Unterschied: {Signed(punkt.Difference)}.");
+
+            CloseReconcile();
+            CloseBankCheck();
+
+            // Neu laden, nicht nachrechnen: Der Saldo entsteht auf dem Server, und eine zweite
+            // Rechnung hier wäre die zweite Wahrheit, die es gerade zu vermeiden gilt.
+            await LoadAsync();
+        }
+        catch (ApiException ex)
+        {
+            reconcileError = ex.Message;
+        }
+        finally
+        {
+            reconcileBusy = false;
+        }
+    }
+
+    /// <summary>Nimmt einen Kontrollpunkt zurück.</summary>
+    private async Task DropReconcile(int accountId, int checkpointId)
+    {
+        reconcileBusy = true;
+        reconcileError = null;
+
+        try
+        {
+            await Api.DeleteBalanceCheckpointAsync(accountId, checkpointId);
+            reconcilePoints = await Api.GetBalanceCheckpointsAsync(accountId);
+
+            Toasts.Show("Kontrollpunkt zurückgenommen.");
+            await LoadAsync();
+        }
+        catch (ApiException ex)
+        {
+            reconcileError = ex.Message;
+        }
+        finally
+        {
+            reconcileBusy = false;
+        }
+    }
+
+    /// <summary>Woher ein Kontrollpunkt stammt, in einem Wort.</summary>
+    private static string SourceLabel(BalanceCheckpointSource herkunft) => herkunft switch
+    {
+        BalanceCheckpointSource.BankFetch => "Abfrage",
+        BalanceCheckpointSource.Statement => "Auszug",
+        _ => "von Hand",
+    };
 
     /// <summary>
     /// Öffnet den Abruf und fragt zuerst, ob er überhaupt geht.

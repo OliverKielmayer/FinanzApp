@@ -128,6 +128,32 @@ public sealed class FinanzAppApi(HttpClient http)
             new StatementFetchRequest { Pin = pin, From = from, To = to },
             ct);
 
+    // ── Kontrollpunkte ────────────────────────────────────────────────────────────────────
+
+    /// <summary>Die Kontrollpunkte eines Kontos, der jüngste zuerst.</summary>
+    public Task<IReadOnlyList<BalanceCheckpointDto>> GetBalanceCheckpointsAsync(
+        int id, CancellationToken ct = default)
+        => GetAsync<IReadOnlyList<BalanceCheckpointDto>>(
+            $"api/accounts/{id}/kontrollpunkte", ct);
+
+    /// <summary>
+    /// Trägt einen festgestellten Stand ein.
+    /// </summary>
+    /// <remarks>
+    /// Geht an jedem Konto, auch ohne Bankzugang — und genau dafür ist es da. Was danach als
+    /// Saldo erscheint, rechnet von diesem Stichtag an vorwärts.
+    /// </remarks>
+    public Task<BalanceCheckpointDto> AddBalanceCheckpointAsync(
+        int id, BalanceCheckpointRequest request, CancellationToken ct = default)
+        => PostAsync<BalanceCheckpointRequest, BalanceCheckpointDto>(
+            $"api/accounts/{id}/kontrollpunkte", request, ct);
+
+    /// <summary>Nimmt einen Kontrollpunkt zurück — für den Fall des vertippten Betrags.</summary>
+    public Task DeleteBalanceCheckpointAsync(
+        int id, int checkpointId, CancellationToken ct = default)
+        => SendWithoutResultAsync<object?>(
+            HttpMethod.Delete, $"api/accounts/{id}/kontrollpunkte/{checkpointId}", null, ct);
+
     /// <summary>Ändert die Freigabe eines Kontos. Nur der Eigentümer darf das.</summary>
     public Task<AccountDto> SetAccountSharingAsync(
         int id, AccountSharing sharing, IReadOnlyList<int> userIds, CancellationToken ct = default)
