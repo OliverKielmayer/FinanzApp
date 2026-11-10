@@ -52,6 +52,7 @@ public sealed class ImportService(
         string BankName,
         string? Iban,
         decimal? StatementBalance,
+        DateOnly? StatementBalanceDate,
         string? Separator,
         IReadOnlyList<ImportRecord> Records,
         int SourceCount = 1,
@@ -112,6 +113,7 @@ public sealed class ImportService(
             BankName: statement.BankName ?? "unbekannt",
             Iban: statement.Iban,
             StatementBalance: statement.ClosingBalance,
+            StatementBalanceDate: statement.ClosingBalanceDate,
             Separator: null,
             Records: statement.Records,
             SourceCount: statement.SourceCount,
@@ -442,6 +444,7 @@ public sealed class ImportService(
         BankName: DemoImportBatch.BankName,
         Iban: null,
         StatementBalance: null,
+        StatementBalanceDate: null,
         Separator: null,
         Records: DemoImportBatch.Records);
 
@@ -493,6 +496,13 @@ public sealed class ImportService(
                                ?? (rows.Any(r => r.Amount is not null)
                                    ? rows.Where(r => r.Amount is not null).Sum(r => r.Amount!.Value)
                                    : null),
+
+            // Nur wenn die Datei wirklich einen Saldo nannte. Der Ersatzwert eine Zeile höher
+            // ist die Summe der Sätze — als festgestellter Kontostand wäre er eine Erfindung,
+            // und ein Stichtag daneben machte sie glaubwürdig.
+            StatementBalanceDate = batch.StatementBalance is null
+                ? null
+                : batch.StatementBalanceDate,
             Separator = batch.Separator,
             Accounts = accounts,
             SuggestedAccountId = Suggest(batch, accounts)?.Id,

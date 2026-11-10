@@ -158,7 +158,10 @@ public sealed class ZipStatementReader(IStatementParser parser)
             // Der Schlusssaldo des jüngsten Auszugs, nicht der des letzten in der Reihe. Ein
             // Saldo gilt zu einem Stichtag; den ältesten zu nehmen wäre eine Zahl von vorgestern
             // mit dem Anschein von heute.
+            // Beide vom selben Auszug, nicht je einzeln vom jeweils besten: Ein Betrag des
+            // einen Dokuments mit dem Stichtag eines anderen wäre eine Zahl, die es nie gab.
             ClosingBalance = Newest(statements)?.ClosingBalance,
+            ClosingBalanceDate = Newest(statements)?.ClosingBalanceDate,
             SourceCount = statements.Count,
             Records = records,
         };

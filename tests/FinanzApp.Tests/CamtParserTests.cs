@@ -35,6 +35,11 @@ public sealed class CamtParserTests
         Assert.Equal("DE44672500200034889102", statement.Iban);
         Assert.Equal("Sparkasse Heidelberg", statement.BankName);
         Assert.Equal(6091.28m, statement.ClosingBalance);
+
+        // Der Stichtag steht am Saldo selbst und ist nicht der letzte Buchungstag: Die
+        // jüngste Buchung im Beispiel ist vom 25., der Schlusssaldo gilt zum 26. Ohne den
+        // Tag wäre der Betrag als festgestellter Kontostand unbrauchbar.
+        Assert.Equal(new DateOnly(2026, 8, 26), statement.ClosingBalanceDate);
     }
 
     [Fact]

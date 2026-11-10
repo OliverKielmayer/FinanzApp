@@ -86,6 +86,16 @@ public sealed record ImportPreviewDto
     /// <summary>Auszugssaldo, sofern die Datei einen nennt.</summary>
     public decimal? StatementBalance { get; init; }
 
+    /// <summary>
+    /// Zu welchem Tag der Auszugssaldo gilt — nur wenn die Datei ihn wirklich nannte.
+    /// </summary>
+    /// <remarks>
+    /// Daran erkennt die Oberfläche, ob sie anbieten darf, diesen Saldo als Stand des Kontos zu
+    /// übernehmen. Ohne Stichtag wäre er dafür unbrauchbar, und der Ersatzwert aus der Summe
+    /// der Sätze ist ohnehin kein festgestellter Kontostand.
+    /// </remarks>
+    public DateOnly? StatementBalanceDate { get; init; }
+
     /// <summary>Trennzeichen bei CSV; bei CAMT leer.</summary>
     public string? Separator { get; init; }
 

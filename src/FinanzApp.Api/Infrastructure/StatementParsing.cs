@@ -26,6 +26,15 @@ public sealed record ParsedStatement
     public decimal? ClosingBalance { get; init; }
 
     /// <summary>
+    /// Zu welchem Tag der Schlusssaldo gilt.
+    /// </summary>
+    /// <remarks>
+    /// Steht in camt am Saldo selbst. Ohne ihn wäre der Betrag als Kontrollpunkt unbrauchbar:
+    /// Ein Kontostand ohne Stichtag sagt nicht, welche Buchungen schon darin stecken.
+    /// </remarks>
+    public DateOnly? ClosingBalanceDate { get; init; }
+
+    /// <summary>
     /// Aus wie vielen Auszugsdateien die Sätze stammen. 1 bei einer einzelnen Datei.
     /// </summary>
     /// <remarks>
@@ -115,13 +124,16 @@ public sealed class CamtStatementParser : IStatementParser
 
         var account = reports.Select(r => Child(r, "Acct")).FirstOrDefault(a => a is not null);
 
+        var schluss = ClosingBalanceOf(reports);
+
         return new ParsedStatement
         {
             FileName = fileName,
             Format = FormatOf(root),
             BankName = BankNameOf(account),
             Iban = Text(Child(Child(account, "Id"), "IBAN")),
-            ClosingBalance = ClosingBalanceOf(reports),
+            ClosingBalance = schluss.Betrag,
+            ClosingBalanceDate = schluss.Stichtag,
             Records = records,
         };
     }
@@ -549,8 +561,15 @@ public sealed class CamtStatementParser : IStatementParser
             : trimmed;
     }
 
-    /// <summary>Der Schlusssaldo (<c>CLBD</c>); ersatzweise der letzte genannte Saldo.</summary>
-    private static decimal? ClosingBalanceOf(List<XElement> reports)
+    /// <summary>
+    /// Der Schlusssaldo (<c>CLBD</c>) mit seinem Stichtag; ersatzweise der letzte genannte Saldo.
+    /// </summary>
+    /// <remarks>
+    /// Betrag und Tag kommen zusammen, weil sie zusammen gelesen werden müssen: Beide stehen an
+    /// <em>demselben</em> Saldo-Element. Zwei getrennte Suchen fänden irgendwann zwei
+    /// verschiedene — und niemand merkte es, weil beide für sich plausibel aussähen.
+    /// </remarks>
+    private static (decimal? Betrag, DateOnly? Stichtag) ClosingBalanceOf(List<XElement> reports)
     {
         var balances = reports.SelectMany(r => Children(r, "Bal")).ToList();
 
@@ -562,10 +581,10 @@ public sealed class CamtStatementParser : IStatementParser
 
         if (closing is null || Amount(closing) is not { } value)
         {
-            return null;
+            return (null, null);
         }
 
-        return SignOf(closing) * value;
+        return (SignOf(closing) * value, DateIn(Child(closing, "Dt")));
     }
 
     private static string? BankNameOf(XElement? account)

@@ -140,6 +140,25 @@
                                 ? State.Euro(balance, withPlusSign: true)
                                 : "—")
                         </span>
+
+                        @*
+                            Nur wenn die Datei einen Stichtag dazu nennt. Ohne ihn ist der Betrag
+                            als Kontostand unbrauchbar — und ohne genannten Saldo steht oben
+                            ohnehin nur die Summe der Sätze, die kein festgestellter Stand ist.
+
+                            Für Konten ohne Bankzugang ist das der Weg zum Abgleich: Der Auszug
+                            bringt den Stand mit, der Abruf gibt es dort nicht.
+                        *@
+                        @if (preview.StatementBalanceDate is { } stichtag)
+                        {
+                            <label class="sheet-rule">
+                                <input type="checkbox" @bind="adoptStatementBalance" />
+                                <span class="sheet-rule-text">
+                                    Als Stand des Kontos übernehmen
+                                    (@GermanFormat.Date(stichtag))
+                                </span>
+                            </label>
+                        }
                     </div>
 
                     <div class="detail-block">
@@ -841,6 +860,15 @@
     private ImportPreviewDto? data;
 
     private Stage stage = Stage.Empty;
+
+    /// <summary>
+    /// Ob der Auszugssaldo nach der Übernahme auch als Stand des Kontos gelten soll.
+    /// </summary>
+    /// <remarks>
+    /// Nicht vorbelegt. Den Saldo zu setzen verschiebt alles, was die Anwendung künftig über
+    /// das Konto sagt — das ist eine Entscheidung und keine Nebenwirkung des Einlesens.
+    /// </remarks>
+    private bool adoptStatementBalance;
     private string fileName = string.Empty;
     private string? problem;
     private bool dragging;
@@ -974,6 +1002,10 @@
     private async Task ReadAsync(Func<CancellationToken, Task<ImportPreviewDto>> read)
     {
         stage = Stage.Reading;
+
+        // Ein neuer Auszug, ein neuer Entschluss: Das Kästchen von der letzten Datei
+        // stehenzulassen setzte einen Stand, den niemand mehr bewusst gewählt hat.
+        adoptStatementBalance = false;
         readStep = 0;
 
         reading?.Cancel();
@@ -1087,6 +1119,27 @@
             if (result.DocumentFiled)
             {
                 teile.Add("Beleg aus dem Scaneingang");
+            }
+
+            // Nach dem Buchen, nicht davor: Der Kontrollpunkt hält fest, was die Anwendung zu
+            // diesem Stichtag rechnet, und das sind die gerade übernommenen Sätze mit. Vorher
+            // gesetzt stünde dort eine Differenz, die der Import im selben Atemzug schliesst.
+            if (adoptStatementBalance
+                && Draft.Preview is { StatementBalance: { } stand, StatementBalanceDate: { } tag })
+            {
+                var punkt = await Api.AddBalanceCheckpointAsync(
+                    Draft.AccountId,
+                    new BalanceCheckpointRequest
+                    {
+                        AsOf = tag,
+                        Balance = stand,
+                        Source = BalanceCheckpointSource.Statement,
+                        Note = Draft.Preview.FileName,
+                    });
+
+                teile.Add(punkt.WasAligned
+                    ? "Stand bestätigt"
+                    : $"Stand gesetzt, Unterschied {State.Euro(punkt.Difference, withPlusSign: true)}");
             }
 
             // Die Vorschau ist auf dem Server verbraucht. Bliebe der Entwurf stehen, böte die
