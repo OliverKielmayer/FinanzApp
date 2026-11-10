@@ -155,6 +155,50 @@ public sealed class TaskPaymentMatchTests : IDisposable
         Assert.Equal(zahlung, await BuchungAmBelegAsync(beleg));
     }
 
+    /// <summary>
+    /// Zeigt die Forderungszeile nur auf den Betrag, wird er aus dem Beleg gelesen.
+    /// </summary>
+    /// <remarks>
+    /// „Dieser Betrag ist am … zur Zahlung fällig“ ist die verbreitetste Form eines Bescheids,
+    /// und sie nennt keine Zahl. An der echten Ablage blieb ein Gebührenbescheid genau deshalb
+    /// offen, während die Zahlung längst gebucht war.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_Betrag_nur_im_Beleg_wird_trotzdem_gefunden()
+    {
+        var beleg = Beleg(
+            "Bescheid", "12345/67890",
+            zeile: "Dieser Betrag ist am 20.11.2026 zur Zahlung fällig.",
+            inhalt: $"Gesamtbetrag 2026 {BetragAufPapier}");
+
+        var zahlung = Buchung("Steuernummer 12345/67890");
+
+        var vorgang = Assert.Single(await ListeLesenAsync());
+
+        Assert.Equal(TaskState.Done, vorgang.State);
+        Assert.Equal(zahlung, await BuchungAmBelegAsync(beleg));
+    }
+
+    /// <summary>
+    /// Nennt die Forderungszeile einen Betrag, gilt er — auch wenn im Beleg ein anderer steht.
+    /// </summary>
+    /// <remarks>
+    /// Die Zeile ist die Forderung. Ein Bescheid rechnet daneben vor, und eine Zwischensumme
+    /// ist nicht das, was zu zahlen ist. Hier steht im Blatt eine beschriftete andere Summe und
+    /// eine Buchung darüber — gefunden werden darf sie nicht.
+    /// </remarks>
+    [Fact]
+    public async Task Die_Forderungszeile_schlaegt_den_Beleg()
+    {
+        Beleg("Bescheid", "12345/67890", inhalt: "Gesamtbetrag 2026 1.665,17");
+        Buchung("Steuernummer 12345/67890", betrag: 1665.17m);
+
+        var vorgang = Assert.Single(await ListeLesenAsync());
+
+        Assert.NotEqual(TaskState.Done, vorgang.State);
+        Assert.Empty(vorgang.PaymentSuggestions);
+    }
+
     // ── Wo die Anwendung nicht entscheidet ────────────────────────────────────────────────
 
     /// <summary>
@@ -242,8 +286,10 @@ public sealed class TaskPaymentMatchTests : IDisposable
     /// Eine Forderung ohne Betrag wird gar nicht erst abgeglichen.
     /// </summary>
     /// <remarks>
-    /// „Bitte stellen Sie Ihren Einzug um“ verlangt etwas und nennt keine Summe. Es gibt nichts,
-    /// wogegen zu vergleichen wäre, und das bleibt so.
+    /// „Bitte stellen Sie Ihren Einzug um“ verlangt etwas und nennt keine Summe — und der Beleg
+    /// trägt auch keine beschriftete Zeile, aus der eine zu lesen wäre. Es gibt nichts, wogegen
+    /// zu vergleichen wäre, und das bleibt so: Hier eine Zahl zu raten hiesse, einen Vorgang an
+    /// einer Buchung zu schliessen, die ihn nie betraf.
     /// </remarks>
     [Fact]
     public async Task Eine_Forderung_ohne_Betrag_wird_nicht_abgeglichen()
@@ -301,7 +347,9 @@ public sealed class TaskPaymentMatchTests : IDisposable
 
     // ── Hilfsmittel ───────────────────────────────────────────────────────────────────────
 
-    private int Beleg(string titel, string aktenzeichen, DateOnly? datum = null, string? zeile = null)
+    private int Beleg(
+        string titel, string aktenzeichen, DateOnly? datum = null, string? zeile = null,
+        string? inhalt = null)
     {
         using var context = database.Context();
 
@@ -316,7 +364,8 @@ public sealed class TaskPaymentMatchTests : IDisposable
             DueDate = Frist,
             ActionLine = zeile
                          ?? $"Bitte überweisen Sie spätestens am 20.11.2026 {BetragAufPapier} EUR.",
-            ContentText = $"Aktenzeichen {aktenzeichen}\nBetrag {BetragAufPapier} EUR"
+            ContentText = $"Aktenzeichen {aktenzeichen}\n"
+                          + (inhalt ?? $"Betrag {BetragAufPapier} EUR")
                           + "\nZahlbar bis 20.11.2026",
             CreatedAt = clock.Now,
             UpdatedAt = clock.Now,

@@ -557,9 +557,10 @@ public sealed class TaskService(FinanzAppDbContext db, IClock clock)
     /// Zu jedem Vorgang aus einem Schreiben die Buchungen, die ihn bezahlt haben könnten.
     /// </summary>
     /// <remarks>
-    /// Der Betrag steht nur im Fliesstext der Forderungszeile — gelesen wird er von demselben
-    /// Leser, der auch ihren Termin liest. Ohne Betrag gibt es nichts abzugleichen; das ist der
-    /// Normalfall bei „Bitte stellen Sie Ihren Einzug um“ und bleibt es.
+    /// Gelesen wird der Betrag von demselben Leser, der auch den Termin der Zeile liest — und
+    /// notfalls den ganzen Beleg, siehe <see cref="ClaimedAmount"/>. Ohne Betrag gibt es nichts
+    /// abzugleichen; das ist der Normalfall bei „Bitte stellen Sie Ihren Einzug um“ und
+    /// bleibt es.
     /// </remarks>
     private async Task<Dictionary<int, IReadOnlyList<PaymentMatch>>> PaymentMatchesAsync(
         IReadOnlyCollection<TaskItem> vorgaenge, CancellationToken ct)
@@ -586,7 +587,7 @@ public sealed class TaskService(FinanzAppDbContext db, IClock clock)
         foreach (var vorgang in ausSchreiben)
         {
             if (!belegJeId.TryGetValue(vorgang.SourceId!.Value, out var beleg)
-                || BillTextReader.AmountInLine(beleg.ActionLine!) is not { } betrag
+                || ClaimedAmount(beleg.ActionLine, beleg.ContentText) is not { } betrag
                 || betrag <= 0m)
             {
                 continue;
@@ -621,6 +622,30 @@ public sealed class TaskService(FinanzAppDbContext db, IClock clock)
             p => p.Key,
             p => PaymentMatching.For(p.Value, buchungen, heute));
     }
+
+    /// <summary>
+    /// Der geforderte Betrag: aus der Forderungszeile, sonst aus dem ganzen Beleg.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die Zeile zuerst, denn sie <em>ist</em> die Forderung. Steht der Betrag in ihr,
+    /// sagt sie genau, worum es geht, und was sonst noch auf dem Blatt steht, geht sie nichts
+    /// an.</para>
+    /// <para><b>Nur sagt sie es oft nicht.</b> „Dieser Betrag ist am … zur Zahlung fällig“ zeigt
+    /// auf eine Zahl, die eine Zeile höher steht; „den Rechnungsbetrag“ ebenso. An der echten
+    /// Ablage gemessen: Ein Gebührenbescheid blieb offen, obwohl die Zahlung seit Wochen
+    /// gebucht war — der Abgleich hat nicht eine einzige Buchung angesehen, weil er keinen
+    /// Betrag hatte.</para>
+    /// <para><b>Der Beleg wird nicht abgesucht, sondern gelesen.</b> Der Rechnungsleser sucht
+    /// die Zeile an ihrer Beschriftung — Gesamtbetrag, Rechnungsbetrag, noch zu zahlen —,
+    /// dieselbe Lesart, aus der die Anwendung auch sonst Beträge übernimmt. Die grösste Zahl
+    /// im Blatt zu nehmen wäre das Gegenteil davon: Ein Bescheid trägt ein Dutzend Zahlen, und
+    /// auf einem Steuerbescheid ist die grösste der Kaufpreis.</para>
+    /// <para>Findet auch er nichts, bleibt es dabei. Ein geratener Betrag fände entweder gar
+    /// nichts oder das Falsche, und das Falsche sieht aus wie das Richtige.</para>
+    /// </remarks>
+    private static decimal? ClaimedAmount(string? actionLine, string? paperText)
+        => (actionLine is { Length: > 0 } zeile ? BillTextReader.AmountInLine(zeile) : null)
+           ?? BillTextReader.Read(paperText).GrossAmount;
 
     /// <summary>Ein Treffer, wie ihn die Oberfläche braucht.</summary>
     private static TaskPaymentDto Zahlung(PaymentMatch treffer) => new()
