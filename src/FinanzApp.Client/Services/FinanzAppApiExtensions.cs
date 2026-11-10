@@ -206,6 +206,12 @@ public static class FinanzAppApiExtensions
         this FinanzAppApi api, int id, CancellationToken ct = default)
         => api.GetAsync<IReadOnlyList<PaymentCandidateDto>>($"api/health/bills/{id}/payment-candidates", ct);
 
+    /// <summary>Löscht eine erfasste Arztrechnung samt ihrer Vorgänge.</summary>
+    public static Task DeleteMedicalBillAsync(
+        this FinanzAppApi api, int id, CancellationToken ct = default)
+        => api.SendWithoutResultAsync<object?>(
+            HttpMethod.Delete, $"api/health/bills/{id}", null, ct);
+
     public static Task<MedicalBillDetailDto> LinkBillPaymentAsync(
         this FinanzAppApi api, int id, int transactionId, CancellationToken ct = default)
         => api.SendAsync<LinkPaymentRequest, MedicalBillDetailDto>(

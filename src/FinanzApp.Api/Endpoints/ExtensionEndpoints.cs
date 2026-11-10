@@ -259,6 +259,23 @@ public static class ExtensionEndpoints
             return bill is null ? Results.NotFound() : Results.Ok(bill);
         }).RequireAuthorization(AuthPolicies.Write);
 
+        // Löschen gibt es nur für den Fehlgriff — eine Rechnung mit zugeordneter Buchung
+        // weist der Dienst ab. Siehe <see cref="MedicalBillService.DeleteAsync"/>.
+        api.MapDelete("/bills/{id:int}", async (
+            int id, MedicalBillService service, CancellationToken ct) =>
+        {
+            try
+            {
+                return await service.DeleteAsync(id, ct)
+                    ? Results.NoContent()
+                    : Results.NotFound();
+            }
+            catch (RuleViolationException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.Write);
+
         api.MapGet("/bills/{id:int}/payment-candidates", async (
                 int id, MedicalBillService service, CancellationToken ct)
             => Results.Ok(await service.GetPaymentCandidatesAsync(id, ct)));

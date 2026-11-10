@@ -150,6 +150,135 @@ public sealed class MedicalBillTests : IDisposable
         Assert.Equal(680m, treffer.Amount);
     }
 
+    // ── Löschen ───────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Eine erfasste Rechnung lässt sich löschen.
+    /// </summary>
+    /// <remarks>
+    /// Der Fall dahinter: ein falsch gescanntes Blatt, aus dem beim Einlesen eine Arztrechnung
+    /// wurde. Der Beleg lässt sich wegwerfen, die Rechnung blieb — und „abgelehnt“ zu sagen
+    /// wäre gelogen, denn es gab nie eine Forderung.
+    /// </remarks>
+    [Fact]
+    public async Task Eine_erfasste_Rechnung_laesst_sich_loeschen()
+    {
+        var bill = await CreateBillAsync(gross: 300m, ownShare: 0m);
+
+        Assert.True(await CreateService().DeleteAsync(bill.Id));
+
+        using var context = database.Context();
+        Assert.Empty(context.MedicalBills);
+    }
+
+    /// <summary>
+    /// Mit der Rechnung verschwindet ihr Vorgang.
+    /// </summary>
+    /// <remarks>
+    /// Die Nachführung läuft über die <em>vorhandenen</em> Rechnungen. Eine gelöschte käme in
+    /// keiner Schleife mehr vor — ihr Vorgang stünde für immer offen und führte auf eine Seite,
+    /// die es nicht mehr gibt. Genau dieselbe Falle wie beim gelöschten Beleg.
+    /// </remarks>
+    [Fact]
+    public async Task Mit_der_Rechnung_verschwindet_ihr_Vorgang()
+    {
+        var bill = await CreateBillAsync(gross: 300m, ownShare: 0m);
+
+        using (var context = database.Context())
+        {
+            var liste = await new TaskService(context, clock).GetListAsync();
+            Assert.Contains(liste.Items, i => i.SourceType == LinkTargetType.MedicalBill
+                                              && i.SourceId == bill.Id);
+        }
+
+        Assert.True(await CreateService().DeleteAsync(bill.Id));
+
+        using (var context = database.Context())
+        {
+            var liste = await new TaskService(context, clock).GetListAsync();
+            Assert.DoesNotContain(liste.Items, i => i.SourceType == LinkTargetType.MedicalBill
+                                                    && i.SourceId == bill.Id);
+        }
+    }
+
+    /// <summary>
+    /// Hängt eine Buchung daran, wird nicht gelöscht.
+    /// </summary>
+    /// <remarks>
+    /// Die Buchung bliebe auf dem Konto stehen, und nichts erklärte sie mehr. Für diesen Fall
+    /// ist die Statuskette da.
+    /// </remarks>
+    [Fact]
+    public async Task Eine_Rechnung_mit_zugeordneter_Buchung_wird_nicht_geloescht()
+    {
+        var bill = await CreateBillAsync(gross: 300m, ownShare: 0m);
+        var buchung = AddIncome(300m, new DateOnly(2026, 8, 20), "Musterkasse");
+
+        await CreateService().LinkPaymentAsync(bill.Id, new LinkPaymentRequest
+        {
+            TransactionId = buchung,
+        });
+
+        await Assert.ThrowsAsync<RuleViolationException>(
+            () => CreateService().DeleteAsync(bill.Id));
+
+        using var context = database.Context();
+        Assert.Single(context.MedicalBills);
+    }
+
+    /// <summary>Der Beleg bleibt liegen; nur seine Verknüpfung geht.</summary>
+    /// <remarks>
+    /// Ein Blatt kann aus anderen Gründen abgelegt gehören. Was in der Ablage liegt, entscheidet
+    /// die Ablage — nicht ein Vorgang, der daneben gelöscht wird.
+    /// </remarks>
+    [Fact]
+    public async Task Der_Beleg_bleibt_und_verliert_nur_die_Verknuepfung()
+    {
+        var bill = await CreateBillAsync(gross: 300m, ownShare: 0m);
+        int belegId;
+
+        using (var context = database.Context())
+        {
+            var beleg = new Document
+            {
+                Title = "Arztrechnung",
+                RelativePath = $"Gesundheit/{Guid.NewGuid():N}.pdf",
+                FileName = "Arztrechnung.pdf",
+                Extension = ".pdf",
+                Area = DocumentArea.Health,
+                DocumentDate = new DateOnly(2026, 7, 18),
+                CreatedAt = clock.Now,
+                UpdatedAt = clock.Now,
+            };
+
+            context.Documents.Add(beleg);
+            context.SaveChanges();
+            belegId = beleg.Id;
+
+            context.DocumentLinks.Add(new DocumentLink
+            {
+                DocumentId = belegId,
+                TargetType = LinkTargetType.MedicalBill,
+                TargetId = bill.Id,
+                CreatedAt = clock.Now,
+            });
+
+            context.SaveChanges();
+        }
+
+        Assert.True(await CreateService().DeleteAsync(bill.Id));
+
+        using (var context = database.Context())
+        {
+            Assert.NotNull(context.Documents.SingleOrDefault(d => d.Id == belegId));
+            Assert.Empty(context.DocumentLinks.Where(l => l.TargetType == LinkTargetType.MedicalBill));
+        }
+    }
+
+    [Fact]
+    public async Task Was_es_nicht_gibt_laesst_sich_nicht_loeschen()
+        => Assert.False(await CreateService().DeleteAsync(4711));
+
     private MedicalBillService CreateService()
     {
         var context = database.Context();

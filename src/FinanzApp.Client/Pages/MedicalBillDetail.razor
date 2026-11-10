@@ -110,6 +110,27 @@
                     }
                 </div>
             }
+
+            @*
+                Löschen ist nicht das Ende der Kette, sondern ihr Gegenteil: Es sagt, dass es
+                diese Rechnung nie gab. Für ein falsch gescanntes Blatt ist das die Wahrheit,
+                und „abgelehnt“ wäre eine Erfindung. Deshalb abgesetzt und hinter einem zweiten
+                Tipp — wie überall, wo etwas wirklich verschwindet.
+            *@
+            <div class="actions">
+                @if (confirmingDelete)
+                {
+                    <button type="button" class="btn btn-primary delete-confirm" disabled="@busy"
+                            @onclick="DeleteAsync">
+                        Rechnung wird gelöscht — erneut tippen
+                    </button>
+                }
+                else
+                {
+                    <button type="button" class="btn btn-ghost" disabled="@busy"
+                            @onclick="@(() => confirmingDelete = true)">Löschen</button>
+                }
+            </div>
         </AuthorizeView>
 
         @if (candidates is { Count: > 0 })
@@ -201,6 +222,36 @@
     }
 
     private Task RejectAsync() => AdvanceAsync(MedicalBillStatus.Rejected, "Als abgelehnt vermerkt");
+
+    /// <summary>Ob der zweite Tipp aussteht, der wirklich löscht.</summary>
+    private bool confirmingDelete;
+
+    /// <summary>
+    /// Löscht die Rechnung und geht zurück in die Liste.
+    /// </summary>
+    /// <remarks>
+    /// Zurück und nicht hierbleiben: Diese Seite zeigte danach eine Rechnung, die es nicht mehr
+    /// gibt, und der nächste Ladeversuch endete im Fehler.
+    /// </remarks>
+    private async Task DeleteAsync()
+    {
+        busy = true;
+        try
+        {
+            await Api.DeleteMedicalBillAsync(Id);
+            Toasts.Show("Arztrechnung gelöscht", ToastKind.Saved);
+            Navigation.NavigateTo("/gesundheit");
+        }
+        catch (ApiException ex)
+        {
+            confirmingDelete = false;
+            Toasts.Show(ex.Message, ToastKind.Problem);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
 
     private async Task LinkAsync(PaymentCandidateDto candidate)
     {

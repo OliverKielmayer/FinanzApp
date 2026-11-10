@@ -204,6 +204,63 @@ public sealed class MedicalBillService(
     }
 
     /// <summary>
+    /// Löscht eine erfasste Arztrechnung.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Für den Fehlgriff, nicht für die Geschichte.</b> Ein falsch gescanntes Blatt
+    /// wird beim Einlesen zur Arztrechnung; der Beleg lässt sich danach wegwerfen, die Rechnung
+    /// bleibt, denn sie ist ein eigenes Objekt. Sie stattdessen „abgelehnt“ zu nennen wäre
+    /// gelogen — abgelehnt hat niemand etwas, es gab nie eine Forderung. Und ein Bestand, in
+    /// dem Erfundenes als abgelehnt geführt wird, erklärt irgendwann niemandem mehr etwas.</para>
+    /// <para><b>Sobald Geld daran hängt, nicht mehr.</b> Eine zugeordnete Buchung bleibt auf dem
+    /// Konto stehen; weg wäre nur die Rechnung, die erklärt, wofür sie war. Dann führt die
+    /// Statuskette zum Ziel, und das Löschen wird abgewiesen.</para>
+    /// <para><b>Die Vorgänge gehen mit.</b> Nachgeführt werden sie über die <em>vorhandenen</em>
+    /// Rechnungen — eine gelöschte käme in keiner Schleife mehr vor, und ihr Vorgang bliebe für
+    /// immer offen und führte nirgendwohin. Sie zu schliessen statt zu entfernen hülfe auch
+    /// nicht: Unter „Erledigt“ stünde dann eine Zeile, die auf eine Seite zeigt, die es nicht
+    /// mehr gibt.</para>
+    /// <para><b>Der Beleg bleibt.</b> Gelöst wird nur seine Verknüpfung. Ein Blatt kann aus
+    /// anderen Gründen abgelegt gehören, und was in der Ablage liegt, entscheidet die Ablage.</para>
+    /// </remarks>
+    /// <returns><c>false</c>, wenn es die Rechnung nicht gibt.</returns>
+    /// <exception cref="RuleViolationException">An der Rechnung hängt eine Buchung.</exception>
+    public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
+    {
+        var bill = await db.MedicalBills.FirstOrDefaultAsync(b => b.Id == id, ct);
+        if (bill is null)
+        {
+            return false;
+        }
+
+        if (bill.ReimbursementTransactionId is not null || bill.OwnShareTransactionId is not null)
+        {
+            throw new RuleViolationException(
+                "An dieser Arztrechnung hängt eine zugeordnete Buchung. Die Buchung bliebe "
+                + "stehen, und nichts erklärte sie mehr. Lösen Sie die Zuordnung, oder "
+                + "schliessen Sie den Vorgang über seinen Status ab.");
+        }
+
+        var vorgaenge = await db.TaskItems
+            .Where(t => t.SourceType == LinkTargetType.MedicalBill
+                        && t.SourceId == id
+                        && (t.Source == TaskSource.MedicalBillOpen
+                            || t.Source == TaskSource.ReimbursementOverdue))
+            .ToListAsync(ct);
+
+        var verweise = await db.DocumentLinks
+            .Where(l => l.TargetType == LinkTargetType.MedicalBill && l.TargetId == id)
+            .ToListAsync(ct);
+
+        db.TaskItems.RemoveRange(vorgaenge);
+        db.DocumentLinks.RemoveRange(verweise);
+        db.MedicalBills.Remove(bill);
+
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    /// <summary>
     /// Buchungen, die zur erwarteten Erstattung passen könnten — bewertet nach Betrag, Datum und
     /// Verwendungszweck.
     /// </summary>
