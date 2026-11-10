@@ -35,6 +35,39 @@ public sealed record TaskItemDto
     /// </remarks>
     public bool CanComplete => State != TaskState.Done
         && Source is TaskSource.Manual or TaskSource.DocumentAction;
+
+    /// <summary>
+    /// Buchungen, die diese Forderung bezahlt haben könnten.
+    /// </summary>
+    /// <remarks>
+    /// Nur Vorschläge: Was eindeutig belegt war, ist längst zugeordnet und der Vorgang
+    /// geschlossen — hier steht, was übrig blieb und wofür ein Mensch gebraucht wird. Leer ist
+    /// der Normalfall.
+    /// </remarks>
+    public IReadOnlyList<TaskPaymentDto> PaymentSuggestions { get; init; } = [];
+}
+
+/// <summary>Eine Buchung, die zu einer Forderung aus einem Schreiben passt.</summary>
+/// <remarks>
+/// Verwendungszweck und Empfänger stehen dabei, weil nur sie die Entscheidung tragen: Betrag
+/// und Tag passen bei jedem Vorschlag, sonst stünde er nicht da.
+/// </remarks>
+public sealed record TaskPaymentDto
+{
+    public required int TransactionId { get; init; }
+    public required DateOnly BookedOn { get; init; }
+    public required decimal Amount { get; init; }
+    public string? Payee { get; init; }
+    public string? Purpose { get; init; }
+
+    /// <summary>
+    /// Die Nummer, die in Verwendungszweck und Beleg steht — oder <c>null</c>.
+    /// </summary>
+    /// <remarks>
+    /// Steht hier nichts, passt nur der Betrag im Zeitraum. Das kann jede andere Zahlung
+    /// derselben Höhe auch, und deshalb ist dieser Vorschlag einer und keine Feststellung.
+    /// </remarks>
+    public string? Evidence { get; init; }
 }
 
 public sealed record TaskListDto

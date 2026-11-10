@@ -214,6 +214,15 @@ public static class ExtensionEndpoints
                 int id, UpdateTaskStateRequest request, TaskService service, CancellationToken ct)
             => await service.SetStateAsync(id, request.State, ct) ? Results.NoContent() : Results.NotFound())
             .RequireAuthorization(AuthPolicies.Write);
+
+        // Einen Vorschlag annehmen: Buchung zuordnen, Vorgang schliessen. Nur für die Treffer,
+        // die sich nicht von allein entschieden haben — die anderen sind längst zu.
+        api.MapPost("/{id:int}/zahlung/{transactionId:int}", async (
+                int id, int transactionId, TaskService service, CancellationToken ct)
+            => await service.AssignPaymentAsync(id, transactionId, ct)
+                ? Results.NoContent()
+                : Results.NotFound())
+            .RequireAuthorization(AuthPolicies.Write);
     }
 
     private static void MapHealth(IEndpointRouteBuilder app)

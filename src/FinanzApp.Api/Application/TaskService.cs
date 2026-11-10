@@ -30,6 +30,17 @@ public sealed class TaskService(FinanzAppDbContext db, IClock clock)
     private const int DocumentDueLeadDays = 30;
 
     /// <summary>
+    /// Wie viele Zahlungsvorschläge höchstens an einer Zeile stehen.
+    /// </summary>
+    /// <remarks>
+    /// Ein runder Betrag trifft auf einem Konto mit Jahren an Buchungen viele Male. Alle
+    /// anzubieten hiesse, die Entscheidung durch eine Suchaufgabe zu ersetzen; die drei
+    /// nächsten an der Frist sind die, die überhaupt in Frage kommen. Wer dort nichts findet,
+    /// hakt den Vorgang von Hand ab — das kann er bei einem Schreiben ohnehin.
+    /// </remarks>
+    private const int MostSuggestions = 3;
+
+    /// <summary>
     /// Wie lange eine abgelaufene Frist aus einem Schreiben noch auf dem Tisch bleibt.
     /// </summary>
     /// <remarks>
@@ -49,6 +60,12 @@ public sealed class TaskService(FinanzAppDbContext db, IClock clock)
         var rows = await db.TaskItems.AsNoTracking().ToListAsync(ct);
         var amounts = await LoadAmountsAsync(rows, ct);
 
+        // Was nach dem Abgleich offen blieb: Treffer, die sich nicht von allein entscheiden
+        // liessen. Sie gehören an die Zeile, zu der sie gehören, und nicht in eine eigene Liste
+        // — der Vorgang ist die Frage, der Vorschlag ist die mögliche Antwort.
+        var vorschlaege = await PaymentMatchesAsync(
+            rows.Where(r => r.State != TaskState.Done).ToList(), ct);
+
         var items = rows
             .Select(row => new TaskItemDto
             {
@@ -62,6 +79,9 @@ public sealed class TaskService(FinanzAppDbContext db, IClock clock)
                 SourceId = row.SourceId,
                 Amount = amounts.GetValueOrDefault(row.Id),
                 DaysOverdue = row.DueOn is { } due ? today.DayNumber - due.DayNumber : 0,
+                PaymentSuggestions = vorschlaege.TryGetValue(row.Id, out var treffer)
+                    ? [.. treffer.Take(MostSuggestions).Select(Zahlung)]
+                    : [],
             })
             .OrderBy(i => i.State)
             .ThenByDescending(i => i.IsOverdue)
@@ -436,6 +456,223 @@ public sealed class TaskService(FinanzAppDbContext db, IClock clock)
         {
             await db.SaveChangesAsync(ct);
         }
+
+        // Erst nach dem Speichern: Ein eben angelegter Vorgang hat vorher keine Id, und ohne
+        // sie liesse er sich nicht schliessen.
+        await MatchPaymentsAsync(ct);
+    }
+
+    /// <summary>
+    /// Schliesst Vorgänge aus Schreiben, deren Zahlung eindeutig in den Buchungen steht.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Die Lücke, die das schliesst:</b> Eine erfasste Rechnung weiss, ob sie bezahlt
+    /// ist. Ein Bescheid weiss nichts — da steht ein Satz auf Papier. Der Vorgang blieb deshalb
+    /// offen, bis ein Mensch ihn abhakte oder seine Frist aus dem Sichtfenster fiel, und das
+    /// Geld war längst weg.</para>
+    /// <para><b>Von allein nur, wo es nichts zu entscheiden gibt:</b> genau ein Treffer, und
+    /// belegt durch eine Nummer, die in Verwendungszweck und Beleg steht. Alles andere bleibt
+    /// stehen und wird in der Liste vorgeschlagen. Eine falsch geschlossene Forderung sieht
+    /// nämlich genauso aus wie eine richtig geschlossene — siehe
+    /// <see cref="PaymentMatching"/>.</para>
+    /// </remarks>
+    private async Task MatchPaymentsAsync(CancellationToken ct)
+    {
+        var offene = await db.TaskItems
+            .Where(t => t.Source == TaskSource.DocumentAction
+                        && t.State != TaskState.Done
+                        && t.SourceId != null)
+            .ToListAsync(ct);
+
+        if (offene.Count == 0)
+        {
+            return;
+        }
+
+        var treffer = await PaymentMatchesAsync(offene, ct);
+        var belegIds = offene.Select(t => t.SourceId!.Value).ToList();
+
+        var verlinkt = (await db.DocumentLinks.AsNoTracking()
+                .Where(l => l.TargetType == LinkTargetType.Transaction
+                            && belegIds.Contains(l.DocumentId))
+                .Select(l => new { l.DocumentId, l.TargetId })
+                .ToListAsync(ct))
+            .Select(l => (l.DocumentId, l.TargetId))
+            .ToHashSet();
+
+        var geschlossen = false;
+
+        foreach (var vorgang in offene)
+        {
+            if (!treffer.TryGetValue(vorgang.Id, out var kandidaten)
+                || PaymentMatching.Certain(kandidaten) is not { } sicher)
+            {
+                continue;
+            }
+
+            Verbuche(vorgang, sicher, verlinkt);
+            geschlossen = true;
+        }
+
+        if (geschlossen)
+        {
+            await db.SaveChangesAsync(ct);
+        }
+    }
+
+    /// <summary>
+    /// Schreibt die gefundene Zahlung an den Vorgang und schliesst ihn.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Grund steht dabei. Ein Vorgang, der von selbst zuging und niemandem sagen kann
+    /// warum, ist schlimmer als einer, der offen blieb: Beim offenen sieht man wenigstens, dass
+    /// etwas fehlt.</para>
+    /// <para>Der Beleg hängt sich an die Buchung — dasselbe, was jemand von Hand täte. Danach
+    /// zeigt die Buchung das Schreiben, das sie verlangt hat, und nicht nur umgekehrt.</para>
+    /// </remarks>
+    private void Verbuche(
+        TaskItem vorgang, PaymentMatch treffer, HashSet<(int Beleg, int Buchung)> verlinkt)
+    {
+        vorgang.State = TaskState.Done;
+        vorgang.CompletedAt = clock.Now;
+        vorgang.Detail = (vorgang.Detail is { Length: > 0 } bisher ? bisher + " · " : string.Empty)
+                         + $"bezahlt: Buchung vom {Format(treffer.Booking.BookedOn)}"
+                         + $", erkannt an {treffer.Evidence}";
+
+        var belegId = vorgang.SourceId!.Value;
+
+        if (verlinkt.Add((belegId, treffer.Booking.Id)))
+        {
+            db.DocumentLinks.Add(new DocumentLink
+            {
+                DocumentId = belegId,
+                TargetType = LinkTargetType.Transaction,
+                TargetId = treffer.Booking.Id,
+                CreatedAt = clock.Now,
+            });
+        }
+    }
+
+    /// <summary>
+    /// Zu jedem Vorgang aus einem Schreiben die Buchungen, die ihn bezahlt haben könnten.
+    /// </summary>
+    /// <remarks>
+    /// Der Betrag steht nur im Fliesstext der Forderungszeile — gelesen wird er von demselben
+    /// Leser, der auch ihren Termin liest. Ohne Betrag gibt es nichts abzugleichen; das ist der
+    /// Normalfall bei „Bitte stellen Sie Ihren Einzug um“ und bleibt es.
+    /// </remarks>
+    private async Task<Dictionary<int, IReadOnlyList<PaymentMatch>>> PaymentMatchesAsync(
+        IReadOnlyCollection<TaskItem> vorgaenge, CancellationToken ct)
+    {
+        var ausSchreiben = vorgaenge
+            .Where(t => t.Source == TaskSource.DocumentAction && t.SourceId is not null)
+            .ToList();
+
+        if (ausSchreiben.Count == 0)
+        {
+            return [];
+        }
+
+        var belegIds = ausSchreiben.Select(t => t.SourceId!.Value).Distinct().ToList();
+
+        var belege = await db.Documents.AsNoTracking()
+            .Where(d => belegIds.Contains(d.Id) && d.ActionLine != null && d.ActionLine != "")
+            .Select(d => new { d.Id, d.ActionLine, d.DocumentDate, d.ContentText })
+            .ToListAsync(ct);
+
+        var belegJeId = belege.ToDictionary(d => d.Id);
+        var forderungen = new Dictionary<int, PaymentClaim>();
+
+        foreach (var vorgang in ausSchreiben)
+        {
+            if (!belegJeId.TryGetValue(vorgang.SourceId!.Value, out var beleg)
+                || BillTextReader.AmountInLine(beleg.ActionLine!) is not { } betrag
+                || betrag <= 0m)
+            {
+                continue;
+            }
+
+            forderungen[vorgang.Id] =
+                new PaymentClaim(betrag, vorgang.DueOn, beleg.DocumentDate, beleg.ContentText);
+        }
+
+        if (forderungen.Count == 0)
+        {
+            return [];
+        }
+
+        // Nur Buchungen, die der Höhe nach überhaupt in Frage kommen. Den ganzen Kontoauszug zu
+        // laden, um ihn dann wegzuwerfen, hiesse ihn bei jedem Blick in die Liste zu lesen.
+        var abgaenge = forderungen.Values.Select(f => -f.Amount).Distinct().ToList();
+
+        var buchungen = await db.Transactions.AsNoTracking()
+            .Where(t => abgaenge.Contains(t.Amount))
+            .Select(t => new PaymentRecord(t.Id, t.BookingDate, t.Amount, t.Payee, t.Purpose))
+            .ToListAsync(ct);
+
+        if (buchungen.Count == 0)
+        {
+            return [];
+        }
+
+        var heute = clock.Today;
+
+        return forderungen.ToDictionary(
+            p => p.Key,
+            p => PaymentMatching.For(p.Value, buchungen, heute));
+    }
+
+    /// <summary>Ein Treffer, wie ihn die Oberfläche braucht.</summary>
+    private static TaskPaymentDto Zahlung(PaymentMatch treffer) => new()
+    {
+        TransactionId = treffer.Booking.Id,
+        BookedOn = treffer.Booking.BookedOn,
+        Amount = treffer.Booking.Amount,
+        Payee = treffer.Booking.Payee,
+        Purpose = treffer.Booking.Purpose,
+        Evidence = treffer.Evidence,
+    };
+
+    /// <summary>
+    /// Ordnet eine Buchung von Hand zu und schliesst den Vorgang.
+    /// </summary>
+    /// <remarks>
+    /// Der Weg für alles, was sich nicht von allein entschied. Geprüft wird trotzdem, ob die
+    /// Buchung überhaupt in Frage kommt: Ein Mensch, der auf eine Schaltfläche drückt, hat die
+    /// Liste gesehen und nicht den Betrag nachgerechnet.
+    /// </remarks>
+    /// <returns><c>false</c>, wenn es den Vorgang oder den Treffer nicht gibt.</returns>
+    public async Task<bool> AssignPaymentAsync(
+        int taskId, int transactionId, CancellationToken ct = default)
+    {
+        var vorgang = await db.TaskItems.FirstOrDefaultAsync(
+            t => t.Id == taskId && t.State != TaskState.Done, ct);
+
+        if (vorgang is null || vorgang.Source != TaskSource.DocumentAction || vorgang.SourceId is null)
+        {
+            return false;
+        }
+
+        var treffer = await PaymentMatchesAsync([vorgang], ct);
+
+        if (!treffer.TryGetValue(taskId, out var kandidaten)
+            || kandidaten.FirstOrDefault(m => m.Booking.Id == transactionId) is not { } gewaehlt)
+        {
+            return false;
+        }
+
+        var verlinkt = (await db.DocumentLinks.AsNoTracking()
+                .Where(l => l.TargetType == LinkTargetType.Transaction
+                            && l.DocumentId == vorgang.SourceId)
+                .Select(l => l.TargetId)
+                .ToListAsync(ct))
+            .Select(id => (vorgang.SourceId!.Value, id))
+            .ToHashSet();
+
+        Verbuche(vorgang, gewaehlt, verlinkt);
+        await db.SaveChangesAsync(ct);
+
+        return true;
     }
 
     /// <summary>Beträge zu den Aufgaben, aus dem jeweiligen Quellobjekt.</summary>

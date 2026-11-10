@@ -604,6 +604,20 @@ public static class BillTextReader
     /// </remarks>
     public static DateOnly? DateInLine(string line) => LetztesDatum(line);
 
+    /// <summary>
+    /// Der Betrag in einer einzelnen Zeile — für eine Fundstelle, die von außen kommt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Dieselbe Lesart wie beim Datum und aus demselben Grund: Die Forderungszeile eines
+    /// Schreibens — „zahlbar bis zum … , 1.234,56“ — soll von demselben geprüften Code zu einem
+    /// Betrag werden wie jede andere Zeile dieses Lesers. Hier die Zahl ein zweites Mal
+    /// herauszuziehen hieße, eine zweite Gelegenheit zu schaffen, anders zu irren.</para>
+    /// <para>Gelesen wird die <em>letzte</em> Zahl der Zeile. In „bis zum 31.03.2027 1.234,56“
+    /// steht der Betrag hinter dem Termin, und das ist die übliche Reihenfolge: erst die
+    /// Bedingung, dann die Summe.</para>
+    /// </remarks>
+    public static decimal? AmountInLine(string line) => LetzteZahl(line);
+
     private static DateOnly? LetztesDatum(string zeile)
     {
         var treffer = Datum.Matches(zeile);
