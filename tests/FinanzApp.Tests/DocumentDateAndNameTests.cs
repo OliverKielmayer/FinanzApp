@@ -459,6 +459,109 @@ public sealed class DocumentDateAndNameTests : IDisposable
         Assert.Null(beleg.DueDate);
     }
 
+    // ── Was in der Liste steht ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Der Dateiname weiß es, die Liste zeigte es nicht.
+    /// </summary>
+    /// <remarks>
+    /// Am Krankenversicherungsvertrag standen zwei Belege als „Scannen“ und „Scannen0002“,
+    /// während ihre Dateien längst „Arztrechnung_…_2026-03-11.pdf“ hießen. Die Ableitung gab
+    /// es schon — die Vorgangsliste benutzte sie, die Dokumentliste nicht.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_Geraetename_wird_in_der_Liste_durch_den_Dateinamen_ersetzt()
+    {
+        var id = Abgelegt("Scannen0002", "Arztrechnung_Musterkasse_2026-03-11.pdf", erzeugt: true);
+
+        using var context = database.Context();
+        var liste = await Documents(context).GetForTargetAsync(LinkTargetType.Policy, 77);
+
+        var zeile = Assert.Single(liste);
+        Assert.Equal("Arztrechnung Musterkasse · 11.03.2026", zeile.Title);
+        Assert.Equal(id, zeile.Id);
+    }
+
+    /// <summary>
+    /// Die Grenze: Was ein Mensch benannt hat, bleibt stehen. Ein überschriebener Name ist
+    /// nicht zurückzuholen — und die Anwendung weiß nicht besser, wie sein Beleg heißen soll.
+    /// </summary>
+    [Fact]
+    public async Task Ein_gepflegter_Titel_bleibt_stehen()
+    {
+        Abgelegt("Police Krankenversicherung", "Police_Musterkasse_2026-03-11.pdf", erzeugt: true);
+
+        using var context = database.Context();
+        var liste = await Documents(context).GetForTargetAsync(LinkTargetType.Policy, 77);
+
+        Assert.Equal("Police Krankenversicherung", Assert.Single(liste).Title);
+    }
+
+    /// <summary>
+    /// Und die zweite Grenze: Stammt der Dateiname nicht von der Anwendung, trägt er denselben
+    /// Gerätenamen wie der Titel. Dann gibt es nichts herzuleiten.
+    /// </summary>
+    [Fact]
+    public async Task Ohne_erzeugten_Dateinamen_bleibt_der_Geraetename()
+    {
+        Abgelegt("Scannen0002", "Scannen0002.pdf", erzeugt: false);
+
+        using var context = database.Context();
+        var liste = await Documents(context).GetForTargetAsync(LinkTargetType.Policy, 77);
+
+        Assert.Equal("Scannen0002", Assert.Single(liste).Title);
+    }
+
+    /// <summary>
+    /// Die dritte Grenze, und sie ist die unscheinbarste: Der Dateiname gilt als erzeugt, ist
+    /// aber selbst ein Gerätename — so steht es da, wenn die Anwendung beim Einliefern noch
+    /// keine Art kannte. Dann gibt es nichts herzuleiten, und „Scannen0002 · 11.03.2026“ wäre
+    /// schlechter als der blosse Titel.
+    /// </summary>
+    [Fact]
+    public async Task Ein_Dateiname_der_selbst_ein_Geraetename_ist_hilft_nicht()
+    {
+        Abgelegt("Scannen0002", "Scannen0002.pdf", erzeugt: true);
+
+        using var context = database.Context();
+        var liste = await Documents(context).GetForTargetAsync(LinkTargetType.Policy, 77);
+
+        Assert.Equal("Scannen0002", Assert.Single(liste).Title);
+    }
+
+    /// <summary>Ein abgelegter Beleg samt Verweis auf einen Vertrag.</summary>
+    private int Abgelegt(string titel, string dateiname, bool erzeugt)
+    {
+        using var context = database.Context();
+
+        var beleg = new Document
+        {
+            Title = titel,
+            RelativePath = "Versicherungen/" + dateiname,
+            FileName = dateiname,
+            Extension = ".pdf",
+            Area = DocumentArea.Insurance,
+            DocumentDate = new DateOnly(2026, 3, 11),
+            HasGeneratedName = erzeugt,
+            CreatedAt = clock.Now,
+            UpdatedAt = clock.Now,
+        };
+
+        context.Documents.Add(beleg);
+        context.SaveChanges();
+
+        context.DocumentLinks.Add(new DocumentLink
+        {
+            DocumentId = beleg.Id,
+            TargetType = LinkTargetType.Policy,
+            TargetId = 77,
+            CreatedAt = clock.Now,
+        });
+
+        context.SaveChanges();
+        return beleg.Id;
+    }
+
     /// <summary>Ein Beleg mit gespeicherter Zeile, Datum und ohne Frist.</summary>
     private static Document MitZeile(string zeile, DateOnly? datum) => new()
     {

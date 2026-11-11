@@ -864,7 +864,18 @@ public sealed class DocumentService(
             items.Add(new DocumentListItemDto
             {
                 Id = row.Id,
-                Title = row.Title,
+
+                // Nicht der gespeicherte Titel, sondern der Name, unter dem ein Beleg einem
+                // Menschen vorgestellt wird. Ein Scanner nennt jede Seite „Scannen0002“, und
+                // genau das stand dann in der Dokumentliste an der Krankenversicherung —
+                // während der Dateiname längst „Arztrechnung_Krankenversicherung_2026-04-24“
+                // hiess. Die Vorgangsliste leitete schon ab, diese Liste nicht.
+                //
+                // Abgeleitet und nicht geschrieben: Der gespeicherte Titel bleibt, wie der
+                // Scanner ihn vergab. Wer ihn selbst pflegt, behaelt ihn — BelegName.Fuer
+                // fasst nur Geraetenamen an.
+                Title = BelegName.Fuer(
+                    row.Title, row.FileName, row.HasGeneratedName, row.DocumentDate),
                 FileName = row.FileName,
                 TypeName = row.DocumentType?.Name,
                 Area = row.Area,
