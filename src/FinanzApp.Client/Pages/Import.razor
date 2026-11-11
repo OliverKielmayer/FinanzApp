@@ -48,11 +48,21 @@
                             <span class="create-problem">@problem</span>
                         }
 
-                        <div class="doc-actions">
-                            <button type="button" class="btn btn-secondary" @onclick="ReadExampleAsync">
-                                Beispielauszug einlesen
-                            </button>
-                        </div>
+                        @*
+                            Nur solange nichts gebucht ist. Der Beispielauszug endet in
+                            derselben Vorschau wie eine echte Datei und lässt sich genauso
+                            übernehmen — neben echten Buchungen ist er kein Angebot zum
+                            Ausprobieren mehr, sondern eine Falle. Verweigert wird er
+                            unabhängig davon beim Übernehmen selbst.
+                        *@
+                        @if (preview.LedgerIsEmpty)
+                        {
+                            <div class="doc-actions">
+                                <button type="button" class="btn btn-secondary" @onclick="ReadExampleAsync">
+                                    Beispielauszug einlesen
+                                </button>
+                            </div>
+                        }
                     </div>
                 </Authorized>
                 <NotAuthorized>
@@ -152,7 +162,7 @@
                         @if (preview.StatementBalanceDate is { } stichtag)
                         {
                             <label class="sheet-rule">
-                                <input type="checkbox" @bind="adoptStatementBalance" />
+                                <input type="checkbox" @bind="Draft.AdoptBalance" />
                                 <span class="sheet-rule-text">
                                     Als Stand des Kontos übernehmen
                                     (@GermanFormat.Date(stichtag))
@@ -861,14 +871,6 @@
 
     private Stage stage = Stage.Empty;
 
-    /// <summary>
-    /// Ob der Auszugssaldo nach der Übernahme auch als Stand des Kontos gelten soll.
-    /// </summary>
-    /// <remarks>
-    /// Nicht vorbelegt. Den Saldo zu setzen verschiebt alles, was die Anwendung künftig über
-    /// das Konto sagt — das ist eine Entscheidung und keine Nebenwirkung des Einlesens.
-    /// </remarks>
-    private bool adoptStatementBalance;
     private string fileName = string.Empty;
     private string? problem;
     private bool dragging;
@@ -1003,9 +1005,6 @@
     {
         stage = Stage.Reading;
 
-        // Ein neuer Auszug, ein neuer Entschluss: Das Kästchen von der letzten Datei
-        // stehenzulassen setzte einen Stand, den niemand mehr bewusst gewählt hat.
-        adoptStatementBalance = false;
         readStep = 0;
 
         reading?.Cancel();
@@ -1124,7 +1123,7 @@
             // Nach dem Buchen, nicht davor: Der Kontrollpunkt hält fest, was die Anwendung zu
             // diesem Stichtag rechnet, und das sind die gerade übernommenen Sätze mit. Vorher
             // gesetzt stünde dort eine Differenz, die der Import im selben Atemzug schliesst.
-            if (adoptStatementBalance
+            if (Draft.AdoptBalance
                 && Draft.Preview is { StatementBalance: { } stand, StatementBalanceDate: { } tag })
             {
                 var punkt = await Api.AddBalanceCheckpointAsync(

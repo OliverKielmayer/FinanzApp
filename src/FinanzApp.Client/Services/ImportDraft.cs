@@ -77,6 +77,19 @@ public sealed class ImportDraft : IDisposable
     /// </remarks>
     public string FreshCategory { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Ob beim Übernehmen der Schlusssaldo des Auszugs zum Stand des Kontos wird.
+    /// </summary>
+    /// <remarks>
+    /// <para>Steht hier und nicht auf der Importseite, weil der Bankabruf sie setzt, bevor
+    /// die Seite überhaupt gezeigt wird: Was die Bank gerade geliefert hat, ist der beste
+    /// Stand, den es für dieses Konto gibt — und der Grund, warum der Abruf ein Vorgang ist
+    /// und nicht zwei.</para>
+    /// <para>Bei einer hochgeladenen Datei bleibt sie aus. Dort weiß niemand, ob der Auszug
+    /// der neueste ist; ein alter Schlusssaldo als Stand setzte das Konto zurück.</para>
+    /// </remarks>
+    public bool AdoptBalance { get; set; }
+
     /// <summary>Ob ein Import begonnen ist.</summary>
     public bool HasWork => Preview is not null;
 
@@ -142,6 +155,7 @@ public sealed class ImportDraft : IDisposable
         Keep = new ImportKeepFields();
         CreatingFor = null;
         FreshCategory = string.Empty;
+        AdoptBalance = false;
 
         Selected.Clear();
         Choices.Clear();

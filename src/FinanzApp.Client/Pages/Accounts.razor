@@ -128,13 +128,19 @@
                                 Nur wo ein Zugang steht. Ein Schalter, der bei jedem Konto
                                 anbietet, bei der Bank nachzufragen, verspricht etwas, das die
                                 meisten Konten nicht halten können.
+
+                                Ein Schalter, nicht zwei: Der Auszug bringt Umsätze und
+                                Schlusssaldo in einem, und nur er sagt dazu, auf welchen Tag
+                                sich der Saldo bezieht. Die frühere reine Saldenabfrage
+                                lieferte eine Zahl ohne Datum — als Tagesstand abgelegt, fiel
+                                alles heraus, was die Bank danach noch buchte.
                             *@
                             @if (konto.HasBankAccess)
                             {
                                 <button type="button" class="btn btn-secondary"
                                         @onclick="() => OpenBankCheck(konto.Id)"
                                         disabled="@(bankBusy)">
-                                    Stand bei der Bank abfragen
+                                    Bei der Bank abholen
                                 </button>
                             }
                         </div>
@@ -154,6 +160,26 @@
                                   + "Tag auf dem Konto war. Die Anwendung rechnet ab da vorwärts; "
                                   + "Buchungen bis zu diesem Tag stecken schon in der Zahl.")
                             </span>
+
+                            @*
+                                Genau hier ist schon einmal eine Differenz entstanden: Ein
+                                Stand, der vormittags abgelesen und auf denselben Tag datiert
+                                wird, gilt der Rechnung als Stand des <em>ganzen</em> Tages.
+                                Was die Bank nachmittags noch bucht, fällt damit still heraus
+                                — und bleibt draußen, weil der nächste Abgleich gegen dieselbe
+                                Zahl vergleicht. Der Hinweis steht nur beim heutigen Datum: An
+                                jedem anderen Tag ist der Auszug längst geschlossen.
+                            *@
+                            @if (reconcileAsOf >= DateOnly.FromDateTime(DateTime.Today))
+                            {
+                                <span class="meta accent">
+                                    @("Ein heute abgelesener Stand ist ein Zwischenstand: Was "
+                                      + "die Bank im Lauf des Tages noch bucht, steckt weder "
+                                      + "in ihm noch wird es dazugerechnet. Belastbarer ist "
+                                      + "der Schlusssaldo eines vergangenen Tages — oder der "
+                                      + "Auszug selbst, der ihn mitbringt.")
+                                </span>
+                            }
 
                             <div class="field">
                                 <label for="abgleich-stichtag">Stichtag</label>
@@ -221,9 +247,8 @@
                     }
 
                     @*
-                        Der Abruf: PIN eingeben, fragen, die Zahlen nebeneinander stellen. Alles
-                        an derselben Stelle, an der das Konto steht — wer den Stand prüft, will
-                        ihn hier sehen und nicht auf einer eigenen Seite.
+                        Der Abruf: PIN eingeben, fragen, weiter in die Vorschau. An derselben
+                        Stelle, an der das Konto steht — nicht auf einer eigenen Seite.
                     *@
                     @if (bankAccountId == konto.Id)
                     {
@@ -241,63 +266,6 @@
                                         <li>@problem</li>
                                     }
                                 </ul>
-                            }
-                            else if (bankResult is { } befund)
-                            {
-                                <div class="acct-bank-rows">
-                                    <div class="acct-bank-row">
-                                        <span class="label-muted">Bei der Bank</span>
-                                        <span class="num">@State.Euro(befund.BankBalance)</span>
-                                    </div>
-                                    <div class="acct-bank-row">
-                                        <span class="label-muted">Hier gerechnet</span>
-                                        <span class="num">@State.Euro(befund.LedgerBalance)</span>
-                                    </div>
-                                    <div class="acct-bank-row acct-bank-diff">
-                                        <span class="label-muted">Unterschied</span>
-                                        <span class="num">@Signed(befund.Difference)</span>
-                                    </div>
-                                </div>
-
-                                @*
-                                    Die Deutung steht dabei, nicht nur die Zahl. Eine Abweichung
-                                    ist kein Fehler der Anwendung und keiner der Bank — es fehlen
-                                    Buchungen, oder es stehen welche zu viel da.
-                                *@
-                                <span class="meta">
-                                    @if (befund.Matches)
-                                    {
-                                        @("Beide Zahlen stimmen überein.")
-                                    }
-                                    else
-                                    {
-                                        @("Beide Zahlen gehen auseinander. Das heisst nicht, dass "
-                                          + "eine falsch ist — es fehlen hier Buchungen, oder es "
-                                          + "stehen welche zu viel da. Der gerechnete Stand bleibt "
-                                          + "stehen, wie er ist.")
-                                    }
-                                </span>
-                                <span class="meta">Abgerufen @befund.RetrievedAt.ToString("dd.MM.yyyy HH:mm")</span>
-
-                                @*
-                                    Die Zahl der Bank zum Saldo zu erheben ist eine Entscheidung
-                                    und keine Nebenwirkung des Abrufs: Sie verschiebt alles, was
-                                    die Anwendung künftig über dieses Konto sagt. Deshalb ein
-                                    eigener Schalter — und nur, wenn es etwas zu entscheiden gibt.
-                                *@
-                                <div class="acct-sheet-actions">
-                                    @if (!befund.Matches)
-                                    {
-                                        <button type="button" class="btn btn-primary"
-                                                @onclick="() => AdoptBankBalance(befund)"
-                                                disabled="@reconcileBusy">
-                                            Als Stand übernehmen
-                                        </button>
-                                    }
-
-                                    <button type="button" class="btn btn-secondary"
-                                            @onclick="CloseBankCheck">Schliessen</button>
-                                </div>
                             }
                             else
                             {
@@ -332,25 +300,21 @@
                                        @onkeydown="BankPinKey" disabled="@bankBusy" />
                                 <span class="meta">
                                     Die PIN wird nicht gespeichert und bei jedem Abruf neu
-                                    gefragt. Keiner der beiden Abrufe ändert etwas am Konto.
+                                    gefragt. Der Abruf ändert nichts am Konto — er endet in
+                                    der Vorschau.
                                 </span>
 
-                                @* Zwei Fragen an dieselbe Bank, mit derselben PIN. „Stand“
-                                   holt eine Zahl, „Umsätze“ einen Auszug — und der endet in
-                                   derselben Vorschau wie eine hochgeladene Datei, nicht in
-                                   gebuchten Zeilen. Deshalb steht hier nicht „Übernehmen“. *@
+                                @* Eine Frage an die Bank, und sie beantwortet beides: Der
+                                   Auszug bringt die Umsätze und seinen Schlusssaldo mit, samt
+                                   dem Tag, auf den der sich bezieht. Er endet in derselben
+                                   Vorschau wie eine hochgeladene Datei, nicht in gebuchten
+                                   Zeilen — deshalb steht hier nicht „Übernehmen“. *@
                                 <div class="acct-sheet-actions">
                                     <button type="button" class="btn btn-primary"
-                                            @onclick="RunBankCheck"
-                                            disabled="@(bankBusy || string.IsNullOrWhiteSpace(bankPin))">
-                                        @(bankBusy && !fetchingStatement
-                                            ? "Bank wird gefragt …" : "Stand abfragen")
-                                    </button>
-                                    <button type="button" class="btn btn-secondary"
                                             @onclick="RunStatementFetch"
                                             disabled="@(bankBusy || string.IsNullOrWhiteSpace(bankPin))">
-                                        @(fetchingStatement
-                                            ? "Umsätze werden geholt …" : "Umsätze holen")
+                                        @(bankBusy
+                                            ? "Bank wird gefragt …" : "Abholen")
                                     </button>
                                     <button type="button" class="btn btn-secondary"
                                             @onclick="CloseBankCheck" disabled="@bankBusy">
@@ -722,28 +686,17 @@ else if (sheetTransaction is { } sheet)
 
     // ── Der Bankabruf ─────────────────────────────────────────────────────────────────────
     //
-    // Vier Felder, und keines davon überlebt den Seitenwechsel. Die PIN steht hier, solange
-    // sie getippt wird, und wird danach gelöscht — nicht weil das sicher wäre, sondern weil
-    // sie nirgends länger stehen soll als nötig. Gespeichert wird sie an keiner Stelle.
+    // Keines dieser Felder überlebt den Seitenwechsel. Die PIN steht hier, solange sie
+    // getippt wird, und wird danach gelöscht — nicht weil das sicher wäre, sondern weil sie
+    // nirgends länger stehen soll als nötig. Gespeichert wird sie an keiner Stelle.
 
     /// <summary>Welches Konto gerade abgefragt wird. <c>null</c> heisst: keines.</summary>
     private int? bankAccountId;
 
     private string bankPin = string.Empty;
     private bool bankBusy;
-    private BankBalanceDto? bankResult;
     private IReadOnlyList<string> bankProblems = [];
     private string? bankError;
-
-    /// <summary>
-    /// Ob gerade der Umsatzabruf läuft und nicht die Saldenabfrage.
-    /// </summary>
-    /// <remarks>
-    /// <c>bankBusy</c> sperrt beide Schaltflächen; dieses Feld entscheidet nur, an welcher
-    /// von beiden „…“ steht. Ohne es stünde beim Umsatzabruf „Bank wird gefragt …“ an der
-    /// Saldo-Schaltfläche — die falsche Auskunft darüber, was gerade passiert.
-    /// </remarks>
-    private bool fetchingStatement;
 
     // ── Abgleich ──────────────────────────────────────────────────────────────────────────
 
@@ -809,14 +762,6 @@ else if (sheetTransaction is { } sheet)
     /// Der Stichtag ist heute und nicht der Buchungstag der Bank: Den nennt sie zwar, aber die
     /// verwendete Bibliothek reicht ihn nicht durch. Ein anderes Datum hier wäre erfunden.
     /// </remarks>
-    private Task AdoptBankBalance(BankBalanceDto befund)
-        => WriteReconcileAsync(befund.AccountId, new BalanceCheckpointRequest
-        {
-            AsOf = DateOnly.FromDateTime(befund.RetrievedAt),
-            Balance = befund.BankBalance,
-            Source = BalanceCheckpointSource.BankFetch,
-        });
-
     private async Task WriteReconcileAsync(int accountId, BalanceCheckpointRequest anfrage)
     {
         reconcileBusy = true;
@@ -890,7 +835,6 @@ else if (sheetTransaction is { } sheet)
     {
         bankAccountId = accountId;
         bankPin = string.Empty;
-        bankResult = null;
         bankProblems = [];
         bankError = null;
         bankBusy = true;
@@ -915,7 +859,6 @@ else if (sheetTransaction is { } sheet)
     {
         bankAccountId = null;
         bankPin = string.Empty;
-        bankResult = null;
         bankProblems = [];
         bankError = null;
     }
@@ -925,44 +868,7 @@ else if (sheetTransaction is { } sheet)
     {
         if (e.Key == "Enter" && !bankBusy && !string.IsNullOrWhiteSpace(bankPin))
         {
-            await RunBankCheck();
-        }
-    }
-
-    /// <summary>
-    /// Fragt die Bank.
-    /// </summary>
-    /// <remarks>
-    /// Die PIN wird gleich nach dem Abruf gelöscht, ob er geklappt hat oder nicht. Bei einem
-    /// Fehlschlag muss sie neu getippt werden — das ist Absicht: Ein stehengelassenes Feld
-    /// lädt dazu ein, denselben falschen Versuch dreimal zu schicken, und drei Fehlversuche
-    /// sperren den Zugang.
-    /// </remarks>
-    private async Task RunBankCheck()
-    {
-        if (bankAccountId is not { } id || string.IsNullOrWhiteSpace(bankPin))
-        {
-            return;
-        }
-
-        bankBusy = true;
-        bankError = null;
-
-        try
-        {
-            bankResult = await Api.CheckBankBalanceAsync(id, bankPin);
-        }
-        catch (ApiException ex)
-        {
-            // Unverändert: Was die Bank sagt, weiss nur sie. Und sichtbar, bis der nächste
-            // Versuch läuft: Die kurze Meldung am Seitenrand ist nach zweieinhalb Sekunden
-            // weg — zu wenig für einen Satz, nach dem man etwas tun soll.
-            bankError = ex.Message;
-        }
-        finally
-        {
-            bankPin = string.Empty;
-            bankBusy = false;
+            await RunStatementFetch();
         }
     }
 
@@ -977,6 +883,10 @@ else if (sheetTransaction is { } sheet)
     /// kann dreihundert Sätze lang sein und braucht Kategorien, Empfängergruppen und die Wahl
     /// je Zeile. Das ist die Importseite — und sie nimmt einen begonnenen Entwurf von selbst
     /// auf. Der Abruf legt ihn nur hin.</para>
+    /// <para><b>Der Stand kommt mit.</b> Der Auszug der Bank nennt seinen Schlusssaldo und
+    /// den Tag dazu; das Kästchen auf der Importseite steht deshalb nach einem Abruf von
+    /// vornherein an. Bei einer hochgeladenen Datei bleibt es aus — dort weiß niemand, ob
+    /// der Auszug der neueste ist.</para>
     /// </remarks>
     private async Task RunStatementFetch()
     {
@@ -986,7 +896,6 @@ else if (sheetTransaction is { } sheet)
         }
 
         bankBusy = true;
-        fetchingStatement = true;
         bankError = null;
 
         try
@@ -1006,6 +915,10 @@ else if (sheetTransaction is { } sheet)
             // Das Konto ist hier bekannt und kein Vorschlag: Genau dieses wurde gefragt.
             Draft.AccountId = id;
 
+            // Nach Draft.Start, nicht davor: Start räumt den Entwurf auf und setzt das
+            // Kästchen dabei zurück.
+            Draft.AdoptBalance = true;
+
             // Eine Teilaussage, keine Zerlegung. „Davon neu“ ist die Zahl, nach der gefragt
             // wird; mögliche Duplikate und unlesbare Sätze stehen auf der Importseite, wo auch
             // das Kriterium dazu steht.
@@ -1022,7 +935,6 @@ else if (sheetTransaction is { } sheet)
         finally
         {
             bankPin = string.Empty;
-            fetchingStatement = false;
             bankBusy = false;
         }
     }

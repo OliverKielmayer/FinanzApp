@@ -1114,13 +1114,6 @@ body {
   font-size: 13px;
 }
 
-.acct-bank-diff {
-  margin-top: 4px;
-  padding-top: 6px;
-  border-top: 1px solid var(--color-divider);
-  font-size: 15px;
-}
-
 /* Jeder fehlende Wert in einer eigenen Zeile. Wer drei Zeilen liest, trägt drei
    Dinge nach; wer einen Fließtext liest, überliest das zweite. */
 .acct-bank-problems {

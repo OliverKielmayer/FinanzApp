@@ -118,6 +118,17 @@ public sealed record ImportPreviewDto
 
     /// <summary>Der letzte Import, für den Leerzustand.</summary>
     public ImportHistoryDto? LastImport { get; init; }
+
+    /// <summary>
+    /// Ob im Haushalt noch keine einzige Buchung steht.
+    /// </summary>
+    /// <remarks>
+    /// Daran hängt das Angebot, den eingebauten Beispielauszug zu lesen. Er läuft über
+    /// denselben Übernahmeweg wie eine echte Datei — wo schon gebucht wird, wären seine
+    /// erfundenen Sätze einen Fehlklick von einem echten Konto entfernt. Die Oberfläche
+    /// blendet ihn deshalb aus; verweigert wird er davon unabhängig beim Übernehmen.
+    /// </remarks>
+    public bool LedgerIsEmpty { get; init; }
 }
 
 public sealed record ImportAccountDto

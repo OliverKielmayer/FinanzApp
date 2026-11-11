@@ -600,6 +600,16 @@ public static class ApiEndpoints
         api.MapPost("/import/commit", async (
             ImportCommitRequest request, ImportService service, CancellationToken ct) =>
         {
+            // Der Riegel steht hier und nicht im Dienst: Der Dienst führt dem Testgerüst
+            // denselben Import zweimal hintereinander vor, und das muss er können.
+            if (await service.ExampleIntoRealBooksAsync(request.PreviewId, ct))
+            {
+                return Results.Problem(
+                    "Der Beispielauszug lässt sich nicht übernehmen: Seine Sätze sind erfunden, "
+                    + "und in diesem Haushalt stehen schon Buchungen.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
             try
             {
                 return Results.Ok(await service.CommitAsync(request, ct));

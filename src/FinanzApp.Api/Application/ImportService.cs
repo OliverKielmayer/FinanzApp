@@ -171,6 +171,26 @@ public sealed class ImportService(
     public Task<ImportPreviewDto> GetPreviewAsync(CancellationToken ct = default)
         => BuildAsync(DemoBatch(), ct);
 
+    /// <summary>Ob im Haushalt noch keine einzige Buchung steht.</summary>
+    private async Task<bool> LedgerIsEmptyAsync(CancellationToken ct)
+        => !await db.Transactions.AnyAsync(ct);
+
+    /// <summary>
+    /// Ob diese Übernahme die eingebaute Vorlage in einen Haushalt trüge, der schon bucht.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die Vorlage ist zum Ausprobieren da, solange nichts gebucht ist. Ihre Vorschau-Id
+    /// ist fest und damit bekannt; dass die Oberfläche den Schalter ausblendet, ist deshalb
+    /// kein Riegel, sondern nur das Ausbleiben eines Angebots.</para>
+    /// <para>Die Auskunft steht hier, der Riegel am Endpunkt. <see cref="CommitAsync"/> selbst
+    /// sperrt nichts: Es ist der Weg, auf dem das Testgerüst den Import durchspielt, und eine
+    /// Sperre dort nähme ihm das zweite Einlesen desselben Auszugs — die Probe auf die
+    /// Duplikaterkennung.</para>
+    /// </remarks>
+    public async Task<bool> ExampleIntoRealBooksAsync(
+        Guid previewId, CancellationToken ct = default)
+        => previewId == DemoImportBatch.PreviewId && !await LedgerIsEmptyAsync(ct);
+
     /// <summary>
     /// Übernimmt die <b>gewählten</b> Sätze in einer Transaktion — entweder liegen danach alle im
     /// Bestand oder keiner.
@@ -514,6 +534,7 @@ public sealed class ImportService(
             DuplicateCriterion = Criterion,
             Rows = rows,
             LastImport = await LastImportAsync(ct),
+            LedgerIsEmpty = await LedgerIsEmptyAsync(ct),
         };
     }
 
