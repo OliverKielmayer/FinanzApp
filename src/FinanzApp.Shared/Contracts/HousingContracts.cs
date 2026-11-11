@@ -289,6 +289,20 @@ public sealed record PropertyDetailDto
     /// Schirms viermal gerechnet da.
     /// </remarks>
     public PropertyParticipationDto? Participation { get; init; }
+
+    /// <summary>
+    /// Buchungen, die zu diesem Objekt gehören — jede mit dem Grund, warum sie hier steht.
+    /// </summary>
+    /// <remarks>
+    /// <para>Eine Buchung trägt kein Objekt. Was zum Haus gehört, wird deshalb hergeleitet:
+    /// aus Einlagen auf dieses Objekt, aus den Nummern seiner Verträge und der Gebäude- und
+    /// Hausratversicherung, aus dem Anbieternamen — nur wo er eindeutig ist — und aus der
+    /// Darlehensrate.</para>
+    /// <para>Der Grund steht an jeder Zeile, weil die Herleitung unterschiedlich fest ist:
+    /// Eine Vertragsnummer im Verwendungszweck ist ein Beleg, ein passender Betrag ohne
+    /// alles andere ein Schluss. Wer das nicht sieht, hält beides für dasselbe.</para>
+    /// </remarks>
+    public required IReadOnlyList<LinkedPaymentDto> Bookings { get; init; }
 }
 
 public sealed record PropertyLoanRefDto

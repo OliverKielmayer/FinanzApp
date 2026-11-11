@@ -106,7 +106,180 @@ public sealed class PropertyService(
             Contracts = contracts,
             Documents = await documents.GetForTargetAsync(LinkTargetType.Property, property.Id, ct),
             Participation = await participation.ForPropertyAsync(property.Id, ct),
+            Bookings = await LoadBookingsAsync(property, ct),
         };
+    }
+
+    /// <summary>
+    /// Wie viele Buchungen höchstens an einem Objekt stehen.
+    /// </summary>
+    /// <remarks>
+    /// Die Liste ist ein Beleg, kein Kontoauszug. Wer alle Buchungen eines Zeitraums sehen
+    /// will, geht zu den Konten — dort gibt es Suche und Filter, die hier nachzubauen wären.
+    /// </remarks>
+    private const int MostBookings = 40;
+
+    /// <summary>
+    /// Buchungen, die zu diesem Objekt gehören.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Eine Buchung trägt kein Objekt.</b> <c>Transaction.PropertyId</c> steht nur an
+    /// Einlagen, und zwar für die Beteiligungsrechnung — im echten Bestand trug sie am
+    /// 11.11.2026 keine einzige der 657 Buchungen. Eine Anzeige, die nur daran hängt, bliebe
+    /// darum leer.</para>
+    /// <para>Hergeleitet wird aus vier Quellen, und jede nennt ihren Grund:</para>
+    /// <list type="bullet">
+    /// <item>Einlage auf dieses Objekt — ein echter Verweis, kein Schluss.</item>
+    /// <item>Verträge des Objekts über ihre <em>Vertragsnummer</em> im Verwendungszweck,
+    /// Buchungstext oder Empfänger. Dieselbe Regel wie am Vorsorgevertrag, und derselbe Grund:
+    /// über den Anbieternamen hängt bei mehreren Verträgen jede Buchung an jedem.</item>
+    /// <item>Gebäude- und Hausratversicherung über ihre Policennummer. Sie hängen nicht am
+    /// Objekt, sondern an ihrer Vertragsart — so zählt sie auch die Kostenrechnung.</item>
+    /// <item>Die Darlehensrate über Empfänger <em>und</em> Betrag. Ein Darlehen führt keine
+    /// Nummer; der Empfänger allein wäre zu wenig, beide zusammen sind ein begründeter
+    /// Schluss. Der Grund sagt das auch so.</item>
+    /// </list>
+    /// <para>Gelesen wird einmal über die Ausgaben, nicht einmal je Quelle: Eine Buchung, auf
+    /// die zwei Gründe passen, stünde sonst zweimal da.</para>
+    /// </remarks>
+    private async Task<IReadOnlyList<LinkedPaymentDto>> LoadBookingsAsync(
+        Property property, CancellationToken ct)
+    {
+        // Vertragsnummern des Objekts, auf ihren Kern gebracht — dieselbe Normalisierung wie
+        // am Vorsorgevertrag, damit „100-20“ und „100 20“ dieselbe Nummer bleiben.
+        var nummern = property.Contracts
+            .Select(c => (Nummer: PolicyService.Normalise(c.ContractNumber), c.Name))
+            .Where(x => x.Nummer is { Length: >= 4 })
+            .ToList();
+
+        foreach (var police in await db.Policies.AsNoTracking()
+                     .Where(p => p.Kind == PolicyKind.Building
+                                 || p.Kind == PolicyKind.HouseholdContents)
+                     .Select(p => new { p.PolicyNumber, p.Name })
+                     .ToListAsync(ct))
+        {
+            if (PolicyService.Normalise(police.PolicyNumber) is { Length: >= 4 } nummer)
+            {
+                nummern.Add((nummer, police.Name));
+            }
+        }
+
+        // Der Anbietername, aber nur wo er unter den Verträgen dieses Objekts eindeutig ist.
+        // Zwei Verträge desselben Hauses — im echten Bestand zweimal derselbe Anbieter für
+        // Internet und Fernsehen — hängten sonst jede Buchung an beide. Lieber sieben Zeilen
+        // nicht zeigen als sie der falschen Hälfte zuschreiben.
+        var anbieter = property.Contracts
+            .Select(c => (Name: c.Name, Kern: PolicyService.Normalise(c.Provider)))
+            .Where(x => x.Kern is { Length: >= 4 })
+            .GroupBy(x => x.Kern!, StringComparer.Ordinal)
+            .Where(g => g.Count() == 1)
+            .Select(g => (Kern: g.Key, g.First().Name))
+            .ToList();
+
+        var darlehen = property.Loan;
+        var geber = PolicyService.Normalise(darlehen?.Lender);
+
+        var rows = await db.Transactions.AsNoTracking()
+            .Include(t => t.Account)
+            .Where(t => t.PropertyId == property.Id || t.Kind == TransactionKind.Expense)
+            .OrderByDescending(t => t.BookingDate)
+            .ThenByDescending(t => t.Id)
+            .Take(600)
+            .ToListAsync(ct);
+
+        var gefunden = new List<LinkedPaymentDto>();
+
+        foreach (var buchung in rows)
+        {
+            if (Grund(buchung) is not { } grund)
+            {
+                continue;
+            }
+
+            gefunden.Add(new LinkedPaymentDto
+            {
+                TransactionId = buchung.Id,
+                BookingDate = buchung.BookingDate,
+                Amount = Math.Abs(buchung.Amount),
+                Payee = buchung.Payee,
+                AccountName = buchung.Account?.Name ?? string.Empty,
+                MatchReason = grund,
+                Reference = buchung.Purpose,
+            });
+
+            if (gefunden.Count == MostBookings)
+            {
+                break;
+            }
+        }
+
+        return gefunden;
+
+        // Der erste zutreffende Grund gewinnt, und der feste steht vorn: Eine Einlage, die
+        // zufällig auch den Betrag der Rate trägt, ist eine Einlage.
+        string? Grund(Transaction buchung)
+        {
+            if (buchung.PropertyId == property.Id)
+            {
+                return "Einlage für dieses Objekt";
+            }
+
+            foreach (var (nummer, name) in nummern)
+            {
+                if (Steht(buchung, nummer!) is { } wo)
+                {
+                    return $"{name} — Nummer {wo}";
+                }
+            }
+
+            var empfaenger = PolicyService.Normalise(buchung.Payee);
+
+            foreach (var (kern, name) in anbieter)
+            {
+                if (empfaenger?.Contains(kern, StringComparison.Ordinal) == true)
+                {
+                    return $"{name} — Anbieter im Empfänger, keine Nummer am Vertrag";
+                }
+            }
+
+            if (darlehen is null)
+            {
+                return null;
+            }
+
+            // Ein Darlehen führt keine Nummer; zu erkennen ist es am Geldgeber oder an der
+            // Rate. Beides fasst nur in eine Richtung: Steht der Geldgeber in Kurzform am
+            // Darlehen und in voller Länge in der Buchung, greift allein der Betrag — genau
+            // so liegt es im echten Bestand. Welcher der beiden Gründe zog, steht an der
+            // Zeile, weil der Betrag allein der schwächere ist.
+            if (geber is { Length: > 0 }
+                && empfaenger?.Contains(geber, StringComparison.Ordinal) == true)
+            {
+                return $"Darlehensrate an {darlehen.Lender} — Empfänger, keine Nummer";
+            }
+
+            return Math.Abs(buchung.Amount) == darlehen.Installment
+                ? $"Darlehen {darlehen.Name} — Betrag entspricht der Rate, sonst nichts"
+                : null;
+        }
+    }
+
+    /// <summary>Wo die Nummer steht — oder <c>null</c>, wenn sie nirgends steht.</summary>
+    private static string? Steht(Transaction buchung, string nummer)
+    {
+        if (PolicyService.Normalise(buchung.Purpose)?.Contains(nummer, StringComparison.Ordinal) == true)
+        {
+            return "im Verwendungszweck";
+        }
+
+        if (PolicyService.Normalise(buchung.BookingText)?.Contains(nummer, StringComparison.Ordinal) == true)
+        {
+            return "im Buchungstext";
+        }
+
+        return PolicyService.Normalise(buchung.Payee)?.Contains(nummer, StringComparison.Ordinal) == true
+            ? "im Empfänger"
+            : null;
     }
 
     public async Task<ContractDetailDto?> GetContractAsync(int id, CancellationToken ct = default)

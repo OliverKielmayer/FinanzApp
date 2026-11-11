@@ -177,6 +177,59 @@
             </button>
         }
 
+        @*
+            Die Buchungen zum Objekt. Sie stehen unter den Verträgen, weil sie deren Beleg
+            sind: Was oben als Monatsbetrag geführt wird, ist hier tatsächlich abgegangen.
+
+            Jede Zeile nennt ihren Grund, und das ist kein Schmuck — die Gründe sind
+            unterschiedlich fest. Eine Vertragsnummer im Verwendungszweck ist ein Beleg;
+            Empfänger und Betrag einer Darlehensrate sind ein Schluss. Ohne den Grund sähe
+            beides gleich aus.
+        *@
+        <div class="list-head">
+            <span class="label-strong">Buchungen</span>
+            <span class="list-count num">@property.Bookings.Count</span>
+        </div>
+
+        @if (property.Bookings.Count == 0)
+        {
+            @*
+                Ein ehrlicher Leerzustand: Er sagt, wonach gesucht wurde. Eine Buchung trägt
+                kein Objekt — wer das nicht weiß, hält die leere Liste für einen Fehler.
+            *@
+            <div class="empty-area">
+                <span class="empty-area-text">
+                    @("Keine Buchung liess sich diesem Objekt zuordnen. Gesucht wird nach den "
+                      + "Nummern seiner Verträge, nach dem Anbieternamen — aber nur, wo er "
+                      + "unter den Verträgen eindeutig ist —, nach der Gebäude- und "
+                      + "Hausratversicherung und nach der Darlehensrate.")
+                </span>
+                <a class="btn btn-secondary" href="/konten">In Buchungen suchen</a>
+            </div>
+        }
+
+        @foreach (var buchung in property.Bookings)
+        {
+            <div class="row payment">
+                <div class="stack">
+                    <span class="balance-label plain">@buchung.Payee</span>
+                    <span class="meta num">
+                        @GermanFormat.Date(buchung.BookingDate) · @buchung.AccountName
+                    </span>
+
+                    @if (buchung.MatchReason is { Length: > 0 } grund)
+                    {
+                        <span class="meta accent">@grund</span>
+                    }
+                    @if (buchung.Reference is { Length: > 0 } zweck)
+                    {
+                        <span class="meta break">@zweck</span>
+                    }
+                </div>
+                <span class="balance-value num">@State.Euro(buchung.Amount)</span>
+            </div>
+        }
+
         <div class="list-head">
             <span class="label-strong">Dokumente</span>
             <span class="list-count num">@property.Documents.Count</span>

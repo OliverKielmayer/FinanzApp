@@ -2,35 +2,57 @@
 @attribute [Authorize]
 @inherits AppPage
 
-<PageTitle>Wohnen &amp; Immobilien — FinanzApp</PageTitle>
+@*
+    Eine Immobilie ist der Normalfall und nicht der Sonderfall: Wer ein Haus hat, hat es
+    jahrzehntelang. Eine Liste mit einer einzigen Zeile ist dann kein Überblick, sondern ein
+    Klick vor dem eigentlichen Inhalt — jedes Mal derselbe. Deshalb steht hier bei genau einer
+    Immobilie gleich ihre Seite; die Liste erscheint erst, wenn es etwas zu wählen gibt.
+
+    Eingesetzt wird dafür dieselbe Komponente, die unter /wohnen/{id} steht, und keine zweite
+    Fassung davon: Zwei Darstellungen derselben Immobilie liefen auseinander, und gemerkt
+    würde es an der, die seltener benutzt wird.
+*@
 
 <AsyncView Loading="Loading" Error="@Error" Stale="HasLoadedOnce" Retry="ReloadAsync">
-    @if (properties.Count == 0)
+    @if (properties.Count == 1)
     {
-        <div class="empty-area">
-            <span class="empty-area-text">Noch keine Immobilie hinterlegt.</span>
-        </div>
-    }
+        <PropertyDetail Id="@properties[0].Id" />
 
-    @foreach (var property in properties)
+        @* Unten und ruhig: Eine zweite Immobilie kommt selten dazu und soll der ersten
+           nicht die Aufmerksamkeit wegnehmen. *@
+        <AddRow Route="/neu/property" Label="Weitere Immobilie anlegen" />
+    }
+    else
     {
-        <button type="button" class="tap contract-row"
-                @onclick="@(() => Navigation.NavigateTo($"/wohnen/{property.Id}"))">
-            <span class="stack">
-                <span class="contract-name">@property.Name</span>
-                <span class="meta">
-                    @(property.Address ?? "ohne Adresse") · @property.ContractCount
-                    @(property.ContractCount == 1 ? "Vertrag" : "Verträge")
+        <PageTitle>Wohnen &amp; Immobilien — FinanzApp</PageTitle>
+
+        @if (properties.Count == 0)
+        {
+            <div class="empty-area">
+                <span class="empty-area-text">Noch keine Immobilie hinterlegt.</span>
+            </div>
+        }
+
+        @foreach (var property in properties)
+        {
+            <button type="button" class="tap contract-row"
+                    @onclick="@(() => Navigation.NavigateTo($"/wohnen/{property.Id}"))">
+                <span class="stack">
+                    <span class="contract-name">@property.Name</span>
+                    <span class="meta">
+                        @(property.Address ?? "ohne Adresse") · @property.ContractCount
+                        @(property.ContractCount == 1 ? "Vertrag" : "Verträge")
+                    </span>
                 </span>
-            </span>
-            <span class="stack-end">
-                <span class="contract-amount num">@State.Euro0(property.MarketValue)</span>
-                <EditLink Type="property" Id="property.Id" />
-            </span>
-        </button>
-    }
+                <span class="stack-end">
+                    <span class="contract-amount num">@State.Euro0(property.MarketValue)</span>
+                    <EditLink Type="property" Id="property.Id" />
+                </span>
+            </button>
+        }
 
-    <AddRow Route="/neu/property" Label="Immobilie anlegen" />
+        <AddRow Route="/neu/property" Label="Immobilie anlegen" />
+    }
 
     <div class="spacer"></div>
 </AsyncView>
