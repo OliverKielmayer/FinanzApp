@@ -97,20 +97,6 @@ public sealed class FinanzAppApi(HttpClient http)
         => GetAsync<IReadOnlyList<string>>($"api/accounts/{id}/bankzugang", ct);
 
     /// <summary>
-    /// Fragt den Stand bei der Bank und stellt ihn neben den gerechneten.
-    /// </summary>
-    /// <remarks>
-    /// <para>Die PIN geht im Rumpf der Anfrage mit und wird nirgends behalten — weder hier noch
-    /// auf dem Server. Jeder Abruf fragt neu.</para>
-    /// <para>Der Aufruf dauert, solange die Bank braucht: ein echter Dialog mit Anmeldung. Die
-    /// Seite muss das anzeigen, sonst sieht es aus, als sei nichts passiert.</para>
-    /// </remarks>
-    public Task<BankBalanceDto> CheckBankBalanceAsync(
-        int id, string pin, CancellationToken ct = default)
-        => PostAsync<BalanceCheckRequest, BankBalanceDto>(
-            $"api/accounts/{id}/kontostand", new BalanceCheckRequest { Pin = pin }, ct);
-
-    /// <summary>
     /// Holt die Umsätze bei der Bank und legt die Vorschau bereit.
     /// </summary>
     /// <remarks>
@@ -215,10 +201,6 @@ public sealed class FinanzAppApi(HttpClient http)
     public Task<BatchAssignResultDto> AssignCategoryBatchAsync(
         BatchAssignRequest request, CancellationToken ct = default)
         => PostAsync<BatchAssignRequest, BatchAssignResultDto>("api/transactions/batch-category", request, ct);
-
-    public Task<TransactionDto> CreateTransactionAsync(
-        CreateTransactionRequest request, CancellationToken ct = default)
-        => PostAsync<CreateTransactionRequest, TransactionDto>("api/transactions", request, ct);
 
     public Task<TransactionDto> AssignCategoryAsync(
         int transactionId, AssignCategoryRequest request, CancellationToken ct = default)

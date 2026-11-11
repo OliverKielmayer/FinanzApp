@@ -385,7 +385,13 @@ Offen:
   bei beiden mit.
 - **Der Knopf „Ausgleich verrechnen“ aus dem Prototyp fehlt.** Es gibt keine Buchungsart für eine
   Ausgleichszahlung, und §4 sagt ausdrücklich, dass die Anwendung den Stand führt und nicht
-  eintreibt. Eine Zahlung lässt sich heute nur als gewöhnliche Umbuchung erfassen.
+  eintreibt. Eine Zahlung lässt sich nur als gewöhnliche Umbuchung einlesen.
+- **Eine Einlage lässt sich seit dem 11.11.2026 nicht mehr eintragen.** Der Schirm „Buchung
+  erfassen“ war der einzige Weg dorthin und ist entfernt — in der Ablage, für die diese
+  Anwendung läuft, war keine einzige von 657 Buchungen von Hand erfasst. Die Regeln dahinter
+  stehen weiter in `TransactionService.CreateAsync` und sind geprüft; es fehlt allein ein
+  Eingang. Am sinnvollsten säße er an der Immobilie, zu der die Einlage gehört, und nicht in
+  einer allgemeinen Buchungsmaske.
 - **Eine gespeicherte Ansicht merkt sich das Objekt nicht.** Sie stellt den Reiter wieder her, aber
   bei mehreren Immobilien immer die erste — wie beim Steuerjahr und der PKV-Bilanz, die sich ihr
   Jahr auch nicht merken.

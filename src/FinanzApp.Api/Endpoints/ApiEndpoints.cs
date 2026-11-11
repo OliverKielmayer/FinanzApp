@@ -29,33 +29,8 @@ public static class ApiEndpoints
         // Oberfläche den Schalter gar nicht erst anbietet, wo er nur in eine Fehlermeldung
         // führte.
         api.MapGet("/accounts/{id:int}/bankzugang", async (
-                int id, BankBalanceService service, CancellationToken ct)
+                int id, BankAccessService service, CancellationToken ct)
             => Results.Ok(await service.ProblemsAsync(id, ct)));
-
-        // Der Abruf bei der Bank. POST, obwohl nichts gespeichert wird: Die PIN gehört in den
-        // Rumpf der Anfrage und nicht in eine Adresse, die in Protokollen und im Verlauf steht.
-        //
-        // Lesen genügt als Recht. Der Abruf ändert nichts — er stellt nur zwei Zahlen
-        // nebeneinander.
-        api.MapPost("/accounts/{id:int}/kontostand", async (
-            int id, BalanceCheckRequest request, BankBalanceService service,
-            CancellationToken ct) =>
-        {
-            try
-            {
-                return Results.Ok(await service.CheckAsync(id, request.Pin, ct));
-            }
-            catch (RuleViolationException ex)
-            {
-                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
-            }
-            catch (BankAccessException ex)
-            {
-                // 502: Die Anwendung hat richtig gefragt, die Gegenstelle hat abgelehnt. Die
-                // Meldung ist die der Bank und bleibt, wie sie ist.
-                return Results.Problem(ex.Message, statusCode: StatusCodes.Status502BadGateway);
-            }
-        });
 
         // ── Kontrollpunkte ────────────────────────────────────────────────────────────────
         //
@@ -142,20 +117,6 @@ public static class ApiEndpoints
             => Results.Ok(await service.GetPageAsync(
                 search, account, category, kind, offen ?? false,
                 skip ?? 0, Math.Clamp(take ?? 100, 1, 500), ct)));
-
-        api.MapPost("/transactions", async (
-            CreateTransactionRequest request, TransactionService service, CancellationToken ct) =>
-        {
-            try
-            {
-                var created = await service.CreateAsync(request, ct);
-                return Results.Created($"/api/transactions/{created.Id}", created);
-            }
-            catch (RuleViolationException ex)
-            {
-                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
-            }
-        }).RequireAuthorization(AuthPolicies.Write);
 
         api.MapDelete("/transactions/{id:int}", async (
                 int id, TransactionService service, CancellationToken ct)

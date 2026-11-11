@@ -60,8 +60,7 @@ Von oben nach unten: das Nettovermögen, darunter die Vermögensentwicklung und 
 (Brutto, Verbindlichkeiten, Netto) — am großen Bildschirm nebeneinander, auf dem Telefon
 untereinander. Es folgen die Kacheln der einzelnen Posten — Girokonto, Tagesgeld, Depot,
 Vorsorge —, jede führt in ihren Bereich, dann der laufende Monat mit Einnahmen,
-Ausgaben und Sparquote und die Budgets. Zwei Schalter führen direkt zu **Buchung erfassen**
-und **Import**.
+Ausgaben und Sparquote und die Budgets. Ein Schalter führt direkt zu **Buchungen einlesen**.
 
 **Liquidität** öffnet zwei Auswertungen:
 
@@ -86,30 +85,12 @@ die Ursache erledigt, verschwindet der Eintrag beim nächsten Aufruf aus *Offen*
 Der Schalter in der Mitte fragt zuerst, worum es geht — der Weg von „Papier in der Hand“ zu
 „erfasst“ ist dadurch immer gleich lang:
 
-**Beleg scannen** · **Buchung erfassen** · **Arztrechnung / PKV** · **Rechnung** ·
-**Dokument verknüpfen** · **Aufgabe / Frist** · **Konto / Vertrag / Objekt anlegen**
+**Beleg scannen** · **Arztrechnung / PKV** · **Rechnung** · **Dokument verknüpfen** ·
+**Aufgabe / Frist** · **Konto / Vertrag / Objekt anlegen**
 
-Vollständig führen *Buchung erfassen*, *Beleg scannen* und *Konto / Vertrag / Objekt anlegen*.
+Vollständig führen *Beleg scannen* und *Konto / Vertrag / Objekt anlegen*.
 *Arztrechnung / PKV* und *Rechnung* landen auf derselben Belegerfassung, ohne die Art
 vorzubelegen; *Dokument verknüpfen* und *Aufgabe / Frist* öffnen nur den jeweiligen Bereich.
-
-### Buchung erfassen
-
-Drei Schritte, oben mitgezählt:
-
-1. **Betrag** — erst *Ausgabe*, *Einnahme* oder *Umbuchung* wählen, dann über den Ziffernblock
-   eintippen. Ein Komma gibt es nicht: die letzten beiden Ziffern sind die Cent. Mehr als acht
-   Ziffern nimmt die Maske nicht, das entspricht 999.999,99 €. *Leeren* setzt zurück.
-2. **Kategorie** — eine der angebotenen Kacheln. Bei einer Umbuchung entfällt dieser Schritt, dort
-   gibt es nichts zu kategorisieren.
-3. **Konto** und, wenn nötig, eine **Notiz**.
-
-*Weiter* führt durch die Schritte, *Zurück* wieder heraus; im dritten Schritt heißt der Schalter
-**Buchung speichern**. Danach steht man auf *Konten & Buchungen* und sieht die neue Buchung in der
-Liste.
-
-**Am großen Bildschirm entfällt die Schrittführung**: ab Tabletbreite stehen Betrag, Kategorie
-und Konto untereinander auf einer Seite, und gespeichert wird in einem Zug.
 
 ### Etwas anlegen
 

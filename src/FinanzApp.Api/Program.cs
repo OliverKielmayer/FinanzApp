@@ -234,8 +234,7 @@ builder.Services.AddScoped<TaxYearService>();
 var bankOptions = builder.Configuration.GetSection(BankAccessOptions.SectionName)
                       .Get<BankAccessOptions>() ?? new BankAccessOptions();
 builder.Services.AddSingleton(bankOptions);
-builder.Services.AddSingleton<IBankBalanceSource, FinTsBalanceSource>();
-builder.Services.AddScoped<BankBalanceService>();
+builder.Services.AddScoped<BankAccessService>();
 
 // Der Umsatzabruf. Eigene Quelle, weil es eine andere Frage ist — was beide brauchen, steht in
 // FinTsDialog. Er endet in derselben Vorschau wie ein hochgeladener Auszug und bucht nichts.

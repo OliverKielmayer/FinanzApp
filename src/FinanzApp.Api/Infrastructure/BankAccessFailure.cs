@@ -1,30 +1,8 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text.RegularExpressions;
-using FinanzApp.Api.Data.Entities;
 
 namespace FinanzApp.Api.Infrastructure;
-
-/// <summary>Was eine Bank über den Stand eines Kontos sagt.</summary>
-/// <param name="Balance">Der gemeldete Saldo.</param>
-/// <param name="RetrievedAt">Wann gefragt wurde.</param>
-public readonly record struct BankBalanceReading(decimal Balance, DateTime RetrievedAt);
-
-/// <summary>
-/// Der Abruf bei der Bank.
-/// </summary>
-/// <remarks>
-/// <para>Hinter einer Schnittstelle, weil sich dahinter nichts prüfen lässt: Ein Dialog mit
-/// einer echten Bank braucht eine echte PIN und lässt sich nicht nachstellen. Alles davor und
-/// danach — ob die Angaben vollständig sind, wie die Differenz entsteht, was bei einem Fehler
-/// geschieht — ist damit prüfbar, und nur der Dialog selbst bleibt es nicht.</para>
-/// <para>Dieselbe Bauform wie beim Kursabruf: Die Anwendung hängt an der Schnittstelle, nicht
-/// an der Bibliothek dahinter.</para>
-/// </remarks>
-public interface IBankBalanceSource
-{
-    Task<BankBalanceReading> FetchAsync(Account account, string pin, CancellationToken ct = default);
-}
 
 /// <summary>
 /// Wenn der Abruf nicht geht — und warum.
@@ -44,8 +22,9 @@ public sealed class BankAccessException(string message, Exception? inner = null)
 /// <para>Eine Bank, die nicht antwortet, ist kein Sonderfall: kein Netz, Wartungsfenster,
 /// ein Tippfehler in der FinTS-Adresse. Ohne diese Übersetzung bliebe davon eine Ausnahme der
 /// Bibliothek übrig, die niemandem sagt, was zu tun ist.</para>
-/// <para><b>Hier und nicht in <see cref="FinTsBalanceSource"/>, weil sich genau das prüfen
-/// lässt.</b> Der Satz im Fehlerfall ist das Einzige, was dann bleibt.</para>
+/// <para><b>Hier und nicht in <see cref="FinTsStatementSource"/>, weil sich genau das prüfen
+/// lässt.</b> Der Dialog mit der Bank lässt sich nicht nachstellen, dieser Satz schon — und
+/// im Fehlerfall ist er das Einzige, was bleibt.</para>
 /// <para><b>Aus der Ausnahme wird nur genommen, was das Netz sagt.</b> Die Meldungen von
 /// <see cref="SocketException"/> und seinesgleichen beschreiben die Leitung — Rechnername,
 /// Port, Zeitüberschreitung — und tragen nie den Nachrichtenstrom und damit nie die PIN. Was

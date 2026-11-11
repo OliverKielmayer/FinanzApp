@@ -109,15 +109,26 @@ Der gerechnete Saldo ist Anfangsbestand plus Buchungen — und läuft dem tatsä
 sobald einmal ein Auszug fehlt. Dagegen gibt es den **Kontrollpunkt**: *Zu diesem Tag war
 es diese Zahl.* Ab da rechnet die Anwendung darauf weiter.
 
-Drei gleichberechtigte Wege hinein:
+Zwei gleichberechtigte Wege hinein:
 
-- **Von Hand**, an jedem Konto — auch an einem ohne Bankzugang. Das ist der Normalfall, kein
-  Notnagel.
-- **Aus der Saldenabfrage**, wenn ein FinTS-Zugang hinterlegt ist.
-- **Aus einem Auszug**, wenn die camt-Datei einen Schlusssaldo mit Stichtag nennt.
+- **Aus einem Auszug**, wenn die camt-Datei einen Schlusssaldo mit Stichtag nennt — beim
+  Abruf bei der Bank steht das Kästchen dafür von vornherein an.
+- **Von Hand**, an jedem Konto — auch an einem ohne Bankzugang. Das ist kein Notnagel,
+  sondern der einzige Weg für ein Konto, das keinen Zugang hat.
 
 Die Differenz verschwindet dabei nicht, sie wird festgehalten: Am Punkt steht, was die
 Anwendung zum selben Stichtag gerechnet hatte. Zurücknehmen geht jederzeit.
+
+**Einen dritten Weg gab es einmal**, und er ist aus einem Grund weg, der für die ganze
+Rechnung zählt: Die reine Saldenabfrage bei der Bank (FinTS-Geschäftsvorfall HKSAL) liefert
+über die verwendete Bibliothek **kein Datum**. Die Anwendung stempelte den Wert mit der
+eigenen Uhr — und ein vormittags gelesener Zwischenstand galt der Rechnung damit als Stand
+des *ganzen* Tages. Was die Bank nachmittags noch buchte, fiel still heraus und blieb
+draußen. Ein Schlusssaldo aus dem Auszug hat dieses Problem nicht: Er nennt den Tag, auf den
+er sich bezieht.
+
+Wer einen Stand von Hand einträgt, kann denselben Fehler erzeugen — deshalb sagt die Maske
+es beim heutigen Datum dazu.
 
 ### 4.3 Vorgänge — was noch offen ist
 

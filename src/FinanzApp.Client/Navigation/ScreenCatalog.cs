@@ -74,9 +74,6 @@ public static class ScreenCatalog
         new("/", "Heute", "Übersicht", "Heute", Group: NavGroup.Everyday),
         new("/vorgaenge", "Offen", "Vorgänge", "Vorgänge", Group: NavGroup.Everyday),
         new("/bestand", "Bestand", "Alle Objekte", "Bestand", Group: NavGroup.Holdings),
-        new("/erfassen", "Erfassen", "Neue Buchung", "Erfassen",
-            IsDetail: true, RequiresWrite: true, IsAction: true),
-
         // Kein Tab mehr: die Suche in der Kopfzeile führt hierher.
         new("/dokumente", "Ablage", "Dokumente", IsDetail: true, DetailTitle: "Dokument"),
 

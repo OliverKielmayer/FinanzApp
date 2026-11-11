@@ -131,9 +131,14 @@
         });
     }
 
+    /// <remarks>
+    /// Ohne gewählte Klasse führt der Weg zur Auswahl, was angelegt werden soll. Früher
+    /// stand hier die Buchungserfassung — sie passte schon damals nicht zu einer Liste von
+    /// Objekten, und es gibt sie nicht mehr.
+    /// </remarks>
     private Task AddAsync()
     {
-        Navigation.NavigateTo(data?.AddIn is { } klasse ? CreateRoute(klasse) : "/erfassen");
+        Navigation.NavigateTo(data?.AddIn is { } klasse ? CreateRoute(klasse) : "/neu");
         return Task.CompletedTask;
     }
 

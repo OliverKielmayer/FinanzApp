@@ -186,6 +186,16 @@ public sealed class TransactionService(FinanzAppDbContext db, IClock clock)
     /// liefern die bereits angelegte Buchung zurück, statt eine zweite anzulegen — ein
     /// abgebrochener Sendeversuch auf dem Handy darf keine Doppelbuchung erzeugen.
     /// </summary>
+    /// <remarks>
+    /// <para><b>Von außen derzeit nicht erreichbar.</b> Der Schirm „Buchung erfassen“ und sein
+    /// Endpunkt sind entfernt: In der Ablage, für die diese Anwendung läuft, war keine einzige
+    /// von 657 Buchungen von Hand erfasst — eingelesen wird aus dem Kontoauszug.</para>
+    /// <para>Der Weg bleibt trotzdem stehen, weil an ihm die <b>Einlage</b> hängt: Nur hier
+    /// bekommt eine Buchung Person und Objekt (<see cref="MarkDepositAsync"/>), und darauf
+    /// rechnet der Ausgleichsstand einer gemeinsamen Immobilie. Ihn zu löschen hieße, die
+    /// geprüften Regeln dahinter wegzuwerfen, um sie bei der nächsten Einlage neu zu
+    /// erfinden.</para>
+    /// </remarks>
     public async Task<TransactionDto> CreateAsync(CreateTransactionRequest request, CancellationToken ct = default)
     {
         var existing = await db.Transactions.AsNoTracking()
