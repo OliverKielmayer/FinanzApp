@@ -84,6 +84,53 @@ public sealed class HealthBalanceService(FinanzAppDbContext db, IClock clock)
     /// was schon kam. Ein abgelehnter oder abgeschlossener Vorgang hat keinen offenen Anspruch
     /// mehr — was dort nicht gezahlt wurde, ist kein Erwarten, sondern eine Absage.
     /// </remarks>
+    /// <summary>
+    /// Der Stand der Arztrechnungen, wie er am Krankenversicherungsvertrag steht.
+    /// </summary>
+    /// <remarks>
+    /// <para>Dieselben Zahlen wie in der Bilanz, nur verkürzt — und aus denselben Helfern
+    /// gerechnet. Der Vertrag bekommt keine zweite Bilanz, sondern einen Auszug davon und den
+    /// Weg zum Ganzen.</para>
+    /// <para>Dazu die Frage, die nur der Vertrag stellt: Ist der Jahresdeckel des
+    /// Eigenanteils voll? Die Antwort kommt aus <see cref="OwnShareLedger"/>, derselben
+    /// Abfrage, die beim Erfassen einer Rechnung den Eigenanteil vorschlägt.</para>
+    /// <para><b>Der verbrauchte Deckel ist nicht der Eigenanteil der Aufteilung.</b> Gegen den
+    /// Deckel zählen nur Rechnungen ohne Zahnbehandlung. Beide Zahlen stehen deshalb
+    /// nebeneinander; sie gleichzusetzen wäre falsch, sobald eine Zahnrechnung dabei ist.</para>
+    /// </remarks>
+    public async Task<PolicyHealthDto> ForPolicyAsync(
+        int? year = null, CancellationToken ct = default)
+    {
+        var jahr = year ?? clock.Today.Year;
+
+        var gezeigt = await db.MedicalBills.AsNoTracking()
+            .Where(b => b.BillDate.Year == jahr)
+            .ToListAsync(ct);
+
+        var regel = await OwnShareLedger.RuleAsync(db, jahr, ct);
+
+        return new PolicyHealthDto
+        {
+            Year = jahr,
+            BillCount = gezeigt.Count,
+            CompletedCount = gezeigt.Count(Abgeschlossen),
+
+            // Nicht eingereicht heißt: Es liegt an einem selbst. Das ist die einzige Zahl
+            // hier, die zum Handeln auffordert — alle anderen beschreiben nur.
+            //
+            // Und deshalb zählen nur Vorgänge, an denen noch etwas offen ist. In der echten
+            // Ablage steht eine Rechnung, die erstattet und abgeschlossen ist, deren
+            // Einreichdatum aber nie gesetzt wurde — bei Zuordnung einer Zahlung von Hand
+            // bleibt es leer. Ohne diese Bedingung meldete der Vertrag „noch nicht
+            // eingereicht" über einen Vorgang, der längst bezahlt ist.
+            NotSubmittedCount = gezeigt.Count(b => b.SubmittedAt is null && !Abgeschlossen(b)),
+
+            Split = Split(gezeigt),
+            OwnShareAnnualCap = regel?.AnnualCap,
+            OwnShareUsed = regel is null ? null : regel.UsedThisYear,
+        };
+    }
+
     private static HealthSplitDto Split(List<MedicalBill> bills)
     {
         var gezahlt = bills.Sum(b => b.ActualReimbursement ?? 0m);

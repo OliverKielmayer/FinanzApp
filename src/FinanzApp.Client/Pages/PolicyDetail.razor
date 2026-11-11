@@ -183,6 +183,91 @@
         </div>
 
         @*
+            Der Stand der Arztrechnungen. Er steht am Vertrag, weil der Vertrag die Frage
+            aufwirft: Was ist eingereicht, was steht noch aus, und ist der Jahresdeckel voll?
+            Die Rechnungen selbst und ihre Bilanz liegen woanders — von hier führt der Weg
+            dorthin, und hier steht keine zweite Bilanz.
+        *@
+        @if (gesundheit is { } stand)
+        {
+            <div class="list-head">
+                <span class="label-strong">Arztrechnungen @stand.Year</span>
+                <span class="list-count num">@stand.BillCount</span>
+            </div>
+
+            @if (stand.BillCount == 0)
+            {
+                <div class="empty-area">
+                    <span class="empty-area-text">
+                        In diesem Jahr ist noch keine Arztrechnung erfasst.
+                    </span>
+                    <a class="btn btn-secondary" href="/gesundheit">Zu den Arztrechnungen</a>
+                </div>
+            }
+            else
+            {
+                <section class="kpi">
+                    <div class="kpi-cell">
+                        @* „Ausgezahlt" ist Geld, das da ist — nicht der Anspruch darauf. *@
+                        <span class="label-muted">Erstattet</span>
+                        <span class="kpi-value num">@State.Euro(stand.Split.Paid)</span>
+                    </div>
+                    <div class="kpi-cell">
+                        <span class="label-muted">Noch offen</span>
+                        <span class="kpi-value num">@State.Euro(stand.Split.Expected)</span>
+                    </div>
+                    <div class="kpi-cell">
+                        <span class="label-muted">Eigenanteil</span>
+                        <span class="kpi-value num">@State.Euro(stand.Split.OwnShare)</span>
+                    </div>
+                </section>
+
+                <div class="detail-block">
+                    <span class="detail-label">Stand der Vorgänge</span>
+                    <span class="detail-value">
+                        @($"{stand.CompletedCount} von {stand.BillCount} abgeschlossen")@(
+                            stand.NotSubmittedCount > 0
+                                ? $" · {stand.NotSubmittedCount} noch nicht eingereicht"
+                                : null)
+                    </span>
+                </div>
+
+                @*
+                    Die Frage, die der Vertrag beantworten soll. Gegen den Deckel zählen nur
+                    Rechnungen ohne Zahnbehandlung — deshalb steht hier eine andere Zahl als
+                    beim Eigenanteil darüber, und deshalb sagt die Zeile, welche gemeint ist.
+                *@
+                @if (stand.OwnShareAnnualCap is { } deckelstand && stand.OwnShareUsed is { } genutzt)
+                {
+                    <div class="detail-block">
+                        <span class="detail-label">Jahresdeckel Eigenanteil</span>
+                        <span class="detail-value num @(stand.CapReached ? "accent" : null)">
+                            @($"{State.Euro(genutzt)} von {State.Euro(deckelstand)}")@(
+                                stand.CapReached ? " · erreicht" : null)
+                        </span>
+                    </div>
+
+                    <ProgressBar Ratio="@(deckelstand > 0m ? genutzt / deckelstand : 0m)"
+                                 Variant="@(stand.CapReached ? null : "neutral")"
+                                 Label="Jahresdeckel Eigenanteil" />
+
+                    <div class="tx-totals-note">
+                        @(stand.CapReached
+                            ? "Der Jahresdeckel ist erreicht: Weitere Rechnungen ohne "
+                              + "Zahnbehandlung tragen keinen Eigenanteil mehr."
+                            : "Gezählt werden nur Rechnungen ohne Zahnbehandlung — Zahn hat "
+                              + "seinen eigenen Satz und zählt nicht gegen den Deckel.")
+                    </div>
+                }
+
+                <div class="doc-actions">
+                    <a class="btn btn-secondary" href="/gesundheit">Zu den Arztrechnungen</a>
+                    <a class="btn btn-secondary" href="/auswertungen">Zur PKV-Bilanz</a>
+                </div>
+            }
+        }
+
+        @*
             So entsteht der Wert — Abschnitt 19.5. Die Bezeichnungen folgen der Vertragsart;
             führt ein Vertrag nur einen Bestandteil, steht eine Zeile da und keine Summe.
         *@
@@ -516,6 +601,16 @@
 
     private PolicyDetailDto? data;
 
+    /// <summary>
+    /// Der Stand der Arztrechnungen — nur bei einer Krankenversicherung.
+    /// </summary>
+    /// <remarks>
+    /// Zweiter Abruf und nicht Teil des Vertrags: Sonst müsste der Vertragsdienst von
+    /// Arztrechnungen wissen, und das ist nicht sein Gegenstand. Geholt wird er nur bei
+    /// genau dieser Vertragsart — jeder andere Vertrag zahlt nichts dafür.
+    /// </remarks>
+    private PolicyHealthDto? gesundheit;
+
     /// <summary>Der Bericht, dessen ausgelesene Werte gerade offen stehen.</summary>
     private int? offen;
 
@@ -538,7 +633,15 @@
     /// <inheritdoc cref="zeigeDokumente" />
     private bool zeigeZahlungen;
 
-    protected override async Task LoadAsync() => data = await Api.GetPolicyAsync(Id);
+    protected override async Task LoadAsync()
+    {
+        data = await Api.GetPolicyAsync(Id);
+
+        // Erst nach dem Vertrag, weil erst er sagt, ob die Frage überhaupt gestellt wird.
+        gesundheit = data?.Kind == PolicyKind.Health
+            ? await Api.GetPolicyHealthAsync()
+            : null;
+    }
 
     /// <summary>
     /// Woher ein ausgelesener Wert kommt — Seite und Sicherheit.

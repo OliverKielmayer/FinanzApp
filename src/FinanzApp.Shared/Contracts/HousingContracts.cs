@@ -189,6 +189,55 @@ public sealed record PolicyDetailDto
     public IReadOnlyList<PolicyReportDto> Reports { get; init; } = [];
 }
 
+/// <summary>
+/// Was an einer Krankenversicherung über ihre Arztrechnungen zu sagen ist.
+/// </summary>
+/// <remarks>
+/// <para>Alle Zahlen kommen aus den Diensten, die sie ohnehin rechnen — die Aufteilung aus
+/// der PKV-Bilanz, der Jahresdeckel aus der Eigenanteilsregel. Hier wird nichts zum zweiten
+/// Mal gerechnet: Zwei Wege zu derselben Zahl gehen irgendwann auseinander, und bemerkt
+/// würde es an dem, den seltener jemand ansieht.</para>
+/// <para>Der Zeitraum ist das <b>Kalenderjahr</b>, wie in der Bilanz: Eigenanteile und
+/// Beiträge zählen jahresweise.</para>
+/// </remarks>
+public sealed record PolicyHealthDto
+{
+    /// <summary>Das Jahr, auf das sich alles hier bezieht.</summary>
+    public required int Year { get; init; }
+
+    /// <summary>Rechnungen dieses Jahres.</summary>
+    public required int BillCount { get; init; }
+
+    /// <summary>Davon abgeschlossen.</summary>
+    public required int CompletedCount { get; init; }
+
+    /// <summary>Davon noch nicht eingereicht — die einzige Zahl, die zum Handeln auffordert.</summary>
+    public required int NotSubmittedCount { get; init; }
+
+    /// <summary>Ausgezahlt, erwartet, Eigenanteil — dieselben drei wie in der Bilanz.</summary>
+    public required HealthSplitDto Split { get; init; }
+
+    /// <summary>
+    /// Der Jahresdeckel des Eigenanteils aus dem Vertrag. <c>null</c>, wenn keiner gepflegt ist.
+    /// </summary>
+    public decimal? OwnShareAnnualCap { get; init; }
+
+    /// <summary>
+    /// Wie viel davon verbraucht ist.
+    /// </summary>
+    /// <remarks>
+    /// <b>Nicht dasselbe wie der Eigenanteil in der Aufteilung.</b> Gegen den Deckel zählen nur
+    /// Rechnungen ohne Zahnbehandlung — Zahn hat seinen eigenen Satz und darf den Deckel nicht
+    /// aufbrauchen. Deshalb stehen beide Zahlen nebeneinander und nicht übereinander.
+    /// </remarks>
+    public decimal? OwnShareUsed { get; init; }
+
+    /// <summary>Ob der Jahresdeckel erreicht oder überschritten ist.</summary>
+    public bool CapReached
+        => OwnShareAnnualCap is { } deckel && OwnShareUsed is { } verbraucht
+           && verbraucht >= deckel;
+}
+
 /// <summary>Eine Zahlung, die zu einem Fachobjekt gehört — immer ein Verweis, nie eine Kopie.</summary>
 public sealed record LinkedPaymentDto
 {

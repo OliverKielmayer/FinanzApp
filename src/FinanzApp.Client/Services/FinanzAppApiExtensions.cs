@@ -185,6 +185,11 @@ public static class FinanzAppApiExtensions
         this FinanzAppApi api, CancellationToken ct = default)
         => api.GetAsync<IReadOnlyList<MedicalBillListItemDto>>("api/health/bills", ct);
 
+    /// <summary>Der Stand der Arztrechnungen, wie ihn der Vertrag zeigt.</summary>
+    public static Task<PolicyHealthDto> GetPolicyHealthAsync(
+        this FinanzAppApi api, CancellationToken ct = default)
+        => api.GetAsync<PolicyHealthDto>("api/health/vertragsstand", ct);
+
     public static Task<MedicalBillDetailDto> GetMedicalBillAsync(
         this FinanzAppApi api, int id, CancellationToken ct = default)
         => api.GetAsync<MedicalBillDetailDto>($"api/health/bills/{id}", ct);

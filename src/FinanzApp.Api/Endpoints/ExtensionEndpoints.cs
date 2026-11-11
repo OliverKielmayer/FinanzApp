@@ -232,6 +232,13 @@ public static class ExtensionEndpoints
         api.MapGet("/bills", async (MedicalBillService service, CancellationToken ct)
             => Results.Ok(await service.GetListAsync(ct)));
 
+        // Der Auszug für den Krankenversicherungsvertrag. Eigener Abruf und nicht Teil des
+        // Vertrags: Sonst müsste der Vertragsdienst von Arztrechnungen wissen, und das ist
+        // nicht sein Gegenstand. Geholt wird er nur bei genau einer Vertragsart.
+        api.MapGet("/vertragsstand", async (
+                int? jahr, HealthBalanceService service, CancellationToken ct)
+            => Results.Ok(await service.ForPolicyAsync(jahr, ct)));
+
         api.MapGet("/bills/{id:int}", async (int id, MedicalBillService service, CancellationToken ct) =>
         {
             var bill = await service.GetAsync(id, ct);

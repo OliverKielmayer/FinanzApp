@@ -308,8 +308,21 @@
                         {
                             <div class="list-head">
                                 <span class="label-strong">
-                                    @offen.Count @(offen.Count == 1 ? "Empfänger" : "Empfänger") zuordnen
+                                    @(offen.Count == 1
+                                        ? "Ein Empfänger ohne Kategorie"
+                                        : $"{offen.Count} Empfänger ohne Kategorie")
                                 </span>
+                            </div>
+
+                            @*
+                                Das „+“ an jeder Zeile klappt auf, es legt nichts an — das
+                                stand nirgends, und genau danach wurde gefragt. Ein Satz ist
+                                billiger als ein Zeichen, das man kennen muss.
+                            *@
+                            <div class="tx-totals-note">
+                                Tippen öffnet den Empfänger und zeigt die Kategorien zur Wahl.
+                                Was hier offen bleibt, wird trotzdem gebucht — nur ohne
+                                Kategorie.
                             </div>
 
                             @foreach (var group in offen)
@@ -320,7 +333,9 @@
                                 <div class="import-group @(aufgeklappt ? "open" : null)">
                                     <button type="button" class="import-group-head"
                                             @onclick="() => ToggleGroup(key)">
-                                        <span class="import-group-mark" aria-hidden="true">+</span>
+                                        <span class="import-group-mark"
+                                              title="@(aufgeklappt ? "Zuklappen" : "Aufklappen")"
+                                              aria-hidden="true">+</span>
                                         <span class="stack">
                                             <span class="import-row-payee">@group.Payee</span>
                                             <span class="meta num">@DescribeGroup(group)</span>

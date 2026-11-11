@@ -133,40 +133,12 @@ public sealed class MedicalBillService(
     /// heutige. Eine im Dezember eingereichte Rechnung vom Januar zählt gegen den Deckel des
     /// Januars.</para>
     /// </remarks>
-    public async Task<OwnShareRuleDto?> OwnShareRuleAsync(int year, CancellationToken ct = default)
-    {
-        var vertrag = await db.Policies.AsNoTracking()
-            .Where(p => p.Kind == PolicyKind.Health && p.OwnSharePercent != null)
-            .OrderBy(p => p.Id)
-            .Select(p => new
-            {
-                p.Name,
-                p.OwnSharePercent,
-                p.OwnShareAnnualCap,
-                p.DentalOwnSharePercent,
-            })
-            .FirstOrDefaultAsync(ct);
-
-        if (vertrag is null)
-        {
-            return null;
-        }
-
-        var von = new DateOnly(year, 1, 1);
-        var bis = new DateOnly(year, 12, 31);
-
-        var verbraucht = await db.MedicalBills.AsNoTracking()
-            .Where(b => !b.IsDental && b.BillDate >= von && b.BillDate <= bis)
-            .SumAsync(b => (decimal?)b.OwnShare, ct) ?? 0m;
-
-        return new OwnShareRuleDto(
-            vertrag.OwnSharePercent,
-            vertrag.OwnShareAnnualCap,
-            vertrag.DentalOwnSharePercent,
-            verbraucht,
-            year,
-            vertrag.Name);
-    }
+    /// <remarks>
+    /// Die Abfrage selbst steht in <see cref="OwnShareLedger"/>: Der Vertrag fragt sie
+    /// ebenfalls, um zu sagen, ob der Jahresdeckel voll ist.
+    /// </remarks>
+    public Task<OwnShareRuleDto?> OwnShareRuleAsync(int year, CancellationToken ct = default)
+        => OwnShareLedger.RuleAsync(db, year, ct);
 
     /// <summary>Setzt den Vorgang auf die nächste Station und hält den Zeitpunkt fest.</summary>
     public async Task<MedicalBillDetailDto?> AdvanceAsync(
