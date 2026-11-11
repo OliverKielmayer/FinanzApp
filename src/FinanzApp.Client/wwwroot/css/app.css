@@ -343,6 +343,38 @@ body {
   color: var(--color-neutral-600);
 }
 
+/* Ein Abschnittskopf, der seine Liste auf- und zuklappt. Dieselbe Linie, dasselbe Gewicht
+   wie ein fester Kopf — der Unterschied ist das Zeichen davor und nicht ein zweiter Stil.
+   Die obere Linie bleibt stehen: Sie trennt die Abschnitte, ob offen oder zu. */
+.list-head.toggle {
+  width: 100%;
+  gap: 8px;
+  background: transparent;
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.list-head.toggle .label-strong {
+  flex: 1;
+  min-width: 0;
+}
+
+.list-head.toggle:not(.open):hover {
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+}
+
+.list-mark {
+  flex: none;
+  width: 13px;
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 13px;
+  color: var(--color-accent);
+}
+
 .row {
   display: flex;
   justify-content: space-between;

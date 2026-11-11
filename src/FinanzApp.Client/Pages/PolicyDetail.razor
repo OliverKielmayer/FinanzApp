@@ -351,128 +351,141 @@
             }
         }
 
-        <div class="list-head">
-            <span class="label-strong">Zahlungen</span>
-            <span class="list-count num">@policy.Payments.Count</span>
-        </div>
-
-        @if (policy.Payments.Count == 0)
-        {
-            @*
-                Ein ehrlicher Leerzustand: er sagt, wonach gesucht wurde. „Nichts gefunden" allein
-                ließe den Nutzer raten, ob die Buchung fehlt oder die Suche nichts taugt.
-            *@
-            <div class="empty-area">
-                <span class="empty-area-text">
-                    @(policy.PolicyNumber is { Length: > 0 } nummer
-                        ? $"Keine Buchung nennt die Vertragsnummer {nummer}. Zugeordnet wird "
-                          + "ausschließlich darüber — ein Treffer über den Anbieternamen wäre bei "
-                          + "mehreren Verträgen desselben Hauses falsch."
-                        : "Ohne erfasste Vertragsnummer lässt sich keine Buchung zuordnen. "
-                          + "Zugeordnet wird ausschließlich über die Nummer im Verwendungszweck.")
-                </span>
-                <a class="btn btn-secondary" href="/konten">In Buchungen suchen</a>
-            </div>
-        }
-
-        @foreach (var payment in policy.Payments)
-        {
-            <div class="row payment">
-                <div class="stack">
-                    <span class="balance-label plain">@payment.Payee</span>
-                    <span class="meta num">@GermanFormat.Date(payment.BookingDate) · @payment.AccountName</span>
-
-                    @* Die Begründung an jeder Zeile, darunter der Verwendungszweck im
-                       Original — nachlesbar statt nachvollziehbar-behauptet. *@
-                    @if (payment.MatchReason is { Length: > 0 } grund)
-                    {
-                        <span class="meta accent">@grund</span>
-                    }
-                    @if (payment.Reference is { Length: > 0 } zweck)
-                    {
-                        <span class="meta break">@zweck</span>
-                    }
-                </div>
-                <span class="stack-end">
-                    <span class="balance-value num">@State.Euro(payment.Amount)</span>
-
-                    @* Kein Tag, wo nichts zu vergleichen ist: ohne erfassten Beitrag hieße
-                       „prüfen“, die Buchung sei auffällig — auffällig ist aber nur, dass der
-                       Vertrag seinen Beitrag nicht führt. *@
-                    @if (Matches(policy, payment) is { } passt)
-                    {
-                        <span class="tag @(passt ? "tag-neutral" : "tag-accent")">
-                            @(passt ? "stimmt" : "prüfen")
-                        </span>
-                    }
-                </span>
-            </div>
-        }
-
-        @* Die Gegenprobe unter der Liste. Weicht der gebuchte Betrag vom Beitrag ab, ist einer
-           der beiden veraltet — und das ist eine Aussage, keine Fehlermeldung. *@
-        @if (policy.Payments.Count > 0)
-        {
-            <div class="tx-totals-note">@Gegenprobe(policy)</div>
-        }
-
         @*
-            Die Dokumente stehen unten: erst der Wert, dann sein Verlauf, dann die
-            Zahlungen, dann die Belege. So ordnet es der Prototyp — die Ablage ist der
-            Nachweis zu den Zahlen darüber und nicht ihr Vorspann.
+            Zwei Listen, beide aufklappbar. Die Dokumente stehen zuerst: Sie sind das, was an
+            einem Vertrag nachgeschlagen wird — die Police, der Nachtrag, der letzte Bericht.
+            Die Zahlungen sind die Gegenprobe dazu und liegen darunter, zugeklappt, bis
+            jemand sie sehen will.
         *@
-        <div class="list-head">
+        <button type="button" class="list-head toggle @(zeigeDokumente ? "open" : null)"
+                aria-expanded="@zeigeDokumente"
+                @onclick="() => zeigeDokumente = !zeigeDokumente">
+            <span class="list-mark" aria-hidden="true">@(zeigeDokumente ? "–" : "+")</span>
             <span class="label-strong">Dokumente</span>
             <span class="list-count num">@policy.Documents.Count</span>
-        </div>
+        </button>
 
-        @if (policy.Documents.Count == 0)
+        @if (zeigeDokumente)
         {
-            <div class="empty-area">
-                <span class="empty-area-text">
-                    Kein Dokument hinterlegt. Police, Nachträge und
-                    @PolicyValueNaming.ReportPlural(policy.Kind) gehören an den Vertrag —
-                    eingelesen werden sie über den Belegweg.
-                </span>
-                <a class="btn btn-secondary" href="/scannen">Beleg hinzufügen</a>
-            </div>
-        }
-
-        @* Der neueste Bericht ist der, auf dem der aktuelle Wert steht. Ihn hervorzuheben
-           spart die Suche in einer Liste, die mit jedem Jahr länger wird. *@
-        var neuester = policy.Documents
-            .Where(d => Art(d) == "Bericht")
-            .OrderByDescending(d => d.DocumentDate)
-            .FirstOrDefault();
-
-        @foreach (var document in policy.Documents)
-        {
-            var art = Art(document);
-
-            <button type="button" class="tap doc-row @(document.FileExists ? null : "missing") @(document == neuester ? "picked" : null)"
-                    @onclick="@(() => Navigation.NavigateTo($"/dokumente/{document.Id}"))">
-                <span class="stack">
-                    <span class="doc-name">@document.Title</span>
-                    <span class="doc-meta">
-                        @(document.FileExists
-                            ? (document.DocumentDate is { } d ? GermanFormat.Date(d) : "ohne Datum")
-                              + (document == neuester ? " · aktueller Stand" : null)
-                            : "Datei nicht gefunden")
+            @if (policy.Documents.Count == 0)
+            {
+                <div class="empty-area">
+                    <span class="empty-area-text">
+                        Kein Dokument hinterlegt. Police, Nachträge und
+                        @PolicyValueNaming.ReportPlural(policy.Kind) gehören an den Vertrag —
+                        eingelesen werden sie über den Belegweg.
                     </span>
-                </span>
+                    <a class="btn btn-secondary" href="/scannen">Beleg hinzufügen</a>
+                </div>
+            }
 
-                @* Die Police im Akzent: sie ist das Dokument, das den Vertrag begründet. *@
-                <span class="tag @(art == "Police" ? "tag-accent" : "tag-neutral")">@art</span>
-            </button>
+            @* Der neueste Bericht ist der, auf dem der aktuelle Wert steht. Ihn hervorzuheben
+               spart die Suche in einer Liste, die mit jedem Jahr länger wird. *@
+            var neuester = policy.Documents
+                .Where(d => Art(d) == "Bericht")
+                .OrderByDescending(d => d.DocumentDate)
+                .FirstOrDefault();
+
+            @foreach (var document in policy.Documents)
+            {
+                var art = Art(document);
+
+                <button type="button" class="tap doc-row @(document.FileExists ? null : "missing") @(document == neuester ? "picked" : null)"
+                        @onclick="@(() => Navigation.NavigateTo($"/dokumente/{document.Id}"))">
+                    <span class="stack">
+                        <span class="doc-name">@document.Title</span>
+                        <span class="doc-meta">
+                            @(document.FileExists
+                                ? (document.DocumentDate is { } d ? GermanFormat.Date(d) : "ohne Datum")
+                                  + (document == neuester ? " · aktueller Stand" : null)
+                                : "Datei nicht gefunden")
+                        </span>
+                    </span>
+
+                    @* Die Police im Akzent: sie ist das Dokument, das den Vertrag begründet. *@
+                    <span class="tag @(art == "Police" ? "tag-accent" : "tag-neutral")">@art</span>
+                </button>
+            }
+
+            @if (policy.Documents.Count > 0)
+            {
+                <div class="tx-totals-note">
+                    <a href="/scannen">Beleg hinzufügen</a> — ein eingelesener
+                    @(PolicyValueNaming.ReportLabel(policy.Kind)) hängt sich an diesen Vertrag und
+                    trägt seinen Stand in den Verlauf ein.
+                </div>
+            }
         }
 
-        @if (policy.Documents.Count > 0)
+        <button type="button" class="list-head toggle @(zeigeZahlungen ? "open" : null)"
+                aria-expanded="@zeigeZahlungen"
+                @onclick="() => zeigeZahlungen = !zeigeZahlungen">
+            <span class="list-mark" aria-hidden="true">@(zeigeZahlungen ? "–" : "+")</span>
+            <span class="label-strong">Zahlungen</span>
+            <span class="list-count num">@policy.Payments.Count</span>
+        </button>
+
+        @if (zeigeZahlungen)
         {
-            <div class="tx-totals-note">
-                <a href="/scannen">Beleg hinzufügen</a> — ein eingelesener
-                @(PolicyValueNaming.ReportLabel(policy.Kind)) hängt sich an diesen Vertrag und
-                trägt seinen Stand in den Verlauf ein.
-            </div>
+            @if (policy.Payments.Count == 0)
+            {
+                @*
+                    Ein ehrlicher Leerzustand: er sagt, wonach gesucht wurde. „Nichts gefunden" allein
+                    ließe den Nutzer raten, ob die Buchung fehlt oder die Suche nichts taugt.
+                *@
+                <div class="empty-area">
+                    <span class="empty-area-text">
+                        @(policy.PolicyNumber is { Length: > 0 } nummer
+                            ? $"Keine Buchung nennt die Vertragsnummer {nummer}. Zugeordnet wird "
+                              + "ausschließlich darüber — ein Treffer über den Anbieternamen wäre bei "
+                              + "mehreren Verträgen desselben Hauses falsch."
+                            : "Ohne erfasste Vertragsnummer lässt sich keine Buchung zuordnen. "
+                              + "Zugeordnet wird ausschließlich über die Nummer im Verwendungszweck.")
+                    </span>
+                    <a class="btn btn-secondary" href="/konten">In Buchungen suchen</a>
+                </div>
+            }
+
+            @foreach (var payment in policy.Payments)
+            {
+                <div class="row payment">
+                    <div class="stack">
+                        <span class="balance-label plain">@payment.Payee</span>
+                        <span class="meta num">@GermanFormat.Date(payment.BookingDate) · @payment.AccountName</span>
+
+                        @* Die Begründung an jeder Zeile, darunter der Verwendungszweck im
+                           Original — nachlesbar statt nachvollziehbar-behauptet. *@
+                        @if (payment.MatchReason is { Length: > 0 } grund)
+                        {
+                            <span class="meta accent">@grund</span>
+                        }
+                        @if (payment.Reference is { Length: > 0 } zweck)
+                        {
+                            <span class="meta break">@zweck</span>
+                        }
+                    </div>
+                    <span class="stack-end">
+                        <span class="balance-value num">@State.Euro(payment.Amount)</span>
+
+                        @* Kein Tag, wo nichts zu vergleichen ist: ohne erfassten Beitrag hieße
+                           „prüfen“, die Buchung sei auffällig — auffällig ist aber nur, dass der
+                           Vertrag seinen Beitrag nicht führt. *@
+                        @if (Matches(policy, payment) is { } passt)
+                        {
+                            <span class="tag @(passt ? "tag-neutral" : "tag-accent")">
+                                @(passt ? "stimmt" : "prüfen")
+                            </span>
+                        }
+                    </span>
+                </div>
+            }
+
+            @* Die Gegenprobe unter der Liste. Weicht der gebuchte Betrag vom Beitrag ab, ist einer
+               der beiden veraltet — und das ist eine Aussage, keine Fehlermeldung. *@
+            @if (policy.Payments.Count > 0)
+            {
+                <div class="tx-totals-note">@Gegenprobe(policy)</div>
+            }
         }
 
         <div class="spacer"></div>
@@ -510,6 +523,20 @@
     private int? loeschen;
 
     private bool busy;
+
+    /// <summary>
+    /// Welche der beiden unteren Listen offen steht.
+    /// </summary>
+    /// <remarks>
+    /// Die Dokumente zuerst und offen, die Zahlungen zu: Nachgeschlagen wird am Vertrag der
+    /// Beleg; die Zahlungen sind die Gegenprobe, die man sucht, wenn man sie braucht. Der
+    /// Zustand lebt nur, solange die Seite steht — ein gemerktes Zu wäre beim nächsten
+    /// Besuch eine Liste, von der niemand mehr weiß, dass es sie gibt.
+    /// </remarks>
+    private bool zeigeDokumente = true;
+
+    /// <inheritdoc cref="zeigeDokumente" />
+    private bool zeigeZahlungen;
 
     protected override async Task LoadAsync() => data = await Api.GetPolicyAsync(Id);
 

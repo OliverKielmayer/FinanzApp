@@ -31,9 +31,12 @@ public sealed class PolicyService(FinanzAppDbContext db, DocumentService documen
             .Where(p => p.IsCapitalForming == capitalForming)
             .ToListAsync(ct);
 
-        // Vorsorge nach Wert, Absicherung nach Beitrag — beides absteigend, das Gewichtige oben.
+        // Vorsorge alphabetisch: Diese Liste wird durchsucht, nicht gelesen — ein Vertrag
+        // steht dort, wo sein Name ihn hinstellt, und wandert nicht, weil sein Wert sich
+        // geändert hat. Die Absicherung bleibt beim Beitrag: dort ist die Reihenfolge die
+        // Aussage, das Teure oben.
         rows = capitalForming
-            ? [.. rows.OrderByDescending(p => p.AssetValue ?? 0m).ThenBy(p => p.Name)]
+            ? [.. rows.OrderBy(p => p.Name, StringComparer.CurrentCulture)]
             : [.. rows.OrderByDescending(p => p.AnnualPremium).ThenBy(p => p.Name)];
 
         return new PolicyOverviewDto
