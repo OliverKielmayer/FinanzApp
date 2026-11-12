@@ -42,6 +42,44 @@
             </div>
         }
 
+        @*
+            Die Zahlung steht über den Belegen: Sie ist die Antwort auf die Frage, die eine
+            Anschaffung aufwirft — ist das Geld schon weg, und wo?
+
+            Der Grund steht an jeder Zeile, weil die Zuordnung unterschiedlich fest ist. Eine
+            Nummer, die in Beleg und Verwendungszweck steht, ist ein Faden; ein passender
+            Betrag im Zeitraum ist eine Vermutung, die auf jede Zahlung derselben Höhe passt.
+        *@
+        @if (purchase.Payments.Count > 0)
+        {
+            <div class="list-head">
+                <span class="label-strong">Bezahlt mit</span>
+                <span class="list-count num">@purchase.Payments.Count</span>
+            </div>
+
+            @foreach (var zahlung in purchase.Payments)
+            {
+                <div class="row payment">
+                    <div class="stack">
+                        <span class="balance-label plain">@zahlung.Payee</span>
+                        <span class="meta num">
+                            @GermanFormat.Date(zahlung.BookingDate) · @zahlung.AccountName
+                        </span>
+
+                        @if (zahlung.MatchReason is { Length: > 0 } grund)
+                        {
+                            <span class="meta accent">@grund</span>
+                        }
+                        @if (zahlung.Reference is { Length: > 0 } zweck)
+                        {
+                            <span class="meta break">@zweck</span>
+                        }
+                    </div>
+                    <span class="balance-value num">@State.Euro(zahlung.Amount)</span>
+                </div>
+            }
+        }
+
         <div class="list-head">
             <span class="label-strong">Dokumente</span>
             <span class="list-count num">@purchase.Documents.Count</span>

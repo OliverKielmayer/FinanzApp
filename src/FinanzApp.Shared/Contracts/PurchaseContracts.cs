@@ -37,4 +37,20 @@ public sealed record PurchaseDetailDto
     public string? Note { get; init; }
 
     public required IReadOnlyList<DocumentListItemDto> Documents { get; init; }
+
+    /// <summary>
+    /// Buchungen, die diese Anschaffung bezahlt haben — jede mit dem Grund, warum sie hier
+    /// steht.
+    /// </summary>
+    /// <remarks>
+    /// <para>Zugeordnet wird über <b>eine Nummer, die im Beleg und im Verwendungszweck
+    /// steht</b> — dieselbe Regel, an der ein Vorgang seine Zahlung findet. Bei einer
+    /// Amazon-Bestellung ist das die Bestellnummer: Sie steht auf der Rechnung und die Bank
+    /// schreibt sie in den Verwendungszweck.</para>
+    /// <para>Der Betrag allein genügt nicht. Zwei Bestellungen desselben Tages über dieselbe
+    /// Summe sind nichts Ungewöhnliches, und eine Zuordnung über Kreuz füle nie auf.</para>
+    /// <para>Ohne eingelesenen Beleg bleibt die Liste leer: Es gibt dann keinen Text, in dem
+    /// eine Nummer stehen könnte. Das ist keine Fehlfunktion, sondern die Bedingung.</para>
+    /// </remarks>
+    public IReadOnlyList<LinkedPaymentDto> Payments { get; init; } = [];
 }
