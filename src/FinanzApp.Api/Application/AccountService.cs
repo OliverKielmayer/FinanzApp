@@ -22,6 +22,7 @@ public sealed class AccountService(FinanzAppDbContext db)
             .OrderBy(a => a.Id)
             .ToListAsync(ct);
         var balances = await GetBalancesAsync(ct);
+        var uebersehen = await UncountedAsync(ct);
 
         return [.. accounts.Select(a => new AccountDto
         {
@@ -33,6 +34,7 @@ public sealed class AccountService(FinanzAppDbContext db)
             InterestYearToDate = a.InterestYearToDate,
             Balance = balances[a.Id],
             BalanceAsOf = a.BalanceAsOf,
+            Uncounted = uebersehen.GetValueOrDefault(a.Id),
 
             OwnerUserId = a.OwnerUserId,
             OwnerName = a.Owner?.Name,
@@ -136,6 +138,75 @@ public sealed class AccountService(FinanzAppDbContext db)
             a => a.Id,
             a => (anker.TryGetValue(a.Id, out var punkt) ? punkt.Balance : a.OpeningBalance)
                  + (sums.TryGetValue(a.Id, out var s) ? s : 0m));
+    }
+
+    /// <summary>
+    /// Buchungen, die der jüngste Kontrollpunkt nicht mitzählt, obwohl sie erst nach ihm
+    /// eingingen — je Konto, und nur wo es welche gibt.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Die Gegenprobe zu <see cref="GetBalancesAsync"/>.</b> Dort fällt alles heraus,
+    /// was auf oder vor dem Stichtag gebucht wurde; das ist richtig, solange der festgestellte
+    /// Stand diese Buchungen auch enthält. Wurde eine davon aber <em>später</em> eingelesen als
+    /// der Punkt entstand, kann sie nicht darin gesteckt haben — und wird trotzdem nie
+    /// gezählt.</para>
+    /// <para><b>Es gilt nur der jüngste Punkt</b>, derselbe, auf dem der Saldo aufsetzt. Was
+    /// ein älterer verschluckt hätte, hat der jüngere längst überschrieben.</para>
+    /// <para><b>Zeitpunkt gegen Zeitpunkt.</b> Verglichen wird, wann die Buchung angelegt
+    /// wurde, mit dem, wann der Punkt angelegt wurde — nicht mit seinem Stichtag. Der Stichtag
+    /// ist ein Tag, die Entstehung ein Augenblick, und genau auf diesem Unterschied sitzt der
+    /// Fehler.</para>
+    /// <para><b>Gezählt, nicht gerechnet.</b> Der Saldo bleibt, wie er ist. Ob die Buchungen
+    /// dazugehören, entscheidet der Inhaber — die Anwendung sagt nur, dass die Frage offen
+    /// ist.</para>
+    /// </remarks>
+    public async Task<Dictionary<int, UncountedBookingsDto>> UncountedAsync(
+        CancellationToken ct = default)
+    {
+        var anker = (await db.BalanceCheckpoints.AsNoTracking()
+                .Select(k => new { k.Id, k.AccountId, k.AsOf, k.CreatedAt })
+                .ToListAsync(ct))
+            .GroupBy(k => k.AccountId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(k => k.AsOf).ThenByDescending(k => k.Id).First());
+
+        if (anker.Count == 0)
+        {
+            return [];
+        }
+
+        var booked = await db.Transactions.AsNoTracking()
+            .Select(t => new { t.AccountId, t.Amount, t.BookingDate, t.CreatedAt })
+            .ToListAsync(ct);
+
+        var gefunden = new Dictionary<int, UncountedBookingsDto>();
+
+        foreach (var gruppe in booked.GroupBy(t => t.AccountId))
+        {
+            if (!anker.TryGetValue(gruppe.Key, out var punkt))
+            {
+                continue;
+            }
+
+            var uebersehen = gruppe
+                .Where(t => t.BookingDate <= punkt.AsOf && t.CreatedAt > punkt.CreatedAt)
+                .ToList();
+
+            if (uebersehen.Count == 0)
+            {
+                continue;
+            }
+
+            gefunden[gruppe.Key] = new UncountedBookingsDto
+            {
+                Count = uebersehen.Count,
+                Amount = uebersehen.Sum(t => t.Amount),
+                CheckpointAsOf = punkt.AsOf,
+            };
+        }
+
+        return gefunden;
     }
 
     /// <summary>

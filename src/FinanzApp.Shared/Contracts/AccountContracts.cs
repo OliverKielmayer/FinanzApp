@@ -60,6 +60,39 @@ public sealed record AccountDto
 
     /// <summary>Stand des Saldos — die Oberfläche macht daraus „heute“ oder ein Datum.</summary>
     public required DateOnly BalanceAsOf { get; init; }
+
+    /// <summary>
+    /// Buchungen, die der jüngste Kontrollpunkt nicht mitzählt, obwohl sie erst nach ihm
+    /// eingingen. <c>null</c>, wenn es keine gibt — der Normalfall.
+    /// </summary>
+    public UncountedBookingsDto? Uncounted { get; init; }
+}
+
+/// <summary>
+/// Die Lücke, die ein Kontrollpunkt aufreißen kann — und die er sonst still verschluckt.
+/// </summary>
+/// <remarks>
+/// <para><b>Wie sie entsteht.</b> Ein Kontrollpunkt sagt: An diesem Tag war es diese Zahl. Die
+/// Rechnung zählt darum nur, was <em>nach</em> seinem Stichtag gebucht wurde — alles davor
+/// steckt ja schon in der Zahl. Kommt aber später eine Buchung herein, deren Buchungstag auf
+/// oder vor dem Stichtag liegt, war sie in der Zahl <em>nicht</em> drin und wird trotzdem nie
+/// mitgezählt.</para>
+/// <para><b>Nicht erfunden, passiert.</b> Ein Stand wurde eingetragen und kurz darauf ein
+/// Auszug übernommen; dessen Buchungen trugen ältere Buchungstage und fehlten seitdem im
+/// Saldo. Gemerkt hat es der Inhaber, nicht die Anwendung.</para>
+/// <para><b>Gezählt, nicht gerechnet.</b> Die Anwendung addiert hier nichts dazu — ob die
+/// Buchungen in der Zahl der Bank stecken, weiß nur die Bank. Sie sagt, dass etwas offen ist,
+/// und überlässt die Entscheidung dem Inhaber: den Punkt zurücknehmen oder neu setzen.</para>
+/// </remarks>
+public sealed record UncountedBookingsDto
+{
+    public required int Count { get; init; }
+
+    /// <summary>Vorzeichenbehaftet — die Summe kann in beide Richtungen fehlen.</summary>
+    public required decimal Amount { get; init; }
+
+    /// <summary>Der Stichtag des Kontrollpunkts, an dem sie hängenbleiben.</summary>
+    public required DateOnly CheckpointAsOf { get; init; }
 }
 
 // ── Bankabruf ─────────────────────────────────────────────────────────────────────────────

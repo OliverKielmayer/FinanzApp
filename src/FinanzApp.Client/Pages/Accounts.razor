@@ -85,6 +85,35 @@
                     <span class="acct-sheet-balance num">@State.Euro(konto.Balance)</span>
                     <span class="meta">Stand @AsOfLabel(konto.BalanceAsOf)</span>
 
+                    @*
+                        Direkt unter der Zahl, weil es die Zahl betrifft. Ein Kontrollpunkt
+                        zählt nur, was nach seinem Stichtag gebucht wurde — kommt eine ältere
+                        Buchung erst später herein, fällt sie still heraus. Genau so ist hier
+                        einmal ein Stand um einen vierstelligen Betrag danebengelegen, und
+                        gemerkt hat es der Inhaber, nicht die Anwendung.
+
+                        Gezählt, nicht gerechnet: Die Anwendung addiert nichts dazu. Ob die
+                        Buchungen in der Zahl der Bank stecken, weiß nur die Bank.
+                    *@
+                    @if (konto.Uncounted is { } luecke)
+                    {
+                        <div class="state-error" role="status">
+                            <span class="state-error-title">
+                                @(luecke.Count == 1
+                                    ? "Eine Buchung zählt nicht mit"
+                                    : $"{luecke.Count} Buchungen zählen nicht mit")
+                            </span>
+                            <span class="state-error-text">
+                                @($"Sie kamen nach dem Kontrollpunkt vom "
+                                  + $"{GermanFormat.Date(luecke.CheckpointAsOf)} herein, tragen "
+                                  + $"aber ältere Buchungstage — zusammen ")@Signed(luecke.Amount)@(
+                                  ". In dem festgestellten Stand steckten sie nicht, und die "
+                                  + "Rechnung lässt sie trotzdem heraus. Nehmen Sie den "
+                                  + "Kontrollpunkt zurück oder setzen Sie ihn neu.")
+                            </span>
+                        </div>
+                    }
+
                     @if (SharingLabel(konto) is { Length: > 0 } freigabe)
                     {
                         <span class="tag tag-outline">@freigabe</span>
