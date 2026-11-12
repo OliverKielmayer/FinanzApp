@@ -101,21 +101,27 @@ internal static class FinTsDialog
     }
 
     /// <summary>
-    /// Fragt die Bank, welches TAN-Medium der Benutzer hat, und trägt es ein.
+    /// Fragt die Bank, welche TAN-Medien der Benutzer hat, und schreibt sie ins Protokoll.
     /// </summary>
     /// <remarks>
-    /// <para><b>Der Schritt, den wir übersehen hatten.</b> Im Beispiel des README steht zwischen
-    /// dem Setzen des Verfahrens und der Abfrage ein <c>InitTANMedium</c>. Was es tut, zeigt der
-    /// README nicht — die Bibliothek bietet dafür <c>RequestTANMediumName</c> und das Feld
-    /// <c>HITAB</c>. Bei TAN-Verfahren, die ein Medium kennen, geht dessen Bezeichnung in das
-    /// Segment ein, mit dem gefragt wird.</para>
-    /// <para><b>Es darf scheitern.</b> Nicht jede Bank und nicht jedes Verfahren kennt ein
-    /// Medium; die Raiba des Inhabers antwortet mit „Auftragsart wird nicht unterstützt“. Dann
-    /// geht der Abruf ohne weiter. Ein fehlgeschlagener Nebenschritt darf den Hauptweg nicht
-    /// mitreißen.</para>
-    /// <para><b>Nur bei genau einem Medium.</b> Kommen mehrere, wäre die Wahl eine Frage an den
-    /// Benutzer und keine, die hier zu treffen ist. Dann bleibt das Feld leer und das Protokoll
-    /// sagt, wie viele zur Wahl standen.</para>
+    /// <para><b>Gefragt wird, gesetzt wird nicht.</b> Die Bibliothek bietet dafür das Feld
+    /// <c>HITAB</c>, und dort stand die Bezeichnung auch eine Zeit lang. Am <b>12.11.2026</b>
+    /// an zwei echten Banken gemessen, was das bewirkt:</para>
+    /// <list type="bullet">
+    /// <item>Leer: Die Bibliothek sendet <c>HKTAN</c> mit <b>zwei</b> Datenelementen — dem
+    /// TAN-Prozess und der Segmentkennung. Beide Häuser nehmen das an.</item>
+    /// <item>Gesetzt: Die Bezeichnung landet an der <b>elften</b> Stelle desselben Segments,
+    /// und die Sparkasse weist es zurück — „9110 Falsche Segmentzusammenstellung: HKTAN“.</item>
+    /// </list>
+    /// <para>Der Name stammte dabei von der Bank selbst: Sie nannte genau <em>ein</em> Medium,
+    /// und es hieß „Alle Geräte“ — also kein Gerät, sondern deren Gesamtheit. Bei der
+    /// anderen Bank ist die Frage gar nicht beantwortbar („Auftragsart wird nicht
+    /// unterstützt“); dort blieb das Feld immer leer, und <b>nur dieser Weg ist je
+    /// durchgelaufen</b>.</para>
+    /// <para><b>Es darf scheitern.</b> Ein fehlgeschlagener Nebenschritt darf den Hauptweg
+    /// nicht mitreißen — der Abruf läuft ohne weiter.</para>
+    /// <para>Die Auskunft bleibt im Protokoll, weil sie die Grundlage wäre, die Medien
+    /// später einmal zur Auswahl zu stellen. Dann aber an der richtigen Stelle im Segment.</para>
     /// </remarks>
     public static async Task TanMediumAsync(FinTsClient kunde, int kontoId, ILogger log)
     {
@@ -131,18 +137,26 @@ internal static class FinTsDialog
                 return;
             }
 
-            if (namen.Count > 1)
-            {
-                log.LogInformation(
-                    "Konto {Konto}: Die Bank nennt {Anzahl} TAN-Medien. Welches gemeint ist, "
-                        + "kann hier niemand entscheiden; das Feld bleibt leer.",
-                    kontoId, namen.Count);
-                return;
-            }
-
-            kunde.HITAB = namen[0];
-
-            log.LogInformation("Konto {Konto}: TAN-Medium von der Bank übernommen.", kontoId);
+            // Gefragt wird, gesetzt wird nicht — und das ist am 12.11.2026 an einer echten
+            // Bank gemessen worden:
+            //
+            // Steht das Feld leer, sendet die Bibliothek ein kurzes HKTAN mit zwei
+            // Datenelementen („4“ und die Segmentkennung), und genau das nehmen beide
+            // Häuser an. Gesetzt, schiebt sie den Namen an die elfte Stelle des Segments,
+            // und die Sparkasse weist es zurück: „9110 Falsche Segmentzusammenstellung:
+            // HKTAN“. Der Name kam dabei von der Bank selbst — sie nannte genau ein Medium,
+            // und das hiess „Alle Geräte“, also gar kein Gerät, sondern deren Gesamtheit.
+            //
+            // Bei der anderen Bank ist die Frage gar nicht erst beantwortbar (HKTAB wird
+            // nicht unterstützt), das Feld blieb dort immer leer — und nur dieser Weg ist
+            // je durchgelaufen.
+            //
+            // Die Auskunft bleibt trotzdem im Protokoll: Sie sagt, welche Medien es gibt,
+            // und das ist die Grundlage, falls jemand sie später zur Auswahl stellen will.
+            log.LogInformation(
+                "Konto {Konto}: Die Bank nennt {Anzahl} TAN-Medium/Medien: {Namen}. Gesetzt "
+                    + "wird keins — ein benanntes Medium sprengt das HKTAN-Segment.",
+                kontoId, namen.Count, string.Join(", ", namen));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -154,20 +168,81 @@ internal static class FinTsDialog
     }
 
     /// <summary>
-    /// Wenn die Bank eine TAN verlangt.
+    /// Wie lange auf die Freigabe in der App der Bank gewartet wird.
     /// </summary>
     /// <remarks>
-    /// <para>Dann endet der Abruf hier. Eine TAN einzugeben hiesse, den Benutzer mitten im
-    /// Dialog zu fragen und die Verbindung so lange offen zu halten — das ist zu bauen, aber es
-    /// ist nicht dieser Schritt.</para>
-    /// <para>Saldo und Umsätze sind meist ohne TAN zu haben: Beide ändern nichts, und die
-    /// meisten Banken verlangen eine Freigabe nur alle 90 Tage. Wer hier landet, muss sich
-    /// einmal im Online-Banking anmelden; danach geht es wieder.</para>
+    /// Lang genug, um das Telefon aus der Tasche zu holen, und kurz genug, dass eine
+    /// vergessene Anfrage die Leitung nicht den Abend lang offen hält.
     /// </remarks>
-    public static Task<string> OhneTan(TANDialog dialog)
-        => throw new BankAccessException(
-            "Die Bank verlangt für diesen Abruf eine TAN. Die Anwendung kann keine TAN "
-            + "entgegennehmen — sie fragt nur ab und ändert nichts. Melden Sie sich einmal im "
-            + "Online-Banking an; danach lässt die Bank den Abruf in der Regel wieder ohne TAN "
-            + "zu.");
+    public static readonly TimeSpan Freigabefrist = TimeSpan.FromMinutes(3);
+
+    /// <summary>
+    /// Der Dialog für eine Freigabe, die <b>nicht</b> über eine eingetippte TAN läuft.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Entkoppeltes Verfahren.</b> Verlangt die Bank eine starke Authentifizierung,
+    /// antwortet sie mit <c>3955 Auftrag empfangen - Bitte Auftrag in Ihrer App freigeben</c>
+    /// und schickt die Anfrage in <em>ihre eigene</em> App. Dort wird getippt. Die Bibliothek
+    /// fragt derweil selbst nach, ob es schon so weit ist — dafür ist
+    /// <see cref="TANDialog.IsDecoupled"/> da.</para>
+    /// <para><b>Hier wird keine TAN entgegengenommen</b>, und das bleibt so. Der Rückruf
+    /// liefert deshalb eine leere Zeichenkette: Er wird im entkoppelten Verfahren nicht zum
+    /// Eintippen gebraucht, und eine Maske dafür gibt es nicht. Das Geheimnis bleibt zwischen
+    /// dem Inhaber und seiner Bank.</para>
+    /// <para><b>Mit Frist.</b> Wer die Anfrage übersieht, soll nicht eine offene Verbindung
+    /// hinterlassen. Nach <see cref="Freigabefrist"/> bricht die Statusabfrage ab — und auch,
+    /// wenn der Aufrufer abbricht, etwa weil die Seite geschlossen wurde.</para>
+    /// <para><b>Nicht prüfbar ohne Bank.</b> Wie der ganze Dialog: Was sich davor und danach
+    /// prüfen lässt, steht in <see cref="BankAccessReadiness"/> und den Diensten.</para>
+    /// </remarks>
+    public static TANDialog Freigabe(
+        int kontoId, ILogger log, CancellationToken ct, out IDisposable abbruch)
+    {
+        var dialog = new TANDialog(
+            _ =>
+            {
+                log.LogInformation(
+                    "Konto {Konto}: Die Bank wartet auf die Freigabe in ihrer App. Bis zu "
+                        + "{Frist} wird nachgefragt.",
+                    kontoId, Freigabefrist);
+
+                return Task.FromResult(string.Empty);
+            },
+            erteilt =>
+            {
+                log.LogInformation(
+                    "Konto {Konto}: Die Statusabfrage endete — freigegeben: {Erteilt}.",
+                    kontoId, erteilt);
+
+                return Task.CompletedTask;
+            })
+        {
+            IsDecoupled = true,
+        };
+
+        // Zwei Gründe zum Aufhören: die Frist und der Abbruch durch den Aufrufer. Die
+        // Registrierung geht an den Aufrufer zurück, damit sie mit dem Abruf endet und nicht
+        // am Token hängen bleibt.
+        var frist = new CancellationTokenSource(Freigabefrist);
+        var beide = CancellationTokenSource.CreateLinkedTokenSource(ct, frist.Token);
+
+        var registrierung = beide.Token.Register(() => dialog.IsCancelWaitForApproval = true);
+
+        abbruch = new Aufraeumen(registrierung, beide, frist);
+        return dialog;
+    }
+
+    /// <summary>Gibt beim Ende des Abrufs zusammen frei, was zur Frist gehört.</summary>
+    private sealed class Aufraeumen(
+        CancellationTokenRegistration registrierung,
+        CancellationTokenSource beide,
+        CancellationTokenSource frist) : IDisposable
+    {
+        public void Dispose()
+        {
+            registrierung.Dispose();
+            beide.Dispose();
+            frist.Dispose();
+        }
+    }
 }

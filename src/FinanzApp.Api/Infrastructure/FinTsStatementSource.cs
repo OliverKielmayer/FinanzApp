@@ -147,6 +147,25 @@ public sealed class FinTsStatementSource(
                 account.Id, account.Blz, from, to);
 
             var anmeldung = await kunde.Synchronization();
+
+            // Vor der Prüfung protokolliert, nicht danach: Scheitert die Anmeldung, ist genau
+            // das die Zeile, die man braucht. Welche TAN-Verfahren die Bank anbietet, sagt sie
+            // hier — und ob das am Konto eingetragene darunter ist. Die Bibliothek ersetzt PIN
+            // und Benutzerkennung durch XXXXXX, bevor sie etwas abgibt; geprüft in
+            // BankDialogLoggingTests.
+            //
+            // Diese Auskunft stand bis zum 11.11.2026 nur in der Saldenabfrage. Mit ihr war
+            // sie weg, und ein gescheiterter Sparkassen-Abruf meldete nur noch „9050 Die
+            // Nachricht enthält Fehler“ — ohne zu sagen, woran.
+            log.LogInformation(
+                "Konto {Konto} nach der Anmeldung: Verfahren {Abgeleitet}, Segmentversion "
+                    + "{Version}. Am Konto eingetragen: {Eingetragen}. Die Bank meldete: {Bank}",
+                account.Id,
+                string.IsNullOrEmpty(kunde.HIRMS) ? "keines" : kunde.HIRMS,
+                kunde.HITANS,
+                account.FinTsTanMethod,
+                FinTsDialog.Alles(anmeldung.Messages));
+
             if (!anmeldung.IsSuccess)
             {
                 throw new BankAccessException(
@@ -156,8 +175,13 @@ public sealed class FinTsStatementSource(
             kunde.HIRMS = account.FinTsTanMethod!.Value.ToString();
             await FinTsDialog.TanMediumAsync(kunde, account.Id, log);
 
+            // Verlangt die Bank eine Freigabe, schickt sie die Anfrage in ihre eigene App und
+            // die Bibliothek fragt nach, bis dort getippt wurde. Eingetippt wird hier nichts.
+            var warten = FinTsDialog.Freigabe(account.Id, log, ct, out var abbruch);
+            using var frist = abbruch;
+
             var ergebnis = await kunde.Transactions_camt(
-                new TANDialog(FinTsDialog.OhneTan),
+                warten,
                 Fassung,
                 from.ToDateTime(TimeOnly.MinValue),
                 to.ToDateTime(TimeOnly.MinValue),

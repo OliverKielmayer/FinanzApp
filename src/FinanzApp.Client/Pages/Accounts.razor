@@ -299,6 +299,18 @@
                                     der Vorschau.
                                 </span>
 
+                                @*
+                                    Die zweite Hälfte der Wahrheit: Verlangt die Bank eine
+                                    Freigabe, schickt sie die Anfrage in ihre eigene App — und
+                                    der Abruf steht so lange still. Wer das nicht weiß, hält
+                                    die wartende Seite für hängengeblieben und bricht ab.
+                                *@
+                                <span class="meta">
+                                    Verlangt Ihre Bank eine Freigabe, erscheint sie in
+                                    <em>ihrer</em> App. Der Abruf wartet bis zu drei Minuten
+                                    darauf. Eine TAN wird hier nie eingetippt.
+                                </span>
+
                                 @* Eine Frage an die Bank, und sie beantwortet beides: Der
                                    Auszug bringt die Umsätze und seinen Schlusssaldo mit, samt
                                    dem Tag, auf den der sich bezieht. Er endet in derselben
@@ -695,7 +707,17 @@ else if (sheetTransaction is { } sheet)
     private int? reconcileAccountId;
 
     private DateOnly reconcileAsOf = DateOnly.FromDateTime(DateTime.Today);
-    private decimal reconcileBalance;
+    /// <summary>
+    /// Der Stand, den der Benutzer vom Auszug abliest.
+    /// </summary>
+    /// <remarks>
+    /// <b>Leer, nicht vorbelegt.</b> Hier stand einmal der gerechnete Stand des Kontos — und
+    /// damit war der Abgleich keiner mehr: Die bequemste Handlung war, die Zahl zu bestätigen,
+    /// die die Anwendung ohnehin glaubt. Am 12.11.2026 genau so passiert; der Punkt meldete
+    /// „Stand bestätigt“, während die Bank etwas anderes sagte. Eine Prüfung, die nur sich
+    /// selbst bestätigen kann, prüft nichts.
+    /// </remarks>
+    private decimal? reconcileBalance;
     private string reconcileNote = string.Empty;
     private bool reconcileBusy;
     private string? reconcileError;
@@ -713,7 +735,7 @@ else if (sheetTransaction is { } sheet)
     {
         reconcileAccountId = konto.Id;
         reconcileAsOf = DateOnly.FromDateTime(DateTime.Today);
-        reconcileBalance = konto.Balance;
+        reconcileBalance = null;
         reconcileNote = string.Empty;
         reconcileError = null;
         reconcilePoints = [];
@@ -738,13 +760,24 @@ else if (sheetTransaction is { } sheet)
 
     /// <summary>Trägt den eingetippten Stand ein.</summary>
     private Task SaveReconcile(int accountId)
-        => WriteReconcileAsync(accountId, new BalanceCheckpointRequest
+    {
+        // Ohne Zahl kein Punkt. Eine leere Eingabe als Null zu buchen wäre die schlimmste
+        // Auslegung: Sie setzte das Konto auf null und sähe dabei aus wie ein Abgleich.
+        if (reconcileBalance is not { } stand)
+        {
+            reconcileError = "Bitte den Stand eintragen, der laut Auszug an diesem Tag auf "
+                             + "dem Konto war.";
+            return Task.CompletedTask;
+        }
+
+        return WriteReconcileAsync(accountId, new BalanceCheckpointRequest
         {
             AsOf = reconcileAsOf,
-            Balance = reconcileBalance,
+            Balance = stand,
             Source = BalanceCheckpointSource.Manual,
             Note = reconcileNote,
         });
+    }
 
     /// <summary>
     /// Übernimmt die Zahl aus der Saldenabfrage.
