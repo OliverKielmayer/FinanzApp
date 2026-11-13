@@ -8,12 +8,20 @@
     @if (data is { } purchase)
     {
         <section class="hero">
-            @* Ohne Preis steht hier der Name groß. Eine Null stünde für „kostenlos“, und ein
-               Strich sähe aus wie ein Fehler. *@
+            @*
+                Ohne Preis steht hier der Name groß. Eine Null stünde für „kostenlos“, und ein
+                Strich sähe aus wie ein Fehler.
+
+                Mit Cent, obwohl die große Kachel sonst rundet: Weiter unten steht die Buchung,
+                die diesen Kauf bezahlt hat — zugeordnet wird auf den Cent. Oben gerundet und
+                unten genau wären zwei Zahlen über dieselbe Sache, die einander widersprechen.
+                Und wo der Abgleich nichts findet, weil der erfasste Preis vom abgebuchten
+                Betrag abweicht, sieht man den Grund nur, wenn beide Zahlen genau dastehen.
+            *@
             @if (purchase.Price is { } preis)
             {
                 <span class="label-muted">Kaufpreis</span>
-                <span class="hero-value medium num">@State.Euro0(preis)</span>
+                <span class="hero-value medium num">@State.Euro(preis)</span>
                 <span class="loan-sub">@purchase.Name</span>
             }
             else

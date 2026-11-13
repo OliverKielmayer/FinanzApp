@@ -26,10 +26,17 @@
                 <span class="meta">@Meta(purchase)</span>
             </span>
             <span class="stack-end">
-                @* Ohne Preis bleibt die Stelle leer. Eine Null stünde für „kostenlos“. *@
+                @*
+                    Ohne Preis bleibt die Stelle leer. Eine Null stünde für „kostenlos“.
+
+                    Mit Cent und nicht gerundet: Ein Kaufpreis ist abgeschrieben, keine
+                    geschätzte Größe wie ein Vermögensstand. Gerundet stand hier eine Zahl, die
+                    weder auf der Rechnung noch auf dem Kontoauszug vorkommt — und die Bank
+                    bucht den Betrag, der auf der Rechnung steht.
+                *@
                 @if (purchase.Price is { } preis)
                 {
-                    <span class="contract-amount num">@State.Euro0(preis)</span>
+                    <span class="contract-amount num">@State.Euro(preis)</span>
                 }
                 <EditLink Type="purchase" Id="purchase.Id" />
             </span>
