@@ -539,6 +539,7 @@ public sealed class ScanIntakeService(
     private static LinkTargetType LinkTypeFor(DocumentTargetKind target) => target switch
     {
         DocumentTargetKind.Depot => LinkTargetType.Portfolio,
+        DocumentTargetKind.Employment => LinkTargetType.Employer,
         _ => LinkTargetType.Policy,
     };
 

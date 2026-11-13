@@ -426,6 +426,35 @@ findet das Gemeinschaftskonto, gliedert die Abflüsse und weist aus, was gebunde
 - **Ein Soll lässt sich nur am Konto eintragen, nicht im Bericht.** Wer eins vereinbart, geht
   nach „Konten“; der Bericht zeigt es, ändert es aber nicht.
 
+## Was an der Gehaltsabrechnung offen bleibt
+
+Gebaut am **13.11.2026**: Erkennung, zwei Leitwerte, Ziel Arbeitsverhältnis. Gegen zehn echte
+Abrechnungen gehalten — alle zehn erkannt, kein Fehlalarm unter 116 Belegen mit gelesenem
+Text.
+
+- **Die Texterkennung ist die Grenze, nicht die Regel.** Von zehn Belegen gibt einer weder
+  Brutto noch Auszahlungsbetrag her und ein zweiter kein Netto: Dort steht hinter
+  „Steuer/Sozialversicherung“ schlicht nichts, oder die Zeile mit der IBAN bricht ab. Kein
+  Muster holt das zurück. Besser würde es nur mit einer besseren Erkennung — das Papier
+  liefert keine Textebene, und eine andere Erkennung ist ein eigenes Vorhaben.
+- **Keine Rechenprobe.** Brutto minus Steuern minus Sozialabgaben ergäbe den
+  Auszahlungsbetrag, und das wäre die Gegenprobe, die dieser Regel fehlt. Die Einzelposten
+  stehen aber in einem Zahlenblock ohne verlässliche Zuordnung — vier Beträge in einer Zeile,
+  drei Beschriftungen in der Zeile darüber, und beides geht bei jedem zweiten Scan
+  auseinander. Eine Probe, die selbst raten muss, prüft nichts. Deshalb auch keine
+  Berichtigung beschädigter Trennzeichen.
+- **Der Monat wird nicht gelesen.** Das Papier nennt ihn („für Juni 2026“), aber die
+  Anwendung kennt am Beleg kein Textfeld; gelesen wird nur das Abrechnungsdatum daneben, und
+  das steht in sieben von zehn Belegen. Der Monat steckt dafür im Dateinamen.
+- **Die Personalnummer bleibt unbenutzt.** Sie steht auf jedem Beleg, im Bestand aber
+  nirgends — es gibt nichts zu vergleichen. Das Ziel findet sich über das laufende
+  Arbeitsverhältnis; bei mehreren bleibt es offen, denn welches gemeint ist, weiß nur der
+  Inhaber.
+- **Eine Reihe über die Monate entsteht nicht.** Anders als beim Statusreport, der seine
+  Stände in eine Zeitreihe legt, überschreibt die Abrechnung die beiden Felder am
+  Arbeitsverhältnis. Zwölf Abrechnungen eines Jahres wären eine Reihe wert — dafür bräuchte
+  es eine eigene Tabelle, und die Frage danach hat noch niemand gestellt.
+
 ## Gebaut, aber nie angesehen
 
 Nichts mehr — das Druckblatt ist gestaltet und in der Vorschau geprüft (§15.3), die vier

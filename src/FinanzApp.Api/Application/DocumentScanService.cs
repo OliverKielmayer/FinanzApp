@@ -410,6 +410,7 @@ public sealed class DocumentScanService(
         {
             DocumentTargetKind.Policy => await ApplyPolicyAsync(art, dokument, werte, ct),
             DocumentTargetKind.Depot => await ApplyDepotAsync(art, dokument, werte, gruppen, ct),
+            DocumentTargetKind.Employment => await ApplyEmploymentAsync(art, dokument, werte, ct),
             _ => throw new RuleViolationException("Für diesen Typ gibt es kein Ziel."),
         };
 
@@ -513,6 +514,130 @@ public sealed class DocumentScanService(
             TargetLink = art.TargetLink,
             TargetHref = $"/police/{vertrag.Id}",
         };
+    }
+
+    /// <summary>
+    /// Was eine bestätigte Gehaltsabrechnung am Arbeitsverhältnis ändert.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nur was dasteht.</b> Brutto und Auszahlungsbetrag kommen beide aus einer
+    /// Texterkennung über ein eingescanntes Formular; wo die Erkennung eine Zahl verloren hat,
+    /// bleibt das Feld unangetastet statt auf null zu fallen. Von zehn echten Belegen gibt
+    /// einer weder das eine noch das andere her.</para>
+    /// <para><b>Ein Monat ist kein Monatsgehalt.</b> Die Abrechnung belegt genau den Monat,
+    /// auf dem sie steht — eine Sonderzahlung lässt ihr Brutto auf ein Vielfaches springen.
+    /// Übernommen wird deshalb erst auf Bestätigung, und was sich ändert, steht vorher
+    /// daneben. Die Anwendung kann nicht wissen, ob ein höherer Betrag eine Gehaltserhöhung
+    /// ist oder das Urlaubsgeld; der Inhaber weiß es.</para>
+    /// <para>Der Beleg hängt sich an die Stelle (<see cref="LinkTargetType.Employer"/>) und
+    /// wandert in den Gehaltsordner — denselben Nachlauf hat das Zuordnen im Scaneingang.</para>
+    /// </remarks>
+    private async Task<ScanResultDto> ApplyEmploymentAsync(
+        DocumentKind art, Document dokument, Dictionary<string, ScanValue> werte,
+        CancellationToken ct)
+    {
+        var stelle = await db.Employments.FirstOrDefaultAsync(
+                         e => e.IsActive, ct)
+                     ?? throw new RuleViolationException(
+                         "Es ist kein laufendes Arbeitsverhältnis erfasst. Die Abrechnung "
+                         + "gehört zu einer Stelle, und die trägt jemand unter „Arbeit“ ein.");
+
+        var brutto = werte.GetValueOrDefault("brutto")?.Number;
+        var netto = werte.GetValueOrDefault("netto")?.Number;
+
+        if (brutto is null && netto is null)
+        {
+            throw new RuleViolationException(
+                "Auf diesem Beleg hat die Texterkennung weder das Brutto noch den "
+                + "Auszahlungsbetrag hergeben können — es gibt nichts zu übernehmen.");
+        }
+
+        var vorherBrutto = stelle.GrossMonthly;
+        var vorherNetto = stelle.NetMonthly;
+
+        if (brutto is { } b)
+        {
+            stelle.GrossMonthly = b;
+        }
+
+        if (netto is { } n)
+        {
+            stelle.NetMonthly = n;
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        await documents.LinkAsync(dokument.Id, LinkTargetType.Employer, stelle.Id, ct);
+        await documents.RefileAsync(dokument.Id, dokument.Area, stelle.Employer, ct);
+
+        var leitwert = brutto ?? netto!.Value;
+        var leitfeld = brutto is null ? "Auszahlungsbetrag" : "Gesamt-Brutto im Monat";
+
+        return new ScanResultDto
+        {
+            Saved = true,
+            Title = art.Label + " abgelegt",
+            Subtitle = Join(
+                stelle.Employer,
+                werte.GetValueOrDefault(art.AsOfField)?.Date is { } tag
+                    ? GermanFormat.Date(tag)
+                    : null)!,
+            LeadLabel = leitfeld,
+            LeadNumber = leitwert,
+            LeadIsMoney = true,
+            Effect = Wirkung(brutto, vorherBrutto, netto, vorherNetto),
+            Rule = $"Absender „{stelle.Employer}“ + „Gehaltsabrechnung“ → künftig automatisch hierher",
+            TargetLink = art.TargetLink,
+            TargetHref = "/arbeit",
+        };
+    }
+
+    /// <summary>
+    /// Was sich an der Stelle geändert hat.
+    /// </summary>
+    /// <remarks>
+    /// <para>In Teilen und nicht als fertiger Satz: Die Beträge gehen einzeln hinaus, damit
+    /// „Beträge verbergen“ sie auch hier verdeckt. Ein hier formatierter Euro-Betrag käme
+    /// daran vorbei.</para>
+    /// <para>Genannt wird nur, was sich wirklich ändert. „Monatsbrutto X statt X“ wäre eine
+    /// Meldung ohne Inhalt, und ein unverändertes Feld als Änderung auszugeben hieße, eine
+    /// Wirkung zu behaupten, die es nicht gab.</para>
+    /// </remarks>
+    private static List<ScanEffectPart> Wirkung(
+        decimal? brutto, decimal vorherBrutto, decimal? netto, decimal? vorherNetto)
+    {
+        List<ScanEffectPart> satz = [];
+
+        if (brutto is { } b && b != vorherBrutto)
+        {
+            satz.Add(new() { Text = "Monatsbrutto" });
+            satz.Add(new() { Money = b });
+
+            if (vorherBrutto != 0m)
+            {
+                satz.Add(new() { Text = "statt" });
+                satz.Add(new() { Money = vorherBrutto });
+            }
+        }
+
+        if (netto is { } n && n != vorherNetto)
+        {
+            satz.Add(new() { Text = satz.Count == 0 ? "Auszahlung" : "· Auszahlung" });
+            satz.Add(new() { Money = n });
+
+            if (vorherNetto is { } alt)
+            {
+                satz.Add(new() { Text = "statt" });
+                satz.Add(new() { Money = alt });
+            }
+        }
+
+        if (satz.Count == 0)
+        {
+            satz.Add(new() { Text = "Beide Zahlen standen schon so an der Stelle." });
+        }
+
+        return satz;
     }
 
     /// <summary>
@@ -812,12 +937,43 @@ public sealed class DocumentScanService(
                     meldetWert && !vertrag.IsCapitalForming ? CarriesNoValue(vertrag) : null);
         }
 
+        if (art.Target == DocumentTargetKind.Employment)
+        {
+            var stelle = await FindEmploymentAsync(ct);
+
+            return stelle is null
+                ? null
+                : new Target(stelle.Id, stelle.Employer, stelle.Position, "/arbeit");
+        }
+
         var depot = await FindDepotAsync(nummer, ct);
         return depot is null
             ? null
             : new Target(depot.Id, depot.Name,
                 Join(depot.Number is { Length: > 0 } d ? "Depot " + d : null, depot.Broker),
                 "/depot");
+    }
+
+    /// <summary>
+    /// Das laufende Arbeitsverhältnis — <c>null</c>, wenn es keines oder mehrere gibt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die Abrechnung nennt eine Personalnummer, der Bestand kennt sie nicht; es gibt
+    /// also nichts zu vergleichen. Bei genau einem laufenden Verhältnis ist die Zuordnung
+    /// trotzdem eindeutig, und die abzulehnen hieße, den Beleg wegen einer Angabe
+    /// zurückzuweisen, die an keiner Stelle gepflegt wird.</para>
+    /// <para><b>Bei mehreren keines.</b> Welche Stelle eine Abrechnung meint, weiß dann nur
+    /// der Inhaber — und das zu raten hieße, ein fremdes Gehalt in die falsche Stelle zu
+    /// schreiben. Der Beleg wird abgelegt, die Zuordnung trägt jemand nach.</para>
+    /// </remarks>
+    private async Task<Employment?> FindEmploymentAsync(CancellationToken ct)
+    {
+        var laufend = await db.Employments.AsNoTracking()
+            .Where(e => e.IsActive)
+            .Take(2)
+            .ToListAsync(ct);
+
+        return laufend.Count == 1 ? laufend[0] : null;
     }
 
     /// <summary>

@@ -248,6 +248,31 @@ Unter jeder Zeile stehen die beiden Schalter, mit denen der Beleg den Eingang ve
 Gibt es das Objekt in der App noch nicht, legen Sie es zuerst an — der Beleg bleibt bis dahin
 liegen und geht nicht verloren.
 
+### Welche Belege die App von selbst liest
+
+Erkannt werden Statusreporte (Lebensversicherung, fondsgebunden, Riester), die
+Quartalsaufstellung eines Depots, der Kontoauszug, die Vermögensübersicht des Maklers — und
+seit dem 13.11.2026 die **Gehaltsabrechnung**.
+
+Bei allem anderen heißt der Schalter „Werte lesen“ und führt auf den Einleseschirm, wo der
+Beleg mit den Regeln von heute noch einmal gelesen wird. Greift keine Regel, kommt dort auch
+nichts heraus — dann trägt die Werte ein Mensch ein.
+
+**Die Gehaltsabrechnung** gibt zwei Zahlen her: das **Gesamt-Brutto des Monats** und den
+**Auszahlungsbetrag**. Bestätigt landen beide am laufenden Arbeitsverhältnis unter *Arbeit*,
+und der Beleg hängt sich daran.
+
+Zwei Dinge dazu:
+
+- **Diese Belege kommen als Scan**, nicht als PDF mit Textebene. Gelesen wird deshalb immer
+  über die Texterkennung, und die verliert im engen Formular manchmal eine Zahl. Dann bleibt
+  das Feld leer statt geraten zu werden; steht gar nichts da, lässt sich nichts übernehmen.
+  An zehn echten Abrechnungen gemessen: neunmal das Brutto, achtmal der Auszahlungsbetrag.
+- **Ein Monat ist kein Monatsgehalt.** Trägt die Abrechnung eine Sonderzahlung, springt ihr
+  Brutto auf ein Vielfaches. Was sich am Arbeitsverhältnis ändern würde, steht deshalb vor
+  der Bestätigung daneben — „statt bisher …“. Ob ein höherer Betrag eine Gehaltserhöhung
+  ist oder das Urlaubsgeld, weiß die App nicht.
+
 **Wenn eine Zeile nicht lesbar ist.** Manche Scans verlieren beim Einlesen einzelne Zahlen. Im
 Prüfschritt steht die Zeile dann mit einem Strich statt einem Betrag; ein Tipp darauf öffnet ein
 Feld, in das Sie den Wert vom Papier abschreiben. Die Summe darunter wird sofort neu gerechnet,

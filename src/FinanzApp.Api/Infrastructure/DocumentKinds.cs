@@ -256,6 +256,17 @@ public enum DocumentTargetKind
 {
     Policy,
     Depot,
+
+    /// <summary>
+    /// Das Arbeitsverhältnis — Ziel einer Gehaltsabrechnung.
+    /// </summary>
+    /// <remarks>
+    /// Anders als Police und Depot trägt es <b>keine Nummer</b>, an der sich der Beleg
+    /// wiederfinden ließe: Die Personalnummer steht zwar auf dem Papier, aber nirgends im
+    /// Bestand. Gesucht wird deshalb das laufende Verhältnis — bei mehreren keines, denn
+    /// welches gemeint ist, weiß nur der Inhaber.
+    /// </remarks>
+    Employment,
 }
 
 /// <summary>
@@ -1272,6 +1283,114 @@ public static class DocumentKindLibrary
     /// nicht kennt. Die Kennzeichen schließen sich also aus — die Reihenfolge ist trotzdem
     /// festgelegt, damit die Zuordnung nicht davon abhängt, welche Art zufällig zuerst steht.
     /// </remarks>
+    /// <summary>
+    /// Gehaltsabrechnung (DATEV-Formular).
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Diese Belege kommen nur als Scan.</b> Die PDFs des Arbeitgebers tragen keine
+    /// Textebene — kein <c>/Font</c>, ein einzelnes JPEG —, und was hier gelesen wird, kommt
+    /// deshalb immer aus der Texterkennung. Das enge Tabellenformular verliert dabei
+    /// Zeichen: „Gesamt-Brutto“ erscheint als „Ges amt-B r utt0“, „SV-Brutto“ als „sv rutto“,
+    /// „PV-Beitrag“ als „PV-Boitrag“. An zehn echten Abrechnungen gemessen, bevor diese Regel
+    /// entstand.</para>
+    /// <para><b>Deshalb hängt kein Feld an einer Beschriftung, die zerfallen kann.</b> Beide
+    /// Leitwerte kommen aus Zeilen, die in allen zehn Belegen unverändert dastehen: der
+    /// Monatsbrutto aus „Steuer/Sozialversicherung“, der Auszahlungsbetrag aus der Zeile mit
+    /// der IBAN. Die Beschriftungen „Gesamt-Brutto“ und „Auszahlungsbetrag“ stehen zwar
+    /// daneben — aber in sechs verschiedenen Schreibweisen, und einmal gar nicht.</para>
+    /// <para><b>Die Falle: „Gesamt-Brutto“ steht zweimal im Papier.</b> Einmal oben für den
+    /// Monat, einmal unten in der Verdienstbescheinigung — dort aber <em>aufgelaufen übers
+    /// Jahr</em>. Im Juni stehen beide Zahlen untereinander, und die untere ist ein
+    /// Vielfaches der oberen. Eine Regel, die nach der Beschriftung sucht, trifft die falsche
+    /// und schreibt ein Jahresbrutto als Monatsgehalt fort. Das Muster hier greift die
+    /// Monatszeile, weil nur sie „Steuer/Sozialversicherung“ voransteht.</para>
+    /// <para><b>Keine Berichtigung beschädigter Trennzeichen</b> (<c>ScanRepair</c>): Dieses
+    /// Papier liefert keine Gegenprobe mit. Brutto minus Steuern minus Sozialabgaben ergäbe
+    /// den Auszahlungsbetrag — aber Steuern und Abgaben stehen in einem Zahlenblock ohne
+    /// zuverlässige Zuordnung, und eine Probe, die selbst raten muss, prüft nichts. Ohne Probe
+    /// bleibt eine Berichtigung eine Behauptung.</para>
+    /// <para><b>Was nicht gelesen wird, bleibt leer.</b> Von zehn Belegen gibt einer weder
+    /// Brutto noch Netto her und ein zweiter kein Netto: Dort hat die Erkennung die Zahl
+    /// schlicht verloren — hinter „Steuer/Sozialversicherung“ steht nichts, die IBAN-Zeile
+    /// bricht ab. Kein Muster holt das zurück, und geraten wird nichts.</para>
+    /// </remarks>
+    public static readonly DocumentKind Payslip = new()
+    {
+        Key = "gehaltsabrechnung",
+
+        // Sie berichtet, sie verlangt nichts: Wer eine Abrechnung liest, hat danach nichts zu
+        // tun. Das hält auch das Sprachmodell davon fern, in ihr eine Forderung zu sehen.
+        IsNotice = true,
+        Label = "Gehaltsabrechnung",
+        TypeName = "Gehaltsabrechnung",
+        Area = DocumentArea.Work,
+        Target = DocumentTargetKind.Employment,
+        TargetNoun = "Arbeitsverhältnis",
+        TargetLink = "Zur Arbeit",
+        FolderTemplate = "Gehalt/{jahr}",
+        FileTemplate = "Gehaltsabrechnung_{stichtag}",
+
+        // Beide zusammen treffen alle zehn echten Abrechnungen und kein anderes Dokument des
+        // Bestands. „Lohnsteuer“ allein stünde auch auf einem Steuerbescheid; „Netto-Verdienst“
+        // ist die Überschrift, die nur eine Abrechnung führt.
+        Markers = [new("Netto-Verdienst"), new("Lohnsteuer")],
+
+        AsOfField = "abgerechnet",
+        DocumentDateField = "abgerechnet",
+
+        // Das Papier nennt eine Personalnummer, der Bestand kennt sie nicht. Es gibt also
+        // nichts zu vergleichen — das Ziel findet sich über das laufende Verhältnis, nicht
+        // über eine Nummer. Der Feldname zeigt bewusst ins Leere.
+        TargetNumberField = "personalnummer",
+
+        Fields =
+        [
+            new()
+            {
+                Key = "brutto", Label = "Gesamt-Brutto im Monat",
+                Kind = DocumentValueKind.Money,
+                Locator = DocumentLocator.Pattern,
+
+                // Der Betrag steht hinter „Steuer/Sozialversicherung“ — der Zeile unter der
+                // Beschriftung „Gesamt-Brutto“. Das Leerzeichen um den Schrägstrich ist
+                // zugelassen, weil die Erkennung es manchmal einfügt.
+                Pattern = @"Steuer\s?/\s?Sozialversicherung\s+(\d{1,3}(?:[.\s]\d{3})*,\d{2})",
+                Lead = true,
+            },
+            new()
+            {
+                Key = "netto", Label = "Auszahlungsbetrag",
+                Kind = DocumentValueKind.Money,
+                Locator = DocumentLocator.Pattern,
+
+                // Die letzte Zahl der Zeile, die die IBAN trägt. Daneben steht nur noch die
+                // Kontonummer des Arbeitgebers, und die trägt keine Nachkommastellen.
+                Pattern = @"DE\d\d[\d\s]{8,}.*?(\d{1,3}(?:[.\s]\d{3})*,\d{2})\s*$",
+                Lead = true,
+            },
+            new()
+            {
+                Key = "abgerechnet", Label = "Abgerechnet am",
+                Kind = DocumentValueKind.Date,
+                Locator = DocumentLocator.Pattern,
+
+                // „… der Brutto/Netto-Bezüge für Juni 2026 25.06.2026“. Der Monatsname steht
+                // davor und wird nicht gelesen: Die Anwendung kennt kein Textfeld am Beleg,
+                // und erfunden würde daraus sonst ein Datum, das nirgends steht.
+                Pattern = @"f[uü]r\s+[A-Za-zäöüÄÖÜ]+\s+\d{4}\s+(\d{1,2}\.\d{1,2}\.\d{4})",
+            },
+        ],
+
+        Steps =
+        [
+            "Text gelesen ({seiten} Seiten)",
+            "Absender: {absender}",
+            "Typ: Gehaltsabrechnung",
+            "{ziel}",
+            "{werte} Werte gelesen",
+        ],
+    };
+
     public static readonly IReadOnlyList<DocumentKind> All =
     [
         // Die Reihenfolge ist die Rangfolge. Der Riester-Bericht nennt in einem Nebensatz auch
@@ -1282,6 +1401,10 @@ public static class DocumentKindLibrary
         Statusreport,
         FundStatusreport,
         QuarterlyStatement,
+
+        // Steht hinten und kann niemandem etwas wegnehmen: Ihre beiden Kennzeichen kommen in
+        // keinem der Berichte vor.
+        Payslip,
     ];
 
     /// <summary>
