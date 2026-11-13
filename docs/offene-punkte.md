@@ -443,9 +443,9 @@ Text.
   drei Beschriftungen in der Zeile darüber, und beides geht bei jedem zweiten Scan
   auseinander. Eine Probe, die selbst raten muss, prüft nichts. Deshalb auch keine
   Berichtigung beschädigter Trennzeichen.
-- **Der Monat wird nicht gelesen.** Das Papier nennt ihn („für Juni 2026“), aber die
-  Anwendung kennt am Beleg kein Textfeld; gelesen wird nur das Abrechnungsdatum daneben, und
-  das steht in sieben von zehn Belegen. Der Monat steckt dafür im Dateinamen.
+- **Der Monat wird gelesen**, seit das Datumsformat „Monat Jahr“ dazukam: Aus „für Juni
+  2026“ wird der Monatserste, und das ist der Schlüssel der Lohnabrechnungszeile. Neun von
+  zehn Belegen geben ihn her.
 - **Die Personalnummer bleibt unbenutzt.** Sie steht auf jedem Beleg, im Bestand aber
   nirgends — es gibt nichts zu vergleichen. Das Ziel findet sich über das laufende
   Arbeitsverhältnis; bei mehreren bleibt es offen, denn welches gemeint ist, weiß nur der
@@ -459,10 +459,14 @@ Text.
   Reihenfolge deckt kein Test** — wer sie zurückdreht, bringt nichts zum Fallen, weil sich
   der Fall nach dem ersten Fix nicht mehr herstellen lässt. Sauber trüge das erst eine
   Transaktion um `ConfirmAsync`; die beträfe auch Policen und Depots.
-- **Eine Reihe über die Monate entsteht nicht.** Anders als beim Statusreport, der seine
-  Stände in eine Zeitreihe legt, überschreibt die Abrechnung die beiden Felder am
-  Arbeitsverhältnis. Zwölf Abrechnungen eines Jahres wären eine Reihe wert — dafür bräuchte
-  es eine eigene Tabelle, und die Frage danach hat noch niemand gestellt.
+- **Das Netto steht nur auf vier von zehn Belegen lesbar da.** Die Zeile der
+  Verdienstbescheinigung zerfällt in der Erkennung stärker als die übrigen. Die Tabelle
+  lässt das Netto leer und schätzt die Auszahlung daraus, wenn auch die fehlt — die
+  Schätzung ist dort als solche gekennzeichnet.
+- **Der sonstige Bezug wird gelesen, aber nicht gespeichert.** Ein einmaliger Bezug ist am
+  Kennzeichen „S“ der Lohnart zu erkennen, und die Meldung nennt sie, damit ein Sprung im
+  Monatsbrutto erklärt ist. Die Lohnabrechnungstabelle hat keine Spalte dafür; sie
+  anzulegen wäre eine Migration und eine eigene Frage.
 
 ## Gebaut, aber nie angesehen
 

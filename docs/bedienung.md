@@ -258,20 +258,30 @@ Bei allem anderen heißt der Schalter „Werte lesen“ und führt auf den Einle
 Beleg mit den Regeln von heute noch einmal gelesen wird. Greift keine Regel, kommt dort auch
 nichts heraus — dann trägt die Werte ein Mensch ein.
 
-**Die Gehaltsabrechnung** gibt zwei Zahlen her: das **Gesamt-Brutto des Monats** und den
-**Auszahlungsbetrag**. Bestätigt landen beide am laufenden Arbeitsverhältnis unter *Arbeit*,
-und der Beleg hängt sich daran.
+**Die Gehaltsabrechnung** gibt vier Angaben her: den **abgerechneten Monat**, das
+**Gesamt-Brutto**, den **Netto-Verdienst** und den **Auszahlungsbetrag**. Bestätigt entsteht
+daraus eine Zeile in der Liste *Lohnabrechnungen* unter **Arbeit & Beruf** — dieselbe Liste,
+in der sich eine Abrechnung auch von Hand erfassen lässt. Der Beleg hängt sich an das
+Arbeitsverhältnis und wandert in den Gehaltsordner.
+
+Netto und Auszahlungsbetrag sind **zwei Zahlen**: Dazwischen stehen Vorschuesse, Pfändungen
+und vermögenswirksame Leistungen. Die Kopfwerte des Arbeitsverhältnisses bleiben unberührt —
+dort steht das Grundgehalt, nicht das Gesamt-Brutto mit Sachbezügen.
+
+**Eine Sonderzahlung erkennt die App.** Trägt eine Lohnart das Kennzeichen „S“ für sonstigen
+Bezug — eine Prämie etwa —, nennt die Meldung sie beim Bestätigen. Damit ist erklärt,
+warum das Brutto dieses Monats gegenüber den übrigen springt. Geraten wird dabei nichts: Das
+Kennzeichen steht im Papier, und das Formular erklärt es in seiner eigenen Legende.
 
 Zwei Dinge dazu:
 
 - **Diese Belege kommen als Scan**, nicht als PDF mit Textebene. Gelesen wird deshalb immer
   über die Texterkennung, und die verliert im engen Formular manchmal eine Zahl. Dann bleibt
   das Feld leer statt geraten zu werden; steht gar nichts da, lässt sich nichts übernehmen.
-  An zehn echten Abrechnungen gemessen: neunmal das Brutto, achtmal der Auszahlungsbetrag.
-- **Ein Monat ist kein Monatsgehalt.** Trägt die Abrechnung eine Sonderzahlung, springt ihr
-  Brutto auf ein Vielfaches. Was sich am Arbeitsverhältnis ändern würde, steht deshalb vor
-  der Bestätigung daneben — „statt bisher …“. Ob ein höherer Betrag eine Gehaltserhöhung
-  ist oder das Urlaubsgeld, weiß die App nicht.
+  An zehn echten Abrechnungen gemessen: neunmal Monat und Brutto, achtmal der
+  Auszahlungsbetrag, viermal das Netto.
+- **Ein Monat, eine Zeile.** Zwei Belege desselben Monats sind eine Dublette und werden
+  abgewiesen. Wer eine Abrechnung ersetzen will, löscht erst die vorhandene Zeile.
 
 **Wenn eine Zeile nicht lesbar ist.** Manche Scans verlieren beim Einlesen einzelne Zahlen. Im
 Prüfschritt steht die Zeile dann mit einem Strich statt einem Betrag; ein Tipp darauf öffnet ein

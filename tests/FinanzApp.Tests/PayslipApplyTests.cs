@@ -81,7 +81,12 @@ public sealed class PayslipApplyTests : IDisposable
 
     /// <summary>Eine Abrechnung im Aufbau des Originals, mit erfundenen Zahlen.</summary>
     private static PdfContent Abrechnung(
-        string monatsbrutto = "4.827,50", string auszahlung = "2.913,64")
+        string monatsbrutto = "4.827,50",
+        string auszahlung = "2.913,64",
+        string netto = "3.012,80",
+        string monat = "Juni 2026",
+        bool mitMonat = true,
+        bool mitNetto = true)
         => new()
         {
             PageCount = 1,
@@ -89,12 +94,20 @@ public sealed class PayslipApplyTests : IDisposable
             TextIsInvisible = true,
             Lines =
             [
-                new(1, ["Abrechnun der Brutto/Netto-Bezü e für Juni 2026 24.06.2026 1"]),
+                new(1, [mitMonat
+                    ? $"Abrechnun der Brutto/Netto-Bezü e für {monat} 24.06.2026 1"
+                    : "Abrechnun der Brutto/Netto-Bezü e"]),
                 new(1, ["Musterbetrieb GmbH 12345 Musterstadt"]),
                 new(1, ["Ges amt-B r utt0"]),
                 new(1, [$"Steuer/Sozialversicherung {monatsbrutto}"]),
                 new(1, ["Lohnsteuer 412,75 Kirchensteuer 22,70"]),
                 new(1, ["Netto-Verdienst"]),
+                new(1, [mitNetto
+                    ? $"Verdienstbescheinigung Netto-Bezüge/Netto•Abzüge {netto}"
+
+                    // So liest die Erkennung die Zeile, wenn sie die Zahl verliert: Die
+                    // Beschriftung steht da, der Betrag fehlt.
+                    : "Verdienstbescheinigung Netto-Bezüge/Netto•Abzüge"]),
                 new(1, [$"DE02 1234 5678 9012 3456 78 1.187,45 {auszahlung}"]),
                 new(1, ["DATEV"]),
             ],
@@ -170,7 +183,40 @@ public sealed class PayslipApplyTests : IDisposable
     /// Arbeitsverhältnis zeigen muss und nicht irgendwohin.
     /// </remarks>
     [Fact]
-    public async Task Die_Uebernahme_setzt_die_Werte_und_haengt_den_Beleg_an()
+    public async Task Die_Uebernahme_legt_eine_Lohnabrechnungszeile_an()
+    {
+        var eingang = await EinliefernAsync(Abrechnung());
+
+        using (var context = database.Context())
+        {
+            await Scans(Abrechnung(), context)
+                .ConfirmAsync(new ConfirmScanRequest { DocumentId = eingang.DocumentId });
+        }
+
+        using var pruef = database.Context();
+
+        var zeile = pruef.Payslips.Single(p => p.EmploymentId == stelleId);
+
+        Assert.Equal(new DateOnly(2026, 6, 1), zeile.Month);
+        Assert.Equal(4827.50m, zeile.Gross);
+        Assert.Equal(3012.80m, zeile.Net);
+        Assert.Equal(2913.64m, zeile.Payout);
+        Assert.Equal(eingang.DocumentId, zeile.DocumentId);
+
+        var link = pruef.DocumentLinks.Single(
+            l => l.DocumentId == eingang.DocumentId && l.TargetType == LinkTargetType.Employer);
+
+        Assert.Equal(stelleId, link.TargetId);
+    }
+
+    /// <summary>
+    /// <b>Die Kopfwerte bleiben unberührt.</b> <c>GrossMonthly</c> trägt das Grundgehalt aus
+    /// der GEHALT-Zeile, nicht das Gesamt-Brutto mit Sachbezügen. Es mit dem Monatsbrutto zu
+    /// überschreiben machte aus einer gepflegten Angabe eine andere Größe mit demselben Namen —
+    /// genau das tat die erste Fassung.
+    /// </summary>
+    [Fact]
+    public async Task Die_Kopfwerte_des_Arbeitsverhaeltnisses_bleiben_stehen()
     {
         var eingang = await EinliefernAsync(Abrechnung());
 
@@ -183,13 +229,209 @@ public sealed class PayslipApplyTests : IDisposable
         using var pruef = database.Context();
 
         var stelle = pruef.Employments.Single(e => e.Id == stelleId);
-        Assert.Equal(4827.50m, stelle.GrossMonthly);
-        Assert.Equal(2913.64m, stelle.NetMonthly);
+        Assert.Equal(4500m, stelle.GrossMonthly);
+        Assert.Null(stelle.NetMonthly);
+    }
 
-        var link = pruef.DocumentLinks.Single(
-            l => l.DocumentId == eingang.DocumentId && l.TargetType == LinkTargetType.Employer);
+    /// <summary>
+    /// <b>Der Beleg wandert in den Bereich der erkannten Art.</b> Wer vor dieser Leseregel
+    /// hereinkam, liegt unter „Sonstiges“ — und blieb dort liegen, weil die Übernahme den
+    /// gespeicherten Bereich weiterreichte statt den erkannten. Der erste echte Beleg, den
+    /// jemand übernahm, lag danach immer noch falsch.
+    /// </summary>
+    [Fact]
+    public async Task Der_Beleg_wandert_in_den_Bereich_Arbeit()
+    {
+        var eingang = await EinliefernAsync(Abrechnung());
 
-        Assert.Equal(stelleId, link.TargetId);
+        using (var context = database.Context())
+        {
+            // So kommt ein Beleg herein, den beim Einliefern noch keine Regel erkannte.
+            var vorher = context.Documents.Single(d => d.Id == eingang.DocumentId);
+            vorher.Area = DocumentArea.Other;
+            context.SaveChanges();
+        }
+
+        using (var context = database.Context())
+        {
+            await Scans(Abrechnung(), context)
+                .ConfirmAsync(new ConfirmScanRequest { DocumentId = eingang.DocumentId });
+        }
+
+        using var pruef = database.Context();
+
+        Assert.Equal(DocumentArea.Work,
+            pruef.Documents.Single(d => d.Id == eingang.DocumentId).Area);
+    }
+
+    /// <summary>
+    /// Zwei Belege desselben Monats sind eine Dublette — und die weist die Übernahme ab.
+    /// </summary>
+    /// <remarks>
+    /// Dieselbe Regel wie beim Erfassen von Hand. Ohne sie stünden zwei Zeilen für einen Monat
+    /// in der Tabelle, und die Jahressumme zählte den Monat doppelt.
+    /// </remarks>
+    [Fact]
+    public async Task Ein_zweiter_Beleg_desselben_Monats_wird_abgewiesen()
+    {
+        var erster = await EinliefernAsync(Abrechnung());
+
+        using (var context = database.Context())
+        {
+            await Scans(Abrechnung(), context)
+                .ConfirmAsync(new ConfirmScanRequest { DocumentId = erster.DocumentId });
+        }
+
+        var zweiter = await EinliefernAsync(Abrechnung(auszahlung: "2.900,00"));
+
+        using (var context = database.Context())
+        {
+            var fehler = await Assert.ThrowsAsync<RuleViolationException>(
+                () => Scans(Abrechnung(auszahlung: "2.900,00"), context)
+                    .ConfirmAsync(new ConfirmScanRequest { DocumentId = zweiter.DocumentId }));
+
+            Assert.Contains("schon eine", fehler.Message);
+        }
+
+        using var pruef = database.Context();
+        Assert.Single(pruef.Payslips.Where(p => p.EmploymentId == stelleId));
+    }
+
+    /// <summary>
+    /// <b>Ein fehlendes Netto blockiert die Übernahme nicht.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Fall kam aus der echten Ablage: Ein Beleg der echten Ablage gibt sein
+    /// Netto nicht lesbar her, und die Pflichtprüfung wies sie deshalb ganz ab — „Es fehlt:
+    /// Netto-Verdienst“ —, obwohl Monat, Brutto und Auszahlungsbetrag dastanden.</para>
+    /// <para>Die Ursache war eine Doppelbedeutung: <c>Lead</c> hieß „wird übernommen“
+    /// <em>und</em> „muss da sein“. Für einen Statusreport fällt das zusammen, für eine
+    /// Abrechnung mit drei Beträgen nicht. Jetzt trennt <c>Optional</c> beides.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Ohne_lesbares_Netto_laesst_sich_trotzdem_uebernehmen()
+    {
+        var ohneNetto = Abrechnung(mitNetto: false);
+        var eingang = await EinliefernAsync(ohneNetto);
+
+        using (var context = database.Context())
+        {
+            await Scans(ohneNetto, context)
+                .ConfirmAsync(new ConfirmScanRequest { DocumentId = eingang.DocumentId });
+        }
+
+        using var pruef = database.Context();
+
+        var zeile = pruef.Payslips.Single(p => p.EmploymentId == stelleId);
+
+        Assert.Equal(4827.50m, zeile.Gross);
+        Assert.Null(zeile.Net);
+
+        // Die Auszahlung stand da und bleibt stehen — sie wird nicht aus dem Brutto
+        // geschätzt, nur weil das Netto fehlt.
+        Assert.Equal(2913.64m, zeile.Payout);
+    }
+
+    /// <summary>
+    /// <b>Und der Knopf bleibt offen.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>Die Prüfung, die den Nutzer blockierte, sitzt nicht in der Übernahme, sondern im
+    /// Vorschlag: <c>Blocker</c> sperrt den Knopf, bevor jemand drückt. Die erste Fassung
+    /// dieser Prüfung rief <c>ConfirmAsync</c> direkt auf und ging daran vorbei — sie blieb
+    /// grün, während der Nutzer vor einem gesperrten Knopf stand.</para>
+    /// <para>Geeicht: Nimmt man <c>Optional</c> zurück, fällt genau diese Prüfung.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Ohne_lesbares_Netto_bleibt_der_Knopf_offen()
+    {
+        var ohneNetto = Abrechnung(mitNetto: false);
+        var eingang = await EinliefernAsync(ohneNetto);
+
+        using var context = database.Context();
+
+        var vorschlag = await Scans(ohneNetto, context).ReviewAsync(eingang.DocumentId);
+
+        Assert.NotNull(vorschlag);
+        Assert.Null(vorschlag.Blocker);
+    }
+
+    /// <summary>
+    /// Fehlt dagegen das Brutto, steht der Knopf zu Recht still — ohne es gibt es nichts zu
+    /// erfassen.
+    /// </summary>
+    [Fact]
+    public async Task Ohne_Brutto_sperrt_der_Knopf()
+    {
+        var ohneBrutto = Abrechnung();
+
+        var zeilen = ohneBrutto.Lines
+            .Where(z => !z.Text.StartsWith("Steuer/Sozial", StringComparison.Ordinal))
+            .ToList();
+
+        var inhalt = ohneBrutto with { Lines = zeilen };
+        var eingang = await EinliefernAsync(inhalt);
+
+        using var context = database.Context();
+
+        var vorschlag = await Scans(inhalt, context).ReviewAsync(eingang.DocumentId);
+
+        Assert.NotNull(vorschlag);
+        Assert.Contains("Gesamt-Brutto", vorschlag.Blocker);
+    }
+
+    /// <summary>
+    /// Fehlen Netto <em>und</em> Auszahlung, wird die Auszahlung aus dem Brutto geschätzt —
+    /// dieselbe Regel wie beim Erfassen von Hand.
+    /// </summary>
+    [Fact]
+    public async Task Ohne_beides_wird_die_Auszahlung_geschaetzt()
+    {
+        var karg = Abrechnung(mitNetto: false, auszahlung: "0,00");
+
+        // Die IBAN-Zeile ohne Betrag: so bricht die Erkennung sie in einem echten Beleg ab.
+        var zeilen = karg.Lines
+            .Where(z => !z.Text.StartsWith("DE02", StringComparison.Ordinal))
+            .Append(new PdfLine(1, ["Konto DE02 1234"]))
+            .ToList();
+
+        var inhalt = karg with { Lines = zeilen };
+        var eingang = await EinliefernAsync(inhalt);
+
+        using (var context = database.Context())
+        {
+            await Scans(inhalt, context)
+                .ConfirmAsync(new ConfirmScanRequest { DocumentId = eingang.DocumentId });
+        }
+
+        using var pruef = database.Context();
+
+        var zeile = pruef.Payslips.Single(p => p.EmploymentId == stelleId);
+
+        Assert.Equal(4827.50m, zeile.Gross);
+        Assert.Null(zeile.Net);
+        Assert.Equal(EmploymentService.Estimate(4827.50m), zeile.Payout);
+    }
+
+    /// <summary>
+    /// <b>Ohne lesbaren Monat keine Zeile.</b> Sie hinge an keinem Zeitpunkt, und die
+    /// Jahressumme zählte sie irgendwo mit. In der echten Ablage gibt ein Beleg von zehn den
+    /// Monat nicht her.
+    /// </summary>
+    [Fact]
+    public async Task Ohne_Monat_entsteht_keine_Zeile()
+    {
+        var eingang = await EinliefernAsync(Abrechnung(mitMonat: false));
+
+        using (var context = database.Context())
+        {
+            await Assert.ThrowsAsync<RuleViolationException>(
+                () => Scans(Abrechnung(mitMonat: false), context)
+                    .ConfirmAsync(new ConfirmScanRequest { DocumentId = eingang.DocumentId }));
+        }
+
+        using var pruef = database.Context();
+        Assert.Empty(pruef.Payslips);
     }
 
     /// <summary>
@@ -217,9 +459,10 @@ public sealed class PayslipApplyTests : IDisposable
 
         using var pruef = database.Context();
 
-        // Unberührt: der Betrag von vorher, und weiterhin kein Nettowert. Darum geht es — die
-        // Verknüpfung bleibt hier absichtlich ungeprüft, denn die entsteht schon beim
-        // Einliefern und sagt über die Uebernahme nichts.
+        // Keine Zeile, und die Kopfwerte unberührt. Die Verknüpfung bleibt hier absichtlich
+        // ungeprüft: Die entsteht schon beim Einliefern und sagt über die Übernahme nichts.
+        Assert.Empty(pruef.Payslips);
+
         var stelle = pruef.Employments.Single(e => e.Id == stelleId);
         Assert.Equal(4500m, stelle.GrossMonthly);
         Assert.Null(stelle.NetMonthly);
@@ -241,10 +484,33 @@ public sealed class PayslipApplyTests : IDisposable
 
         Assert.True(ergebnis.Saved);
         Assert.Contains(ergebnis.Effect, t => t.Money == 4827.50m);
+        Assert.Contains(ergebnis.Effect, t => t.Money == 3012.80m);
         Assert.Contains(ergebnis.Effect, t => t.Money == 2913.64m);
+    }
 
-        // Der alte Bruttowert steht als Vergleich dabei; ein Nettowert gab es vorher nicht.
-        Assert.Contains(ergebnis.Effect, t => t.Money == 4500m);
+    /// <summary>
+    /// Wo ein sonstiger Bezug im Papier steht, nennt ihn die Meldung — er erklärt, warum das
+    /// Monatsbrutto gegenüber den übrigen Monaten springt.
+    /// </summary>
+    [Fact]
+    public async Task Die_Meldung_nennt_einen_sonstigen_Bezug()
+    {
+        var mitSonderzahlung = Abrechnung(monatsbrutto: "6.577,50");
+
+        var zeilen = mitSonderzahlung.Lines.ToList();
+        zeilen.Insert(2, new PdfLine(1, ["005 PRAEMIE S E J 1.750,00"]));
+
+        var inhalt = mitSonderzahlung with { Lines = zeilen };
+
+        var eingang = await EinliefernAsync(inhalt);
+
+        using var context = database.Context();
+
+        var ergebnis = await Scans(inhalt, context)
+            .ConfirmAsync(new ConfirmScanRequest { DocumentId = eingang.DocumentId });
+
+        Assert.Contains(ergebnis.Effect, t => t.Money == 1750.00m);
+        Assert.Contains(ergebnis.Effect, t => t.Text?.Contains("sonstiger Bezug") == true);
     }
 
     public void Dispose()

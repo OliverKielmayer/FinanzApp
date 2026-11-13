@@ -520,77 +520,95 @@ public sealed class DocumentScanService(
     /// Was eine bestätigte Gehaltsabrechnung am Arbeitsverhältnis ändert.
     /// </summary>
     /// <remarks>
-    /// <para><b>Nur was dasteht.</b> Brutto und Auszahlungsbetrag kommen beide aus einer
-    /// Texterkennung über ein eingescanntes Formular; wo die Erkennung eine Zahl verloren hat,
-    /// bleibt das Feld unangetastet statt auf null zu fallen. Von zehn echten Belegen gibt
-    /// einer weder das eine noch das andere her.</para>
-    /// <para><b>Ein Monat ist kein Monatsgehalt.</b> Die Abrechnung belegt genau den Monat,
-    /// auf dem sie steht — eine Sonderzahlung lässt ihr Brutto auf ein Vielfaches springen.
-    /// Übernommen wird deshalb erst auf Bestätigung, und was sich ändert, steht vorher
-    /// daneben. Die Anwendung kann nicht wissen, ob ein höherer Betrag eine Gehaltserhöhung
-    /// ist oder das Urlaubsgeld; der Inhaber weiß es.</para>
-    /// <para>Der Beleg hängt sich an die Stelle (<see cref="LinkTargetType.Employer"/>) und
-    /// wandert in den Gehaltsordner — denselben Nachlauf hat das Zuordnen im Scaneingang.</para>
+    /// <para><b>Eine Zeile in der Lohnabrechnungstabelle, nicht die Kopfwerte.</b> Die erste
+    /// Fassung schrieb Brutto und Netto nach <c>Employments</c> — und lag damit doppelt
+    /// daneben. Erstens führt <c>Payslips</c> längst eine Zeile je Monat, mit Brutto, Netto
+    /// und Auszahlungsbetrag; genau dort sucht sie jemand, der eine Abrechnung übernommen
+    /// hat. Zweitens trägt <c>GrossMonthly</c> das <em>Grundgehalt</em> aus der
+    /// GEHALT-Zeile, nicht das Gesamt-Brutto mit Sachbezügen — es zu überschreiben machte aus
+    /// einer gepflegten Angabe eine andere Größe mit demselben Namen.</para>
+    /// <para><b>Der Monat ist der Schlüssel.</b> Zwei Belege desselben Monats sind eine
+    /// Dublette, und das weist <see cref="EmploymentService.CreatePayslipAsync"/> auch ab.
+    /// Ohne lesbaren Monat lässt sich keine Zeile anlegen: Sie hinge an keinem Zeitpunkt, und
+    /// die Jahressumme zählte sie irgendwo mit.</para>
+    /// <para><b>Nur was dasteht.</b> Netto und Auszahlungsbetrag dürfen fehlen — die
+    /// Tabelle lässt das Netto leer und schätzt die Auszahlung daraus. Das Brutto ist
+    /// Bedingung; ohne es gibt es nichts zu erfassen.</para>
+    /// <para>Der Beleg hängt sich an die Stelle und wandert in den Gehaltsordner. Verknüpft
+    /// und abgelegt wird <b>vor</b> dem Schreiben: Ein abgewiesener Vorgang darf nichts halb
+    /// erledigt zurücklassen.</para>
     /// </remarks>
     private async Task<ScanResultDto> ApplyEmploymentAsync(
         DocumentKind art, Document dokument, Dictionary<string, ScanValue> werte,
         CancellationToken ct)
     {
-        var stelle = await db.Employments.FirstOrDefaultAsync(
-                         e => e.IsActive, ct)
+        var stelle = await db.Employments.FirstOrDefaultAsync(e => e.IsActive, ct)
                      ?? throw new RuleViolationException(
                          "Es ist kein laufendes Arbeitsverhältnis erfasst. Die Abrechnung "
                          + "gehört zu einer Stelle, und die trägt jemand unter „Arbeit“ ein.");
 
-        var brutto = werte.GetValueOrDefault("brutto")?.Number;
-        var netto = werte.GetValueOrDefault("netto")?.Number;
+        var brutto = werte.GetValueOrDefault("brutto")?.Number
+                     ?? throw new RuleViolationException(
+                         "Auf diesem Beleg hat die Texterkennung das Gesamt-Brutto nicht "
+                         + "hergeben können — ohne das lässt sich keine Abrechnung erfassen.");
 
-        if (brutto is null && netto is null)
+        var monat = werte.GetValueOrDefault("monat")?.Date
+                    ?? throw new RuleViolationException(
+                        "Der abgerechnete Monat steht auf diesem Beleg nicht lesbar da. Ohne "
+                        + "ihn hinge die Abrechnung an keinem Zeitpunkt.");
+
+        var netto = werte.GetValueOrDefault("netto")?.Number;
+        var auszahlung = werte.GetValueOrDefault("auszahlung")?.Number;
+
+        var schon = await db.Payslips.AnyAsync(
+            p => p.EmploymentId == stelle.Id && p.Month == monat, ct);
+
+        if (schon)
         {
             throw new RuleViolationException(
-                "Auf diesem Beleg hat die Texterkennung weder das Brutto noch den "
-                + "Auszahlungsbetrag hergeben können — es gibt nichts zu übernehmen.");
+                $"Für {GermanFormat.MonthYear(monat)} ist bei {stelle.Employer} schon eine "
+                + "Abrechnung erfasst. Wer sie ersetzen will, löscht erst die vorhandene.");
         }
-
-        var vorherBrutto = stelle.GrossMonthly;
-        var vorherNetto = stelle.NetMonthly;
 
         // Verknüpfen und ablegen zuerst, schreiben danach. In der ersten Fassung stand das
-        // SaveChanges davor — und als die Verknüpfung scheiterte, weil der Etikettendienst
-        // den Arbeitgeber nicht auflösen konnte, war das Gehalt an der Stelle trotzdem schon
-        // geschrieben. Der Anwender sah eine Fehlermeldung und hatte einen geänderten
-        // Bestand: Ein abgewiesener Vorgang darf nichts halb erledigt zurücklassen.
+        // Speichern davor — und als die Verknüpfung scheiterte, war der Bestand trotzdem
+        // geändert.
         await documents.LinkAsync(dokument.Id, LinkTargetType.Employer, stelle.Id, ct);
-        await documents.RefileAsync(dokument.Id, dokument.Area, stelle.Employer, ct);
 
-        if (brutto is { } b)
-        {
-            stelle.GrossMonthly = b;
-        }
+        // Der Bereich des Belegs kommt aus der ERKANNTEN Art, nicht aus dem, was beim
+        // Einliefern gespeichert wurde: Ein Beleg, der vor dieser Leseregel hereinkam, liegt
+        // unter „Sonstiges“, und die Nachschau soll ihn mitnehmen. Mit dem gespeicherten
+        // Bereich bewegte sich nichts — genau so blieb die erste übernommene Abrechnung
+        // liegen, wo sie lag.
+        dokument.Area = art.Area;
+        await documents.RefileAsync(dokument.Id, art.Area, stelle.Employer, ct);
 
-        if (netto is { } n)
+        db.Payslips.Add(new Payslip
         {
-            stelle.NetMonthly = n;
-        }
+            EmploymentId = stelle.Id,
+            DocumentId = dokument.Id,
+            Month = monat,
+            Gross = brutto,
+            Net = netto,
+
+            // Dieselbe Regel wie beim Erfassen von Hand: Fehlt die Auszahlung, gilt das Netto,
+            // und fehlt auch das, wird aus dem Brutto geschätzt. Erfunden wird dabei nichts —
+            // die Schätzung ist als solche gekennzeichnet.
+            Payout = auszahlung ?? netto ?? EmploymentService.Estimate(brutto),
+        });
 
         await db.SaveChangesAsync(ct);
-
-        var leitwert = brutto ?? netto!.Value;
-        var leitfeld = brutto is null ? "Auszahlungsbetrag" : "Gesamt-Brutto im Monat";
 
         return new ScanResultDto
         {
             Saved = true,
-            Title = art.Label + " abgelegt",
-            Subtitle = Join(
-                stelle.Employer,
-                werte.GetValueOrDefault(art.AsOfField)?.Date is { } tag
-                    ? GermanFormat.Date(tag)
-                    : null)!,
-            LeadLabel = leitfeld,
-            LeadNumber = leitwert,
+            Title = art.Label + " erfasst",
+            Subtitle = $"{GermanFormat.MonthYear(monat)} · {stelle.Employer}",
+            LeadLabel = "Gesamt-Brutto im Monat",
+            LeadNumber = brutto,
             LeadIsMoney = true,
-            Effect = Wirkung(brutto, vorherBrutto, netto, vorherNetto),
+            Effect = Wirkung(brutto, netto, auszahlung,
+                werte.GetValueOrDefault("sonderzahlung")?.Number),
             Rule = $"Absender „{stelle.Employer}“ + „Gehaltsabrechnung“ → künftig automatisch hierher",
             TargetLink = art.TargetLink,
             TargetHref = "/arbeit",
@@ -598,48 +616,37 @@ public sealed class DocumentScanService(
     }
 
     /// <summary>
-    /// Was sich an der Stelle geändert hat.
+    /// Was die Abrechnung in die Tabelle trägt.
     /// </summary>
     /// <remarks>
     /// <para>In Teilen und nicht als fertiger Satz: Die Beträge gehen einzeln hinaus, damit
-    /// „Beträge verbergen“ sie auch hier verdeckt. Ein hier formatierter Euro-Betrag käme
-    /// daran vorbei.</para>
-    /// <para>Genannt wird nur, was sich wirklich ändert. „Monatsbrutto X statt X“ wäre eine
-    /// Meldung ohne Inhalt, und ein unverändertes Feld als Änderung auszugeben hieße, eine
-    /// Wirkung zu behaupten, die es nicht gab.</para>
+    /// „Beträge verbergen“ sie auch hier verdeckt.</para>
+    /// <para><b>Der sonstige Bezug steht dabei, wo es einen gibt.</b> Er erklärt, warum ein
+    /// Monatsbrutto gegenüber den übrigen Monaten springt — und er steht als solcher im
+    /// Papier, gekennzeichnet mit „S“ statt „L“. Ohne diesen Hinweis sähe eine Sonderzahlung aus
+    /// wie eine Gehaltserhöhung.</para>
     /// </remarks>
     private static List<ScanEffectPart> Wirkung(
-        decimal? brutto, decimal vorherBrutto, decimal? netto, decimal? vorherNetto)
+        decimal brutto, decimal? netto, decimal? auszahlung, decimal? sonderzahlung)
     {
-        List<ScanEffectPart> satz = [];
+        List<ScanEffectPart> satz = [new() { Text = "Brutto" }, new() { Money = brutto }];
 
-        if (brutto is { } b && b != vorherBrutto)
+        if (netto is { } n)
         {
-            satz.Add(new() { Text = "Monatsbrutto" });
-            satz.Add(new() { Money = b });
-
-            if (vorherBrutto != 0m)
-            {
-                satz.Add(new() { Text = "statt" });
-                satz.Add(new() { Money = vorherBrutto });
-            }
-        }
-
-        if (netto is { } n && n != vorherNetto)
-        {
-            satz.Add(new() { Text = satz.Count == 0 ? "Auszahlung" : "· Auszahlung" });
+            satz.Add(new() { Text = "· Netto" });
             satz.Add(new() { Money = n });
-
-            if (vorherNetto is { } alt)
-            {
-                satz.Add(new() { Text = "statt" });
-                satz.Add(new() { Money = alt });
-            }
         }
 
-        if (satz.Count == 0)
+        if (auszahlung is { } a)
         {
-            satz.Add(new() { Text = "Beide Zahlen standen schon so an der Stelle." });
+            satz.Add(new() { Text = "· Auszahlung" });
+            satz.Add(new() { Money = a });
+        }
+
+        if (sonderzahlung is { } s)
+        {
+            satz.Add(new() { Text = "· darin ein sonstiger Bezug von" });
+            satz.Add(new() { Money = s });
         }
 
         return satz;
@@ -1228,7 +1235,10 @@ public sealed class DocumentScanService(
         // „Da“ genügt nicht — der Leitwert muss eine Zahl sein. Vorher ging eine Eingabe, aus
         // der keine wurde, an dieser Stelle vorbei und scheiterte erst beim Drücken: der Knopf
         // stand bereit und die Übernahme sagte hinterher „ohne Anteilsguthaben geht nichts“.
-        var leit = art.Fields.Where(f => f.Lead).ToList();
+        // Nur die Pflichtfelder. Ein Leitwert, der fehlen darf, blockiert die Übernahme
+        // nicht — sonst wiese die Prüfung eine Gehaltsabrechnung ab, weil die Erkennung
+        // eine von drei Zahlen verschluckt hat, während die tragende dasteht.
+        var leit = art.Fields.Where(f => f.Lead && !f.Optional).ToList();
 
         var fehlt = leit
             .Where(f => werte.FirstOrDefault(w => w.Rule.Key == f.Key) is not { } wert

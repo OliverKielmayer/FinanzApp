@@ -81,6 +81,21 @@ public sealed record DocumentFieldRule
     public bool Lead { get; init; }
 
     /// <summary>
+    /// Darf fehlen, ohne die Übernahme zu blockieren — nur zusammen mit <see cref="Lead"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>„Übernommen“ und „Pflicht“ sind zwei Dinge</b>, und bis hierher trug
+    /// <see cref="Lead"/> beide. Für einen Statusreport stimmt das: Ohne erreichten Wert gibt
+    /// es nichts zu übernehmen. Eine Gehaltsabrechnung nennt dagegen drei Beträge, von denen
+    /// nur einer die Bedingung ist — Netto und Auszahlungsbetrag wandern mit, wo die
+    /// Texterkennung sie hergibt, und fehlen sonst.</para>
+    /// <para>Der Fall kam aus der echten Ablage: Ein Beleg der echten Ablage gibt sein
+    /// Netto nicht lesbar her, und die Pflichtprüfung wies sie deshalb ganz ab — obwohl
+    /// Brutto, Monat und Auszahlungsbetrag dastanden.</para>
+    /// </remarks>
+    public bool Optional { get; init; }
+
+    /// <summary>
     /// Beschädigte Trennzeichen dürfen berichtigt werden.
     /// </summary>
     /// <remarks>
@@ -1335,7 +1350,10 @@ public static class DocumentKindLibrary
         // ist die Überschrift, die nur eine Abrechnung führt.
         Markers = [new("Netto-Verdienst"), new("Lohnsteuer")],
 
-        AsOfField = "abgerechnet",
+        // Der Stichtag ist der abgerechnete MONAT, nicht der Tag der Abrechnung: Die
+        // Lohnabrechnungstabelle fuehrt eine Zeile je Monat, und zwei Belege desselben Monats
+        // sind eine Dublette. Das Datum daneben sagt nur, wann gerechnet wurde.
+        AsOfField = "monat",
         DocumentDateField = "abgerechnet",
 
         // Das Papier nennt eine Personalnummer, der Bestand kennt sie nicht. Es gibt also
@@ -1359,14 +1377,57 @@ public static class DocumentKindLibrary
             },
             new()
             {
-                Key = "netto", Label = "Auszahlungsbetrag",
+                Key = "auszahlung", Label = "Auszahlungsbetrag",
                 Kind = DocumentValueKind.Money,
                 Locator = DocumentLocator.Pattern,
 
                 // Die letzte Zahl der Zeile, die die IBAN trägt. Daneben steht nur noch die
                 // Kontonummer des Arbeitgebers, und die trägt keine Nachkommastellen.
                 Pattern = @"DE\d\d[\d\s]{8,}.*?(\d{1,3}(?:[.\s]\d{3})*,\d{2})\s*$",
-                Lead = true,
+                Lead = true, Optional = true,
+            },
+            new()
+            {
+                Key = "netto", Label = "Netto-Verdienst",
+                Kind = DocumentValueKind.Money,
+                Locator = DocumentLocator.Pattern,
+
+                // Aus der Verdienstbescheinigung. Nicht dasselbe wie der Auszahlungsbetrag:
+                // Dazwischen stehen Vorschuesse, Pfaendungen und vermoegenswirksame
+                // Leistungen, und in der echten Ablage gehen beide regelmaessig auseinander.
+                // Die Erkennung zerlegt die Beschriftung von Beleg zu Beleg anders, deshalb
+                // sind Umlaute, Bindestrich und Trennzeichen nachsichtig gefasst.
+                Pattern = @"Netto-Bez[uü]?[gq]?e?\s?/\s?Netto\W?Abz[uü]?[gq]?e?\s+"
+                          + @"(\d{1,3}(?:[.\s]\d{3})*,\d{2})",
+                Lead = true, Optional = true,
+            },
+            new()
+            {
+                Key = "monat", Label = "Abgerechneter Monat",
+                Kind = DocumentValueKind.Date,
+                Locator = DocumentLocator.Pattern,
+
+                // „... der Brutto/Netto-Bezuege fuer Juni 2026“. Gelesen werden Monat und
+                // Jahr; daraus wird der Monatserste, so wie die Lohnabrechnungstabelle ihn
+                // fuehrt. Der Tag der Abrechnung steht daneben und ist etwas anderes.
+                Pattern = @"f[uü]r\s+([A-Za-zäöüÄÖÜ]{3,10}\s+\d{4})",
+            },
+            new()
+            {
+                Key = "sonderzahlung", Label = "Sonstiger Bezug",
+                Kind = DocumentValueKind.Money,
+                Locator = DocumentLocator.Pattern,
+
+                // Eine Lohnart, die als SONSTIGER Bezug gekennzeichnet ist — „S“ statt „L“ in
+                // der Spalte hinter der Bezeichnung. Das Papier erklaert es in seiner eigenen
+                // Legende: „L Laufender Bezug, S Sonstiger Bezug“. Daran haengt die Antwort
+                // darauf, warum ein Monatsbrutto ploetzlich springt — und sie steht im Beleg,
+                // statt aus einem Vergleich mit anderen Monaten geraten zu werden.
+                //
+                // Nicht Lead: Die Lohnabrechnungstabelle hat keine Spalte dafuer. Der Wert
+                // wird gelesen und gezeigt, damit der Sprung erklaert ist.
+                Pattern = @"^\s*\d{3}\s+[A-Za-zÄÖÜäöü/. ]+?\s+[sS]\s+[A-Za-z]\s+[A-Za-z]\s+"
+                          + @"(\d{1,3}(?:[.\s]\d{3})*,\d{2})",
             },
             new()
             {
@@ -2177,7 +2238,12 @@ public sealed class DocumentFieldExtractor
     /// Leerzeichen nach dem Punkt manchmal nicht.
     /// </remarks>
     private static readonly string[] Datumsformate =
-        ["d.M.yyyy", "dd.MM.yyyy", "d. MMMM yyyy", "d.MMMM yyyy"];
+        ["d.M.yyyy", "dd.MM.yyyy", "d. MMMM yyyy", "d.MMMM yyyy",
+
+            // Nur Monat und Jahr: „Juni 2026“ wird der erste des Monats. Eine
+            // Gehaltsabrechnung gilt für einen Monat, nicht für einen Tag — und genau so
+            // führt die Lohnabrechnungstabelle ihn auch.
+            "MMMM yyyy"];
 
     /// <summary>
     /// Macht aus dem Rohtext einen Wert der erwarteten Art — oder nichts.

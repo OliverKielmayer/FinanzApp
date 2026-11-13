@@ -39,6 +39,8 @@ public sealed class PayslipKindTests
         string monatsbrutto = "4.827,50",
         string jahresbrutto = "28.965,00",
         string auszahlung = "2.913,64",
+        string netto = "3.012,80",
+        string? sonderzahlung = null,
         string kopfzeile = "Abrechnun der Brutto/Netto-Bezü e für Juni 2026 24.06.2026 1",
         bool mitIban = true)
     {
@@ -63,6 +65,15 @@ public sealed class PayslipKindTests
             Line(1, "100 GEHALT L L J 4.500,00"),
             Line(1, "200 Gutschein F J 50,00"),
             Line(1, "300 Privat fahrten L L J 277,50"),
+        ];
+
+        if (sonderzahlung is { Length: > 0 } sonstiger)
+        {
+            zeilen.Add(Line(1, sonstiger));
+        }
+
+        zeilen.AddRange(
+        [
 
             // Die Beschriftung zerfällt, der Wert steht in der nächsten Zeile. Genau so liest
             // die Erkennung es in den echten Belegen.
@@ -74,7 +85,7 @@ public sealed class PayslipKindTests
             Line(1, "sv# W -Brutto RV-Brutto AV Brutto PW Brutto KV-Beitrag RV•BOit"),
 
             Line(1, "Netto-Verdienst"),
-            Line(1, "Verdienstbescheinigung Netto-Bezüge/Netto•Abzüge 2.913,64"),
+            Line(1, $"Verdienstbescheinigung Netto-Bezüge/Netto•Abzüge {netto}"),
 
             // Dieselbe Beschriftung, der Jahreswert. Hier beginnt die Verdienstbescheinigung.
             Line(1, $"Gesam t- Brutto {jahresbrutto} SV-Brutto 24.500,00 Bezeichnung Betrag"),
@@ -83,7 +94,7 @@ public sealed class PayslipKindTests
 
             Line(1, "Musterbank SV-AG-Anteil zus. AG-Kosten Gesamtkosten Auszahlungsbetrag"),
             Line(1, "Bank"),
-        ];
+        ]);
 
         if (mitIban)
         {
@@ -183,7 +194,7 @@ public sealed class PayslipKindTests
     {
         var werte = Lies(Abrechnung(auszahlung: "2.913,64"));
 
-        Assert.Equal(2913.64m, werte["netto"].Number);
+        Assert.Equal(2913.64m, werte["auszahlung"].Number);
     }
 
     /// <remarks>
@@ -201,14 +212,19 @@ public sealed class PayslipKindTests
     }
 
     /// <summary>
-    /// Beide Leitwerte wandern ins Arbeitsverhältnis — und nur sie.
+    /// Drei Leitwerte wandern in die Lohnabrechnungszeile — und nur sie.
     /// </summary>
+    /// <remarks>
+    /// Monat und Abrechnungsdatum sind keine: Der Monat ist der Schlüssel der Zeile, das
+    /// Datum das Dokumentdatum. Der sonstige Bezug ist auch keiner — die Tabelle hat keine
+    /// Spalte dafür; er wird gelesen und gezeigt, damit ein Sprung im Brutto erklärt ist.
+    /// </remarks>
     [Fact]
-    public void Brutto_und_Netto_sind_die_Leitwerte()
+    public void Brutto_Auszahlung_und_Netto_sind_die_Leitwerte()
     {
         var leit = DocumentKindLibrary.Payslip.Fields.Where(f => f.Lead).Select(f => f.Key);
 
-        Assert.Equal(["brutto", "netto"], leit);
+        Assert.Equal(["brutto", "auszahlung", "netto"], leit);
     }
 
     // ── Wo die Erkennung versagt ───────────────────────────────────────────────────────
@@ -223,7 +239,7 @@ public sealed class PayslipKindTests
     {
         var werte = Lies(Abrechnung(mitIban: false));
 
-        Assert.False(werte.ContainsKey("netto") && werte["netto"].Number is not null);
+        Assert.False(werte.ContainsKey("auszahlung") && werte["auszahlung"].Number is not null);
 
         // Das Brutto steht davon unberührt da: zwei Felder, zwei Quellen.
         Assert.Equal(4827.50m, werte["brutto"].Number);
@@ -245,7 +261,73 @@ public sealed class PayslipKindTests
 
         Assert.False(werte.ContainsKey("abgerechnet") && werte["abgerechnet"].Date is not null);
         Assert.Equal(4827.50m, werte["brutto"].Number);
-        Assert.Equal(2913.64m, werte["netto"].Number);
+        Assert.Equal(2913.64m, werte["auszahlung"].Number);
+    }
+
+    /// <summary>
+    /// Der Netto-Verdienst ist nicht der Auszahlungsbetrag.
+    /// </summary>
+    /// <remarks>
+    /// Zwischen beiden stehen Vorschüsse, Pfändungen und vermögenswirksame Leistungen. In der
+    /// echten Ablage gehen sie in jedem Monat auseinander, und die Lohnabrechnungstabelle
+    /// führt beide getrennt — eine Regel, die nur eine Zahl läse, füllte die andere falsch.
+    /// </remarks>
+    [Fact]
+    public void Netto_und_Auszahlung_sind_zwei_Zahlen()
+    {
+        var werte = Lies(Abrechnung(netto: "3.012,80", auszahlung: "2.913,64"));
+
+        Assert.Equal(3012.80m, werte["netto"].Number);
+        Assert.Equal(2913.64m, werte["auszahlung"].Number);
+    }
+
+    /// <summary>
+    /// <b>Der abgerechnete Monat, nicht der Tag der Abrechnung.</b> Die
+    /// Lohnabrechnungstabelle führt eine Zeile je Monat; zwei Belege desselben Monats sind
+    /// eine Dublette.
+    /// </summary>
+    [Fact]
+    public void Der_abgerechnete_Monat_wird_zum_Monatsersten()
+    {
+        var werte = Lies(Abrechnung());
+
+        Assert.Equal(new DateOnly(2026, 6, 1), werte["monat"].Date);
+
+        // Daneben, und etwas anderes: der Tag, an dem gerechnet wurde.
+        Assert.Equal(new DateOnly(2026, 6, 24), werte["abgerechnet"].Date);
+    }
+
+    /// <summary>
+    /// <b>Eine Sonderzahlung steht als solche im Papier.</b> Die Lohnart trägt „S“ für
+    /// sonstigen Bezug statt „L“ für laufenden — das Formular erklärt es in seiner eigenen
+    /// Legende. Daran hängt die Antwort darauf, warum ein Monatsbrutto springt; sie muss nicht
+    /// aus einem Vergleich mit anderen Monaten geraten werden.
+    /// </summary>
+    [Fact]
+    public void Ein_sonstiger_Bezug_wird_erkannt()
+    {
+        var werte = Lies(Abrechnung(
+            monatsbrutto: "6.577,50", sonderzahlung: "005 PRAEMIE S E J 1.750,00"));
+
+        Assert.Equal(1750.00m, werte["sonderzahlung"].Number);
+        Assert.Equal(6577.50m, werte["brutto"].Number);
+    }
+
+    /// <summary>
+    /// Ohne sonstigen Bezug steht dort nichts — eine laufende Lohnart wird nicht dafür
+    /// gehalten.
+    /// </summary>
+    /// <remarks>
+    /// Die Vorlage führt drei laufende Bezüge mit „L“ und einen steuerfreien mit „F“. Würde
+    /// das Muster auf eines davon greifen, stünde in jedem Monat eine Sonderzahlung.
+    /// </remarks>
+    [Fact]
+    public void Ohne_sonstigen_Bezug_steht_dort_nichts()
+    {
+        var werte = Lies(Abrechnung());
+
+        Assert.False(werte.ContainsKey("sonderzahlung")
+                     && werte["sonderzahlung"].Number is not null);
     }
 
     /// <summary>
