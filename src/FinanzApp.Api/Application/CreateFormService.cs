@@ -113,8 +113,8 @@ public sealed class CreateFormService(
         {
             CreateObjectType.Account => await AccountFormAsync(ct),
             CreateObjectType.Depot => await DepotFormAsync(ct),
-            CreateObjectType.Pension => PensionForm(),
-            CreateObjectType.Protection => ProtectionForm(),
+            CreateObjectType.Pension => await PensionFormAsync(ct),
+            CreateObjectType.Protection => await ProtectionFormAsync(ct),
             CreateObjectType.Property => await PropertyFormAsync(ct),
             CreateObjectType.Contract => await ContractFormAsync(ct),
             CreateObjectType.Budget => await BudgetFormAsync(ct),
@@ -122,7 +122,7 @@ public sealed class CreateFormService(
             CreateObjectType.Purchase => await PurchaseFormAsync(ct),
             CreateObjectType.Invoice => InvoiceForm(),
             CreateObjectType.Employment => EmploymentForm(),
-            CreateObjectType.Loan => LoanForm(),
+            CreateObjectType.Loan => await LoanFormAsync(ct),
             _ => null,
         };
 
@@ -658,6 +658,7 @@ public sealed class CreateFormService(
                     ["endsOn"] = Iso(x.EndsOn),
                     ["notice"] = x.NoticePeriodMonths == 0 ? null : x.NoticePeriodMonths.ToString(),
                     ["costGroup"] = x.CostGroup,
+                    ["account"] = x.AccountId?.ToString(),
                 };
             }
 
@@ -816,6 +817,7 @@ public sealed class CreateFormService(
                     ["rate"] = NumberValue(x.InterestRatePercent),
                     ["installment"] = Money(x.Installment),
                     ["payment"] = Iso(x.NextPaymentDate),
+                    ["account"] = x.AccountId?.ToString(),
                 };
             }
 
@@ -930,6 +932,7 @@ public sealed class CreateFormService(
         policy.Provider = anbieter;
         policy.PolicyNumber = nummer;
         policy.Premium = ParseMoney(Value(values, "premium")) ?? 0m;
+        policy.AccountId = ParseInt(Value(values, "account"));
 
         if (capitalForming)
         {
@@ -1396,7 +1399,7 @@ public sealed class CreateFormService(
 
     // ── Vorsorge und Absicherung ───────────────────────────────────────────────────────────
 
-    private static CreateFormDto PensionForm() => new()
+    private async Task<CreateFormDto> PensionFormAsync(CancellationToken ct) => new()
     {
         Type = CreateObjectType.Pension,
         Kicker = "Neu",
@@ -1441,10 +1444,15 @@ public sealed class CreateFormService(
             Date("maturesOn", "Ablauf", required: false),
             Date("report", "Statusbericht", required: false,
                 help: "Datum des letzten Berichts. Daraus entsteht eine Frist für den nächsten."),
+
+            // Wovon der Beitrag abgeht. Ohne diese Angabe kann die Fixkostenliste nicht nach
+            // Konto gliedern — und sie zu erraten wäre in genau der Auswertung, die Konten
+            // gegenüberstellt, der eine Fehler, der alle Zahlen darin wertlos machte.
+            Reference("account", "Bankkonto", required: false, await AccountOptionsAsync(ct)),
         ],
     };
 
-    private static CreateFormDto ProtectionForm() => new()
+    private async Task<CreateFormDto> ProtectionFormAsync(CancellationToken ct) => new()
     {
         Type = CreateObjectType.Protection,
         Kicker = "Neu",
@@ -1480,6 +1488,7 @@ public sealed class CreateFormService(
                 help: "Aus Vertragsende minus Frist entsteht der Kündigungstermin. Er wird nicht eingegeben."),
             Text("costGroup", "Kostenart", required: false,
                 placeholder: "leer: Vorsorge, Gesundheit, Wohnen je nach Art"),
+            Reference("account", "Bankkonto", required: false, await AccountOptionsAsync(ct)),
         ],
     };
 
@@ -1542,6 +1551,7 @@ public sealed class CreateFormService(
             Provider = provider,
             PolicyNumber = Value(values, "number")?.Trim(),
             Premium = ParseMoney(Value(values, "premium")) ?? 0m,
+            AccountId = ParseInt(Value(values, "account")),
         };
 
         if (capitalForming)
@@ -2584,7 +2594,7 @@ public sealed class CreateFormService(
     /// <para>Die sechs Felder sind genau die, aus denen <see cref="LoanService.BuildSchedule"/>
     /// den Tilgungsplan rechnet. Ein siebtes wäre eine Angabe, die niemand wiedersieht.</para>
     /// </remarks>
-    private CreateFormDto LoanForm()
+    private async Task<CreateFormDto> LoanFormAsync(CancellationToken ct)
         => new()
         {
             Type = CreateObjectType.Loan,
@@ -2604,6 +2614,7 @@ public sealed class CreateFormService(
                     help: "Die ganze Rate. Zins und Tilgung trennt der Plan selbst."),
                 Date("payment", "Nächste Zahlung", required: true,
                     defaultValue: FirstOfMonth(clock.Today.AddMonths(1))),
+                Reference("account", "Bankkonto", required: false, await AccountOptionsAsync(ct)),
             ],
         };
 
@@ -2711,6 +2722,7 @@ public sealed class CreateFormService(
         loan.InterestRatePercent = rate;
         loan.Installment = installment;
         loan.NextPaymentDate = payment;
+        loan.AccountId = ParseInt(Value(values, "account"));
         return null;
     }
 

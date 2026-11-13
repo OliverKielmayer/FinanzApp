@@ -197,6 +197,22 @@ und Übersichtsseiten denselben Dienst.
 Auswertungen gibt es nach Kategorie, Zeitraum und Vergleichszeitraum, dazu Liquidität
 („Wohin fließt es", „Sparpotential") und Steuerjahre.
 
+**Fixkosten lassen sich nach Kostenart oder nach Konto gliedern.** Die erste Frage lautet
+*wofür* — was könnte gekündigt werden; die zweite *von wo* — welches Konto muss jeden
+Monat gedeckt sein. Das Konto steht am Vertrag, an der Police und am Darlehen; wo keines
+eingetragen ist, steht der Posten unter „Ohne Konto" und wird nicht geraten.
+
+**Haushaltskonto** ist die Kontosicht auf ein Gemeinschaftskonto: wer wie viel eingebracht
+hat, wofür es wieder abgegangen ist, was davon gebunden ist. Wessen Beitrag ein Zufluss
+ist, wird **gepflegt und nicht abgeleitet** — entweder an der Buchung als Einlage einer
+Person, oder an einer Einnahmekategorie, an der eine Person eingetragen ist. Der zweite Weg
+trägt weiter: Was die Kategorieregeln künftig zuordnen, ist damit zugleich zugeordnet.
+
+Am Zahlernamen wird nichts erkannt. Derselbe Mensch heißt im Kontoauszug in mehreren
+Schreibweisen, und wer eine Erstattung empfängt, hat nichts eingebracht. Was weder noch
+trifft, steht als „noch nicht zugeordnet" mit Anzahl und Betrag neben den Anteilen — ohne
+diese Zeile läse sich eine halb gepflegte Zuordnung wie ein Befund über zwei Menschen.
+
 ---
 
 ## 5. Dokumente bearbeiten und verwalten

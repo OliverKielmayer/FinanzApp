@@ -320,6 +320,12 @@ public sealed class FinanzAppApi(HttpClient http)
         FixedCostsRequest request, CancellationToken ct = default)
         => PostAsync<FixedCostsRequest, FixedCostsDto>("api/reports/fixed-costs", request, ct);
 
+    /// <summary>Haushaltskonto: wer bringt was ein, wofür geht es ab.</summary>
+    public Task<JointReportDto> GetJointReportAsync(
+        JointReportRequest request, CancellationToken ct = default)
+        => PostAsync<JointReportRequest, JointReportDto>(
+            "api/reports/haushaltskonto", request, ct);
+
     /// <summary>Gewinn und Verlust eines Depots. <c>null</c>, wenn keines erfasst ist.</summary>
     public async Task<PortfolioGainDto?> GetPortfolioGainAsync(
         int? depotId = null, CancellationToken ct = default)

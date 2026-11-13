@@ -222,6 +222,20 @@ public sealed record FixedCostsDto
     public required IReadOnlyList<FixedCostGroupDto> Groups { get; init; }
 
     /// <summary>
+    /// Dieselben Posten nach Konto gegliedert, das schwerste Konto zuerst.
+    /// </summary>
+    /// <remarks>
+    /// <para>Beantwortet eine andere Frage als die Kostenart: nicht <em>wofür</em> das Geld
+    /// geht, sondern <em>von wo</em>. Wer zwei Konten führt, braucht beides — die
+    /// Kostenart, um zu entscheiden, was weg kann, und das Konto, um zu wissen, welches davon
+    /// jeden Monat gedeckt sein muss.</para>
+    /// <para>Posten ohne eingetragenes Konto stehen in einer eigenen Gruppe am Ende. Sie zu
+    /// verteilen hieße raten; sie wegzulassen hieße, dass die Kontosummen nicht mehr die
+    /// Gesamtsumme ergeben.</para>
+    /// </remarks>
+    public required IReadOnlyList<FixedCostAccountDto> Accounts { get; init; }
+
+    /// <summary>
     /// Verträge, die keinen Beitrag ausweisen — sie stehen in keiner Zeile.
     /// </summary>
     /// <remarks>
@@ -256,6 +270,19 @@ public sealed record FixedCostRowDto
 
     /// <summary>Ob die Frist jetzt auf den Tisch gehört.</summary>
     public required bool NoticeDue { get; init; }
+
+    /// <summary>
+    /// Das Konto, von dem dieser Posten abgeht — <c>null</c>, solange keines eingetragen ist.
+    /// </summary>
+    /// <remarks>
+    /// Gepflegt am Vertrag, an der Police oder am Darlehen. Nicht abgeleitet: Ein Konto aus dem
+    /// Betrag zu erraten wäre in einer Auswertung, die gerade Konten gegenüberstellt, der
+    /// eine Fehler, der alle Zahlen darin wertlos machte.
+    /// </remarks>
+    public int? AccountId { get; init; }
+
+    /// <summary>Der Kurzname dazu — <c>null</c>, solange kein Konto eingetragen ist.</summary>
+    public string? AccountName { get; init; }
 }
 
 // ── Depot: Gewinn und Verlust ───────────────────────────────────────────────────────────────
@@ -389,4 +416,171 @@ public sealed record FixedCostGroupDto
     public required decimal SharePercent { get; init; }
 
     public required IReadOnlyList<FixedCostRowDto> Rows { get; init; }
+}
+
+/// <summary>Die gebundenen Posten eines Kontos.</summary>
+/// <remarks>
+/// Was hier steht, ist <b>fortgeschrieben</b> und nicht gemessen: Es kommt aus Verträgen,
+/// Policen und Darlehen, nicht aus dem Kontoauszug. Was tatsächlich abging, steht in der
+/// Buchungsliste des Kontos — und beide dürfen auseinandergehen, etwa wenn ein Jahresbeitrag
+/// im Zeitraum gar nicht fällig war.
+/// </remarks>
+public sealed record FixedCostAccountDto
+{
+    /// <summary><c>null</c> bei der Gruppe der Posten ohne eingetragenes Konto.</summary>
+    public int? AccountId { get; init; }
+
+    /// <summary>Der Kurzname des Kontos, oder „Konto nicht eingetragen“.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>Summe der gebundenen Posten dieses Kontos je Monat.</summary>
+    public required decimal MonthlyAmount { get; init; }
+
+    /// <summary>Anteil an den gebundenen Kosten insgesamt, 0…100.</summary>
+    public required decimal SharePercent { get; init; }
+
+    public required IReadOnlyList<FixedCostRowDto> Rows { get; init; }
+}
+
+/// <summary>Welches Gemeinschaftskonto der Bericht zeigt und über welchen Zeitraum.</summary>
+/// <remarks>
+/// Ohne <c>AccountId</c> nimmt der Bericht das erste Gemeinschaftskonto. Eine Vorauswahl zu
+/// verlangen hieße, dass der Bericht beim ersten Öffnen leer bleibt, obwohl es nur eines gibt.
+/// </remarks>
+public sealed record JointReportRequest(
+    int? AccountId = null,
+    PeriodScope Period = PeriodScope.Month,
+    ComparisonBasis Comparison = ComparisonBasis.PreviousYear);
+
+// ── Haushaltskonto ──────────────────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Die Kontosicht auf ein Gemeinschaftskonto: wer bringt was ein, wofür geht es ab.
+/// </summary>
+/// <remarks>
+/// <para><b>Drei Größen, die nie dieselbe Zahl tragen dürfen.</b> Eingebracht ist, was einer
+/// Person zugeordnet auf dem Konto ankam. Abgeflossen ist, was das Konto verlassen hat.
+/// Gebunden ist, was Verträge, Policen und Darlehen dieses Kontos je Monat ausweisen — das
+/// kommt aus dem Bestand und nicht aus dem Auszug, und es darf vom Abfluss abweichen, etwa
+/// wenn ein Jahresbeitrag im Zeitraum gar nicht fällig war.</para>
+/// <para><b>Die Lücken stehen daneben.</b> Zuflüsse ohne zugeordnete Person und Buchungen ohne
+/// Kategorie sind keine Nebensache: Ohne sie sähe eine unvollständige Zuordnung aus wie ein
+/// Ergebnis. Wer sie sieht, weiß, wie weit er den Zahlen trauen kann.</para>
+/// </remarks>
+public sealed record JointReportDto
+{
+    public required ReportRangeDto Range { get; init; }
+
+    /// <summary>Die Gemeinschaftskonten zur Auswahl.</summary>
+    public required IReadOnlyList<JointChoiceDto> Choices { get; init; }
+
+    /// <summary><c>null</c>, wenn es kein Gemeinschaftskonto gibt.</summary>
+    public int? AccountId { get; init; }
+
+    public string? AccountName { get; init; }
+
+    // ── Wer bringt was ein ──────────────────────────────────────────────────────────────
+
+    /// <summary>Die Beteiligten mit dem, was sie im Zeitraum eingebracht haben.</summary>
+    public required IReadOnlyList<JointContributionDto> Contributions { get; init; }
+
+    /// <summary>Summe des Eingebrachten im Zeitraum.</summary>
+    public required decimal ContributionTotal { get; init; }
+
+    /// <summary>
+    /// Zuflüsse im Zeitraum, die niemandem zugeordnet sind.
+    /// </summary>
+    /// <remarks>
+    /// Die wichtigste Zahl des ganzen Berichts, solange sie nicht null ist: Sie sagt, wie viel
+    /// von dem, was ankam, in den Anteilen oben <em>nicht</em> steckt. Ohne sie läse sich eine
+    /// halb gepflegte Zuordnung wie ein Befund über zwei Menschen.
+    /// </remarks>
+    public required decimal UnassignedInflow { get; init; }
+
+    public required int UnassignedInflowCount { get; init; }
+
+    // ── Wofür geht es ab ────────────────────────────────────────────────────────────────
+
+    /// <summary>Die Abflüsse nach Kategorie, die schwerste zuerst.</summary>
+    public required IReadOnlyList<JointSpendDto> Spending { get; init; }
+
+    /// <summary>Summe der Abflüsse im Zeitraum, positiv angegeben.</summary>
+    public required decimal SpendingTotal { get; init; }
+
+    /// <summary>Was gebundene Posten dieses Kontos je Monat ausweisen.</summary>
+    public required decimal MonthlyFixed { get; init; }
+
+    /// <summary>Wie viele Posten das sind.</summary>
+    public required int FixedCount { get; init; }
+
+    // ── Was noch nicht zugeordnet ist ───────────────────────────────────────────────────
+
+    /// <summary>Buchungen dieses Kontos im Zeitraum ohne Kategorie.</summary>
+    public required int UncategorisedCount { get; init; }
+
+    /// <summary>Was an ihnen hängt, positiv angegeben.</summary>
+    public required decimal UncategorisedAmount { get; init; }
+}
+
+/// <summary>Ein Gemeinschaftskonto zur Auswahl.</summary>
+public sealed record JointChoiceDto(int Id, string Name);
+
+/// <summary>Was eine Person im Zeitraum eingebracht hat.</summary>
+public sealed record JointContributionDto
+{
+    public required int UserId { get; init; }
+    public required string Name { get; init; }
+
+    /// <summary>Eingebracht im Zeitraum.</summary>
+    public required decimal Amount { get; init; }
+
+    /// <summary>
+    /// Anteil am Eingebrachten insgesamt, 0…100.
+    /// </summary>
+    /// <remarks>
+    /// Bezogen auf das <em>zugeordnete</em> Eingebrachte, nicht auf alles, was ankam. Die
+    /// Anteile der Beteiligten ergeben so hundert Prozent; gegen den ganzen Zufluss gerechnet
+    /// täten sie es nicht, und ein Kreis, dessen Stücke nicht aufgehen, ist eine falsche
+    /// Zeichnung.
+    /// </remarks>
+    public required decimal SharePercent { get; init; }
+
+    /// <summary>Das vereinbarte Soll je Monat — <c>null</c>, wenn keines vereinbart ist.</summary>
+    public decimal? MonthlyTarget { get; init; }
+
+    /// <summary>Wie oft im Zeitraum etwas kam.</summary>
+    public required int Count { get; init; }
+
+    /// <summary>Ob das der angemeldete Benutzer selbst ist.</summary>
+    public required bool IsSelf { get; init; }
+}
+
+/// <summary>Was im Zeitraum auf eine Kategorie abgeflossen ist.</summary>
+public sealed record JointSpendDto
+{
+    /// <summary><c>null</c> bei der Zeile der Buchungen ohne Kategorie.</summary>
+    public int? CategoryId { get; init; }
+
+    public required string Name { get; init; }
+
+    /// <summary>Positiv angegeben: In einer Ausgabenliste ist das Vorzeichen redundant.</summary>
+    public required decimal Amount { get; init; }
+
+    /// <summary>Anteil an den Abflüssen, 0…100.</summary>
+    public required decimal SharePercent { get; init; }
+
+    /// <summary>
+    /// Auf den Monat heruntergerechnet.
+    /// </summary>
+    /// <remarks>
+    /// <para>„Was brauchen wir für Lebensmittel“ ist eine Monatsfrage, und ein Jahreswert
+    /// beantwortet sie nicht — wer ihn im Kopf durch zwölf teilt, teilt beim laufenden Jahr
+    /// durch die falsche Zahl.</para>
+    /// <para>Geteilt wird durch die <em>gelaufenen</em> Monate, nicht durch die nominellen:
+    /// Ein Quartal, von dem sechs Wochen um sind, durch drei zu teilen ergäbe einen
+    /// Monatswert, den es nie gab.</para>
+    /// </remarks>
+    public required decimal PerMonth { get; init; }
+
+    public required int Count { get; init; }
 }

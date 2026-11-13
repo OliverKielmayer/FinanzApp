@@ -43,14 +43,27 @@
 }
 
 @*
-    Nach Kostenart gebündelt. Zwanzig Einzelzeilen beantworten die Frage nicht, die man an eine
-    Fixkostenliste stellt — wofür geht das Geld? Vier Gruppen beantworten sie. Die Zeilen bleiben
-    darunter stehen: Die Gruppe sagt, wie viel, die Zeile, was gekündigt werden könnte.
+    Zwei Gliederungen derselben Liste, weil es zwei Fragen an sie gibt. Nach Kostenart:
+    wofür geht das Geld — was könnte weg? Nach Konto: von wo geht es ab — welches Konto
+    muss jeden Monat gedeckt sein? Zwanzig Einzelzeilen beantworten keine von beiden.
 
-    Die Anteile beziehen sich auf die gebundenen Kosten und ergeben zusammen hundert Prozent.
-    Gegen die Monatsbasis gerechnet täten sie es nicht.
+    Die Anteile beziehen sich jeweils auf die gebundenen Kosten und ergeben zusammen hundert
+    Prozent. Gegen die Monatsbasis gerechnet täten sie es nicht.
 *@
-@foreach (var gruppe in Data.Groups)
+@if (Data.Rows.Count > 0)
+{
+    <div class="report-setting">
+        <span class="label-muted">Gliederung</span>
+        <div class="segmented bordered">
+            <button type="button" class="segmented-opt @(nachKonto ? null : "active")"
+                    @onclick="() => nachKonto = false">nach Kostenart</button>
+            <button type="button" class="segmented-opt @(nachKonto ? "active" : null)"
+                    @onclick="() => nachKonto = true">nach Konto</button>
+        </div>
+    </div>
+}
+
+@foreach (var gruppe in Gliederung)
 {
     <div class="report-fix-group">
         <span class="stack">
@@ -68,11 +81,22 @@
         <div class="report-fix-row sub">
             <span class="stack">
                 <span class="report-row-name">@zeile.Name</span>
-                <span class="meta @(zeile.NoticeDue ? "due" : null)">@zeile.Note</span>
+                <span class="meta @(zeile.NoticeDue ? "due" : null)">@Zeilenhinweis(zeile)</span>
             </span>
             <span class="report-row-amount num">@State.Euro(zeile.MonthlyAmount)</span>
         </div>
     }
+}
+
+@if (nachKonto && Data.Accounts.Any(k => k.AccountId is null))
+{
+    @* Was unter „Ohne Konto“ steht, ist keine Auskunft über ein Konto, sondern die
+       Stelle, an der die Auskunft fehlt. Der Satz sagt, wo man sie einträgt. *@
+    <div class="tx-totals-note">
+        „Ohne Konto“ heißt: Am Posten steht nicht, wovon er abgeht — nicht, dass er von
+        keinem Konto abginge. Eintragen lässt es sich am Vertrag, an der Police und am
+        Darlehen.
+    </div>
 }
 
 @if (Data.WithoutAmountCount > 0)
@@ -93,6 +117,58 @@
     public FixedCostsDto Data { get; set; } = default!;
 
     [Inject] private AppState State { get; set; } = default!;
+
+    /// <summary>Ob nach Konto statt nach Kostenart gegliedert wird.</summary>
+    /// <remarks>
+    /// Die Kostenart bleibt die Vorgabe: Sie beantwortet die Frage, mit der man eine
+    /// Fixkostenliste aufschlägt — was könnte weg. Das Konto beantwortet die zweite, und wer
+    /// sie hat, findet sie einen Klick weit entfernt.
+    /// </remarks>
+    private bool nachKonto;
+
+    /// <summary>Ein Abschnitt der Liste — eine Kostenart oder ein Konto.</summary>
+    /// <remarks>
+    /// Beide Gliederungen haben dieselbe Form, also zeigt sie dieselbe Schleife. Zwei fast
+    /// gleiche Schleifen nebeneinander wären zwei Stellen, an denen die Darstellung
+    /// auseinanderlaufen kann.
+    /// </remarks>
+    private sealed record Abschnitt(
+        string Name,
+        decimal MonthlyAmount,
+        decimal SharePercent,
+        IReadOnlyList<FixedCostRowDto> Rows);
+
+    private IEnumerable<Abschnitt> Gliederung
+        => nachKonto
+            ? Data.Accounts.Select(k =>
+                new Abschnitt(k.Name, k.MonthlyAmount, k.SharePercent, k.Rows))
+            : Data.Groups.Select(g =>
+                new Abschnitt(g.Name, g.MonthlyAmount, g.SharePercent, g.Rows));
+
+    /// <summary>
+    /// Die Zeile nennt immer die <em>andere</em> Dimension.
+    /// </summary>
+    /// <remarks>
+    /// Unter einer Kontogruppe die Kostenart, unter einer Kostenart das Konto. Die Gruppe, in
+    /// der eine Zeile steht, noch einmal in der Zeile zu wiederholen, verbräuchte den Platz
+    /// für die Angabe, die man an dieser Stelle gerade nicht sieht.
+    /// </remarks>
+    private string Zeilenhinweis(FixedCostRowDto zeile)
+    {
+        if (nachKonto)
+        {
+            // Nur voranstellen, was nicht schon dasteht. Die Kostenart wird aus dem Bereich
+            // abgeleitet, wo keine gepflegt ist — und der Bereich ist der erste Teil der
+            // Anmerkung. Ohne diese Prüfung stand am Stromvertrag „Wohnen · Wohnen · …“, und
+            // das sah aus, als zählte die Anwendung dasselbe zweimal.
+            return zeile.Note.StartsWith(zeile.Group + " ", StringComparison.CurrentCultureIgnoreCase)
+                   || zeile.Note.Equals(zeile.Group, StringComparison.CurrentCultureIgnoreCase)
+                ? zeile.Note
+                : $"{zeile.Group} · {zeile.Note}";
+        }
+
+        return zeile.AccountName is { } konto ? $"{konto} · {zeile.Note}" : zeile.Note;
+    }
 
     /// <summary>
     /// „Fix 45 % · frei 55 % · Basis 2.975,40 € pro Monat, gerechnet aus August 2026“.

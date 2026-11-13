@@ -1,0 +1,286 @@
+@using System.Globalization
+
+@*
+    Haushaltskonto — die Kontosicht auf ein Gemeinschaftskonto.
+
+    Drei Größen, drei Namen: eingebracht und abgeflossen sind gemessen, gebunden ist aus
+    Verträgen fortgeschrieben. Sie dürfen auseinandergehen, und keine trägt den Namen einer
+    anderen.
+
+    Die Lücken stehen mit Anzahl und Betrag daneben und nicht im Kleingedruckten: Solange sie
+    nicht null sind, ist alles darüber eine Teilauskunft — und wer das nicht sieht, liest eine
+    halb gepflegte Zuordnung als Befund über zwei Menschen.
+*@
+
+@if (Data.AccountId is null)
+{
+    <div class="import-nothing">
+        <span class="label-strong">Kein Gemeinschaftskonto</span>
+        <span class="create-help">
+            Dieser Bericht zeigt ein Konto, auf das mehrere einzahlen. Ein Konto wird dazu, wenn
+            seine Freigabe auf „Gemeinschaftskonto“ steht und die Beteiligten dort eingetragen
+            sind — das steht am Konto, nicht hier.
+        </span>
+    </div>
+}
+else
+{
+    @* Nur, wo es etwas zu wählen gibt. Ein Umschalter mit einer Stellung ist kein Umschalter. *@
+    @if (Data.Choices.Count > 1)
+    {
+        <div class="report-setting">
+            <span class="label-muted">Konto</span>
+            <div class="segmented bordered">
+                @foreach (var konto in Data.Choices)
+                {
+                    var wahl = konto;
+                    <button type="button"
+                            class="segmented-opt @(Data.AccountId == konto.Id ? "active" : null)"
+                            disabled="@Busy"
+                            @onclick="() => OnPickAccount.InvokeAsync(wahl.Id)">@konto.Name</button>
+                }
+            </div>
+        </div>
+    }
+
+    <div class="report-split">
+        <div class="report-hero">
+            <span class="kicker">Eingebracht</span>
+            <span class="hero-value medium num">@State.Euro(Data.ContributionTotal)</span>
+            <span class="meta">@Eingangszeile</span>
+        </div>
+
+        <div class="report-hero">
+            <span class="kicker">Abgeflossen</span>
+            <span class="hero-value medium num">@State.Euro(Data.SpendingTotal)</span>
+            <span class="meta">@Abgangszeile</span>
+        </div>
+    </div>
+
+    @* ── Wer bringt was ein ──────────────────────────────────────────────────────────── *@
+
+    <div class="list-head">
+        <span class="label-strong">Wer bringt was ein</span>
+        <span class="meta">@Data.Range.PeriodLabel</span>
+    </div>
+
+    @if (Data.Contributions.Count == 0 || Data.ContributionTotal <= 0m)
+    {
+        @*
+            Der wichtigste Fall, und er sieht sonst aus wie ein Ergebnis. Null eingebracht heißt
+            fast nie, dass niemand gezahlt hat — es heißt, dass noch nicht gepflegt ist, wessen
+            Beitrag die Zuflüsse sind. Der Satz sagt, wo man es einträgt.
+        *@
+        <div class="import-nothing">
+            <span class="label-strong">Noch keinem Beitrag zugeordnet</span>
+            <span class="create-help">
+                Im Zeitraum ist kein Zufluss einer Person zugeordnet. Zugeordnet wird über die
+                Kategorie — an einer Einnahmekategorie lässt sich eintragen, wessen Beitrag ihre
+                Zuflüsse sind (<a href="/kategorien">Kategorien</a>). Danach tragen die
+                Kategorieregeln es an jede künftige Buchung weiter. Einzelne Zahlungen lassen
+                sich auch an der Buchung selbst als Einlage einer Person markieren.
+            </span>
+        </div>
+    }
+    else
+    {
+        foreach (var person in Data.Contributions)
+        {
+            <div class="report-fix-group">
+                <span class="stack">
+                    <span class="label-strong">
+                        @person.Name@(person.IsSelf ? " · Sie" : null)
+                    </span>
+                    <span class="meta num">@Personenzeile(person)</span>
+                </span>
+                <span class="report-row-amount num">@State.Euro(person.Amount)</span>
+            </div>
+
+            <div class="report-bar-wrap">
+                <div class="report-bar" role="img"
+                     aria-label="@person.Name: @GermanFormat.Percent(person.SharePercent, 0)">
+                    <div class="report-bar-fix" style="width:@Breite(person.SharePercent)"></div>
+                </div>
+            </div>
+        }
+    }
+
+    @if (Data.UnassignedInflowCount > 0)
+    {
+        @*
+            Die Zahl, ohne die die Anteile oben mehr behaupten, als sie wissen. Sie steht als
+            eigener Block und nicht als Fußnote: Wer sie überliest, hält eine Teilsumme für
+            eine ganze.
+        *@
+        <div class="tx-totals-note">
+            <b>Noch nicht zugeordnet:</b> @Data.UnassignedInflowCount
+            @(Data.UnassignedInflowCount == 1 ? "Zufluss" : "Zuflüsse")
+            über zusammen <span class="num">@State.Euro(Data.UnassignedInflow)</span>. Sie
+            stecken in keinem der Anteile oben. Darunter sind auch Zuflüsse, die keine Beiträge
+            sind — eine Erstattung oder eine Gutschrift gehört niemandem als Einbringung.
+        </div>
+    }
+
+    @* ── Wofür es abgeht ─────────────────────────────────────────────────────────────── *@
+
+    <div class="list-head">
+        <span class="label-strong">Wofür es abgeht</span>
+        <span class="meta">nach Kategorie</span>
+    </div>
+
+    @if (Data.Spending.Count == 0)
+    {
+        <div class="import-nothing">
+            <span class="label-strong">Kein Abfluss im Zeitraum</span>
+            <span class="create-help">Von diesem Konto ist im gewählten Zeitraum nichts abgegangen.</span>
+        </div>
+    }
+
+    @foreach (var zeile in Data.Spending)
+    {
+        <div class="report-fix-row @(zeile.CategoryId is null ? null : "sub")">
+            <span class="stack">
+                <span class="report-row-name">@zeile.Name</span>
+                <span class="meta num">@Ausgabenzeile(zeile)</span>
+            </span>
+            <span class="report-row-amount num">@State.Euro(zeile.Amount)</span>
+        </div>
+    }
+
+    @* ── Was gebunden ist ────────────────────────────────────────────────────────────── *@
+
+    @if (Data.FixedCount > 0)
+    {
+        @*
+            Eine andere Größe als der Abfluss daneben, und darum ein eigener Satz statt einer
+            Kachel: Sie kommt aus Verträgen und nicht aus dem Auszug. Ein Jahresbeitrag, der im
+            Zeitraum nicht fällig war, steht hier und fehlt dort — beides ist richtig.
+        *@
+        <div class="tx-totals-note">
+            <b>Gebunden:</b> @Data.FixedCount @(Data.FixedCount == 1 ? "Posten" : "Posten")
+            dieses Kontos weisen zusammen
+            <span class="num">@State.Euro(Data.MonthlyFixed)</span> je Monat aus — aus
+            Verträgen, Policen und Darlehen, nicht aus dem Kontoauszug. Was tatsächlich abging,
+            steht oben.
+        </div>
+    }
+
+    @if (Data.UncategorisedCount > 0)
+    {
+        <div class="tx-totals-note">
+            <b>Ohne Kategorie:</b> @Data.UncategorisedCount
+            @(Data.UncategorisedCount == 1 ? "Buchung" : "Buchungen")
+            über zusammen <span class="num">@State.Euro(Data.UncategorisedAmount)</span>. Sie
+            stehen oben unter „Ohne Kategorie“ und fehlen in jeder Kategoriezeile ·
+            <a href="/konten?offen=true">zuordnen</a>
+        </div>
+    }
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public JointReportDto Data { get; set; } = default!;
+
+    /// <summary>Sperrt die Kontoauswahl, solange geladen wird.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    /// <summary>Ein anderes Gemeinschaftskonto wurde gewählt.</summary>
+    [Parameter]
+    public EventCallback<int> OnPickAccount { get; set; }
+
+    [Inject] private AppState State { get; set; } = default!;
+
+    /// <summary>
+    /// „3 Zahlungen von 2 Personen“ — oder, wo nichts zugeordnet ist, was stattdessen gilt.
+    /// </summary>
+    private string Eingangszeile
+    {
+        get
+        {
+            var zahlungen = Data.Contributions.Sum(c => c.Count);
+
+            if (zahlungen == 0)
+            {
+                return "noch keinem Beitrag zugeordnet";
+            }
+
+            var wer = Data.Contributions.Count(c => c.Count > 0);
+
+            return $"{zahlungen} {(zahlungen == 1 ? "Zahlung" : "Zahlungen")} von "
+                   + $"{wer} {(wer == 1 ? "Person" : "Personen")}";
+        }
+    }
+
+    /// <summary>
+    /// Die Deckung in einem Satz.
+    /// </summary>
+    /// <remarks>
+    /// Keine Mahnung und kein Urteil: Ein Konto, das mehr ausgibt als es bekommt, zehrt vom
+    /// Bestand — das ist eine Feststellung. Solange nichts zugeordnet ist, wäre jede Deckung
+    /// eine Aussage über die Pflege und nicht über das Konto; dann steht sie nicht da.
+    /// </remarks>
+    private string Abgangszeile
+    {
+        get
+        {
+            if (Data.ContributionTotal <= 0m)
+            {
+                return "aus dem Kontoauszug";
+            }
+
+            var deckung = Data.ContributionTotal - Data.SpendingTotal;
+
+            return deckung >= 0m
+                ? $"{State.Euro(deckung)} weniger als eingebracht"
+                : $"{State.Euro(-deckung)} mehr als eingebracht";
+        }
+    }
+
+    /// <summary>
+    /// „14 Buchungen · 23 % · 338,20 € je Monat“ — die letzte Angabe nur, wo sie etwas
+    /// Neues sagt.
+    /// </summary>
+    /// <remarks>
+    /// Beim Zeitraum „Monat“ wäre der Monatswert derselbe Betrag, der rechts schon steht.
+    /// Ihn dort zu wiederholen hieße, Platz für eine Zahl zu verbrauchen, die nichts
+    /// hinzufügt.
+    /// </remarks>
+    private string Ausgabenzeile(JointSpendDto zeile)
+    {
+        var teile = new List<string>
+        {
+            $"{zeile.Count} {(zeile.Count == 1 ? "Buchung" : "Buchungen")}",
+            GermanFormat.Percent(zeile.SharePercent, 0),
+        };
+
+        if (Data.Range.Months > 1)
+        {
+            teile.Add($"{State.Euro(zeile.PerMonth)} je Monat");
+        }
+
+        return string.Join(" · ", teile);
+    }
+
+    /// <summary>„52 % · 3 Zahlungen · Soll … je Monat“ — die Teile, die etwas sagen.</summary>
+    private string Personenzeile(JointContributionDto person)
+    {
+        var teile = new List<string>
+        {
+            GermanFormat.Percent(person.SharePercent, 0),
+            $"{person.Count} {(person.Count == 1 ? "Zahlung" : "Zahlungen")}",
+        };
+
+        // Nur, wo etwas vereinbart ist. „Soll 0,00 €“ läse sich wie eine Vereinbarung, keine
+        // einzubringen — und das steht nirgends.
+        if (person.MonthlyTarget is { } soll && soll > 0m)
+        {
+            teile.Add($"Soll {State.Euro(soll)} je Monat");
+        }
+
+        return string.Join(" · ", teile);
+    }
+
+    private static string Breite(decimal anteil)
+        => Math.Clamp(anteil, 0m, 100m).ToString("0.#", CultureInfo.InvariantCulture) + "%";
+}

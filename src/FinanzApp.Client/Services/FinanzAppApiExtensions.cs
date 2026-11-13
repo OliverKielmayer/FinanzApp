@@ -275,6 +275,18 @@ public static class FinanzAppApiExtensions
             ct);
 
     /// <summary>
+    /// Trägt ein, wessen Beitrag Zuflüsse dieser Kategorie sind — <c>null</c> nimmt die
+    /// Person heraus.
+    /// </summary>
+    public static Task SetCategoryContributorAsync(
+        this FinanzAppApi api, int id, int? userId, CancellationToken ct = default)
+        => api.SendWithoutResultAsync(
+            HttpMethod.Patch,
+            $"api/categories/{id}/beitrag",
+            new CategoryContributorRequest { ContributorUserId = userId },
+            ct);
+
+    /// <summary>
     /// Den Prüfschritt eines bereits abgelegten Belegs holen.
     /// </summary>
     /// <remarks>

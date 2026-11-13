@@ -273,6 +273,15 @@ public sealed class ReportService(
 
         var zeilen = new List<FixedCostRowDto>();
 
+        // Die Kontonamen in einem Zug. Nicht sichtbare Konten stehen nicht darin — ihre
+        // Posten fallen damit in dieselbe Gruppe wie die ohne eingetragenes Konto, und der
+        // Bericht verrät durch eine Gruppe weniger nicht, dass es dieses Konto gibt.
+        var kontonamen = await db.Accounts.AsNoTracking()
+            .ToDictionaryAsync(a => a.Id, a => a.ShortName, ct);
+
+        string? Kontoname(int? id)
+            => id is { } nummer ? kontonamen.GetValueOrDefault(nummer) : null;
+
         foreach (var darlehen in await db.Loans.AsNoTracking().OrderBy(l => l.Id).ToListAsync(ct))
         {
             zeilen.Add(new FixedCostRowDto
@@ -284,6 +293,8 @@ public sealed class ReportService(
                        + $"{GermanFormat.Percent(darlehen.InterestRatePercent, 2)} · nicht kündbar",
                 Binding = FixedCostBinding.Fixed,
                 NoticeDue = false,
+                AccountId = Kontoname(darlehen.AccountId) is null ? null : darlehen.AccountId,
+                AccountName = Kontoname(darlehen.AccountId),
             });
         }
 
@@ -298,6 +309,8 @@ public sealed class ReportService(
                        + Notice(vertrag.NoticePeriodWeeks, "Woche", "Wochen", vertrag.NoticeToDate),
                 Binding = FixedCostBinding.Cancellable,
                 NoticeDue = false,
+                AccountId = Kontoname(vertrag.AccountId) is null ? null : vertrag.AccountId,
+                AccountName = Kontoname(vertrag.AccountId),
             });
         }
 
@@ -320,6 +333,8 @@ public sealed class ReportService(
                     ? FixedCostBinding.Saving
                     : FixedCostBinding.Cancellable,
                 NoticeDue = police.NoticeReminderOn is { } tag && tag <= clock.Today,
+                AccountId = Kontoname(police.AccountId) is null ? null : police.AccountId,
+                AccountName = Kontoname(police.AccountId),
             });
         }
 
@@ -341,6 +356,7 @@ public sealed class ReportService(
             Note = Bound(fix, monatsbasis),
             Rows = [.. mitBetrag.OrderByDescending(z => z.MonthlyAmount)],
             Groups = Gruppen(mitBetrag, fix),
+            Accounts = NachKonto(mitBetrag, fix),
             WithoutAmountCount = zeilen.Count - mitBetrag.Count,
         };
     }
@@ -417,6 +433,46 @@ public sealed class ReportService(
             })];
 
     /// <summary>
+    /// Die Posten nach Konto gebündelt, das schwerste Konto zuerst.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die andere Frage an dieselbe Liste: nicht wofür das Geld geht, sondern von wo.
+    /// Wie bei den Kostenarten teilen die Konten die gebundenen Kosten unter sich auf, und
+    /// ihre Anteile ergeben hundert Prozent.</para>
+    /// <para><b>Ohne Konto ist eine eigene Gruppe und steht am Ende</b>, auch wenn sie
+    /// schwerer wöge als manches Konto: Sie ist keine Antwort auf die Frage, sondern die
+    /// Stelle, an der die Antwort noch fehlt. Sie zu verteilen hieße raten, sie wegzulassen
+    /// hieße, dass die Kontosummen nicht mehr die Gesamtsumme ergeben.</para>
+    /// </remarks>
+    private static List<FixedCostAccountDto> NachKonto(
+        IReadOnlyList<FixedCostRowDto> zeilen, decimal fix)
+    {
+        var gruppen = zeilen
+            .GroupBy(z => z.AccountId)
+            .Select(g => new FixedCostAccountDto
+            {
+                AccountId = g.Key,
+                Name = g.Key is null
+                    ? "Ohne Konto"
+                    : g.First().AccountName ?? "Ohne Konto",
+                MonthlyAmount = decimal.Round(g.Sum(z => z.MonthlyAmount), 2),
+                SharePercent = fix <= 0m
+                    ? 0m
+                    : decimal.Round(g.Sum(z => z.MonthlyAmount) / fix * 100m, 1),
+                Rows = [.. g.OrderByDescending(z => z.MonthlyAmount)],
+            })
+            .ToList();
+
+        return
+        [
+            .. gruppen.Where(g => g.AccountId is not null)
+                .OrderByDescending(g => g.MonthlyAmount)
+                .ThenBy(g => g.Name, StringComparer.CurrentCulture),
+            .. gruppen.Where(g => g.AccountId is null),
+        ];
+    }
+
+    /// <summary>
     /// Die Kündigungsfrist im Klartext.
     /// </summary>
     /// <remarks>
@@ -461,6 +517,269 @@ public sealed class ReportService(
               + "sie stammen aus den Verträgen, nicht aus dem Kontoauszug, und nicht jeder "
               + "Vertrag wurde in diesem Zeitraum abgebucht.";
     }
+
+    // ── Haushaltskonto ─────────────────────────────────────────────────────────────────────
+
+    /// <summary>So viele Ausgabenkategorien nennt der Bericht einzeln.</summary>
+    private const int NamedSpendRows = 12;
+
+    /// <summary>
+    /// Wer bringt was auf das Gemeinschaftskonto ein, und wofür geht es wieder ab.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Die Zuordnung wird nicht hier gerechnet.</b> Wessen Beitrag ein Zufluss ist,
+    /// entscheidet <see cref="ParticipationService.ContributionsAsync"/> — dieselbe Stelle, aus
+    /// der der Monatsvergleich am Konto liest. Zwei Fassungen derselben Regel wären zwei
+    /// Antworten auf eine Frage.</para>
+    /// <para><b>Drei Größen mit drei Namen.</b> Eingebracht ist gemessen: zugeordnete Zuflüsse
+    /// im Zeitraum. Abgeflossen ist gemessen: was das Konto verlassen hat. Gebunden ist
+    /// fortgeschrieben: was Verträge, Policen und Darlehen dieses Kontos je Monat ausweisen.
+    /// Die letzte kommt aus dem Bestand und nicht aus dem Auszug; sie darf von den ersten
+    /// beiden abweichen, und keine darf den Namen einer anderen tragen.</para>
+    /// <para><b>Die Lücken gehören dazu.</b> Ein Zufluss ohne Person und eine Buchung ohne
+    /// Kategorie stehen mit Anzahl und Betrag daneben. Ohne sie läse sich eine halb gepflegte
+    /// Zuordnung wie ein Befund über zwei Menschen.</para>
+    /// </remarks>
+    public async Task<JointReportDto> GetJointReportAsync(
+        JointReportRequest request, CancellationToken ct = default)
+    {
+        var fenster = await ResolveAsync(request.Period, request.Comparison, ct);
+
+        var konten = await db.Accounts.AsNoTracking()
+            .Where(a => a.Sharing == AccountSharing.Shared)
+            .Include(a => a.Shares).ThenInclude(s => s.User)
+            .OrderBy(a => a.Name)
+            .ToListAsync(ct);
+
+        var auswahl = konten.Select(k => new JointChoiceDto(k.Id, k.ShortName)).ToList();
+
+        // Das gewählte Konto, sonst das erste. Eine Id, die es nicht (mehr) gibt, führt nicht
+        // auf einen leeren Bericht, sondern auf das erste Konto — ein gespeicherter Link soll
+        // nicht dadurch unbrauchbar werden, dass sich eine Freigabe geändert hat.
+        var konto = konten.FirstOrDefault(k => k.Id == request.AccountId) ?? konten.FirstOrDefault();
+
+        if (konto is null)
+        {
+            return new JointReportDto
+            {
+                Range = await RangeAsync(fenster, 0m, ct),
+                Choices = auswahl,
+                Contributions = [],
+                ContributionTotal = 0m,
+                UnassignedInflow = 0m,
+                UnassignedInflowCount = 0,
+                Spending = [],
+                SpendingTotal = 0m,
+                MonthlyFixed = 0m,
+                FixedCount = 0,
+                UncategorisedCount = 0,
+                UncategorisedAmount = 0m,
+            };
+        }
+
+        // Das Fenster ist links einschließlich und rechts ausschließlich — so erwartet es
+        // ContributionsAsync, und so fällt der letzte Tag nicht heraus.
+        var bisAusschliesslich = fenster.To.AddDays(1);
+
+        var beitraege = await participation.ContributionsAsync(
+            [konto.Id], fenster.From, bisAusschliesslich, ct);
+
+        // Alles, was im Zeitraum auf dem Konto ankam — die Bezugsgröße für die Lücke.
+        var zufluss = await db.Transactions.AsNoTracking()
+            .Where(t => t.AccountId == konto.Id
+                        && t.Amount > 0
+                        && t.BookingDate >= fenster.From
+                        && t.BookingDate <= fenster.To)
+            .Select(t => t.Amount)
+            .ToListAsync(ct);
+
+        var zugeordnet = beitraege.Sum(b => b.Amount);
+
+        var zeilen = konto.Shares
+            .Select(anteil => new Beitragszeile(
+                anteil.UserId,
+                anteil.User?.Name ?? "Unbekannt",
+                anteil.MonthlyTarget,
+                beitraege.Where(b => b.UserId == anteil.UserId).Sum(b => b.Amount),
+                beitraege.Count(b => b.UserId == anteil.UserId)))
+            .ToList();
+
+        // Wer eingezahlt hat, ohne am Konto als Beteiligter geführt zu sein, fiele sonst aus
+        // der Liste — und seine Summe hübe die Anteile der übrigen fälschlich an.
+        var ausserhalb = beitraege
+            .Select(b => b.UserId)
+            .Distinct()
+            .Where(id => konto.Shares.All(s => s.UserId != id))
+            .ToList();
+
+        if (ausserhalb.Count > 0)
+        {
+            var namen = await db.Users
+                .Where(u => ausserhalb.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, u => u.Name, ct);
+
+            zeilen.AddRange(ausserhalb.Select(wer => new Beitragszeile(
+                wer,
+                namen.GetValueOrDefault(wer, "Unbekannt"),
+                null,
+                beitraege.Where(b => b.UserId == wer).Sum(b => b.Amount),
+                beitraege.Count(b => b.UserId == wer))));
+        }
+
+        // ── Wofür es abgeht ────────────────────────────────────────────────────────────────
+
+        var abgang = await db.Transactions.AsNoTracking()
+            .Where(t => t.AccountId == konto.Id
+                        && t.Amount < 0
+                        && t.BookingDate >= fenster.From
+                        && t.BookingDate <= fenster.To)
+            .Select(t => new
+            {
+                t.Amount,
+                t.CategoryId,
+                Kategorie = t.Category!.Name,
+
+                // Nullbar, und das ist nicht Zierde: Eine Buchung ohne Kategorie hat keine
+                // Richtung, und EF Core bricht beim Materialisieren ab, wenn es null in ein
+                // nicht nullbares Enum legen soll.
+                Richtung = (CategoryDirection?)t.Category!.Direction,
+            })
+            .ToListAsync(ct);
+
+        // Derselbe Name darf bei Ausgaben und Einnahmen stehen — das ist Absicht und im
+        // echten Bestand der Normalfall. Hier landen beide in derselben Liste, und zwei
+        // gleich benannte Zeilen mit verschiedenen Beträgen sehen aus wie ein Fehler. Die
+        // Richtung steht deshalb dabei, aber nur dort, wo sie etwas unterscheidet.
+        var doppelt = abgang
+            .Where(a => a.CategoryId is not null)
+            .GroupBy(a => a.Kategorie, StringComparer.CurrentCultureIgnoreCase)
+            .Where(g => g.Select(a => a.CategoryId).Distinct().Count() > 1)
+            .Select(g => g.Key)
+            .ToHashSet(StringComparer.CurrentCultureIgnoreCase);
+
+        var abgangSumme = Math.Abs(abgang.Sum(a => a.Amount));
+
+        decimal Anteil(decimal betrag)
+            => abgangSumme <= 0m ? 0m : decimal.Round(betrag / abgangSumme * 100m, 1);
+
+        // Durch die gelaufenen Monate, nicht durch die nominellen — dieselbe Zahl, mit der
+        // der Kostentrend seine Monatsbasis rechnet.
+        var monate = Math.Max(1, fenster.Months);
+
+        decimal JeMonat(decimal betrag) => decimal.Round(betrag / monate, 2);
+
+        var nachKategorie = abgang
+            .GroupBy(a => a.CategoryId)
+            .Select(g => new JointSpendDto
+            {
+                CategoryId = g.Key,
+                Name = g.Key is null
+                    ? "Ohne Kategorie"
+                    : doppelt.Contains(g.First().Kategorie)
+                        ? $"{g.First().Kategorie} ({(g.First().Richtung == CategoryDirection.Income
+                            ? "Einnahmekategorie" : "Ausgabenkategorie")})"
+                        : g.First().Kategorie,
+                Amount = decimal.Round(Math.Abs(g.Sum(a => a.Amount)), 2),
+                SharePercent = Anteil(Math.Abs(g.Sum(a => a.Amount))),
+                PerMonth = JeMonat(Math.Abs(g.Sum(a => a.Amount))),
+                Count = g.Count(),
+            })
+            .ToList();
+
+        var benannt = nachKategorie
+            .Where(z => z.CategoryId is not null)
+            .OrderByDescending(z => z.Amount)
+            .ToList();
+
+        var ausgaben = new List<JointSpendDto>();
+        ausgaben.AddRange(benannt.Take(NamedSpendRows));
+
+        // Was nicht mehr einzeln passt, wird zusammengefasst und nicht weggelassen: sonst
+        // ergäben die Zeilen nicht mehr die Summe darunter.
+        var rest = benannt.Skip(NamedSpendRows).ToList();
+
+        if (rest.Count > 0)
+        {
+            ausgaben.Add(new JointSpendDto
+            {
+                CategoryId = null,
+                Name = $"{rest.Count} weitere Kategorien",
+                Amount = decimal.Round(rest.Sum(z => z.Amount), 2),
+                SharePercent = Anteil(rest.Sum(z => z.Amount)),
+                PerMonth = JeMonat(rest.Sum(z => z.Amount)),
+                Count = rest.Sum(z => z.Count),
+            });
+        }
+
+        // „Ohne Kategorie" immer zuletzt, wie schwer sie auch wiegt: Sie ist keine Antwort auf
+        // die Frage, wofür das Geld geht, sondern die Stelle, an der die Antwort fehlt.
+        ausgaben.AddRange(nachKategorie.Where(z => z.CategoryId is null));
+
+        // ── Was gebunden ist ───────────────────────────────────────────────────────────────
+
+        // Aus derselben Rechnung wie der Fixkostenbericht und nicht aus einer zweiten: sonst
+        // stünden in einem Bereich zwei Zahlen für dieselbe Größe.
+        var fix = await GetFixedCostsAsync(
+            new FixedCostsRequest(request.Period, request.Comparison), ct);
+
+        var amKonto = fix.Accounts.FirstOrDefault(k => k.AccountId == konto.Id);
+
+        // ── Was noch keine Kategorie hat ───────────────────────────────────────────────────
+
+        // Umbuchungen und Einlagen tragen zu Recht keine — sie sind keine Lücke.
+        var offen = await db.Transactions.AsNoTracking()
+            .Where(BookingKinds.Counting)
+            .Where(t => t.AccountId == konto.Id
+                        && t.CategoryId == null
+                        && t.BookingDate >= fenster.From
+                        && t.BookingDate <= fenster.To)
+            .Select(t => t.Amount)
+            .ToListAsync(ct);
+
+        return new JointReportDto
+        {
+            Range = await RangeAsync(fenster, abgangSumme, ct),
+            Choices = auswahl,
+            AccountId = konto.Id,
+            AccountName = konto.ShortName,
+
+            Contributions =
+            [
+                .. zeilen
+                    .OrderByDescending(z => z.Summe)
+                    .ThenBy(z => z.Name, StringComparer.CurrentCulture)
+                    .Select(z => new JointContributionDto
+                    {
+                        UserId = z.UserId,
+                        Name = z.Name,
+                        Amount = decimal.Round(z.Summe, 2),
+                        SharePercent = zugeordnet <= 0m
+                            ? 0m
+                            : decimal.Round(z.Summe / zugeordnet * 100m, 1),
+                        MonthlyTarget = z.Soll,
+                        Count = z.Anzahl,
+                        IsSelf = z.UserId == current.UserId,
+                    }),
+            ],
+
+            ContributionTotal = decimal.Round(zugeordnet, 2),
+            UnassignedInflow = decimal.Round(zufluss.Sum() - zugeordnet, 2),
+            UnassignedInflowCount = zufluss.Count - beitraege.Count,
+
+            Spending = ausgaben,
+            SpendingTotal = decimal.Round(abgangSumme, 2),
+
+            MonthlyFixed = amKonto?.MonthlyAmount ?? 0m,
+            FixedCount = amKonto?.Rows.Count ?? 0,
+
+            UncategorisedCount = offen.Count,
+            UncategorisedAmount = decimal.Round(offen.Sum(Math.Abs), 2),
+        };
+    }
+
+    /// <summary>Eine Person mit dem, was sie im Zeitraum eingebracht hat.</summary>
+    private sealed record Beitragszeile(
+        int UserId, string Name, decimal? Soll, decimal Summe, int Anzahl);
 
     // ── Objekt & Beteiligung ───────────────────────────────────────────────────────────────
 

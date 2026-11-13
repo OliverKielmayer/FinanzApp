@@ -122,6 +122,17 @@ public enum ReportKind
 
     /// <summary>Vorsorge: Zuwachs gegen Beitrag — was ein Vertrag selbst erwirtschaftet hat.</summary>
     PensionGrowth = 7,
+
+    /// <summary>
+    /// Haushaltskonto: wer bringt was ein, wofür geht es ab.
+    /// </summary>
+    /// <remarks>
+    /// Die Kontosicht auf ein Gemeinschaftskonto. Nicht zu verwechseln mit
+    /// <see cref="PropertyParticipation"/>: Dort geht es um Eigentum am Objekt und den
+    /// Ausgleich daraus, hier um das laufende Geld eines Kontos — Beiträge, Lebenshaltung,
+    /// gebundene Kosten.
+    /// </remarks>
+    JointAccount = 8,
 }
 
 /// <summary>Wonach der Kostentrend seine Kategorien ordnet.</summary>

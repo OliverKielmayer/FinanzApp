@@ -244,6 +244,22 @@ public class Category : IHouseholdOwned
     /// </remarks>
     public bool PropertyRelated { get; set; }
 
+    /// <summary>
+    /// Wessen Beitrag ein Zufluss dieser Kategorie ist — nur bei einer Einnahmekategorie.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die Gemeinschaftsrechnung braucht zu jedem Eingang eine Person. Sie an der
+    /// einzelnen Buchung zu pflegen hieße, sie jeden Monat neu zu pflegen; am Zahlernamen zu
+    /// raten hieße, drei Schreibweisen desselben Menschen für drei Menschen zu halten. Hier
+    /// steht sie einmal, und die Kategorieregeln tragen sie weiter.</para>
+    /// <para>Sie ersetzt <see cref="Transaction.DepositUserId"/> nicht, sondern trägt, wo
+    /// dort nichts steht: eine am Beleg gepflegte Einlage ist die genauere Angabe und behält
+    /// den Vorrang.</para>
+    /// </remarks>
+    public int? ContributorUserId { get; set; }
+
+    public User? Contributor { get; set; }
+
     public List<Transaction> Transactions { get; set; } = [];
     public List<Budget> Budgets { get; set; } = [];
     public List<CategorizationRule> Rules { get; set; } = [];
@@ -715,6 +731,19 @@ public class Loan : IHouseholdOwned
     public decimal InterestRatePercent { get; set; }
     public decimal Installment { get; set; }
     public DateOnly NextPaymentDate { get; set; }
+
+    /// <summary>
+    /// Das Konto, von dem die Rate abgeht — <c>null</c>, solange keines eingetragen ist.
+    /// </summary>
+    /// <remarks>
+    /// Wie am Vertrag: Die Fixkostenliste kann erst dann nach Konto gliedern, wenn jeder
+    /// gebundene Posten sagt, wo er abgeht. Ohne Eintrag steht die Rate unter „Konto nicht
+    /// eingetragen“ und nicht unter irgendeinem — ein geratenes Konto wäre in einer
+    /// Auswertung, die Konten gegenüberstellt, schlimmer als eine Lücke.
+    /// </remarks>
+    public int? AccountId { get; set; }
+
+    public Account? Account { get; set; }
 }
 
 public class ImportProfile : IHouseholdOwned

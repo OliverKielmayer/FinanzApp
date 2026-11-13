@@ -280,6 +280,12 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
         {
             e.Property(x => x.Name).HasMaxLength(80).IsRequired();
             e.HasIndex(x => new { x.HouseholdId, x.Name, x.Direction }).IsUnique();
+
+            // Verschwindet die Person, bleibt die Kategorie: ihre Buchungen haben
+            // stattgefunden. Nur die Zurechnung entfällt, und die Gemeinschaftsrechnung
+            // sagt das dann — dieselbe Regel wie an der Einlage.
+            e.HasOne(x => x.Contributor).WithMany()
+                .HasForeignKey(x => x.ContributorUserId).OnDelete(DeleteBehavior.SetNull);
         });
 
         b.Entity<Transaction>(e =>
@@ -369,6 +375,11 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
             e.Property(x => x.Lender).HasMaxLength(120).IsRequired();
             e.Property(x => x.RemainingDebt).HasConversion(MoneyConverter);
             e.Property(x => x.Installment).HasConversion(MoneyConverter);
+
+            // Wie am Vertrag: Verschwindet das Konto, bleibt das Darlehen — es ist nicht
+            // getilgt, nur sein Abgangsweg ist unbekannt.
+            e.HasOne(x => x.Account).WithMany()
+                .HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.SetNull);
         });
 
         b.Entity<ImportProfile>(e =>

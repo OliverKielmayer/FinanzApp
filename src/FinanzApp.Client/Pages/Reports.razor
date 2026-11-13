@@ -25,6 +25,7 @@
         {
             ReportKind.CostTrend => data?.Range,
             ReportKind.FixedCosts => fixedCosts?.Range,
+            ReportKind.JointAccount => jointReport?.Range,
             _ => null,
         };
     }
@@ -127,6 +128,11 @@
     @if (report == ReportKind.FixedCosts && fixedCosts is { } fix)
     {
         <FixedCostsReport Data="fix" />
+        <div class="spacer"></div>
+    }
+    else if (report == ReportKind.JointAccount && jointReport is { } gemeinsam)
+    {
+        <JointReport Data="gemeinsam" Busy="busy" OnPickAccount="PickJointAccountAsync" />
         <div class="spacer"></div>
     }
     else if (report == ReportKind.PensionGrowth && pensionGrowth is { } vorsorge)
@@ -389,6 +395,12 @@
     /// <summary>Objekt & Beteiligung — der achte Bericht.</summary>
     private PropertyReportDto? propertyReport;
 
+    /// <summary>Haushaltskonto — wer bringt was ein, wofür geht es ab.</summary>
+    private JointReportDto? jointReport;
+
+    /// <summary>Welches Gemeinschaftskonto der Bericht zeigt. Ohne Wahl das erste.</summary>
+    private int? jointAccountId;
+
     /// <summary>Welches Objekt der Bericht zeigt. Ohne Wahl das erste.</summary>
     private int? propertyId;
 
@@ -438,6 +450,7 @@
     [
         (ReportKind.CostTrend, "Kostentrend", true),
         (ReportKind.FixedCosts, "Fixkosten", true),
+        (ReportKind.JointAccount, "Haushaltskonto", true),
         (ReportKind.PropertyParticipation, "Objekt & Beteiligung", true),
         (ReportKind.PensionGrowth, "Vorsorge: Zuwachs", true),
         (ReportKind.PortfolioGainLoss, "Depot G/V", true),
@@ -467,6 +480,15 @@
             case ReportKind.FixedCosts:
                 fixedCosts = await Api.GetFixedCostsAsync(
                     new FixedCostsRequest(period, comparison, [.. excluded]));
+                break;
+
+            case ReportKind.JointAccount:
+                jointReport = await Api.GetJointReportAsync(
+                    new JointReportRequest(jointAccountId, period, comparison));
+
+                // Was der Server genommen hat, gilt: Ohne Wahl nimmt er das erste Konto, und
+                // die Leiste soll zeigen, welches gerade dransteht.
+                jointAccountId = jointReport.AccountId;
                 break;
 
             case ReportKind.PropertyParticipation:
@@ -536,6 +558,13 @@
     private Task PickDepotAsync(int id)
     {
         depotId = id;
+        return RefreshAsync();
+    }
+
+    /// <summary>Ein anderes Gemeinschaftskonto.</summary>
+    private Task PickJointAccountAsync(int id)
+    {
+        jointAccountId = id;
         return RefreshAsync();
     }
 
@@ -765,6 +794,7 @@
             var bericht = report switch
             {
                 ReportKind.FixedCosts => "fixkosten",
+                ReportKind.JointAccount => "haushaltskonto",
                 ReportKind.PropertyParticipation => "objekt-beteiligung",
                 ReportKind.PensionGrowth => "vorsorge-zuwachs",
                 ReportKind.PortfolioGainLoss => "depot",
@@ -782,7 +812,7 @@
                     : $"{bericht}.csv";
             }
 
-            var stand = data?.Range ?? fixedCosts?.Range;
+            var stand = data?.Range ?? fixedCosts?.Range ?? jointReport?.Range;
 
             return stand is null
                 ? $"{bericht}.csv"
@@ -819,6 +849,29 @@
                 zeilen.Add("Posten;Monatlich;Bindung;Hinweis");
                 zeilen.AddRange(fix.Rows.Select(z => string.Join(';',
                     Cell(z.Name), Num(z.MonthlyAmount), Cell(BindingLabel(z.Binding)), Cell(z.Note))));
+                break;
+
+            // Zwei Tabellen in einer Datei: Eingebracht und Abgeflossen sind zwei Aussagen
+            // über dasselbe Konto, und in eine gemeinsame Spaltenreihe gepresst wären sie
+            // beide unleserlich. Die Lückenzeilen stehen dabei, nicht nur auf dem Schirm —
+            // eine Datei ohne sie läse sich später als vollständige Zuordnung.
+            case ReportKind.JointAccount when jointReport is { AccountId: not null } konto:
+                zeilen.Add("Beteiligter;Eingebracht;Anteil %;Zahlungen;Soll je Monat");
+                zeilen.AddRange(konto.Contributions.Select(p => string.Join(';',
+                    Cell(p.Name), Num(p.Amount), Num(p.SharePercent), p.Count,
+                    p.MonthlyTarget is { } soll ? Num(soll) : string.Empty)));
+
+                if (konto.UnassignedInflowCount > 0)
+                {
+                    zeilen.Add(string.Join(';',
+                        Cell("Noch nicht zugeordnet"), Num(konto.UnassignedInflow),
+                        string.Empty, konto.UnassignedInflowCount, string.Empty));
+                }
+
+                zeilen.Add(string.Empty);
+                zeilen.Add("Kategorie;Abgeflossen;Anteil %;Je Monat;Buchungen");
+                zeilen.AddRange(konto.Spending.Select(z => string.Join(';',
+                    Cell(z.Name), Num(z.Amount), Num(z.SharePercent), Num(z.PerMonth), z.Count)));
                 break;
 
             case ReportKind.PortfolioGainLoss when gain is { } depot:

@@ -48,6 +48,8 @@ public sealed class CatalogService(FinanzAppDbContext db)
             {
                 TaxCategory = c.TaxCategory,
                 PropertyRelated = c.PropertyRelated,
+                ContributorUserId = c.ContributorUserId,
+                ContributorName = c.Contributor!.Name,
                 Id = c.Id,
                 Name = c.Name,
                 Direction = c.Direction,
@@ -171,6 +173,60 @@ public sealed class CatalogService(FinanzAppDbContext db)
         }
 
         kategorie.PropertyRelated = objektbezogen;
+        await db.SaveChangesAsync(ct);
+
+        return true;
+    }
+
+    /// <summary>
+    /// Trägt ein, wessen Beitrag Zuflüsse dieser Kategorie sind — <c>null</c> nimmt die
+    /// Person wieder heraus.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die Gemeinschaftsrechnung braucht zu jedem Eingang eine Person. Sie an jeder
+    /// Buchung zu pflegen hieße, sie jeden Monat neu zu pflegen; sie am Zahlernamen zu raten
+    /// hieße, drei Schreibweisen desselben Menschen für drei Menschen zu halten. Hier steht
+    /// sie einmal, und die Kategorieregeln tragen sie an jede künftige Buchung weiter.</para>
+    /// <para><b>Nur Einnahmekategorien.</b> Eine Ausgabe ist kein Beitrag — wer vom
+    /// gemeinsamen Konto einkauft, bringt nichts ein, er gibt aus. Die Richtung an der
+    /// Ausgabenseite zuzulassen hieße, denselben Abfluss als Zufluss zählbar zu machen.</para>
+    /// </remarks>
+    public async Task<bool> SetContributorAsync(
+        int id, int? userId, CancellationToken ct = default)
+    {
+        var kategorie = await db.Categories.FirstOrDefaultAsync(c => c.Id == id, ct);
+
+        if (kategorie is null)
+        {
+            return false;
+        }
+
+        if (userId is null)
+        {
+            kategorie.ContributorUserId = null;
+            await db.SaveChangesAsync(ct);
+
+            return true;
+        }
+
+        if (kategorie.Direction != CategoryDirection.Income)
+        {
+            throw new RuleViolationException(
+                "Nur Einnahmekategorien lassen sich einer Person als Beitrag zuordnen.");
+        }
+
+        // Gegen den Haushalt der Kategorie geprüft und nicht gegen den der Sitzung: Es geht
+        // darum, ob die Person zu diesen Daten gehört. Wäre beides verschieden, läge der
+        // Fehler schon eine Stufe früher.
+        var gehoert = await db.Users
+            .AnyAsync(u => u.Id == userId && u.HouseholdId == kategorie.HouseholdId, ct);
+
+        if (!gehoert)
+        {
+            throw new RuleViolationException("Diese Person gehört nicht zum Haushalt.");
+        }
+
+        kategorie.ContributorUserId = userId;
         await db.SaveChangesAsync(ct);
 
         return true;

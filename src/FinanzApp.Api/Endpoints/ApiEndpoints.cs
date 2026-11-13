@@ -316,6 +316,25 @@ public static class ApiEndpoints
             }
         }).RequireAuthorization(AuthPolicies.Write);
 
+        // Wessen Beitrag Zuflüsse dieser Kategorie sind. Steht die Person an der Kategorie,
+        // tragen die Kategorieregeln sie an jede künftige Buchung weiter — statt sie Monat
+        // für Monat an jeder einzelnen Buchung nachzutragen.
+        api.MapPatch("/categories/{id:int}/beitrag", async (
+            int id, CategoryContributorRequest request, CatalogService service,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                return await service.SetContributorAsync(id, request.ContributorUserId, ct)
+                    ? Results.NoContent()
+                    : Results.NotFound();
+            }
+            catch (RuleViolationException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.Write);
+
         api.MapDelete("/categories/{id:int}", async (
             int id, CatalogService service, CancellationToken ct) =>
         {
@@ -349,6 +368,12 @@ public static class ApiEndpoints
         api.MapPost("/reports/fixed-costs", async (
                 FixedCostsRequest request, ReportService service, CancellationToken ct)
             => Results.Ok(await service.GetFixedCostsAsync(request, ct)));
+
+        // Haushaltskonto: wer bringt was ein, wofür geht es ab. Als POST wie die beiden
+        // darüber — der Bericht nimmt Konto, Zeitraum und Vergleich entgegen.
+        api.MapPost("/reports/haushaltskonto", async (
+                JointReportRequest request, ReportService service, CancellationToken ct)
+            => Results.Ok(await service.GetJointReportAsync(request, ct)));
 
         // Vorsorge: Zuwachs gegen Beitrag. Ohne Argumente - der Bericht nimmt je Vertrag die
         // beiden jüngsten Stände, und die stehen je Vertrag woanders.

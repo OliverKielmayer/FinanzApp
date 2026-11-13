@@ -398,6 +398,34 @@ Offen:
 - **Mehr als zwei Beteiligte, Verkauf und Trennung** sind im Handoff selbst offen (§7) und hier
   nur der Vollständigkeit halber genannt.
 
+## Was am Haushaltskonto offen bleibt
+
+Gebaut am **12.11.2026**: die Fixkosten nach Konto, der Bericht „Haushaltskonto“ und die
+Person an einer Einnahmekategorie. Gegen eine Kopie der echten Ablage gelaufen — der Bericht
+findet das Gemeinschaftskonto, gliedert die Abflüsse und weist aus, was gebunden ist.
+
+- **Ein Übertrag muss aufhören, eine Umbuchung zu sein, bevor er als Beitrag zählt.** Eine
+  Umbuchung trägt keine Kategorie, also auch keine Person. Am Beleg lässt sie sich jetzt
+  aufheben — eine gewählte Kategorie macht daraus wieder Einnahme oder Ausgabe. **Damit
+  zählt der Zufluss aber auch in die Haushaltseinnahmen**, obwohl er nur zwischen zwei
+  eigenen Konten gewandert ist. Sparquote und Monatskennzahlen stehen danach zu hoch. Sauber
+  wäre eine Buchungsart, die einem Konto als Zufluss und dem Haushalt als nichts zählt; die
+  gibt es nicht.
+- **Die vorhandene Buchungsart „Einlage“ löst das nicht.** Sie verlangt ein Objekt und
+  rechnet in den Beteiligungsausgleich — richtig für Eigenkapital beim Hauskauf, falsch für
+  einen monatlichen Haushaltsbeitrag, der Lebensmittel und Strom zahlt. Er würde den
+  Ausgleichsstand am Objekt Monat für Monat verschieben.
+- **Das Konto steht erst an den Verträgen.** Policen und Darlehen haben das Feld seit heute,
+  aber in der echten Ablage ist es noch leer; der größte Teil der gebundenen Kosten steht
+  darum unter „Ohne Konto“. Das ist Pflegearbeit, kein Mangel — und sie lohnt sich, weil
+  die Gliederung nach Konto sonst nicht viel sagt.
+- **Was gebunden ist, wird nicht mit dem verglichen, was wirklich abging.** Der Bericht nennt
+  beide Zahlen nebeneinander und sagt, dass sie aus verschiedenen Quellen kommen. Welcher
+  gebundene Posten im Zeitraum tatsächlich abgebucht wurde, prüft er nicht — dafür bräuchte
+  es dieselbe Zuordnung wie am Vorgang, und die hängt an einer Nummer im Verwendungszweck.
+- **Ein Soll lässt sich nur am Konto eintragen, nicht im Bericht.** Wer eins vereinbart, geht
+  nach „Konten“; der Bericht zeigt es, ändert es aber nicht.
+
 ## Gebaut, aber nie angesehen
 
 Nichts mehr — das Druckblatt ist gestaltet und in der Vorschau geprüft (§15.3), die vier

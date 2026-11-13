@@ -70,6 +70,28 @@ Ausgaben und Sparquote und die Budgets. Ein Schalter führt direkt zu **Buchunge
   Buchungen ohne hinterlegten Vertrag. Beziffert wird nur, was sich beziffern lässt; was ein
   Anbieterwechsel bringt, steht ohne Zahl da.
 
+### Auswertungen
+
+Unter **Analyse → Auswertungen** wählen Sie oben den Bericht, darunter Zeitraum und
+Vergleich. Zwei davon betreffen mehrere Konten:
+
+**Fixkosten** lassen sich nach **Kostenart** oder nach **Konto** gliedern — ein Umschalter
+über der Liste. Die erste Frage lautet *wofür geht das Geld, was könnte weg*, die zweite
+*von wo geht es ab, welches Konto muss gedeckt sein*. Jede Zeile nennt dabei die jeweils
+andere Angabe. Das Konto tragen Sie am Vertrag, an der Police und am Darlehen ein; wo keines
+steht, sammelt die Gruppe **„Ohne Konto"** am Ende der Liste — geraten wird keines.
+
+**Haushaltskonto** zeigt ein Gemeinschaftskonto: oben **Eingebracht** und **Abgeflossen**,
+darunter je Person, wer wie viel beigetragen hat, dann die Abflüsse nach Kategorie und
+schließlich, was an diesem Konto gebunden ist. Gibt es mehrere Gemeinschaftskonten, steht
+oben eine Auswahl.
+
+Damit eine Zahlung als Beitrag zählt, muss sie einer Person zugeordnet sein — entweder an
+der Buchung (**Einlage von …**) oder über eine Einnahmekategorie mit eingetragener Person
+(siehe Punkt 9). Am Namen des Zahlers erkennt die App nichts. Was offen bleibt, steht als
+**„noch nicht zugeordnet"** mit Anzahl und Betrag unter den Anteilen; solange dort etwas
+steht, sind die Anteile darüber eine Teilauskunft.
+
 ## 4. Vorgänge — alles Unerledigte
 
 Die meisten Einträge entstehen von selbst: aus einem Vertragsende minus Kündigungsfrist, aus einer
@@ -378,6 +400,14 @@ verwendet“. Das ist die Auskunft, die Sie vor dem Löschen brauchen.
   und erscheinen im Hinweisband der Buchungsliste; Regeln auf diese Kategorie sind weg.
   Läuft ein Budget auf der Kategorie, löscht die App nicht — dann ist erst das Budget dran.
 - Zwei gleiche Namen gehen nicht. Derselbe Name bei Ausgaben *und* Einnahmen schon.
+
+**Beitrag von …** steht nur an **Einnahme**kategorien und nur, wenn es mehr als eine Person
+im Haushalt gibt. Damit sagen Sie: Zuflüsse dieser Kategorie sind der Beitrag dieser Person.
+Der Bericht **Auswertungen → Haushaltskonto** liest es, und die gelernten Regeln tragen es
+an jede künftige Buchung weiter — Sie tragen es einmal ein, nicht jeden Monat neu.
+
+Eine Ausgabenkategorie nimmt es nicht an: Wer vom gemeinsamen Konto einkauft, bringt nichts
+ein, er gibt aus. **„niemand"** nimmt die Person wieder heraus.
 
 ### Was im Auszug stand
 

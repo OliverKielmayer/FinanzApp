@@ -237,6 +237,9 @@ namespace FinanzApp.Api.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("ContributorUserId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("Direction")
                         .HasColumnType("INTEGER");
 
@@ -255,6 +258,8 @@ namespace FinanzApp.Api.Data.Migrations
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ContributorUserId");
 
                     b.HasIndex("HouseholdId", "Name", "Direction")
                         .IsUnique();
@@ -989,6 +994,9 @@ namespace FinanzApp.Api.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("AccountId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("HouseholdId")
                         .HasColumnType("INTEGER");
 
@@ -1015,6 +1023,8 @@ namespace FinanzApp.Api.Data.Migrations
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
 
                     b.ToTable("Loans");
                 });
@@ -2104,6 +2114,16 @@ namespace FinanzApp.Api.Data.Migrations
                     b.Navigation("Category");
                 });
 
+            modelBuilder.Entity("FinanzApp.Api.Data.Entities.Category", b =>
+                {
+                    b.HasOne("FinanzApp.Api.Data.Entities.User", "Contributor")
+                        .WithMany()
+                        .HasForeignKey("ContributorUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Contributor");
+                });
+
             modelBuilder.Entity("FinanzApp.Api.Data.Entities.Contract", b =>
                 {
                     b.HasOne("FinanzApp.Api.Data.Entities.Account", "Account")
@@ -2222,6 +2242,16 @@ namespace FinanzApp.Api.Data.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Contract");
+                });
+
+            modelBuilder.Entity("FinanzApp.Api.Data.Entities.Loan", b =>
+                {
+                    b.HasOne("FinanzApp.Api.Data.Entities.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Account");
                 });
 
             modelBuilder.Entity("FinanzApp.Api.Data.Entities.PasswordResetToken", b =>

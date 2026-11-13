@@ -82,7 +82,7 @@ public sealed class LoanCreateTests : IDisposable
         Assert.NotNull(form);
         Assert.Equal("Darlehen anlegen", form.Title);
         Assert.Equal(
-            ["name", "lender", "debt", "rate", "installment", "payment"],
+            ["name", "lender", "debt", "rate", "installment", "payment", "account"],
             form.Fields.Select(f => f.Key));
     }
 

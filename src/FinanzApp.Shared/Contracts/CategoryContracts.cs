@@ -39,6 +39,19 @@ public sealed record CategoryUsageDto
     /// </remarks>
     public bool PropertyRelated { get; init; }
 
+    /// <summary>
+    /// Wessen Beitrag Zuflüsse dieser Kategorie sind — <c>null</c>, wenn keine Person
+    /// eingetragen ist.
+    /// </summary>
+    /// <remarks>
+    /// Nur an einer Einnahmekategorie zu haben. Die Gemeinschaftsrechnung braucht zu jedem
+    /// Eingang eine Person; hier steht sie einmal, statt an jeder Buchung einzeln.
+    /// </remarks>
+    public int? ContributorUserId { get; init; }
+
+    /// <summary>Der Name dazu — <c>null</c>, wenn keine Person eingetragen ist.</summary>
+    public string? ContributorName { get; init; }
+
     public required int TransactionCount { get; init; }
     public required int RuleCount { get; init; }
     public required bool HasBudget { get; init; }
@@ -76,6 +89,12 @@ public sealed record CategoryTaxRequest
 public sealed record CategoryPropertyRequest
 {
     public required bool PropertyRelated { get; init; }
+}
+
+/// <summary>Wessen Beitrag Zuflüsse einer Kategorie sind — <c>null</c> nimmt die Person heraus.</summary>
+public sealed record CategoryContributorRequest
+{
+    public int? ContributorUserId { get; init; }
 }
 
 /// <summary>Was das Umbenennen oder Löschen tatsächlich angefasst hat.</summary>

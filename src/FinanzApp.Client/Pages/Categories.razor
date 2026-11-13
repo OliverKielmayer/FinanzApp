@@ -110,6 +110,37 @@
                             </span>
                         </AuthorizeView>
                     }
+
+                    @*
+                        Wessen Beitrag. Nur bei Einnahmen: Wer vom gemeinsamen Konto einkauft,
+                        bringt nichts ein — er gibt aus. Und nur, wo es überhaupt mehr als
+                        eine Person gibt; allein steht die Frage nicht.
+                    *@
+                    @if (category.Direction == CategoryDirection.Income && members.Count > 1)
+                    {
+                        <AuthorizeView Roles="Owner,Member" Context="beitrag">
+                            <span class="tax-pick">
+                                <span class="label-muted">Beitrag von</span>
+
+                                @foreach (var person in members)
+                                {
+                                    var wer = person.Id;
+                                    <button type="button"
+                                            class="seg-chip @(category.ContributorUserId == wer ? "active" : null)"
+                                            disabled="@busy"
+                                            @onclick="() => SetBeitragAsync(id, wer)">@person.Name</button>
+                                }
+
+                                @* Der Weg zurück. Ohne ihn wäre eine einmal gesetzte Person
+                                   nicht mehr zu entfernen — nur noch gegen eine andere zu
+                                   tauschen. *@
+                                <button type="button"
+                                        class="seg-chip @(category.ContributorUserId is null ? "active" : null)"
+                                        disabled="@busy"
+                                        @onclick="() => SetBeitragAsync(id, null)">niemand</button>
+                            </span>
+                        </AuthorizeView>
+                    }
                 </span>
 
                 <AuthorizeView Roles="Owner,Member" Context="row">
@@ -147,6 +178,16 @@
 
 @code {
     private IReadOnlyList<CategoryUsageDto> categories = [];
+
+    /// <summary>
+    /// Die Personen des Haushalts — wer als Beitragszahler in Frage kommt.
+    /// </summary>
+    /// <remarks>
+    /// Einmal geladen und nicht bei jedem Richtungswechsel: Die Mitgliederliste ändert sich
+    /// nicht, wenn man zwischen Ausgaben und Einnahmen umschaltet.
+    /// </remarks>
+    private IReadOnlyList<HouseholdMemberDto> members = [];
+
     private CategoryDirection direction = CategoryDirection.Expense;
 
     private string fresh = string.Empty;
@@ -159,6 +200,12 @@
     protected override async Task LoadAsync()
     {
         categories = await Api.GetCategoryUsageAsync(direction);
+
+        if (members.Count == 0)
+        {
+            members = (await Api.GetHouseholdAsync()).Members;
+        }
+
         editing = null;
         pending = null;
     }
@@ -270,6 +317,33 @@
             Toasts.Show(art == TaxCategory.None
                 ? "Steuerliche Einordnung entfernt"
                 : $"Steuerlich eingeordnet: {TaxKinds.First(k => k.Kind == art).Label}", ToastKind.Saved);
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    /// <summary>
+    /// Trägt ein, wessen Beitrag Zuflüsse dieser Kategorie sind.
+    /// </summary>
+    /// <remarks>
+    /// Die Meldung nennt die Folge und nicht den Speichervorgang: Was hier gesetzt wird, wirkt
+    /// am Gemeinschaftskonto — einem Schirm, den man beim Klicken nicht sieht.
+    /// </remarks>
+    private Task SetBeitragAsync(int id, int? wer) => RunAsync(async () =>
+    {
+        busy = true;
+        try
+        {
+            await Api.SetCategoryContributorAsync(id, wer);
+            await LoadAsync();
+
+            Toasts.Show(
+                wer is { } person && members.FirstOrDefault(m => m.Id == person) is { } name
+                    ? $"Zählt als Beitrag von {name.Name}"
+                    : "Zählt niemandem mehr als Beitrag",
+                ToastKind.Saved);
         }
         finally
         {

@@ -128,14 +128,72 @@ public sealed class ParticipationService(FinanzAppDbContext db, CurrentUser user
     }
 
     /// <summary>
+    /// Ein zugeordneter Zufluss: wer wann wie viel auf welches Konto eingebracht hat.
+    /// </summary>
+    public sealed record Contribution(int AccountId, int UserId, DateOnly BookingDate, decimal Amount);
+
+    /// <summary>
+    /// <b>Die eine Stelle, die entscheidet, wessen Beitrag ein Zufluss ist.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>Nur Zuflüsse: Eine Einlage, die von diesem Konto abgeht, ist kein Eingang auf
+    /// ihm. Das Vorzeichen trägt die Richtung — siehe <c>TransactionService.Vorzeichen</c>.</para>
+    /// <para><b>Zwei gepflegte Wege, und beide gelten.</b> Am Beleg als Einlage einer Person
+    /// markiert ist die genauere Angabe und behält den Vorrang; eine Einnahmekategorie mit
+    /// eingetragener Person trägt, wo an der Buchung nichts steht. Ohne den zweiten Weg
+    /// müsste jeder Monatsbeitrag von Hand markiert werden — und bis dahin stünde die
+    /// Rechnung auf null, während das Geld jeden Monat ankommt.</para>
+    /// <para><b>Geraten wird nichts.</b> Der Zahlername bleibt außen vor: Derselbe Mensch
+    /// heißt im Auszug in mehreren Schreibweisen, und wer eine Erstattung empfängt, hat
+    /// nichts eingebracht.</para>
+    /// <para>Die Regel steht hier und nicht bei ihren Aufrufern. Der Monatsvergleich und der
+    /// Bericht über einen gewählten Zeitraum fragen dieselbe Frage über verschiedene
+    /// Ausschnitte; zwei Fassungen davon wären zwei Antworten auf eine Frage.</para>
+    /// </remarks>
+    public async Task<IReadOnlyList<Contribution>> ContributionsAsync(
+        IReadOnlyList<int> accountIds, DateOnly from, DateOnly toExclusive,
+        CancellationToken ct = default)
+    {
+        if (accountIds.Count == 0)
+        {
+            return [];
+        }
+
+        var zeilen = await db.Transactions.AsNoTracking()
+            .Where(t => t.Amount > 0
+                        && accountIds.Contains(t.AccountId)
+                        && t.BookingDate >= from
+                        && t.BookingDate < toExclusive
+                        && ((t.Kind == TransactionKind.Deposit && t.DepositUserId != null)
+                            || t.Category!.ContributorUserId != null))
+            .Select(t => new
+            {
+                t.AccountId,
+                AmBeleg = t.DepositUserId,
+                AusKategorie = t.Category!.ContributorUserId,
+                t.BookingDate,
+                t.Amount,
+            })
+            .ToListAsync(ct);
+
+        return
+        [
+            .. zeilen.Select(z => new Contribution(
+                z.AccountId, z.AmBeleg ?? z.AusKategorie!.Value, z.BookingDate, z.Amount)),
+        ];
+    }
+
+    /// <summary>
     /// Die Gemeinschaftskonten mit Soll und Eingang — Handoff „Gemeinsame Immobilie“, 3.3.
     /// </summary>
     /// <remarks>
     /// <para>Verglichen wird der laufende Monat, daneben steht der Jahresstand: ein einzelner
     /// Monat sagt wenig, wer im Mai zweimal gezahlt hat steht im Juni scheinbar im Rückstand.</para>
-    /// <para>Gezählt werden <b>Einlagen</b> auf dieses Konto — nicht jeder Eingang. Eine
-    /// Lohnzahlung auf das Haushaltskonto ist keine Einlage, und sie als eine zu zählen machte
-    /// aus einem Rückstand einen Überschuss.</para>
+    /// <para>Gezählt wird, was <b>jemandem zugeordnet</b> ist — nicht jeder Eingang. Eine
+    /// Lohnzahlung auf das Haushaltskonto ist kein Beitrag, und sie als einen zu zählen machte
+    /// aus einem Rückstand einen Überschuss. Zugeordnet heißt: am Beleg als Einlage einer
+    /// Person markiert, oder über eine Einnahmekategorie, an der eine Person steht. Beides ist
+    /// gepflegt; am Zahlernamen wird nichts abgeleitet.</para>
     /// <para><b>Kein Mahnen.</b> Der Rückstand ist eine Feststellung; was zwischen zwei Menschen
     /// vereinbart wurde, nachdem das Soll eingetragen war, weiß die Anwendung nicht.</para>
     /// </remarks>
@@ -179,17 +237,7 @@ public sealed class ParticipationService(FinanzAppDbContext db, CurrentUser user
 
         var gepflegt = await db.Categories.AsNoTracking().AnyAsync(c => c.PropertyRelated, ct);
 
-        // Nur Zuflüsse: eine Einlage, die von diesem Konto abgeht, ist kein Eingang auf ihm.
-        // Das Vorzeichen trägt die Richtung — siehe TransactionService.Vorzeichen.
-        var einlagen = await db.Transactions.AsNoTracking()
-            .Where(t => t.Kind == TransactionKind.Deposit
-                        && t.DepositUserId != null
-                        && t.Amount > 0
-                        && kontoIds.Contains(t.AccountId)
-                        && t.BookingDate >= jahresAnfang
-                        && t.BookingDate < jahresEnde)
-            .Select(t => new { t.AccountId, User = t.DepositUserId!.Value, t.BookingDate, t.Amount })
-            .ToListAsync(ct);
+        var einlagen = await ContributionsAsync(kontoIds, jahresAnfang, jahresEnde, ct);
 
         return
         [
@@ -197,7 +245,7 @@ public sealed class ParticipationService(FinanzAppDbContext db, CurrentUser user
             {
                 decimal Summe(int userId, DateOnly ab, DateOnly bis)
                     => einlagen
-                        .Where(e => e.AccountId == konto.Id && e.User == userId
+                        .Where(e => e.AccountId == konto.Id && e.UserId == userId
                                     && e.BookingDate >= ab && e.BookingDate < bis)
                         .Sum(e => e.Amount);
 
@@ -205,7 +253,7 @@ public sealed class ParticipationService(FinanzAppDbContext db, CurrentUser user
                 // nicht sagt, ob es rechtzeitig war.
                 DateOnly? Zuletzt(int userId)
                     => einlagen
-                        .Where(e => e.AccountId == konto.Id && e.User == userId
+                        .Where(e => e.AccountId == konto.Id && e.UserId == userId
                                     && e.BookingDate >= monatsAnfang && e.BookingDate < monatsEnde)
                         .Select(e => (DateOnly?)e.BookingDate)
                         .Max();

@@ -71,8 +71,11 @@
                 <span class="label-strong">Optionen</span>
 
                 @*
-                    Eine Umbuchung trägt keine Kategorie — die Auswahl stünde da und hätte keine
-                    Wirkung. Sie zu zeigen und zu sperren wäre dasselbe in umständlich.
+                    Eine Umbuchung trägt keine Kategorie — aber sie bleibt keine. Hier stand
+                    nur ein Satz und sonst nichts: kein Weg zurück, keine Zuordnung. Wer sich
+                    vergriffen hatte oder wer einen Übertrag nachträglich als Beitrag führen
+                    wollte, kam nicht mehr heran. Der Server konnte es die ganze Zeit — eine
+                    zugeordnete Kategorie hebt die Umbuchung auf —, nur zeigte es niemand.
                 *@
                 @if (buchung.Kind == TransactionKind.Transfer)
                 {
@@ -80,6 +83,23 @@
                         Als Umbuchung markiert. Umbuchungen zählen weder als Einnahme noch als
                         Ausgabe und tragen deshalb keine Kategorie.
                     </p>
+
+                    <label class="tx-detail-option">
+                        <span class="label-muted">Umbuchung aufheben</span>
+                        <select class="input" value=""
+                                @onchange="PickAsync" aria-label="Kategorie der Buchung">
+                            <option value="">Umbuchung bleiben lassen</option>
+                            @foreach (var kategorie in Fitting(buchung))
+                            {
+                                <option value="@kategorie.Id">@kategorie.Name</option>
+                            }
+                        </select>
+                    </label>
+
+                    <span class="tx-detail-note">
+                        Eine gewählte Kategorie macht daraus wieder
+                        @(buchung.Amount >= 0m ? "eine Einnahme" : "eine Ausgabe").
+                    </span>
                 }
                 else if (buchung.Kind == TransactionKind.Deposit)
                 {
