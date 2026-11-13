@@ -89,6 +89,13 @@ public sealed class ObjectLabelService(FinanzAppDbContext db)
             LinkTargetType.Purchase => await db.Purchases.AsNoTracking()
                 .Where(x => x.Id == id).Select(x => x.Name).FirstOrDefaultAsync(ct),
 
+            // Der Typ stand im Enum und trug ein Etikett, ließ sich aber nicht auflösen —
+            // und eine Verknüpfung auf ein nicht auflösbares Ziel weist DocumentService.LinkAsync
+            // ab. Die erste Gehaltsabrechnung, die jemand übernehmen wollte, lief genau
+            // dagegen: „Das Ziel der Verknüpfung gibt es nicht.“
+            LinkTargetType.Employer => await db.Employments.AsNoTracking()
+                .Where(x => x.Id == id).Select(x => x.Employer).FirstOrDefaultAsync(ct),
+
             _ => null,
         };
 

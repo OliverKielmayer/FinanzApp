@@ -555,6 +555,14 @@ public sealed class DocumentScanService(
         var vorherBrutto = stelle.GrossMonthly;
         var vorherNetto = stelle.NetMonthly;
 
+        // Verknüpfen und ablegen zuerst, schreiben danach. In der ersten Fassung stand das
+        // SaveChanges davor — und als die Verknüpfung scheiterte, weil der Etikettendienst
+        // den Arbeitgeber nicht auflösen konnte, war das Gehalt an der Stelle trotzdem schon
+        // geschrieben. Der Anwender sah eine Fehlermeldung und hatte einen geänderten
+        // Bestand: Ein abgewiesener Vorgang darf nichts halb erledigt zurücklassen.
+        await documents.LinkAsync(dokument.Id, LinkTargetType.Employer, stelle.Id, ct);
+        await documents.RefileAsync(dokument.Id, dokument.Area, stelle.Employer, ct);
+
         if (brutto is { } b)
         {
             stelle.GrossMonthly = b;
@@ -566,9 +574,6 @@ public sealed class DocumentScanService(
         }
 
         await db.SaveChangesAsync(ct);
-
-        await documents.LinkAsync(dokument.Id, LinkTargetType.Employer, stelle.Id, ct);
-        await documents.RefileAsync(dokument.Id, dokument.Area, stelle.Employer, ct);
 
         var leitwert = brutto ?? netto!.Value;
         var leitfeld = brutto is null ? "Auszahlungsbetrag" : "Gesamt-Brutto im Monat";

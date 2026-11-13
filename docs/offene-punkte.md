@@ -450,6 +450,15 @@ Text.
   nirgends — es gibt nichts zu vergleichen. Das Ziel findet sich über das laufende
   Arbeitsverhältnis; bei mehreren bleibt es offen, denn welches gemeint ist, weiß nur der
   Inhaber.
+- **Die Übernahme ist nicht atomar.** Behoben wurde, dass sie überhaupt scheiterte: Der
+  Etikettendienst konnte den Arbeitgeber nicht auflösen, und eine Verknüpfung auf ein nicht
+  auflösbares Ziel weist `DocumentService.LinkAsync` ab — der Typ stand im Enum, trug ein
+  Etikett und fehlte in der einen Abfrage, auf die es ankam. Schlimmer war die Folge: Das
+  Speichern stand vor dem Verknüpfen, also war das Gehalt an der Stelle schon geschrieben,
+  als der Vorgang abbrach. Jetzt wird erst verknüpft und abgelegt, dann geschrieben. **Diese
+  Reihenfolge deckt kein Test** — wer sie zurückdreht, bringt nichts zum Fallen, weil sich
+  der Fall nach dem ersten Fix nicht mehr herstellen lässt. Sauber trüge das erst eine
+  Transaktion um `ConfirmAsync`; die beträfe auch Policen und Depots.
 - **Eine Reihe über die Monate entsteht nicht.** Anders als beim Statusreport, der seine
   Stände in eine Zeitreihe legt, überschreibt die Abrechnung die beiden Felder am
   Arbeitsverhältnis. Zwölf Abrechnungen eines Jahres wären eine Reihe wert — dafür bräuchte
