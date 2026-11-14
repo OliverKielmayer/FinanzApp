@@ -195,7 +195,10 @@ der zum Vermögen zählt?
   Krankenversicherung. Oben steht der **Jahresbeitrag**, kein Wert. Diese Verträge leisten im
   Schadensfall; sie tauchen nie im Vermögen auf.
 
-Ein Tipp auf eine Zeile führt in beiden Fällen auf dieselbe Vertragsseite.
+Ein Tipp auf eine Zeile führt in beiden Fällen auf dieselbe Vertragsseite. Dort steht oben
+**Bearbeiten** — dieselbe Maske wie beim Anlegen, nur gefüllt. Darin ändern Sie Anbieter,
+Bezeichnung, Vertragsnummer, Betrag und Zahlungsweise, Bankkonto, Immobilie, Kostenart und
+Kündigungsfrist.
 
 Kündigungsfristen werden **gerechnet**, nicht gepflegt: Vertragsende minus Frist. Ein von Hand
 gesetztes Datum liefe der stillen Verlängerung hinterher, deshalb gibt es dieses Feld nicht.

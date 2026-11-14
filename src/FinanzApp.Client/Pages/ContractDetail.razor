@@ -7,6 +7,12 @@
 <AsyncView Loading="Loading" Error="@Error" Stale="HasLoadedOnce" Retry="ReloadAsync">
     @if (data is { } contract)
     {
+        @*
+            „Bearbeiten" gehört hierher und nicht in die Liste: Ein Vertrag steht an mehreren
+            Stellen — unter der Immobilie, an einem Beleg, in einem Vorgang —, und von überall
+            führt der Tipp hierhin. Die Maske dahinter gibt es längst; sie war nur von keinem
+            Bildschirm aus zu erreichen.
+        *@
         <section class="hero">
             <span class="label-muted">@contract.Name</span>
             <span class="hero-value medium">@contract.Provider</span>
@@ -14,6 +20,7 @@
                 @(contract.ContractNumber is { Length: > 0 } number ? "Nr. " + number + " · " : string.Empty)
                 @(contract.StartsOn is { } from ? "seit " + GermanFormat.Date(from) : "Beginn offen")
             </span>
+            <EditLink Type="contract" Id="contract.Id" />
         </section>
 
         @*
