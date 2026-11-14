@@ -389,6 +389,24 @@
                     @(picked is null ? "Ablegen" : "Zuordnen")@(NaechsterId is null ? " und fertig" : " und weiter")
                 </button>
 
+                @*
+                    Der Schalter ist grau, solange der Typ fehlt — und das sagte bisher
+                    niemand. Wer das Objekt gewählt hatte und trotzdem nicht weiterkam, suchte
+                    den Fehler beim Objekt: „Versicherungsschein lässt sich nicht zuordnen.“
+                    Dabei fehlte die Zeile darüber.
+
+                    Dieselbe Regel wie in den Erfassungsmasken: Fehlt etwas, sagt die App
+                    <em>welches</em>, statt die Fläche nur stumm zu sperren.
+                *@
+                @if (typeId is null)
+                {
+                    <span class="triage-hint">
+                        @(picked is null
+                            ? "Noch kein Typ gewählt — er steht oben unter „Typ“ und ist das Einzige, was der Beleg hier zwingend braucht."
+                            : "Das Objekt steht, der Typ fehlt noch — er steht oben unter „Typ“.")
+                    </span>
+                }
+
                 @* Was ohne Objekt geschieht, steht am Schalter und nicht in einer Meldung
                    hinterher. Vorher entscheiden ist billiger als nachher suchen. *@
                 @if (picked is null && typeId is not null)
