@@ -112,6 +112,18 @@
         <div class="list-head">
             <span class="label-strong">Lohnabrechnungen</span>
             <span class="meta">@PayslipSummary(arbeit)</span>
+
+            @*
+                Nur, wo wirklich etwas offen ist. Ein Knopf, der nichts zu tun hätte, wäre
+                eine Einladung zum Drücken und eine Meldung „nichts gefunden“ als Antwort.
+            *@
+            <AuthorizeView Roles="Owner,Member" Context="zuordnen">
+                @if (arbeit.WithoutPaymentCount > 0)
+                {
+                    <button type="button" class="section-link" disabled="@busy"
+                            @onclick="AssignPaymentsAsync">Zahlungen zuordnen</button>
+                }
+            </AuthorizeView>
         </div>
 
         @if (arbeit.Payslips.Count == 0)
@@ -491,6 +503,36 @@
 
         return Task.CompletedTask;
     }
+
+    /// <summary>
+    /// Ordnet allen offenen Abrechnungen ihre Gutschrift zu, wo sie eindeutig ist.
+    /// </summary>
+    /// <remarks>
+    /// Die Meldung nennt die Zahl und nicht nur den Erfolg: Wer zehn offene Abrechnungen hat
+    /// und danach noch drei, soll das sehen, ohne nachzählen zu müssen.
+    /// </remarks>
+    private Task AssignPaymentsAsync() => RunAsync(async () =>
+    {
+        busy = true;
+        try
+        {
+            var zugeordnet = await Api.AssignPayslipPaymentsAsync();
+            await LoadAsync();
+
+            Toasts.Show(
+                zugeordnet switch
+                {
+                    0 => "Keine eindeutige Zahlung gefunden — bitte einzeln zuordnen",
+                    1 => "Eine Zahlung zugeordnet",
+                    _ => $"{zugeordnet} Zahlungen zugeordnet",
+                },
+                zugeordnet == 0 ? ToastKind.Notice : ToastKind.Saved);
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
 
     private Task LoadCandidatesAsync(int id) => RunAsync(async () =>
     {

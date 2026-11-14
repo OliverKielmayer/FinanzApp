@@ -583,7 +583,7 @@ public sealed class DocumentScanService(
         dokument.Area = art.Area;
         await documents.RefileAsync(dokument.Id, art.Area, stelle.Employer, ct);
 
-        db.Payslips.Add(new Payslip
+        var zeile = new Payslip
         {
             EmploymentId = stelle.Id,
             DocumentId = dokument.Id,
@@ -595,9 +595,17 @@ public sealed class DocumentScanService(
             // und fehlt auch das, wird aus dem Brutto geschätzt. Erfunden wird dabei nichts —
             // die Schätzung ist als solche gekennzeichnet.
             Payout = auszahlung ?? netto ?? EmploymentService.Estimate(brutto),
-        });
+        };
 
+        db.Payslips.Add(zeile);
         await db.SaveChangesAsync(ct);
+
+        // Und gleich die Gutschrift dazu, wo sie eindeutig ist: Betrag auf den Cent, Name des
+        // Arbeitgebers in der Buchung, und genau eine solche. Dieselbe Regel wie am Knopf
+        // „Zahlung zuordnen“ — nicht eine zweite Fassung davon, denn zwei Regeln für
+        // dieselbe Frage laufen auseinander. Was nicht eindeutig ist, bleibt offen und wartet
+        // auf den Kandidatenschirm.
+        var bezahlt = await new EmploymentService(db, clock).AutoAssignPaymentAsync(zeile.Id, ct);
 
         return new ScanResultDto
         {
@@ -608,7 +616,7 @@ public sealed class DocumentScanService(
             LeadNumber = brutto,
             LeadIsMoney = true,
             Effect = Wirkung(brutto, netto, auszahlung,
-                werte.GetValueOrDefault("sonderzahlung")?.Number),
+                werte.GetValueOrDefault("sonderzahlung")?.Number, bezahlt),
             Rule = $"Absender „{stelle.Employer}“ + „Gehaltsabrechnung“ → künftig automatisch hierher",
             TargetLink = art.TargetLink,
             TargetHref = "/arbeit",
@@ -627,7 +635,8 @@ public sealed class DocumentScanService(
     /// wie eine Gehaltserhöhung.</para>
     /// </remarks>
     private static List<ScanEffectPart> Wirkung(
-        decimal brutto, decimal? netto, decimal? auszahlung, decimal? sonderzahlung)
+        decimal brutto, decimal? netto, decimal? auszahlung, decimal? sonderzahlung,
+        bool bezahlt)
     {
         List<ScanEffectPart> satz = [new() { Text = "Brutto" }, new() { Money = brutto }];
 
@@ -647,6 +656,13 @@ public sealed class DocumentScanService(
         {
             satz.Add(new() { Text = "· darin ein sonstiger Bezug von" });
             satz.Add(new() { Money = s });
+        }
+
+        // Nur die gute Nachricht. „Zahlung nicht gefunden“ stünde unter jeder Abrechnung,
+        // die vor ihrer Gutschrift hereinkommt — und das ist der Normalfall, kein Mangel.
+        if (bezahlt)
+        {
+            satz.Add(new() { Text = "· Gutschrift zugeordnet" });
         }
 
         return satz;

@@ -268,6 +268,16 @@ Netto und Auszahlungsbetrag sind **zwei Zahlen**: Dazwischen stehen Vorschuesse,
 und vermögenswirksame Leistungen. Die Kopfwerte des Arbeitsverhältnisses bleiben unberührt —
 dort steht das Grundgehalt, nicht das Gesamt-Brutto mit Sachbezügen.
 
+**Die Gutschrift findet sich von selbst**, wo sie eindeutig ist: Betrag auf den Cent, Name
+des Arbeitgebers in der Buchung, und genau eine solche. Dann steht die Bankbuchung gleich
+nach dem Bestätigen daneben. Alles andere bleibt offen und wartet auf **Zahlung zuordnen** —
+dort steht die Liste der Kandidaten mit Bewertung.
+
+Wer schon Abrechnungen ohne Zahlung in der Liste hat, drückt oben **Zahlungen zuordnen**:
+Das geht alle offenen durch und ordnet zu, was eindeutig ist. Eine Abrechnung, bei der
+ausgewiesener und überwiesener Betrag auseinandergehen, bleibt mit Absicht liegen — dort
+ist etwas anzusehen.
+
 **Eine Sonderzahlung erkennt die App.** Trägt eine Lohnart das Kennzeichen „S“ für sonstigen
 Bezug — eine Prämie etwa —, nennt die Meldung sie beim Bestätigen. Damit ist erklärt,
 warum das Brutto dieses Monats gegenüber den übrigen springt. Geraten wird dabei nichts: Das

@@ -364,6 +364,14 @@ public static class ExtensionEndpoints
             => await service.DeletePayslipAsync(id, ct) ? Results.NoContent() : Results.NotFound())
             .RequireAuthorization(AuthPolicies.Write);
 
+        // Alles zuordnen, was eindeutig ist. Der Weg für einen Bestand, der vor der
+        // Automatik entstanden ist: zehnmal dieselbe eindeutige Entscheidung einzeln zu
+        // treffen ist keine Entscheidung mehr.
+        api.MapPost("/payslips/zahlungen-zuordnen", async (
+                EmploymentService service, CancellationToken ct)
+            => Results.Ok(await service.AutoAssignAllAsync(ct)))
+            .RequireAuthorization(AuthPolicies.Write);
+
         api.MapGet("/payslips/{id:int}/payment-candidates", async (
                 int id, EmploymentService service, CancellationToken ct)
             => Results.Ok(await service.GetPaymentCandidatesAsync(id, ct)));

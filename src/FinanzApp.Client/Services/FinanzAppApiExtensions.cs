@@ -609,6 +609,14 @@ public static class FinanzAppApiExtensions
         this FinanzAppApi api, CreatePayslipRequest request, CancellationToken ct = default)
         => api.PostAsync<CreatePayslipRequest, PayslipRowDto>("api/work/payslips", request, ct);
 
+    /// <summary>
+    /// Ordnet allen offenen Abrechnungen ihre Gutschrift zu, wo sie eindeutig ist — liefert,
+    /// wie vielen.
+    /// </summary>
+    public static Task<int> AssignPayslipPaymentsAsync(
+        this FinanzAppApi api, CancellationToken ct = default)
+        => api.PostAsync<object?, int>("api/work/payslips/zahlungen-zuordnen", null, ct);
+
     public static Task<IReadOnlyList<PaymentCandidateDto>> GetPayslipPaymentCandidatesAsync(
         this FinanzAppApi api, int id, CancellationToken ct = default)
         => api.GetAsync<IReadOnlyList<PaymentCandidateDto>>(

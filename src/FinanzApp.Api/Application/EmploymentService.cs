@@ -404,6 +404,81 @@ public sealed class EmploymentService(FinanzAppDbContext db, IClock clock)
         return PayslipRow(await LoadPayslipAsync(payslipId, ct));
     }
 
+    /// <summary>
+    /// Ordnet die Zahlung zu, wo sie <b>eindeutig</b> ist — und sonst gar nicht.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Eindeutig heißt dreierlei zugleich:</b> der Betrag stimmt auf den Cent, der
+    /// Name des Arbeitgebers steht in der Buchung, und es gibt genau <em>eine</em> solche.
+    /// Jede dieser Bedingungen allein ist zu schwach — zwei Gehaltszahlungen derselben Höhe im
+    /// selben Monat kommen vor, und ein Betrag ohne Namen trifft auch eine Erstattung.</para>
+    /// <para><b>Fast stimmt nicht.</b> Der Vorschlag kennt Abstufungen bis fünfzehn Prozent
+    /// Abweichung; die taugen für eine Liste, aus der ein Mensch wählt, und nicht für eine
+    /// Entscheidung, die von selbst fällt. Was hier nicht greift, bleibt offen und wartet auf
+    /// den Knopf „Zahlung zuordnen“ — die Liste steht ja.</para>
+    /// <para>Rückgabe: ob zugeordnet wurde. Eine schon zugeordnete Abrechnung wird nicht
+    /// angefasst; was ein Mensch entschieden hat, überschreibt keine Automatik.</para>
+    /// </remarks>
+    public async Task<bool> AutoAssignPaymentAsync(int payslipId, CancellationToken ct = default)
+    {
+        var abrechnung = await db.Payslips
+            .Include(p => p.Employment)
+            .FirstOrDefaultAsync(p => p.Id == payslipId, ct);
+
+        if (abrechnung is null || abrechnung.TransactionId is not null || abrechnung.Payout <= 0m)
+        {
+            return false;
+        }
+
+        var kandidaten = await GetPaymentCandidatesAsync(payslipId, ct);
+
+        // „Betrag stimmt“ vergibt der Vorschlag nur unter einem Promille Abweichung, und
+        // „Name des Arbeitgebers“ nur, wenn er wirklich in der Buchung steht. Beides zusammen
+        // ist die Schwelle, ab der niemand mehr hinsehen muss.
+        var sicher = kandidaten
+            .Where(k => k.Reason.Contains("Betrag stimmt", StringComparison.Ordinal)
+                        && k.Reason.Contains("Name des Arbeitgebers", StringComparison.Ordinal))
+            .ToList();
+
+        if (sicher.Count != 1)
+        {
+            return false;
+        }
+
+        abrechnung.TransactionId = sicher[0].TransactionId;
+        await db.SaveChangesAsync(ct);
+
+        return true;
+    }
+
+    /// <summary>
+    /// Geht alle offenen Abrechnungen durch und ordnet zu, was eindeutig ist.
+    /// </summary>
+    /// <remarks>
+    /// Der Weg für einen Bestand, der vor dieser Automatik entstanden ist: Zehn Abrechnungen
+    /// einzeln über den Kandidatenschirm zuzuordnen ist zehnmal dieselbe Entscheidung, und
+    /// jede einzelne war eindeutig. Was nicht eindeutig ist, bleibt liegen.
+    /// </remarks>
+    public async Task<int> AutoAssignAllAsync(CancellationToken ct = default)
+    {
+        var offen = await db.Payslips.AsNoTracking()
+            .Where(p => p.TransactionId == null)
+            .Select(p => p.Id)
+            .ToListAsync(ct);
+
+        var zugeordnet = 0;
+
+        foreach (var id in offen)
+        {
+            if (await AutoAssignPaymentAsync(id, ct))
+            {
+                zugeordnet++;
+            }
+        }
+
+        return zugeordnet;
+    }
+
     /// <summary>Löst die Zuordnung. Die Buchung bleibt, wo sie ist — sie war nie unsere.</summary>
     public async Task<PayslipRowDto> DetachPaymentAsync(int payslipId, CancellationToken ct = default)
     {
