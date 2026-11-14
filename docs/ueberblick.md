@@ -85,8 +85,12 @@ Zwei Türen, ein Ziel: **dieselbe Importvorschau**.
 
 1. **Datei einlesen** — camt (`.camt052`, `.camt053`, `.xml`) oder CSV. Für CSV gibt es
    Importprofile je Bank.
-2. **Bei der Bank abrufen** — FinTS. PIN eingeben, Zeitraum wählen; die Bank liefert camt,
-   und das geht durch denselben Leser wie eine hochgeladene Datei.
+2. **Bei der Bank abrufen** — FinTS. Ersten Tag wählen, PIN eingeben; die Bank liefert
+   camt, und das geht durch denselben Leser wie eine hochgeladene Datei. Bleibt das
+   Datumsfeld leer, fragt der Abruf **neunzig Tage** zurück. Weiter zurück ist erlaubt und
+   kostet nichts — nur verspricht es nichts: Wie weit eine Bank ihre Umsätze vorhält,
+   bestimmt sie selbst, und was sie nicht mehr hat, kommt als leere Antwort zurück und nicht
+   als Fehler.
 
 In der Vorschau steht Satz für Satz, was passieren würde:
 

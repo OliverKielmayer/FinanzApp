@@ -314,6 +314,26 @@
                                     behalten. Der Preis dafür ist bekannt und gewollt: kein
                                     Abruf im Hintergrund.
                                 *@
+                                @*
+                                    Der Zeitraum, und er steht vor der PIN: Wer bis in den
+                                    Januar zurück will, soll das entscheiden, bevor er tippt.
+                                    Leer bleibt der gewöhnliche Fall — dann fragt der Abruf
+                                    neunzig Tage zurück, und niemand muss dafür etwas eingeben.
+                                *@
+                                <div class="field">
+                                    <label for="bank-ab">Umsätze ab</label>
+                                    <input id="bank-ab" type="date" class="input"
+                                           max="@HeuteIso" @bind="bankFrom"
+                                           disabled="@bankBusy" />
+                                </div>
+                                <span class="meta">
+                                    Leer heisst: die letzten neunzig Tage. Weiter zurück zu
+                                    fragen kostet nichts — was schon gebucht ist, steht in der
+                                    Vorschau abgewählt. Wie weit eine Bank zurückgeht, bestimmt
+                                    allerdings sie: Was sie nicht mehr vorhält, kommt als leere
+                                    Antwort und nicht als Fehler.
+                                </span>
+
                                 <label class="label-muted" for="bank-pin">
                                     PIN für @konto.Name
                                 </label>
@@ -731,6 +751,24 @@ else if (sheetTransaction is { } sheet)
     private IReadOnlyList<string> bankProblems = [];
     private string? bankError;
 
+    /// <summary>
+    /// Der erste Tag des Abrufs. <c>null</c> heisst: neunzig Tage zurück.
+    /// </summary>
+    /// <remarks>
+    /// Anders als die PIN überlebt dieser Wert einen gescheiterten Abruf. Er ist kein
+    /// Geheimnis, und wer ihn nach einer abgewiesenen Anmeldung erneut eintippen müsste,
+    /// verlöre ihn genau dann, wenn er noch gebraucht wird.
+    /// </remarks>
+    private DateOnly? bankFrom;
+
+    /// <summary>Heute als ISO-Text — die Obergrenze des Datumsfelds.</summary>
+    /// <remarks>
+    /// Umsätze gibt es nur für Tage, die schon waren. Der Server weist einen Zeitraum in der
+    /// Zukunft ohnehin ab; das Feld lässt ihn gar nicht erst zu.
+    /// </remarks>
+    private static string HeuteIso
+        => DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd");
+
     // ── Abgleich ──────────────────────────────────────────────────────────────────────────
 
     /// <summary>Welches Konto gerade abgeglichen wird. <c>null</c> heisst: keines.</summary>
@@ -891,6 +929,7 @@ else if (sheetTransaction is { } sheet)
         bankPin = string.Empty;
         bankProblems = [];
         bankError = null;
+        bankFrom = null;
         bankBusy = true;
 
         try
@@ -915,6 +954,7 @@ else if (sheetTransaction is { } sheet)
         bankPin = string.Empty;
         bankProblems = [];
         bankError = null;
+        bankFrom = null;
     }
 
     /// <summary>Die Eingabetaste fragt ab — wie in jedem anderen Anmeldefeld auch.</summary>
@@ -941,6 +981,10 @@ else if (sheetTransaction is { } sheet)
     /// den Tag dazu; das Kästchen auf der Importseite steht deshalb nach einem Abruf von
     /// vornherein an. Bei einer hochgeladenen Datei bleibt es aus — dort weiß niemand, ob
     /// der Auszug der neueste ist.</para>
+    /// <para><b>Der Zeitraum ist die Frage, nicht die Antwort.</b> Was zurückkommt, bestimmt
+    /// die Bank: Ein weit gefasster Abruf ist erlaubt, liefert aber nur, was sie noch vorhält.
+    /// Deshalb wird ein leeres Ergebnis mit dem gefragten Tag gemeldet — sonst sähe es aus
+    /// wie ein Konto ohne Bewegung.</para>
     /// </remarks>
     private async Task RunStatementFetch()
     {
@@ -954,13 +998,20 @@ else if (sheetTransaction is { } sheet)
 
         try
         {
-            var vorschau = await Api.FetchBankStatementAsync(id, bankPin);
+            var vorschau = await Api.FetchBankStatementAsync(id, bankPin, bankFrom);
 
             // Ein leerer Auszug ist kein Fehler, aber auch kein Grund zum Seitenwechsel: Die
             // Importseite zeigte eine leere Liste, und warum sie leer ist, stünde nirgends.
+            //
+            // Der Zeitraum steht dabei, seit er wählbar ist: „Keine Umsätze“ nach einer Frage
+            // bis in den Januar heisst meistens, dass die Bank so weit nicht zurückgeht — und
+            // nicht, dass auf dem Konto nichts los war.
             if (vorschau.RecordCount == 0)
             {
-                Toasts.Show("Die Bank hat für den Zeitraum keine Umsätze gemeldet.");
+                Toasts.Show(bankFrom is { } ab
+                    ? $"Die Bank hat ab {ab:dd.MM.yyyy} keine Umsätze gemeldet."
+                    : "Die Bank hat für die letzten neunzig Tage keine Umsätze gemeldet.");
+
                 return;
             }
 
