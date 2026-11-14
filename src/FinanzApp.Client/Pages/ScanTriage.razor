@@ -398,7 +398,24 @@
                     Dieselbe Regel wie in den Erfassungsmasken: Fehlt etwas, sagt die App
                     <em>welches</em>, statt die Fläche nur stumm zu sperren.
                 *@
-                @if (typeId is null)
+                @*
+                    Und wo Werte zu übernehmen sind, ist der Typ überhaupt nicht der Weg.
+
+                    Eine Vermögensübersicht gehört zu <em>allen</em> ihren Verträgen, nicht zu
+                    einem; einen Typ dafür gibt es nicht und soll es nicht geben. Wer das nicht
+                    weiss, sucht in der Typliste nach „Vermögensübersicht“, findet nichts und
+                    hält den Beleg für nicht einordenbar. Das Übernehmen räumt ihn selbst aus
+                    dem Eingang — nach der Bestätigung steht er nicht mehr hier.
+                *@
+                @if (typeId is null && beleg.CanTakeValues)
+                {
+                    <span class="triage-hint">
+                        Dieser Beleg braucht keinen Typ: Seine Werte gehen über
+                        <strong>@(beleg.ValuesLabel ?? "Werte übernehmen")</strong> in die
+                        Objekte, und danach verschwindet er von selbst aus dem Eingang.
+                    </span>
+                }
+                else if (typeId is null)
                 {
                     <span class="triage-hint">
                         @(picked is null
