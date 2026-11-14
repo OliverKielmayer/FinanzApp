@@ -282,6 +282,45 @@ public sealed class PayslipKindTests
     }
 
     /// <summary>
+    /// <b>Verschluckt die Texterkennung das „für“, bleibt der Monat trotzdem lesbar.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>Genau daran hing die echte Abrechnung 08/2026 fest. Aus „… der Brutto/Netto-Bezüge
+    /// für August 2026 27.08.2026“ machte die Texterkennung <c>e August 2026 27.08.2026</c> —
+    /// von „Bezüge für“ blieb ein einzelnes e übrig. Der Monat ist der Stichtag dieses
+    /// Belegs, und ohne Stichtag wird nichts übernommen: Brutto, Netto und Auszahlung standen
+    /// gelesen da und waren nicht zu gebrauchen.</para>
+    /// <para>Der Anker liegt deshalb auf dem Monatsnamen selbst. Er ist die Nutzlast und
+    /// nicht die Beschriftung davor — dieselbe Regel, nach der oben schon die Geldwerte
+    /// gebaut sind.</para>
+    /// </remarks>
+    [Fact]
+    public void Ohne_das_Woertchen_fuer_bleibt_der_Monat_lesbar()
+    {
+        var werte = Lies(Abrechnung(kopfzeile: "e August 2026 27.08.2026"));
+
+        Assert.Equal(new DateOnly(2026, 8, 1), werte["monat"].Date);
+        Assert.Equal(new DateOnly(2026, 8, 27), werte["abgerechnet"].Date);
+    }
+
+    /// <summary>
+    /// <b>Ein Datum ohne Monatsnamen davor ist nicht der Abrechnungstag.</b>
+    /// </summary>
+    /// <remarks>
+    /// Auf einer Abrechnung stehen mehrere Datumsangaben — Eintritt, Geburtstag,
+    /// Steuerfreibetrag. Bliebe das Muster nicht an den Monat gebunden, stünde die erstbeste
+    /// davon als Abrechnungstag da, und niemand sähe es ihr an.
+    /// </remarks>
+    [Fact]
+    public void Ein_Datum_ohne_Monatsnamen_zaehlt_nicht()
+    {
+        var werte = Lies(Abrechnung(kopfzeile: "Abrechnun der Brutto/Netto-Bezü e 27.08.2026"));
+
+        Assert.False(werte.ContainsKey("abgerechnet") && werte["abgerechnet"].Date is not null);
+        Assert.False(werte.ContainsKey("monat") && werte["monat"].Date is not null);
+    }
+
+    /// <summary>
     /// <b>Der abgerechnete Monat, nicht der Tag der Abrechnung.</b> Die
     /// Lohnabrechnungstabelle führt eine Zeile je Monat; zwei Belege desselben Monats sind
     /// eine Dublette.

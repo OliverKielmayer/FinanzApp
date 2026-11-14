@@ -1299,6 +1299,21 @@ public static class DocumentKindLibrary
     /// festgelegt, damit die Zuordnung nicht davon abhängt, welche Art zufällig zuerst steht.
     /// </remarks>
     /// <summary>
+    /// Die ausgeschriebenen Monatsnamen als Regelteil.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Anker für alles, was auf einer Abrechnung am Abrechnungsmonat hängt. Er
+    /// steht hier und nicht zweimal in den Regeln darunter: Zwei Aufzählungen derselben
+    /// zwölf Namen gehen eines Tages auseinander.</para>
+    /// <para><c>M[aä]rz</c> mit beiden Schreibweisen, weil die Texterkennung den Umlaut
+    /// gelegentlich fallen lässt — derselbe Grund, aus dem die Geldregeln daneben ihre
+    /// <c>[uü]</c> tragen.</para>
+    /// </remarks>
+    private const string Monatsnamen =
+        "(?:Januar|Februar|M[aä]rz|April|Mai|Juni|Juli|August|September|Oktober"
+        + "|November|Dezember)";
+
+    /// <summary>
     /// Gehaltsabrechnung (DATEV-Formular).
     /// </summary>
     /// <remarks>
@@ -1410,7 +1425,18 @@ public static class DocumentKindLibrary
                 // „... der Brutto/Netto-Bezuege fuer Juni 2026“. Gelesen werden Monat und
                 // Jahr; daraus wird der Monatserste, so wie die Lohnabrechnungstabelle ihn
                 // fuehrt. Der Tag der Abrechnung steht daneben und ist etwas anderes.
-                Pattern = @"f[uü]r\s+([A-Za-zäöüÄÖÜ]{3,10}\s+\d{4})",
+                //
+                // Der Anker ist der MONATSNAME, nicht das Woertchen „fuer“ davor. Die
+                // Abrechnung 08/2026 hat genau daran gescheitert: Die Texterkennung las
+                // „... Bezuege fuer August 2026“ als „e August 2026“ — von „Bezuege fuer“
+                // blieb ein einzelnes e uebrig. Mit dem alten Anker fehlte der Stichtag, und
+                // ohne Stichtag wird nichts uebernommen; der ganze Beleg lag fest.
+                //
+                // Erlaubt ist das, weil der Monatsname die Nutzlast IST und nicht die
+                // Beschriftung davor. An zehn echten Abrechnungen gemessen steht in jeder
+                // genau ein ausgeschriebener Monat samt Jahr — es gibt nichts, womit er sich
+                // verwechseln liesse.
+                Pattern = $@"({Monatsnamen}\s+\d{{4}})",
             },
             new()
             {
@@ -1438,7 +1464,12 @@ public static class DocumentKindLibrary
                 // „… der Brutto/Netto-Bezüge für Juni 2026 25.06.2026“. Der Monatsname steht
                 // davor und wird nicht gelesen: Die Anwendung kennt kein Textfeld am Beleg,
                 // und erfunden würde daraus sonst ein Datum, das nirgends steht.
-                Pattern = @"f[uü]r\s+[A-Za-zäöüÄÖÜ]+\s+\d{4}\s+(\d{1,2}\.\d{1,2}\.\d{4})",
+                //
+                // Derselbe Anker wie beim Monat, aus demselben Grund — siehe dort. Das
+                // Datum bleibt dabei an den Monatsnamen gebunden und steht nicht allein:
+                // Auf einer Abrechnung stehen mehrere Datumsangaben (Eintritt, Geburtstag,
+                // Steuerfreibetrag), und die erstbeste davon wäre nicht der Abrechnungstag.
+                Pattern = $@"{Monatsnamen}\s+\d{{4}}\s+(\d{{1,2}}\.\d{{1,2}}\.\d{{4}})",
             },
         ],
 
