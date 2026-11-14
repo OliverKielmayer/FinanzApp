@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Security.Cryptography;
+using System.Text;
 using FinanzApp.Api.Data;
 using FinanzApp.Api.Data.Entities;
 using FinanzApp.Api.Infrastructure;
@@ -824,8 +825,12 @@ public sealed class DocumentService(
     }
 
     /// <summary>Öffnet die Datei zum Ausliefern, oder <c>null</c>, wenn sie fehlt.</summary>
+    /// <param name="forDisplay">
+    /// Für die Vorschau im Rahmen statt zum Herunterladen. Ändert nur die Typangabe, nie die
+    /// Bytes — siehe <see cref="AnzeigeTyp"/>.
+    /// </param>
     public async Task<(Stream Content, string FileName, string ContentType)?> OpenAsync(
-        int id, CancellationToken ct = default)
+        int id, bool forDisplay = false, CancellationToken ct = default)
     {
         var document = await db.Documents.AsNoTracking().FirstOrDefaultAsync(d => d.Id == id, ct);
         if (document is null || paths.Resolve(document.RelativePath) is not { } absolute
@@ -841,7 +846,73 @@ public sealed class DocumentService(
             ? gepflegt
             : Path.GetExtension(document.FileName);
 
-        return (File.OpenRead(absolute), document.FileName, ContentTypeFor(extension));
+        var typ = forDisplay
+            ? AnzeigeTyp(extension, absolute)
+            : ContentTypeFor(extension);
+
+        return (File.OpenRead(absolute), document.FileName, typ);
+    }
+
+    /// <summary>
+    /// Der Typ, unter dem eine Datei im Rahmen <em>angezeigt</em> wird.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Warum überhaupt ein anderer:</b> Eine CSV geht als <c>text/csv</c> hinaus, und
+    /// darauf öffnet der Browser einen Speichern-Dialog, statt sie zu zeigen — die Vorschau im
+    /// Scaneingang blieb leer und ein Fenster ging auf, das niemand gerufen hatte. Als
+    /// <c>text/plain</c> stellt er dieselben Bytes dar. Der Download behält <c>text/csv</c>:
+    /// Dort ist die Tabellenkalkulation das Ziel, und die will den richtigen Typ.</para>
+    /// <para><b>Und warum die Zeichensatzangabe nicht geraten wird:</b> Die
+    /// Vermögensübersicht einer Bank kam in Windows-1252 — ohne Angabe las der Browser sie als
+    /// UTF-8, und aus „Vermögen in €" wurde eine Reihe von Fragezeichen. Geprüft wird deshalb
+    /// am Anfang der Datei, ob die Bytes als UTF-8 aufgehen; tun sie es nicht, ist es im
+    /// deutschen Umfeld praktisch immer Windows-1252.</para>
+    /// <para>Dass hier gelesen wird, kostet nichts Sichtbares: 64 KB vom Anfang genügen, und
+    /// eine abgeschnittene Mehrbyte-Folge am Ende dieses Stücks darf nicht als Fehler zählen —
+    /// sonst entschiede die zufällige Stelle des Schnitts über den Zeichensatz.</para>
+    /// </remarks>
+    private static string AnzeigeTyp(string? extension, string absolute)
+    {
+        if (!string.Equals(extension, ".csv", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(extension, ".txt", StringComparison.OrdinalIgnoreCase))
+        {
+            return ContentTypeFor(extension);
+        }
+
+        return $"text/plain; charset={(IstUtf8(absolute) ? "utf-8" : "windows-1252")}";
+    }
+
+    /// <summary>Ob der Anfang der Datei als UTF-8 aufgeht.</summary>
+    private static bool IstUtf8(string absolute)
+    {
+        try
+        {
+            using var strom = File.OpenRead(absolute);
+            var puffer = new byte[64 * 1024];
+            var gelesen = strom.Read(puffer, 0, puffer.Length);
+            var ende = strom.Position >= strom.Length;
+
+            // Am Schnitt kann eine Mehrbyte-Folge halbiert sein. Nur am echten Dateiende ist
+            // eine unvollständige Folge wirklich ein Fehler.
+            var pruefer = new UTF8Encoding(
+                encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+
+            var decoder = pruefer.GetDecoder();
+            var zeichen = new char[puffer.Length + 1];
+            decoder.GetChars(puffer, 0, gelesen, zeichen, 0, flush: ende);
+
+            return true;
+        }
+        catch (DecoderFallbackException)
+        {
+            return false;
+        }
+        catch (IOException)
+        {
+            // Lässt sich die Datei nicht lesen, entscheidet gleich das Ausliefern darüber.
+            // Hier eine Kodierung zu behaupten wäre geraten.
+            return true;
+        }
     }
 
     private async Task<List<DocumentListItemDto>> LoadAsync(CancellationToken ct)

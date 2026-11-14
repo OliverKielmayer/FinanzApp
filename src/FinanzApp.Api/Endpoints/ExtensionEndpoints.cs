@@ -93,7 +93,7 @@ public static class ExtensionEndpoints
         api.MapGet("/{id:int}/file", async (
             int id, bool? download, DocumentService service, CancellationToken ct) =>
         {
-            var file = await service.OpenAsync(id, ct);
+            var file = await service.OpenAsync(id, forDisplay: download != true, ct);
 
             if (file is null)
             {
