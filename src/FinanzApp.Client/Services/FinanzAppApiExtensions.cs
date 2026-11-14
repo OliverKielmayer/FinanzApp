@@ -640,6 +640,19 @@ public static class FinanzAppApiExtensions
             new LinkPayslipPaymentRequest { TransactionId = transactionId },
             ct);
 
+    /// <summary>
+    /// Löscht eine Lohnabrechnungszeile. Der Beleg bleibt, wo er liegt.
+    /// </summary>
+    /// <remarks>
+    /// <b>Ohne Ergebnis.</b> Der Endpunkt antwortet 204; ein Leseversuch auf den leeren Rumpf
+    /// endete in „Die Antwort des Servers war unlesbar“ — nachdem gelöscht war. Dieselbe Falle
+    /// wie beim Dokument, und dieselbe Antwort darauf.
+    /// </remarks>
+    public static Task DeletePayslipAsync(
+        this FinanzAppApi api, int id, CancellationToken ct = default)
+        => api.SendWithoutResultAsync<object?>(
+            HttpMethod.Delete, $"api/work/payslips/{id}", null, ct);
+
     public static Task<PayslipRowDto> DetachPayslipPaymentAsync(
         this FinanzAppApi api, int id, CancellationToken ct = default)
         => api.SendAsync<object?, PayslipRowDto>(

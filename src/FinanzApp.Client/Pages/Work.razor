@@ -234,7 +234,58 @@
                                 <button type="button" class="btn btn-secondary" disabled="@busy"
                                         @onclick="() => DetachAsync(id)">Zuordnung lösen</button>
                             }
+
+                            @*
+                                Die Meldung beim Übernehmen sagt: „Wer sie ersetzen will,
+                                löscht erst die vorhandene." Bis hierher gab es dafür keine
+                                Fläche — ein Satz, der auf einen Weg zeigte, den es nicht gab.
+                            *@
+                            <button type="button" class="btn btn-ghost" disabled="@busy"
+                                    @onclick="() => ToggleDeleteAsync(id)">
+                                @(deleting == id ? "Doch behalten" : "Zeile löschen")
+                            </button>
                         </div>
+
+                        @if (deleting == id)
+                        {
+                            <div class="notice">
+                                <span class="notice-title">
+                                    @GermanFormat.MonthYear(zeile.Month) löschen?
+                                </span>
+                                <span class="notice-text">
+                                    Die Zeile verschwindet samt ihrer Zahlungszuordnung — die
+                                    Buchung selbst bleibt, sie gehört dem Konto. Der Beleg
+                                    bleibt ebenfalls liegen, abgelegt und verknüpft.
+                                </span>
+
+                                <div class="doc-actions">
+                                    <button type="button" class="btn btn-primary delete-confirm"
+                                            disabled="@busy"
+                                            @onclick="() => DeleteAsync(id, null)">
+                                        Löschen bestätigen
+                                    </button>
+
+                                    @*
+                                        Der Weg, für den dieser Schalter überhaupt gebraucht
+                                        wird: Eine Zeile wird gelöscht, weil sie neu gelesen
+                                        werden soll. Ohne diesen Knopf endete das Löschen in
+                                        einer Sackgasse — der Beleg gilt als übernommen, und
+                                        der Prüfschritt bietet sich von selbst nicht mehr an.
+                                    *@
+                                    @if (zeile.DocumentId is { } nachlesen)
+                                    {
+                                        <button type="button" class="btn btn-secondary"
+                                                disabled="@busy"
+                                                @onclick="() => DeleteAsync(id, nachlesen)">
+                                            Löschen und Beleg neu einlesen
+                                        </button>
+                                    }
+
+                                    <button type="button" class="btn btn-ghost" disabled="@busy"
+                                            @onclick="() => deleting = null">Behalten</button>
+                                </div>
+                            </div>
+                        }
 
                         @if (candidatesFor == id)
                         {
@@ -418,6 +469,9 @@
 
     private bool capturing;
     private PayslipDraft fresh = new();
+
+    /// <summary>Für welche Zeile die Löschrückfrage offensteht.</summary>
+    private int? deleting;
     private string? problem;
     private bool busy;
 
@@ -583,6 +637,61 @@
             await LoadAsync();
 
             Toasts.Show("Zuordnung gelöst · die Buchung bleibt", ToastKind.Saved);
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    /// <summary>Öffnet oder schliesst die Löschrückfrage einer Zeile.</summary>
+    /// <remarks>
+    /// Sie schliesst dabei die Kandidatenliste: Zwei aufgeklappte Flächen an derselben Zeile
+    /// stellen zwei Fragen gleichzeitig, und die untere gehört dann zur falschen.
+    /// </remarks>
+    private Task ToggleDeleteAsync(int id)
+    {
+        deleting = deleting == id ? null : id;
+        candidatesFor = null;
+        candidates = null;
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Löscht die Zeile — und führt auf Wunsch gleich zum Prüfschritt ihres Belegs.
+    /// </summary>
+    /// <param name="documentId">
+    /// Der Beleg, der danach neu eingelesen werden soll, oder <c>null</c> zum einfachen
+    /// Löschen.
+    /// </param>
+    /// <remarks>
+    /// <para><b>Warum der Umweg über den Beleg überhaupt angeboten wird:</b> Wer eine Zeile
+    /// löscht, will sie meistens ersetzen — die Übernahme sagt bei einem zweiten Beleg
+    /// desselben Monats „Wer sie ersetzen will, löscht erst die vorhandene“. Nach dem Löschen
+    /// gilt der Beleg aber weiter als übernommen, und der Prüfschritt bietet sich von selbst
+    /// nicht mehr an. Ohne diesen Weg endete das Löschen in einer Sackgasse.</para>
+    /// <para>Der Beleg selbst bleibt unberührt: abgelegt, verknüpft, auffindbar. Gelöscht
+    /// wird eine Zeile in der Lohnabrechnungstabelle und sonst nichts — die zugeordnete
+    /// Buchung gehört dem Konto und bleibt dort stehen.</para>
+    /// </remarks>
+    private Task DeleteAsync(int id, int? documentId) => RunAsync(async () =>
+    {
+        busy = true;
+
+        try
+        {
+            await Api.DeletePayslipAsync(id);
+            deleting = null;
+
+            if (documentId is { } beleg)
+            {
+                Navigation.NavigateTo($"/scannen/{beleg}");
+                return;
+            }
+
+            await LoadAsync();
+            Toasts.Show("Zeile gelöscht · Beleg und Buchung bleiben", ToastKind.Saved);
         }
         finally
         {
