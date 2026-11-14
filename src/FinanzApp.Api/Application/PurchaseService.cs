@@ -102,9 +102,13 @@ public sealed class PurchaseService(
     /// den Cent, Buchung im Zeitfenster, und eine Nummer aus dem Belegtext im
     /// Verwendungszweck. Zwei Fassungen desselben Abgleichs gängen auseinander, und bemerkt
     /// würde es an der, die seltener jemand ansieht.</para>
-    /// <para><b>Der Beleg ist die Bedingung.</b> Ohne Preis oder ohne eingelesenen Text gibt
-    /// es nichts zu vergleichen — dann bleibt die Liste leer statt einen Betragstreffer als
-    /// Zuordnung auszugeben.</para>
+    /// <para><b>Wo die Buchung schon vermerkt ist, wird nicht abgeglichen.</b> Eine
+    /// Anschaffung, die aus einer Kontobuchung entstanden ist, trägt sie am Datensatz — wer
+    /// sie vor sich hatte, <em>weiss</em>, welche Zahlung es war. Dann steht sie da, und zwar
+    /// allein: Eine Gewissheit mit Vermutungen zu garnieren machte sie nicht sicherer.</para>
+    /// <para><b>Sonst ist der Beleg die Bedingung.</b> Ohne Preis oder ohne eingelesenen Text
+    /// gibt es nichts zu vergleichen — dann bleibt die Liste leer statt einen Betragstreffer
+    /// als Zuordnung auszugeben.</para>
     /// <para><b>Gezeigt wird auch, was nur dem Betrag nach passt</b>, aber als solches
     /// benannt. Die Entscheidung liegt beim Inhaber; die Anwendung sagt, wie fest der Faden
     /// ist.</para>
@@ -112,6 +116,34 @@ public sealed class PurchaseService(
     private async Task<IReadOnlyList<LinkedPaymentDto>> PaymentsAsync(
         Purchase purchase, CancellationToken ct)
     {
+        // Steht die Buchung schon am Datensatz, ist nichts zu suchen. Sie steht dort, weil
+        // jemand sie vor sich hatte und daraus die Anschaffung erfasst hat — eine festere
+        // Auskunft als jeder Abgleich, und sie braucht weder Preis noch Beleg. Daneben noch
+        // nach Kandidaten zu suchen hiesse, eine Gewissheit mit Vermutungen zu garnieren.
+        if (purchase.TransactionId is { } ausBuchung)
+        {
+            var quelle = await db.Transactions.AsNoTracking()
+                .Include(t => t.Account)
+                .FirstOrDefaultAsync(t => t.Id == ausBuchung, ct);
+
+            if (quelle is not null)
+            {
+                return
+                [
+                    new LinkedPaymentDto
+                    {
+                        TransactionId = quelle.Id,
+                        BookingDate = quelle.BookingDate,
+                        Amount = Math.Abs(quelle.Amount),
+                        Payee = quelle.Payee,
+                        AccountName = quelle.Account?.Name ?? string.Empty,
+                        MatchReason = "Aus dieser Buchung erfasst",
+                        Reference = quelle.Purpose,
+                    },
+                ];
+            }
+        }
+
         if (purchase.Price is not { } preis || preis <= 0m)
         {
             return [];

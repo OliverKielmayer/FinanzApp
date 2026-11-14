@@ -773,6 +773,26 @@ public class Purchase : IHouseholdOwned
 
     public Property? Property { get; set; }
 
+    /// <summary>
+    /// Die Buchung, aus der die Anschaffung entstanden ist — <c>null</c>, wenn sie von Hand
+    /// erfasst wurde.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Die stärkste Verknüpfung, die es hier gibt.</b> Eine Anschaffung findet ihre
+    /// Zahlung sonst über einen Abgleich: Betrag auf den Cent, Zeitfenster, Belegnummer im
+    /// Verwendungszweck — und der schweigt, wo kein Beleg hängt. Wer dagegen eine Buchung vor
+    /// sich hat und daraus die Anschaffung erfasst, <em>weiß</em>, welche Zahlung es war. Das
+    /// zu vergessen und hinterher zu raten wäre eine selbstgemachte Unsicherheit.</para>
+    /// <para>Der Weg entstand aus dem Alltag: Eine Bestellung fällt meist erst auf, wenn die
+    /// Abbuchung im Konto steht.</para>
+    /// <para>Beim Löschen der Buchung wird der Verweis auf <c>null</c> gesetzt, nicht die
+    /// Anschaffung gelöscht — dasselbe Verhältnis wie zur Immobilie: Der gekaufte Gegenstand
+    /// ist eine Tatsache, die Buchung war nur sein Beleg.</para>
+    /// </remarks>
+    public int? TransactionId { get; set; }
+
+    public Transaction? Transaction { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }

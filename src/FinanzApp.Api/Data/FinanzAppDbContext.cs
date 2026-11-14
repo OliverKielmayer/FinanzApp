@@ -495,6 +495,10 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
             // keinen dezimalen Typ, und als TEXT wären Summen und Sortierungen in SQL falsch.
             e.Property(x => x.Price).HasConversion(NullableMoneyConverter);
 
+            // Verschwindet die Buchung, bleibt die Anschaffung: Gekauft wurde sie trotzdem.
+            e.HasOne(x => x.Transaction).WithMany()
+                .HasForeignKey(x => x.TransactionId).OnDelete(DeleteBehavior.SetNull);
+
             // Die Anschaffung überlebt die Immobilie: Ein gekaufter Gegenstand ist eine
             // Tatsache, das Objekt war nur seine Schublade. Dasselbe Verhalten wie bei der
             // Kfz-Police am Fahrzeug.

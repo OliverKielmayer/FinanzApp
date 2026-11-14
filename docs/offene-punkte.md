@@ -468,6 +468,27 @@ Text.
   Monatsbrutto erklärt ist. Die Lohnabrechnungstabelle hat keine Spalte dafür; sie
   anzulegen wäre eine Migration und eine eigene Frage.
 
+## Was an der Zahlungszuordnung und der Anschaffung aus einer Buchung offen bleibt
+
+Gebaut am **14.11.2026**.
+
+- **Die Automatik fasst nur den eindeutigen Fall an.** Betrag auf den Cent, Name des
+  Arbeitgebers in der Buchung, genau eine solche. An der echten Ablage gemessen greift das
+  bei neun von zehn Abrechnungen; die zehnte weist gut zwanzig Euro mehr aus, als überwiesen
+  wurde, und bleibt mit Absicht liegen. Wo der Arbeitgeber anders heißt als in der Buchung —
+  eine Lohnbuchhaltung als Zahler etwa —, greift sie gar nicht; dann bleibt der
+  Kandidatenschirm.
+- **Der Name der Anschaffung ist der Händler.** Was gekauft wurde, sagt kein Kontoauszug.
+  Aus dem Verwendungszweck etwas zu lesen wäre bei einer Bestellnummer eine Erfindung; wer
+  es weiß, schreibt es in das Feld. Ein Vorschlag aus dem Belegtext entstünde erst, wenn ein
+  Beleg daran hängt — und der kommt meist später.
+- **Die vermerkte Buchung lässt sich nicht wieder lösen.** Wer sich vergriffen hat, löscht
+  die Anschaffung und legt sie neu an. Ein Knopf dafür lohnt sich, sobald jemand ihn
+  vermisst.
+- **Eine Anschaffung trägt höchstens eine Buchung.** Eine Bestellung, die in zwei Raten
+  abgebucht wird, zeigt nur die, aus der sie erfasst wurde; die zweite fände der Abgleich,
+  wenn ein Beleg hängt. Mehrere Zahlungen fest zu vermerken bräuchte eine eigene Tabelle.
+
 ## Gebaut, aber nie angesehen
 
 Nichts mehr — das Druckblatt ist gestaltet und in der Vorschau geprüft (§15.3), die vier

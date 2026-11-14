@@ -153,6 +153,21 @@
                 }
 
                 @*
+                    Aus einer Abbuchung eine Anschaffung machen. Der Weg aus dem Alltag: Eine
+                    Bestellung fällt meist erst auf, wenn die Abbuchung im Konto steht — und
+                    dann stehen Betrag, Tag und Händler schon da.
+
+                    Nur bei Abgängen: Eine Gutschrift ist keine Anschaffung.
+                *@
+                @if (buchung.Amount < 0m)
+                {
+                    <button type="button" class="btn btn-secondary tx-detail-action"
+                            @onclick="() => OnCreatePurchase.InvokeAsync(buchung.Id)">
+                        Als Anschaffung erfassen
+                    </button>
+                }
+
+                @*
                     Löschen steht hier wie im Sheet hinter einem zweiten Tipp. Eine Buchung, die
                     auf einen Klick verschwindet, nimmt einen Auszugssatz mit, den niemand
                     wiederherstellen kann.
@@ -207,6 +222,9 @@
 
     /// <summary>Die Buchung wird zur Einlage dieser Person.</summary>
     [Parameter] public EventCallback<int> OnPickDeposit { get; set; }
+
+    /// <summary>Aus dieser Buchung soll eine Anschaffung entstehen.</summary>
+    [Parameter] public EventCallback<int> OnCreatePurchase { get; set; }
     [Parameter] public EventCallback OnDelete { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
 

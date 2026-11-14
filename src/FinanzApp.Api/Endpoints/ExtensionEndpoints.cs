@@ -588,11 +588,14 @@ public static class ExtensionEndpoints
 
         // documentId: der Weg vom Prüfplatz. Liegt ein Beleg daneben, kommt das Formular
         // vorbefüllt zurück — Händler, Kaufdatum und Preis stehen ja auf dem Blatt.
+        //
+        // transactionId: der Weg aus der Buchungsliste. Eine Bestellung fällt meist erst auf,
+        // wenn die Abbuchung im Konto steht — Betrag, Tag und Händler stehen dann schon da.
         api.MapGet("/{type}", async (
-            CreateObjectType type, int? documentId, CreateFormService service,
-            CancellationToken ct) =>
+            CreateObjectType type, int? documentId, int? transactionId,
+            CreateFormService service, CancellationToken ct) =>
         {
-            var form = await service.GetFormAsync(type, null, documentId, ct);
+            var form = await service.GetFormAsync(type, null, documentId, transactionId, ct);
             return form is null ? Results.NotFound() : Results.Ok(form);
         });
 
@@ -600,7 +603,7 @@ public static class ExtensionEndpoints
         api.MapGet("/{type}/{id:int}", async (
             CreateObjectType type, int id, CreateFormService service, CancellationToken ct) =>
         {
-            var form = await service.GetFormAsync(type, id, null, ct);
+            var form = await service.GetFormAsync(type, id, null, null, ct);
             return form is null ? Results.NotFound() : Results.Ok(form);
         });
 
@@ -641,10 +644,11 @@ public static class ExtensionEndpoints
         // gleich an ihn — sonst stünde der neue Posten da, ohne das Schreiben zu kennen, aus
         // dem er stammt.
         api.MapPost("/{type}", async (
-            CreateObjectType type, int? documentId, CreateRequest request,
+            CreateObjectType type, int? documentId, int? transactionId, CreateRequest request,
             CreateFormService service, CancellationToken ct) =>
         {
-            var result = await service.CreateAsync(type, request.Values, documentId, ct);
+            var result = await service.CreateAsync(
+                type, request.Values, documentId, transactionId, ct);
 
             // Auch das Scheitern ist eine gültige Antwort: die Oberfläche braucht das Feld,
             // nicht nur einen Statuscode.

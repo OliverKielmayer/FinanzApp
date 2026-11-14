@@ -418,14 +418,21 @@ public static class FinanzAppApiExtensions
     /// Ein Beleg, aus dem vorbefüllt wird — der Weg vom Prüfplatz. Was auf dem Lieferschein
     /// steht, muss dann niemand abtippen.
     /// </param>
+    /// <param name="transactionId">
+    /// Eine Kontobuchung, aus der vorbefüllt wird — der Weg aus der Buchungsliste.
+    /// </param>
     public static Task<CreateFormDto> GetCreateFormAsync(
         this FinanzAppApi api, CreateObjectType type, int? documentId = null,
-        CancellationToken ct = default)
+        int? transactionId = null, CancellationToken ct = default)
         => api.GetAsync<CreateFormDto>(
-            documentId is { } beleg
-                ? $"api/create/{type}?documentId={beleg}"
-                : $"api/create/{type}",
-            ct);
+            $"api/create/{type}{Anhang(documentId, transactionId)}", ct);
+
+    /// <summary>Die Herkunft als Abfrageteil — beides zugleich kommt nicht vor.</summary>
+    private static string Anhang(int? documentId, int? transactionId) => documentId switch
+    {
+        { } beleg => $"?documentId={beleg}",
+        _ => transactionId is { } buchung ? $"?transactionId={buchung}" : string.Empty,
+    };
 
     /// <summary>
     /// Legt an. Ein Fehlschlag kommt als Ergebnis zurück, nicht als Ausnahme — die Oberfläche
@@ -434,11 +441,14 @@ public static class FinanzAppApiExtensions
     /// <param name="documentId">
     /// Derselbe Beleg, aus dem vorbefüllt wurde. Der Server hängt das neue Objekt an ihn.
     /// </param>
+    /// <param name="transactionId">
+    /// Dieselbe Buchung, aus der vorbefüllt wurde. Der Server vermerkt sie an der Anschaffung.
+    /// </param>
     public static Task<CreateResultDto> CreateObjectAsync(
         this FinanzAppApi api, CreateObjectType type, Dictionary<string, string?> values,
-        int? documentId = null, CancellationToken ct = default)
+        int? documentId = null, int? transactionId = null, CancellationToken ct = default)
         => api.PostAsync<CreateRequest, CreateResultDto>(
-            documentId is { } beleg ? $"api/create/{type}?documentId={beleg}" : $"api/create/{type}",
+            $"api/create/{type}{Anhang(documentId, transactionId)}",
             new CreateRequest { Values = values },
             ct);
 

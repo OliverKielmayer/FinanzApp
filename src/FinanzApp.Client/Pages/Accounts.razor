@@ -655,6 +655,7 @@
                            OnPickCategory="AssignShown"
                            OnPickTransfer="TransferShown"
                            OnPickDeposit="DepositShownAsync"
+                           OnCreatePurchase="PurchaseFromAsync"
                            OnDelete="DeleteSingleAsync"
                            OnClose="CloseSheet" />
     </div>
@@ -1507,6 +1508,20 @@ else if (sheetTransaction is { } sheet)
             Advance();
         }
     });
+
+    /// <summary>
+    /// Führt in die Anschaffungsmaske, vorbefüllt aus dieser Buchung.
+    /// </summary>
+    /// <remarks>
+    /// Über die Adresse und nicht über einen Zwischenspeicher: So lässt sich der Schritt
+    /// zurücknehmen, der Stand steht im Verlauf, und ein Neuladen der Seite verliert ihn
+    /// nicht. Die Buchung bleibt, wie sie ist — angelegt wird erst in der Maske.
+    /// </remarks>
+    private Task PurchaseFromAsync(int transactionId)
+    {
+        Navigation.NavigateTo($"/neu/purchase?aus={transactionId}");
+        return Task.CompletedTask;
+    }
 
     /// <summary>
     /// Wer auf das Konto dieser Buchung einzahlt — leer, wenn es kein Gemeinschaftskonto ist.

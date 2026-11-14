@@ -92,6 +92,23 @@ der Buchung (**Einlage von …**) oder über eine Einnahmekategorie mit eingetra
 **„noch nicht zugeordnet"** mit Anzahl und Betrag unter den Anteilen; solange dort etwas
 steht, sind die Anteile darüber eine Teilauskunft.
 
+### Aus einer Buchung eine Anschaffung machen
+
+In der Buchungsliste eine **Abbuchung** antippen, dann **Als Anschaffung erfassen**. Die Maske
+kommt vorbefüllt: Betrag, Tag und Händler stehen schon da. Der Name ist zunächst der
+Händler — was gekauft wurde, sagt kein Kontoauszug; wer es besser weiß, schreibt es
+hinein.
+
+Der Weg kommt aus dem Alltag: Eine Bestellung fällt meist erst auf, wenn die Abbuchung im
+Konto steht.
+
+**Die Buchung bleibt an der Anschaffung vermerkt.** In der Anschaffungsansicht steht sie
+unter *Bezahlt mit* mit dem Hinweis „Aus dieser Buchung erfasst“ — und zwar allein: Wo die
+Zahlung bekannt ist, wird nicht nach Kandidaten gesucht. Das ist die festeste Zuordnung, die
+es hier gibt; sie braucht weder Beleg noch Abgleich.
+
+Bei einer **Gutschrift** steht der Schalter nicht — eine Erstattung ist keine Anschaffung.
+
 ## 4. Vorgänge — alles Unerledigte
 
 Die meisten Einträge entstehen von selbst: aus einem Vertragsende minus Kündigungsfrist, aus einer

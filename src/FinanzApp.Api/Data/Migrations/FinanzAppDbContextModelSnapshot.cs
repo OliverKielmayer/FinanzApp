@@ -1515,6 +1515,9 @@ namespace FinanzApp.Api.Data.Migrations
                     b.Property<DateOnly>("PurchaseDate")
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("TransactionId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("TEXT");
 
@@ -1528,6 +1531,8 @@ namespace FinanzApp.Api.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("PropertyId");
+
+                    b.HasIndex("TransactionId");
 
                     b.HasIndex("HouseholdId", "Name");
 
@@ -2364,7 +2369,14 @@ namespace FinanzApp.Api.Data.Migrations
                         .HasForeignKey("PropertyId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("FinanzApp.Api.Data.Entities.Transaction", "Transaction")
+                        .WithMany()
+                        .HasForeignKey("TransactionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Property");
+
+                    b.Navigation("Transaction");
                 });
 
             modelBuilder.Entity("FinanzApp.Api.Data.Entities.ScanInboxItem", b =>

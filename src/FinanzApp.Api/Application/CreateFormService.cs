@@ -38,13 +38,26 @@ public sealed class CreateFormService(
     /// und was darauf steht, muss niemand abtippen. Gilt nur beim Anlegen — wer ein bestehendes
     /// Objekt bearbeitet, will seine Angaben sehen und nicht die eines Belegs.
     /// </param>
+    /// <param name="fromTransactionId">
+    /// Eine Kontobuchung, aus der vorbefüllt wird. Der Weg aus dem Alltag: Eine Bestellung
+    /// fällt meist erst auf, wenn die Abbuchung im Konto steht — und dann steht alles schon
+    /// da, was die Anschaffung braucht. Gilt wie der Beleg nur beim Anlegen.
+    /// </param>
     public async Task<CreateFormDto?> GetFormAsync(
         CreateObjectType type, int? id = null, int? fromDocumentId = null,
-        CancellationToken ct = default)
+        int? fromTransactionId = null, CancellationToken ct = default)
     {
         var form = await BuildFormAsync(type, ct);
         if (form is null || id is not { } editing)
         {
+            if (form is not null && fromTransactionId is { } buchung)
+            {
+                return form with
+                {
+                    Fields = await AusBuchungAsync(type, buchung, form.Fields, ct),
+                };
+            }
+
             return form is not null && fromDocumentId is { } beleg
                 ? form with { Fields = await VorbefuellenAsync(type, beleg, form.Fields, ct) }
                 : form;
@@ -73,6 +86,56 @@ public sealed class CreateFormService(
             // Deshalb gibt es die Bezeichnung hier als echtes Feld.
             Fields = NameField(type) is { } name ? [name, .. form.Fields] : form.Fields,
         };
+    }
+
+    /// <summary>
+    /// Setzt die Angaben einer Kontobuchung als Vorgabewerte in die Felder.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nur was in der Buchung steht.</b> Betrag, Tag und Zahlungsempfänger — mehr
+    /// weiß sie nicht. Der Name der Anschaffung ist derselbe Empfänger: Was gekauft wurde,
+    /// sagt kein Kontoauszug, und „Amazon“ als Name ist ehrlicher als ein geratener
+    /// Gegenstand. Wer es besser weiß, überschreibt ihn im Feld.</para>
+    /// <para><b>Nur bei Abgängen.</b> Eine Gutschrift ist keine Anschaffung, und der Betrag
+    /// geht ohne Vorzeichen ins Feld: Der Kaufpreis ist eine positive Zahl, auch wenn die
+    /// Buchung negativ ist.</para>
+    /// <para>Der Verweis auf die Buchung reist <em>nicht</em> im Formular mit, sondern als
+    /// eigener Parameter bis zum Anlegen — denselben Weg geht der Beleg. Als Feld wäre es
+    /// eine Kennziffer, die niemand von Hand einträgt und jeder überschreiben könnte.</para>
+    /// </remarks>
+    private async Task<IReadOnlyList<CreateFieldDto>> AusBuchungAsync(
+        CreateObjectType type, int transactionId, IReadOnlyList<CreateFieldDto> felder,
+        CancellationToken ct)
+    {
+        if (type != CreateObjectType.Purchase)
+        {
+            return felder;
+        }
+
+        var buchung = await db.Transactions.AsNoTracking()
+            .Where(t => t.Id == transactionId && t.Amount < 0m)
+            .Select(t => new { t.Id, t.Amount, t.BookingDate, t.Payee })
+            .FirstOrDefaultAsync(ct);
+
+        if (buchung is null)
+        {
+            return felder;
+        }
+
+        var vorschlaege = new Dictionary<string, string?>
+        {
+            ["name"] = buchung.Payee,
+            ["vendor"] = buchung.Payee,
+            ["purchase"] = Iso(buchung.BookingDate),
+            ["price"] = Money(Math.Abs(buchung.Amount)),
+        };
+
+        return
+        [
+            .. felder.Select(f => vorschlaege.TryGetValue(f.Key, out var wert)
+                ? f with { DefaultValue = wert }
+                : f),
+        ];
     }
 
     /// <summary>
@@ -130,9 +193,15 @@ public sealed class CreateFormService(
     /// Der Beleg, aus dem vorbefüllt wurde. Was aus ihm entsteht, hängt sich gleich an ihn —
     /// siehe <see cref="MitZielAsync"/>.
     /// </param>
+    /// <param name="fromTransactionId">
+    /// Die Kontobuchung, aus der vorbefüllt wurde. Sie wird an der Anschaffung vermerkt —
+    /// wer sie vor sich hatte, <em>weiß</em>, welche Zahlung es war, und das soll nicht
+    /// hinterher wieder erraten werden müssen.
+    /// </param>
     public async Task<CreateResultDto> CreateAsync(
         CreateObjectType type, IReadOnlyDictionary<string, string?> values,
-        int? fromDocumentId = null, CancellationToken ct = default)
+        int? fromDocumentId = null, int? fromTransactionId = null,
+        CancellationToken ct = default)
     {
         var form = await BuildFormAsync(type, ct);
         if (form is null)
@@ -160,7 +229,7 @@ public sealed class CreateFormService(
             CreateObjectType.Contract => await CreateContractAsync(values, ct),
             CreateObjectType.Budget => await CreateBudgetAsync(values, ct),
             CreateObjectType.Vehicle => await CreateVehicleAsync(values, ct),
-            CreateObjectType.Purchase => await CreatePurchaseAsync(values, ct),
+            CreateObjectType.Purchase => await CreatePurchaseAsync(values, fromTransactionId, ct),
             CreateObjectType.Invoice => await CreateInvoiceAsync(values, ct),
             CreateObjectType.Employment => await CreateEmploymentAsync(values, ct),
             CreateObjectType.Loan => await CreateLoanAsync(values, ct),
@@ -234,7 +303,7 @@ public sealed class CreateFormService(
         CreateObjectType type, int id, IReadOnlyDictionary<string, string?> values,
         CancellationToken ct = default)
     {
-        var form = await GetFormAsync(type, id, null, ct);
+        var form = await GetFormAsync(type, id, null, null, ct);
         if (form is null)
         {
             return Fail(null, "Diesen Datensatz gibt es nicht (mehr).");
@@ -2229,7 +2298,7 @@ public sealed class CreateFormService(
     };
 
     private async Task<CreateResultDto> CreatePurchaseAsync(
-        IReadOnlyDictionary<string, string?> values, CancellationToken ct)
+        IReadOnlyDictionary<string, string?> values, int? ausBuchung, CancellationToken ct)
     {
         if (ParseDate(Value(values, "purchase")) is not { } gekauft)
         {
@@ -2245,6 +2314,14 @@ public sealed class CreateFormService(
             WarrantyUntil = ParseDate(Value(values, "warranty")),
             Note = Value(values, "note")?.Trim(),
             PropertyId = ParseInt(Value(values, "property")),
+
+            // Nur, wenn es die Buchung wirklich gibt und sie ein Abgang ist. Eine Kennziffer
+            // aus der Adresszeile zu übernehmen, ohne sie zu prüfen, hinge die Anschaffung an
+            // einer Buchung, die niemand gesehen hat.
+            TransactionId = ausBuchung is { } id
+                            && await db.Transactions.AnyAsync(t => t.Id == id && t.Amount < 0m, ct)
+                ? ausBuchung
+                : null,
             CreatedAt = clock.Now,
             UpdatedAt = clock.Now,
         };

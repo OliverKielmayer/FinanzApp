@@ -208,6 +208,17 @@ else
     [SupplyParameterFromQuery(Name = "beleg")]
     public int? Beleg { get; set; }
 
+    /// <summary>
+    /// Eine Kontobuchung, aus der vorbefüllt wird — der Weg aus der Buchungsliste.
+    /// </summary>
+    /// <remarks>
+    /// Der Alltagsfall: Eine Bestellung fällt erst auf, wenn die Abbuchung im Konto steht.
+    /// Betrag, Tag und Händler kommen dann aus der Buchung, und sie bleibt an der
+    /// Anschaffung vermerkt — ein späterer Zahlungsabgleich muss sie nicht mehr suchen.
+    /// </remarks>
+    [SupplyParameterFromQuery(Name = "aus")]
+    public int? AusBuchung { get; set; }
+
     private bool confirmingDelete;
 
     private CreateFormDto? form;
@@ -249,7 +260,7 @@ else
 
         form = Id is { } id
             ? await Api.GetEditFormAsync(Parsed, id)
-            : await Api.GetCreateFormAsync(Parsed, Beleg);
+            : await Api.GetCreateFormAsync(Parsed, Beleg, AusBuchung);
 
         values.Clear();
         problem = null;
@@ -383,7 +394,7 @@ else
         {
             var result = Id is { } id
                 ? await Api.UpdateObjectAsync(Parsed, id, values)
-                : await Api.CreateObjectAsync(Parsed, values, Beleg);
+                : await Api.CreateObjectAsync(Parsed, values, Beleg, AusBuchung);
 
             if (!result.Ok)
             {
