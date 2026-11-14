@@ -239,10 +239,17 @@ public sealed class EmploymentService(FinanzAppDbContext db, IClock clock)
     /// Gutschriften, die zur Auszahlung passen könnten — vorschlagen, nicht entscheiden.
     /// </summary>
     /// <remarks>
-    /// Gesucht wird auf <em>sichtbaren</em> Konten: der Mandanten- und der Freigabefilter sitzen
-    /// im <c>DbContext</c>, ein privates Konto eines anderen Mitglieds taucht hier gar nicht auf.
-    /// Verglichen wird gegen den <b>Auszahlungsbetrag</b>, denn er ist der, der auf dem Konto
-    /// ankommt — nicht das Brutto und nicht das Netto.
+    /// <para>Gesucht wird auf <em>sichtbaren</em> Konten: der Mandanten- und der Freigabefilter
+    /// sitzen im <c>DbContext</c>, ein privates Konto eines anderen Mitglieds taucht hier gar
+    /// nicht auf. Verglichen wird gegen den <b>Auszahlungsbetrag</b>, denn er ist der, der auf
+    /// dem Konto ankommt — nicht das Brutto und nicht das Netto.</para>
+    /// <para><b>Was ein anderer Monat schon beansprucht, steht nicht mehr darin.</b> Eine
+    /// Gutschrift bezahlt genau eine Abrechnung; zwei Monate an derselben Buchung sind keine
+    /// zwei Zahlungen, sondern eine falsch. In der echten Ablage stand genau das: dieselbe
+    /// Buchung an März und April, und die beiden Gehaltsgutschriften, die wirklich dazu
+    /// gehörten, lagen unberührt daneben.</para>
+    /// <para>Die eigene Buchung bleibt sichtbar. Wer eine bestehende Zuordnung ansieht, soll
+    /// sie in der Liste wiederfinden statt vor einer Lücke zu stehen.</para>
     /// </remarks>
     public async Task<IReadOnlyList<PaymentCandidateDto>> GetPaymentCandidatesAsync(
         int payslipId, CancellationToken ct = default)
@@ -261,10 +268,13 @@ public sealed class EmploymentService(FinanzAppDbContext db, IClock clock)
         var von = abrechnung.Month;
         var bis = abrechnung.Month.AddMonths(1).AddDays(20);
 
+        var vergeben = await VergebeneBuchungenAsync(payslipId, ct);
+
         var buchungen = await db.Transactions.AsNoTracking()
             .Include(t => t.Account)
             .Where(t => t.Kind == TransactionKind.Income
-                        && t.BookingDate >= von && t.BookingDate <= bis)
+                        && t.BookingDate >= von && t.BookingDate <= bis
+                        && !vergeben.Contains(t.Id))
             .OrderByDescending(t => t.BookingDate)
             .ToListAsync(ct);
 
@@ -398,11 +408,38 @@ public sealed class EmploymentService(FinanzAppDbContext db, IClock clock)
                 + "stimmt, gehört der Auszahlungsbetrag korrigiert.");
         }
 
+        // Dieselbe Regel wie in der Kandidatenliste, und sie steht hier, weil hier geschrieben
+        // wird. Stünde sie nur in der Liste, wäre sie eine Empfehlung: Die Liste lässt sich
+        // umgehen, dieser Weg nicht.
+        if (await db.Payslips.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id != payslipId && p.TransactionId == buchung.Id, ct)
+            is { } schon)
+        {
+            throw new RuleViolationException(
+                $"Diese Gutschrift ist schon der Abrechnung {GermanFormat.MonthYear(schon.Month)} "
+                + "zugeordnet. "
+                + "Eine Zahlung bezahlt einen Monat — wer sie hierher holen will, löst sie dort.");
+        }
+
         abrechnung.TransactionId = buchung.Id;
         await db.SaveChangesAsync(ct);
 
         return PayslipRow(await LoadPayslipAsync(payslipId, ct));
     }
+
+    /// <summary>
+    /// Die Buchungen, die andere Abrechnungen schon beanspruchen.
+    /// </summary>
+    /// <remarks>
+    /// Ohne <paramref name="ausser"/> wäre die eigene Zuordnung aus der eigenen Liste
+    /// verschwunden — und eine bestehende Zuordnung sähe von ihrem Schirm aus wie keine.
+    /// </remarks>
+    private async Task<HashSet<int>> VergebeneBuchungenAsync(
+        int ausser, CancellationToken ct)
+        => [.. await db.Payslips.AsNoTracking()
+            .Where(p => p.Id != ausser && p.TransactionId != null)
+            .Select(p => p.TransactionId!.Value)
+            .ToListAsync(ct)];
 
     /// <summary>
     /// Ordnet die Zahlung zu, wo sie <b>eindeutig</b> ist — und sonst gar nicht.

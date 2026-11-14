@@ -292,6 +292,74 @@ public sealed class EmploymentTests : IDisposable
         Assert.Empty(await Service().GetPaymentCandidatesAsync(abrechnung));
     }
 
+    /// <summary>
+    /// <b>Was ein anderer Monat schon beansprucht, wird nicht mehr vorgeschlagen.</b>
+    /// </summary>
+    /// <remarks>
+    /// In der echten Ablage hing dieselbe Buchung an März und an April, während die beiden
+    /// Gehaltsgutschriften, die wirklich dazu gehörten, unberührt daneben lagen. Eine
+    /// Gutschrift bezahlt genau eine Abrechnung; zwei Monate an derselben Buchung sind keine
+    /// zwei Zahlungen, sondern eine falsch.
+    /// </remarks>
+    [Fact]
+    public async Task Eine_schon_vergebene_Gutschrift_wird_nicht_vorgeschlagen()
+    {
+        var konto = Konto();
+        var stelle = Stelle("Nordwind Messtechnik", brutto: 6700m);
+
+        var juli = await AbrechnungAsync(stelle, 7);
+        var august = await AbrechnungAsync(stelle, 8);
+
+        var eine = Buchung(konto, new DateOnly(2026, 8, 1), 4180m);
+        await Service().LinkPaymentAsync(juli, eine);
+
+        Assert.DoesNotContain(
+            await Service().GetPaymentCandidatesAsync(august),
+            k => k.TransactionId == eine);
+    }
+
+    /// <summary>
+    /// <b>Die eigene Zuordnung bleibt in der eigenen Liste stehen.</b> Sonst sähe eine
+    /// bestehende Zuordnung von ihrem Schirm aus wie keine.
+    /// </summary>
+    [Fact]
+    public async Task Die_eigene_Zuordnung_faellt_nicht_heraus()
+    {
+        var konto = Konto();
+        var stelle = Stelle("Nordwind Messtechnik", brutto: 6700m);
+        var juli = await AbrechnungAsync(stelle, 7);
+
+        var eine = Buchung(konto, new DateOnly(2026, 7, 1), 4180m);
+        await Service().LinkPaymentAsync(juli, eine);
+
+        Assert.Contains(
+            await Service().GetPaymentCandidatesAsync(juli),
+            k => k.TransactionId == eine);
+    }
+
+    /// <summary>
+    /// <b>Und von Hand geht es auch nicht.</b> Stünde die Regel nur in der Liste, wäre sie
+    /// eine Empfehlung — die Liste lässt sich umgehen, dieser Weg nicht.
+    /// </summary>
+    [Fact]
+    public async Task Eine_vergebene_Gutschrift_laesst_sich_nicht_zweimal_zuordnen()
+    {
+        var konto = Konto();
+        var stelle = Stelle("Nordwind Messtechnik", brutto: 6700m);
+
+        var juli = await AbrechnungAsync(stelle, 7);
+        var august = await AbrechnungAsync(stelle, 8);
+
+        var eine = Buchung(konto, new DateOnly(2026, 8, 1), 4180m);
+        await Service().LinkPaymentAsync(juli, eine);
+
+        var fehler = await Assert.ThrowsAsync<RuleViolationException>(
+            () => Service().LinkPaymentAsync(august, eine));
+
+        // Der Monat steht in der Meldung: Wer sie liest, weiss, wo er sie lösen muss.
+        Assert.Contains("07/2026", fehler.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task Eine_Ausgabe_ist_kein_Kandidat()
     {
