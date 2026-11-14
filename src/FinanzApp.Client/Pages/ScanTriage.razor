@@ -421,7 +421,47 @@
                     @onclick="@(() => Navigation.NavigateTo("/scaneingang"))">
                 Zum Eingang
             </button>
+
+            @*
+                Löschen steht hier und nicht im Eingang: Dort ist der Beleg eine Zeile mit
+                Dateinamen, hier liegt er groß daneben. Wer einen Doppelscan oder ein
+                Werbeschreiben wegwirft, soll vorher sehen, was er wegwirft.
+            *@
+            <AuthorizeView Roles="Owner,Member" Context="entfernen">
+                <button type="button" class="btn btn-ghost" disabled="@busy"
+                        @onclick="@(() => loeschen = !loeschen)">
+                    @(loeschen ? "Doch behalten" : "Löschen")
+                </button>
+            </AuthorizeView>
         </div>
+
+        @*
+            Die Rückfrage trägt die Folge, nicht nur die Frage. „Wirklich löschen?" sagt
+            niemandem, was danach fehlt — dass die Datei im Dokumentordner liegen bleibt, ist
+            für einen Doppelscan die wichtigere Hälfte der Auskunft.
+        *@
+        @if (loeschen)
+        {
+            <AuthorizeView Roles="Owner,Member" Context="rueckfrage">
+                <div class="notice">
+                    <span class="notice-title">@AktuellerName löschen?</span>
+                    <span class="notice-text">
+                        Der Eintrag verschwindet aus dem Scaneingang und aus der Dokumentsuche.
+                        Die Datei selbst bleibt im Dokumentordner liegen — gelöscht wird sie
+                        dort von Hand oder gar nicht.
+                    </span>
+
+                    <div class="doc-actions">
+                        <button type="button" class="btn btn-primary delete-confirm"
+                                disabled="@busy" @onclick="DeleteAsync">
+                            Löschen bestätigen
+                        </button>
+                        <button type="button" class="btn btn-ghost" disabled="@busy"
+                                @onclick="@(() => loeschen = false)">Behalten</button>
+                    </div>
+                </div>
+            </AuthorizeView>
+        }
 
         <div class="spacer"></div>
     }
@@ -454,6 +494,18 @@
     private string term = string.Empty;
     private bool searching;
     private bool busy;
+
+    /// <summary>Ob die Rückfrage zum Löschen offensteht.</summary>
+    private bool loeschen;
+
+    /// <summary>Wie der Beleg in der Rückfrage heißt.</summary>
+    /// <remarks>
+    /// Derselbe Dateiname, der oben in der Überschrift steht. Die Rückfrage benennt das
+    /// Blatt, das daneben liegt — eine andere Bezeichnung hier hieße nachsehen, ob beide
+    /// dasselbe meinen.
+    /// </remarks>
+    private string AktuellerName
+        => Aktueller is { } beleg ? beleg.FileName : "Diesen Beleg";
 
     // ── Ein Objekt anlegen, ohne den Prüfplatz zu verlassen ────────────────────────────────
 
@@ -1020,6 +1072,50 @@
     /// zugeordneten Beleg, „abgelegt, noch ohne Objekt“ für den anderen — eine Meldung, die
     /// beides gleich nennt, verschweigt genau den Unterschied, auf den es ankommt.</para>
     /// </remarks>
+    /// <summary>
+    /// Löscht den Dokumenteintrag und geht weiter.
+    /// </summary>
+    /// <remarks>
+    /// <para>Derselbe Weg wie am Ende: zum nächsten Beleg, sonst in den Eingang. Wer einen
+    /// Stapel durchgeht, hat beim Wegwerfen dieselbe Erwartung wie beim Ablegen.</para>
+    /// <para><b>Gelöscht wird der Eintrag, nicht die Datei.</b> Das steht so in der
+    /// Rückfrage — ein Löschen im Dateisystem ließe sich nicht zurücknehmen, und der
+    /// Ordnerdienst hat die Datei beim Einliefern ohnehin schon aus dem überwachten Ordner
+    /// genommen; sie kommt also nicht von selbst wieder.</para>
+    /// </remarks>
+    private async Task DeleteAsync()
+    {
+        if (Aktueller is not { } beleg)
+        {
+            return;
+        }
+
+        var name = AktuellerName;
+        var weiter = NaechsterId;
+        busy = true;
+
+        try
+        {
+            await Api.DeleteDocumentAsync(beleg.DocumentId);
+
+            Toasts.Show($"{name} ist gelöscht. Die Datei bleibt im Dokumentordner.",
+                ToastKind.Saved);
+
+            Navigation.NavigateTo(weiter is { } naechster
+                ? $"/scaneingang/{naechster}"
+                : "/scaneingang");
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message, ToastKind.Problem);
+        }
+        finally
+        {
+            loeschen = false;
+            busy = false;
+        }
+    }
+
     private async Task AssignAsync()
     {
         if (Aktueller is not { } beleg || typeId is not { } type)

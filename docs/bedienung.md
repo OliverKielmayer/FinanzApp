@@ -262,8 +262,24 @@ Unter jeder Zeile stehen die beiden Schalter, mit denen der Beleg den Eingang ve
   Trägt der Beleg gelesene Werte, die noch niemand übernommen hat, fragt der Eingang deshalb
   nach und bietet „Werte übernehmen“ daneben an.
 
-Gibt es das Objekt in der App noch nicht, legen Sie es zuerst an — der Beleg bleibt bis dahin
-liegen und geht nicht verloren.
+Gibt es das Objekt in der App noch nicht, **legen Sie es vom Prüfplatz aus an**: unter der
+Objektsuche steht *„Gibt es das Objekt noch nicht, hier anlegen"* mit einer Reihe von Chips —
+Offener Posten, Immobilie, Vertrag, Fahrzeug, Anschaffung, Versicherung, Vorsorge, Konto,
+Darlehen. Die Maske öffnet sich an Ort und Stelle, mit dem Beleg daneben; wer dafür die Seite
+verlassen müsste, käme mit dem Beleg im Kopf zurück oder gar nicht.
+
+**Offener Posten** ist dabei der häufigste Weg für alles, was mit der Post kommt und Geld
+kostet. Er wird **aus dem Belegtext vorbefüllt** — Betreff, Empfänger, Betrag,
+Rechnungsdatum, Fälligkeit und Rechnungsnummer stehen schon da. Das gilt auch für einen
+Bescheid einer Behörde, nicht nur für eine Rechnung im engeren Sinn.
+
+### Einen Beleg löschen
+
+Am Prüfplatz steht unten **Löschen**. Dort und nicht in der Liste: Hier liegt der Beleg groß
+daneben, und wer einen Doppelscan oder ein Werbeschreiben wegwirft, soll vorher sehen, was er
+wegwirft. Die Rückfrage nennt die Folge — der Eintrag verschwindet aus Scaneingang und
+Dokumentsuche, **die Datei bleibt im Dokumentordner liegen**. Gelöscht wird sie dort von Hand
+oder gar nicht; ein Löschen im Dateisystem ließe sich nicht zurücknehmen.
 
 ### Welche Belege die App von selbst liest
 
