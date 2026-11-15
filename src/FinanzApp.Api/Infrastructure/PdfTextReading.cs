@@ -84,6 +84,10 @@ public sealed record PdfContent
 
         TextSource.Recognition => "aus dem Bild erkannter Text",
 
+        TextSource.Text when !HasTextLayer => "eine Textdatei, in der nichts steht",
+
+        TextSource.Text => "Text, wie er in der Datei steht",
+
         _ => PageCount == 0
             ? "die Datei ließ sich nicht als PDF lesen"
             : !HasTextLayer

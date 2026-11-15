@@ -409,6 +409,24 @@ public sealed class ScanTextReader(
 
         var inhalt = pdf.Read(puffer);
 
+        // Keine einzige Seite heißt: kein lesbares PDF. Dann lohnt die einfachste Frage von
+        // allen — ob der Text nicht einfach dasteht. Eine Vermögensübersicht als CSV fiel hier
+        // zwei Wege lang durch: kein Bild, kein PDF, und damit „nicht zu lesen“, obwohl sie
+        // offen lesbar auf der Platte lag.
+        //
+        // Trägt die Datei dagegen die PDF-Kennung, ist sie ein kaputtes PDF und soll das auch
+        // heißen. Sonst käme der Inhalt ihres Umschlags als „Text“ in die Ablage, und der
+        // Nutzer suchte nach einem Lesefehler statt nach einer heilen Datei.
+        if (inhalt.PageCount == 0 && !TraegtPdfKennung(kopf.AsSpan(0, gelesen)))
+        {
+            puffer.Position = 0;
+
+            if (PlainTextReading.Read(puffer) is { } text)
+            {
+                return text;
+            }
+        }
+
         // Ein PDF mit Text ist fertig gelesen. Eines ohne kann trotzdem beschrieben sein — als
         // Bild. Ein Flachbettscanner liefert genau das: ein Foto der Seite in einem
         // PDF-Umschlag, null Schriftobjekte. Bis hierher fiel so ein Zettel durch jede Regel,
@@ -421,6 +439,9 @@ public sealed class ScanTextReader(
         puffer.Position = 0;
         return Seitenbilder(puffer, inhalt);
     }
+
+    /// <summary>Ob die Datei sich selbst als PDF ausgibt.</summary>
+    private static bool TraegtPdfKennung(ReadOnlySpan<byte> kopf) => kopf.StartsWith("%PDF-"u8);
 
     /// <summary>
     /// Liest die Seitenbilder eines textlosen PDF durch die Erkennung.

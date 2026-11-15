@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Security.Cryptography;
-using System.Text;
 using FinanzApp.Api.Data;
 using FinanzApp.Api.Data.Entities;
 using FinanzApp.Api.Infrastructure;
@@ -883,6 +882,11 @@ public sealed class DocumentService(
     }
 
     /// <summary>Ob der Anfang der Datei als UTF-8 aufgeht.</summary>
+    /// <remarks>
+    /// Dieselbe Frage stellt der Leser, wenn er eine Textdatei vor sich hat — beantwortet wird
+    /// sie deshalb an einer Stelle. Zwei Fassungen liefen auseinander, und die Vorschau zeigte
+    /// dann einen anderen Zeichensatz als der gespeicherte Text.
+    /// </remarks>
     private static bool IstUtf8(string absolute)
     {
         try
@@ -890,22 +894,9 @@ public sealed class DocumentService(
             using var strom = File.OpenRead(absolute);
             var puffer = new byte[64 * 1024];
             var gelesen = strom.Read(puffer, 0, puffer.Length);
-            var ende = strom.Position >= strom.Length;
 
-            // Am Schnitt kann eine Mehrbyte-Folge halbiert sein. Nur am echten Dateiende ist
-            // eine unvollständige Folge wirklich ein Fehler.
-            var pruefer = new UTF8Encoding(
-                encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
-
-            var decoder = pruefer.GetDecoder();
-            var zeichen = new char[puffer.Length + 1];
-            decoder.GetChars(puffer, 0, gelesen, zeichen, 0, flush: ende);
-
-            return true;
-        }
-        catch (DecoderFallbackException)
-        {
-            return false;
+            return PlainTextReading.IsUtf8(
+                puffer.AsSpan(0, gelesen), complete: strom.Position >= strom.Length);
         }
         catch (IOException)
         {

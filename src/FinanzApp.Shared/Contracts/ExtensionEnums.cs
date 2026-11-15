@@ -42,6 +42,9 @@ public enum TextSource
 
     /// <summary>Aus einer Texterkennung über ein Bild.</summary>
     Recognition = 2,
+
+    /// <summary>Aus einer Datei, in der der Text einfach dasteht — CSV, TXT, XML.</summary>
+    Text = 3,
 }
 
 /// <summary>

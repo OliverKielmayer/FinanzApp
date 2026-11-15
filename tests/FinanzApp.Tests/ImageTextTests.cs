@@ -72,6 +72,161 @@ public sealed class ImageTextTests
         Assert.Equal("die Datei ließ sich nicht als PDF lesen", inhalt.Note);
     }
 
+    // ── Der dritte Weg: Text, der einfach dasteht ─────────────────────────────────
+
+    /// <summary>
+    /// Eine Tabelle in Windows-1252 wird gelesen, Umlaute und Eurozeichen inbegriffen.
+    /// </summary>
+    /// <remarks>
+    /// Die echte Vermögensübersicht kommt so: kein Bild, kein PDF, und bis hierher deshalb
+    /// „nicht zu lesen“ — obwohl ihr Inhalt offen auf der Platte steht. Das Eurozeichen ist dabei
+    /// die Probe auf den Zeichensatz: In Latin-1 ist <c>0x80</c> ein Steuerzeichen, erst
+    /// Windows-1252 macht ein € daraus.
+    /// </remarks>
+    [Fact]
+    public void Eine_Tabelle_in_Windows_1252_wird_gelesen()
+    {
+        using var csv = new MemoryStream(
+        [
+            .. Encoding.Latin1.GetBytes("Kategorie;Stand\nVermögen;1.234,00 "),
+            0x80,
+        ]);
+
+        var inhalt = Reader(befehl: string.Empty).Read(csv);
+
+        Assert.Equal(TextSource.Text, inhalt.Source);
+        Assert.Equal("Text, wie er in der Datei steht", inhalt.Note);
+        Assert.Equal(
+            ["Kategorie;Stand", "Vermögen;1.234,00 €"],
+            inhalt.Lines.Select(z => z.Text));
+    }
+
+    /// <summary>
+    /// Die Bytemarke am Anfang ist eine Angabe über die Datei, kein Zeichen darin.
+    /// </summary>
+    /// <remarks>
+    /// Bliebe sie stehen, trüge das erste Wort jedes Belegs ein unsichtbares Zeichen vorneweg
+    /// — und keine Suche nach diesem Wort fände ihn.
+    /// </remarks>
+    [Fact]
+    public void Eine_Bytemarke_ist_kein_Zeichen_im_Text()
+    {
+        using var txt = new MemoryStream(
+            [.. Encoding.UTF8.GetPreamble(), .. Encoding.UTF8.GetBytes("Grüße")]);
+
+        var inhalt = Reader(befehl: string.Empty).Read(txt);
+
+        Assert.Equal(TextSource.Text, inhalt.Source);
+        Assert.Equal("Grüße", Assert.Single(inhalt.Lines).Text);
+    }
+
+    /// <summary>
+    /// Viele Steuerzeichen sind keine Eigenart mehr, sondern die Beschaffenheit.
+    /// </summary>
+    /// <remarks>
+    /// Kein einziges Nullbyte steht hier drin — die Schranke daneben griffe also nicht. Was
+    /// entscheidet, ist das Maß: sechs Steuerzeichen auf acht Bytes. Ohne diese Zählung stünde
+    /// der Inhalt eines Umschlags als „Text“ in der Ablage.
+    /// </remarks>
+    [Fact]
+    public void Viele_Steuerzeichen_sind_keine_Eigenart_mehr()
+    {
+        using var binaer = new MemoryStream([0x50, 0x4B, 0x03, 0x04, 0x14, 0x08, 0x08, 0x01]);
+
+        var inhalt = Reader(befehl: string.Empty).Read(binaer);
+
+        Assert.Equal(TextSource.PdfTextLayer, inhalt.Source);
+        Assert.Equal("die Datei ließ sich nicht als PDF lesen", inhalt.Note);
+    }
+
+    /// <summary>
+    /// Ein einziges Nullbyte reicht — anders als ein Steuerzeichen.
+    /// </summary>
+    /// <remarks>
+    /// Der Unterschied zum <c>0x1A</c> nebenan: Ein Steuerzeichen ist eine Eigenart, ein
+    /// Nullbyte eine Beschaffenheit. Hier stehen fünfzehn lesbare Zeichen und genau ein
+    /// Nullbyte — nach dem Maß allein ginge das als Tabelle durch. Ein UTF-16-Text, der so
+    /// gelesen als Gestammel in der Ablage stünde, besteht zur Hälfte daraus.
+    /// </remarks>
+    [Fact]
+    public void Ein_einziges_Nullbyte_reicht_fuer_binaer()
+    {
+        using var binaer = new MemoryStream(
+            [.. Encoding.ASCII.GetBytes("Kategorie;Stand"), 0x00]);
+
+        var inhalt = Reader(befehl: string.Empty).Read(binaer);
+
+        Assert.Equal(TextSource.PdfTextLayer, inhalt.Source);
+        Assert.Equal("die Datei ließ sich nicht als PDF lesen", inhalt.Note);
+    }
+
+    /// <summary>Ein einzelnes Steuerzeichen macht aus einer Tabelle keine Binärdatei.</summary>
+    /// <remarks>
+    /// Alte Werkzeuge hängen <c>0x1A</c> ans Ende. Wäre schon das ein Ausschluss, bliebe eine
+    /// bestens lesbare Tabelle wegen eines einzigen Bytes stumm.
+    /// </remarks>
+    [Fact]
+    public void Ein_einzelnes_Steuerzeichen_macht_keine_Binaerdatei()
+    {
+        using var csv = new MemoryStream(
+            [.. Encoding.ASCII.GetBytes("Kategorie;Stand"), 0x1A]);
+
+        var inhalt = Reader(befehl: string.Empty).Read(csv);
+
+        Assert.Equal(TextSource.Text, inhalt.Source);
+        Assert.Equal("Kategorie;Stand", Assert.Single(inhalt.Lines).Text);
+    }
+
+    /// <summary>
+    /// Die PDF-Kennung entscheidet, ob ein unlesbares PDF ein kaputtes PDF ist oder Text.
+    /// </summary>
+    /// <remarks>
+    /// Dieselben Zeichen, einmal mit Kennung und einmal ohne. Mit ihr ist die Datei ein kaputtes
+    /// PDF und soll das auch heißen — sonst käme der Inhalt ihres Umschlags als „Text“ in die
+    /// Ablage, und der Nutzer suchte nach einem Lesefehler statt nach einer heilen Datei.
+    /// </remarks>
+    [Fact]
+    public void Die_PDF_Kennung_entscheidet_ueber_den_dritten_Weg()
+    {
+        using var mitKennung = new MemoryStream(Encoding.ASCII.GetBytes("%PDF-1.4 kaputt"));
+        using var ohneKennung = new MemoryStream(Encoding.ASCII.GetBytes("1.4 kaputt"));
+
+        var leser = Reader(befehl: string.Empty);
+
+        Assert.Equal(TextSource.PdfTextLayer, leser.Read(mitKennung).Source);
+        Assert.Equal(TextSource.Text, leser.Read(ohneKennung).Source);
+    }
+
+    /// <summary>
+    /// Eine leere Datei ist keine Textdatei, in der nichts steht.
+    /// </summary>
+    /// <remarks>
+    /// Der Unterschied trägt: „gelesen, nichts gefunden“ sagt, dass eine Datei dastand und
+    /// durchgesehen wurde. Bei null Bytes stand nichts da, was sich hätte durchsehen lassen.
+    /// </remarks>
+    [Fact]
+    public void Eine_leere_Datei_ist_keine_Textdatei()
+    {
+        using var nichts = new MemoryStream([]);
+
+        var inhalt = Reader(befehl: string.Empty).Read(nichts);
+
+        Assert.Equal(TextSource.PdfTextLayer, inhalt.Source);
+    }
+
+    /// <summary>Gelesen und leer ist etwas anderes als nicht zu lesen.</summary>
+    [Fact]
+    public void Eine_Textdatei_ohne_Inhalt_sagt_das_auch()
+    {
+        using var leer = new MemoryStream(Encoding.ASCII.GetBytes("\n   \n\n"));
+
+        var inhalt = Reader(befehl: string.Empty).Read(leer);
+
+        Assert.Equal(TextSource.Text, inhalt.Source);
+        Assert.Empty(inhalt.Lines);
+        Assert.Equal("eine Textdatei, in der nichts steht", inhalt.Note);
+    }
+
     // ── Ohne eingerichtete Erkennung ───────────────────────────────────────────────────────
 
     /// <summary>
