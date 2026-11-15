@@ -42,6 +42,7 @@ public sealed class PayslipKindTests
         string netto = "3.012,80",
         string? sonderzahlung = null,
         string kopfzeile = "Abrechnun der Brutto/Netto-Bezü e für Juni 2026 24.06.2026 1",
+        string nettobeschriftung = "Netto-Bezüge/Netto•Abzüge",
         bool mitIban = true)
     {
         List<PdfLine> zeilen =
@@ -85,7 +86,7 @@ public sealed class PayslipKindTests
             Line(1, "sv# W -Brutto RV-Brutto AV Brutto PW Brutto KV-Beitrag RV•BOit"),
 
             Line(1, "Netto-Verdienst"),
-            Line(1, $"Verdienstbescheinigung Netto-Bezüge/Netto•Abzüge {netto}"),
+            Line(1, $"Verdienstbescheinigung {nettobeschriftung} {netto}"),
 
             // Dieselbe Beschriftung, der Jahreswert. Hier beginnt die Verdienstbescheinigung.
             Line(1, $"Gesam t- Brutto {jahresbrutto} SV-Brutto 24.500,00 Bezeichnung Betrag"),
@@ -279,6 +280,44 @@ public sealed class PayslipKindTests
 
         Assert.Equal(3012.80m, werte["netto"].Number);
         Assert.Equal(2913.64m, werte["auszahlung"].Number);
+    }
+
+    /// <summary>
+    /// <b>Die Beschriftung der Netto-Zeile wird von Beleg zu Beleg anders zerlegt.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>Die fünf Fassungen hier sind keine Erfindung: So steht die <em>eine</em>
+    /// Beschriftung „Netto-Bezüge/Netto-Abzüge“ in fünf echten Abrechnungen desselben
+    /// Arbeitgebers, abgetippt aus dem erkannten Text. Mal wird das o zur Null, mal zum
+    /// grossen O, mal der Bindestrich zum Gedankenstrich oder zum Punkt.</para>
+    /// <para>Das frühere Muster nahm o und Bindestrich wörtlich und fand deshalb <b>vier von
+    /// zehn</b> echten Belegen. Fünf Monate standen jahrelang ohne Netto in der
+    /// Lohnabrechnungstabelle, ohne dass das irgendwo aufgefallen wäre — eine fehlende Zahl
+    /// sieht aus wie eine, die es nicht gibt.</para>
+    /// </remarks>
+    [Theory]
+    [InlineData("Netto-Bezüge/Netto-Abzüge")]
+    [InlineData("Netto-Bezüge/Nett0•Abzüge")]
+    [InlineData("Netto-Bezüge/NettO•Abzüge")]
+    [InlineData("Netto—Bezuge/Netto-Abzüge")]
+    [InlineData("Netto-Bezüge/Netto.Abz0ge")]
+    public void Die_Nettozeile_wird_in_jeder_Schreibweise_gelesen(string beschriftung)
+    {
+        var werte = Lies(Abrechnung(netto: "3.012,80", nettobeschriftung: beschriftung));
+
+        Assert.Equal(3012.80m, werte["netto"].Number);
+    }
+
+    /// <summary>
+    /// <b>Nachsichtig heisst nicht blind.</b> Fehlt der zweite Teil der Beschriftung, wird
+    /// nichts gelesen — sonst stünde irgendeine Zahl der Zeile als Netto da.
+    /// </summary>
+    [Fact]
+    public void Ohne_den_Abzugsteil_wird_nichts_gelesen()
+    {
+        var werte = Lies(Abrechnung(nettobeschriftung: "Netto-Bezüge"));
+
+        Assert.False(werte.ContainsKey("netto") && werte["netto"].Number is not null);
     }
 
     /// <summary>

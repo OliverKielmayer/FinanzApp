@@ -1410,9 +1410,20 @@ public static class DocumentKindLibrary
                 // Aus der Verdienstbescheinigung. Nicht dasselbe wie der Auszahlungsbetrag:
                 // Dazwischen stehen Vorschuesse, Pfaendungen und vermoegenswirksame
                 // Leistungen, und in der echten Ablage gehen beide regelmaessig auseinander.
-                // Die Erkennung zerlegt die Beschriftung von Beleg zu Beleg anders, deshalb
-                // sind Umlaute, Bindestrich und Trennzeichen nachsichtig gefasst.
-                Pattern = @"Netto-Bez[uü]?[gq]?e?\s?/\s?Netto\W?Abz[uü]?[gq]?e?\s+"
+                //
+                // Gegriffen wird die FORM der Zeile und nicht ihre Schreibweise: zweimal
+                // „Nett.“, dazwischen „Bez…“, danach „Abz…“, dann der Betrag. An zehn echten
+                // Abrechnungen gemessen zerlegt die Erkennung diese eine Beschriftung in
+                // fuenf Fassungen — „Nett0•Abzüge“, „NettO•Abzüge“, „Netto—Bezuge“,
+                // „NettO-Abzüge“, „Netto.Abz0ge“. Ein Muster, das den Buchstaben o und den
+                // Bindestrich woertlich nimmt, faellt an jeder zweiten davon durch: Es fand
+                // vier von zehn Belegen, dieses findet zehn. Fremdtreffer in der ganzen
+                // uebrigen Ablage: keiner.
+                //
+                // Das ist dieselbe Lehre wie oben bei den Leitwerten, eine Stufe feiner —
+                // nicht nur „haeng nicht an der Beschriftung“, sondern auch „haeng nicht an
+                // ihrer Rechtschreibung“.
+                Pattern = @"Nett.\W{0,2}Bez\w*\s*\W\s*Nett.\W{0,3}Abz\w*\s+"
                           + @"(\d{1,3}(?:[.\s]\d{3})*,\d{2})",
                 Lead = true, Optional = true,
             },
