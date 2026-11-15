@@ -248,6 +248,48 @@ public sealed class ImageTextTests
     }
 
     /// <summary>
+    /// Ein Nullzeichen ist der Wortabstand einer Schrift ohne Zuordnung.
+    /// </summary>
+    /// <remarks>
+    /// <para>Ein echter Versicherungsschein liefert jedes seiner Leerzeichen als
+    /// <c>U+0000</c>, 28.853 Mal auf 74 Seiten. Weil das Zeichen kein Trenner ist, kommt die
+    /// ganze Zeile als <em>ein</em> Wort an — deshalb steht sie hier auch so da.</para>
+    /// <para>Was dahinter stand, kam nie in der Ablage an: von 235.643 gelesenen Zeichen
+    /// blieben 26, genau das Stück vor dem ersten Nullzeichen. Der Eintrag sah danach aus wie
+    /// ein Scan, aus dem nichts zu holen ist — dabei war die Datei in Ordnung.</para>
+    /// </remarks>
+    [Fact]
+    public void Ein_Nullzeichen_wird_zum_Wortabstand()
+    {
+        var zeilen = Lines([
+            Wort(0, "Musterleben\0Lebensversicherung\0a.G.", 40, 400, 40, 30),
+        ]);
+
+        var zeile = Assert.Single(zeilen);
+        Assert.Equal("Musterleben Lebensversicherung a.G.", zeile.Text);
+        Assert.DoesNotContain('\0', zeile.Text);
+    }
+
+    /// <summary>
+    /// Ein geschütztes Leerzeichen ist ein Leerzeichen.
+    /// </summary>
+    /// <remarks>
+    /// Bliebe es stehen, fände die Suche nach „1.234,00 €“ den Betrag nicht — zwei Zeichen, die
+    /// gleich aussehen und nicht gleich sind. Genau daran scheiterte die Umsetzung schon
+    /// einmal: Sie tauschte ein Leerzeichen gegen ein Leerzeichen, und niemand sah es.
+    /// </remarks>
+    [Fact]
+    public void Ein_geschuetztes_Leerzeichen_wird_ein_gewoehnliches()
+    {
+        var zeilen = Lines([
+            Wort(0, "1.234,00\u00A0€", 40, 200, 40, 30),
+        ]);
+
+        var zeile = Assert.Single(zeilen);
+        Assert.Equal("1.234,00 €", zeile.Text);
+    }
+
+    /// <summary>
     /// Beschriftung links, Wert rechts — die Struktur, an der die Leseregeln hängen.
     /// </summary>
     [Fact]

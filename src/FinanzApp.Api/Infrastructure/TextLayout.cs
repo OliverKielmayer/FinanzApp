@@ -127,17 +127,30 @@ public static class TextLayout
     }
 
     /// <summary>
-    /// Geschützte Leerzeichen weg, Trennstriche am Wortende weg.
+    /// Geschützte Leerzeichen und Nullzeichen zu Leerzeichen, Trennstriche am Wortende weg.
     /// </summary>
     /// <remarks>
-    /// Der Statusreport der Musterleben trennt am Zeilenende nicht mit einem Bindestrich,
+    /// <para>Der Statusreport der Musterleben trennt am Zeilenende nicht mit einem Bindestrich,
     /// sondern mit dem Nicht-Zeichen <c>U+00AC</c> — siebzehnmal im Dokument. Bliebe es stehen,
     /// hieße das Wort „Ge¬“ und keine Suche fände es. Nur am Wortende entfernt: mitten im Text
-    /// wäre ein <c>¬</c> ein Zeichen und keine Trennung.
+    /// wäre ein <c>¬</c> ein Zeichen und keine Trennung.</para>
+    /// <para><b>Das Nullzeichen ist kein Text</b>, sondern eine Schrift, die für ihr Zeichen
+    /// keine Zuordnung mitbringt. Ein Versicherungsschein liefert so jedes seiner Leerzeichen:
+    /// 28.853 Stück auf 74 Seiten. Was dahinter stand, kam nie in der Ablage an — von 235.643
+    /// gelesenen Zeichen blieben 26, genau das Stück vor dem ersten Nullzeichen. Dabei war die
+    /// Datei in Ordnung; nur ihr Eintrag sah aus wie ein Scan, aus dem nichts zu holen ist.</para>
+    /// <para>Zu einem Leerzeichen und nicht ersatzlos weg: Das Zeichen steht, wo ein Wortabstand
+    /// hingehört. Gestrichen hieße die Zeile danach „MusterlebenLebensversicherung“, und die Suche
+    /// fände weder das eine Wort noch das andere.</para>
+    /// <para>Die beiden unsichtbaren Zeichen stehen hier als Nummer und nicht als sie selbst. Als
+    /// sie selbst sahen sie aus wie ein Leerzeichen — und so stand an dieser Stelle ein
+    /// Leerzeichen gegen ein Leerzeichen, während die Beschreibung darüber geschützte
+    /// Leerzeichen versprach.</para>
     /// </remarks>
     public static string Clean(string text)
-        => text.Replace(' ', ' ')
-            .Replace("­", string.Empty)
+        => text.Replace('\u00A0', ' ')
+            .Replace('\0', ' ')
+            .Replace("\u00AD", string.Empty)
             .TrimEnd('¬')
             .Trim();
 }
