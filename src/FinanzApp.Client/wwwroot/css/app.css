@@ -1301,6 +1301,19 @@ body {
   overflow-wrap: anywhere;
 }
 
+.tx-detail-purchase {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-accent-700);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.tx-detail-purchase:hover,
+.tx-detail-purchase:focus-visible {
+  text-decoration: underline;
+}
+
 .tx-detail-note {
   margin: 0;
   font-size: 12px;

@@ -460,6 +460,15 @@ public sealed class TransactionService(FinanzAppDbContext db, IClock clock)
                 Note = t.Note,
                 ImportReference = t.ImportReference,
 
+                // Die Gegenrichtung zu „Als Anschaffung erfassen“. Als Unterabfrage und nicht
+                // über eine Navigationseigenschaft: Die Anschaffung kennt ihre Buchung, die
+                // Buchung weiß von keiner Anschaffung — und das soll so bleiben. Sie ist der
+                // Beleg einer Zahlung und hängt nicht davon ab, was jemand daraus gemacht hat.
+                Purchase = db.Purchases
+                    .Where(p => p.TransactionId == t.Id)
+                    .Select(p => new TransactionPurchaseDto { Id = p.Id, Name = p.Name })
+                    .FirstOrDefault(),
+
                 // Nur wenn wirklich etwas aus einem Auszug dransteht. Sonst bliebe ein leerer
                 // Block übrig, und eine von Hand erfasste Buchung sähe aus, als hätte sie
                 // Auszugsdaten.

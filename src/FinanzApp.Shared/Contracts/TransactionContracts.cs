@@ -30,6 +30,17 @@ public sealed record TransactionDto
     /// </remarks>
     public StatementDetailsDto? Details { get; init; }
 
+    /// <summary>
+    /// Die Anschaffung, die aus dieser Buchung entstanden ist — <c>null</c>, wenn keine.
+    /// </summary>
+    /// <remarks>
+    /// Die Buchung war der Anlass: Eine Bestellung fällt meist erst auf, wenn die Abbuchung im
+    /// Konto steht. Danach fehlte der Rückweg — an der Buchung stand weiter der Knopf
+    /// „Als Anschaffung erfassen“, als wäre nie eine erfasst worden, und wer nachsehen wollte,
+    /// musste sie in der Liste der Anschaffungen suchen.
+    /// </remarks>
+    public TransactionPurchaseDto? Purchase { get; init; }
+
     /// <summary>Ob überhaupt etwas aus einem Auszug an der Buchung steht.</summary>
     public bool HasStatementData => ImportReference is not null || Details is not null;
 
@@ -40,6 +51,19 @@ public sealed record TransactionDto
     /// </remarks>
     public bool IsUncategorized
         => Kind is TransactionKind.Expense or TransactionKind.Income && CategoryId is null;
+}
+
+/// <summary>Die Anschaffung an einer Buchung, so viel wie die Detailspalte braucht.</summary>
+/// <remarks>
+/// Name und Nummer, sonst nichts. Betrag und Tag stehen an der Buchung darüber schon — sie
+/// hier zu wiederholen hieße, zwei Zahlen nebeneinander zu stellen, die auseinanderlaufen
+/// können: Eine Anschaffung darf einen anderen Preis tragen als die Abbuchung, etwa bei einer
+/// Teilzahlung.
+/// </remarks>
+public sealed record TransactionPurchaseDto
+{
+    public required int Id { get; init; }
+    public required string Name { get; init; }
 }
 
 /// <summary>Eine Seite der Buchungsliste inklusive der Zähler für Kopfzeile und Triage-Banner.</summary>

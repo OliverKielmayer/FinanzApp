@@ -50,6 +50,21 @@
             </div>
         }
 
+        @*
+            Was aus dieser Buchung geworden ist. Der Block steht hier und nicht unter den
+            Optionen: Eine zugeordnete Anschaffung ist eine Tatsache über die Buchung und kein
+            Handgriff — wer nur zusieht, soll sie trotzdem sehen.
+        *@
+        @if (buchung.Purchase is { } anschaffung)
+        {
+            <div class="tx-detail-block">
+                <span class="label-strong">Anschaffung</span>
+                <a class="tx-detail-purchase" href="@($"/anschaffungen/{anschaffung.Id}")">
+                    @anschaffung.Name
+                </a>
+            </div>
+        }
+
         @if (Fields(buchung) is { Count: > 0 } felder)
         {
             <div class="tx-detail-block">
@@ -159,7 +174,13 @@
 
                     Nur bei Abgängen: Eine Gutschrift ist keine Anschaffung.
                 *@
-                @if (buchung.Amount < 0m)
+                @*
+                    … und nur, solange keine daran hängt. Sonst stünde der Knopf da wie beim
+                    ersten Mal und legte eine zweite an — zwei Anschaffungen für eine Zahlung
+                    sind keine zwei Käufe, sondern einer doppelt. Was stattdessen zu sehen ist,
+                    steht oben: die Anschaffung selbst, zum Anklicken.
+                *@
+                @if (buchung.Amount < 0m && buchung.Purchase is null)
                 {
                     <button type="button" class="btn btn-secondary tx-detail-action"
                             @onclick="() => OnCreatePurchase.InvokeAsync(buchung.Id)">

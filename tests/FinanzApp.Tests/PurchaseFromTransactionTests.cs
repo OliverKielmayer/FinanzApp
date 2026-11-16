@@ -174,7 +174,7 @@ public sealed class PurchaseFromTransactionTests : IDisposable
             CreateObjectType.Purchase,
             new Dictionary<string, string?>
             {
-                ["name"] = "Vogelhaus",
+                ["name"] = "Musterregal",
                 ["purchase"] = "2026-06-28",
                 ["price"] = "73,42",
             },
@@ -197,7 +197,7 @@ public sealed class PurchaseFromTransactionTests : IDisposable
             CreateObjectType.Purchase,
             new Dictionary<string, string?>
             {
-                ["name"] = "Vogelhaus",
+                ["name"] = "Musterregal",
                 ["purchase"] = "2026-06-28",
                 ["price"] = "73,42",
             },
@@ -217,7 +217,7 @@ public sealed class PurchaseFromTransactionTests : IDisposable
             CreateObjectType.Purchase,
             new Dictionary<string, string?>
             {
-                ["name"] = "Vogelhaus",
+                ["name"] = "Musterregal",
                 ["purchase"] = "2026-06-28",
                 ["price"] = "73,42",
             });
@@ -248,7 +248,7 @@ public sealed class PurchaseFromTransactionTests : IDisposable
             CreateObjectType.Purchase,
             new Dictionary<string, string?>
             {
-                ["name"] = "Vogelhaus",
+                ["name"] = "Musterregal",
                 ["purchase"] = "2026-06-28",
                 ["price"] = "73,42",
             },
@@ -281,7 +281,7 @@ public sealed class PurchaseFromTransactionTests : IDisposable
             CreateObjectType.Purchase,
             new Dictionary<string, string?>
             {
-                ["name"] = "Vogelhaus",
+                ["name"] = "Musterregal",
                 ["purchase"] = "2026-06-28",
                 ["price"] = "73,42",
             },
@@ -295,6 +295,77 @@ public sealed class PurchaseFromTransactionTests : IDisposable
 
         var zeile = Assert.Single((await Anschaffungen().GetAsync(id))!.Payments);
         Assert.Equal(buchung, zeile.TransactionId);
+    }
+
+    // ── Der Rückweg: die Buchung zeigt ihre Anschaffung ───────────────────────────
+
+    /// <summary>
+    /// Die Buchung nennt die Anschaffung, die aus ihr entstanden ist.
+    /// </summary>
+    /// <remarks>
+    /// Der Weg hin war gebaut, der Weg zurück nicht: An der Buchung stand weiter nur
+    /// „Als Anschaffung erfassen“, als wäre nie eine erfasst worden. Wer nachsehen wollte,
+    /// was aus der Abbuchung geworden ist, musste sie in der Liste der Anschaffungen suchen.
+    /// </remarks>
+    [Fact]
+    public async Task Die_Buchung_nennt_ihre_Anschaffung()
+    {
+        var buchung = Abbuchung();
+        await AnschaffungAus(buchung, "Musterregal");
+
+        var dto = await new TransactionService(database.Context(), clock).GetAsync(buchung);
+
+        Assert.NotNull(dto);
+        Assert.NotNull(dto.Purchase);
+        Assert.Equal("Musterregal", dto.Purchase.Name);
+    }
+
+    /// <summary>Ohne Anschaffung steht dort nichts — und der Knopf bleibt, wo er ist.</summary>
+    [Fact]
+    public async Task Eine_Buchung_ohne_Anschaffung_nennt_keine()
+    {
+        var buchung = Abbuchung();
+
+        var dto = await new TransactionService(database.Context(), clock).GetAsync(buchung);
+
+        Assert.NotNull(dto);
+        Assert.Null(dto.Purchase);
+    }
+
+    /// <summary>
+    /// Die Anschaffung einer anderen Buchung färbt nicht ab.
+    /// </summary>
+    /// <remarks>
+    /// Die Unterabfrage hängt an der Kennziffer der Buchung. Wäre sie unkorreliert, trieben
+    /// alle Buchungen desselben Händlers dieselbe Anschaffung vor sich her — und das fällt
+    /// erst auf, wenn eine zweite dazukommt.
+    /// </remarks>
+    [Fact]
+    public async Task Die_Anschaffung_bleibt_an_ihrer_eigenen_Buchung()
+    {
+        var erste = Abbuchung(tag: 28);
+        var zweite = Abbuchung(tag: 29);
+        await AnschaffungAus(erste, "Musterregal");
+
+        var dienst = new TransactionService(database.Context(), clock);
+
+        Assert.Equal("Musterregal", (await dienst.GetAsync(erste))!.Purchase!.Name);
+        Assert.Null((await dienst.GetAsync(zweite))!.Purchase);
+    }
+
+    private async Task AnschaffungAus(int buchung, string name)
+    {
+        var ergebnis = await Formulare().CreateAsync(
+            CreateObjectType.Purchase,
+            new Dictionary<string, string?>
+            {
+                ["name"] = name,
+                ["purchase"] = "2026-06-28",
+                ["price"] = "73,42",
+            },
+            fromTransactionId: buchung);
+
+        Assert.True(ergebnis.Ok);
     }
 
     public void Dispose()
