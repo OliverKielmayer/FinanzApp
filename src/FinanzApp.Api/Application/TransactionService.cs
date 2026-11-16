@@ -78,6 +78,11 @@ public sealed class TransactionService(FinanzAppDbContext db, IClock clock)
             Expense = expense,
             Balance = income - expense,
             TransferCount = rows.Count - real.Count,
+
+            // Vorzeichenbehaftet und nicht als Betrag: Auf einem Konto kommen Umbuchungen an
+            // und gehen ab, und nur die Summe mit Vorzeichen schliesst die Lücke zwischen
+            // Saldo und Kontostand.
+            TransferAmount = rows.Where(t => !BookingKinds.Counts(t.Kind)).Sum(t => t.Amount),
         };
     }
 

@@ -112,6 +112,22 @@ public sealed record TransactionTotalsDto
 
     /// <summary>Wie viele Umbuchungen im Ausschnitt liegen, die hier bewusst nicht mitzählen.</summary>
     public required int TransferCount { get; init; }
+
+    /// <summary>
+    /// Was diese Umbuchungen zusammen ausmachen, vorzeichenbehaftet.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Die Zeile, die zwei Zahlen zusammenbringt.</b> Oben steht der Kontostand, unten
+    /// der Saldo des Ausschnitts — und dazwischen klaffte eine Lücke, für die es keine
+    /// Erklärung auf dem Schirm gab: ein tief negativer Saldo neben einem kleinen, freundlichen
+    /// Kontostand. Die Differenz waren Umbuchungen, von denen die Karte nur die Anzahl nannte.
+    /// Wer ein Haus kauft, schiebt sechsstellige Beträge zwischen eigenen Konten hin und her;
+    /// die Karte sah danach aus, als sei das Konto um diesen Betrag im Minus.</para>
+    /// <para>Sie zählen weiter in keiner der drei Zahlen mit — das ist richtig und bleibt. Aber
+    /// ihre Summe zu verschweigen heißt, den Leser mit einer Differenz allein zu lassen, die er
+    /// nicht ausrechnen kann.</para>
+    /// </remarks>
+    public required decimal TransferAmount { get; init; }
 }
 
 public sealed record CreateTransactionRequest

@@ -416,11 +416,19 @@
                 </div>
             </section>
 
+            @*
+                Mit ihrer Summe und nicht nur mit ihrer Anzahl. Oben steht der Kontostand, hier
+                der Saldo — und wer beide sah, stand vor einer Differenz, die er aus nichts
+                herleiten konnte: ein tief negativer Saldo neben einem freundlichen Kontostand,
+                dazwischen ein paar Umbuchungen, von denen nur die Anzahl dastand. Mitzählen
+                sollen sie weiterhin nicht; verschweigen lässt sich ihre Summe trotzdem nicht.
+            *@
             @if (list.Totals.TransferCount > 0)
             {
                 <div class="tx-totals-note">
                     @list.Totals.TransferCount @(list.Totals.TransferCount == 1 ? "Umbuchung zählt" : "Umbuchungen zählen")
-                    weder als Einnahme noch als Ausgabe.
+                    weder als Einnahme noch als Ausgabe
+                    (@Signed(list.Totals.TransferAmount)).
                 </div>
             }
 
@@ -713,7 +721,7 @@ else if (sheetTransaction is { } sheet)
 @code {
     private static readonly TransactionTotalsDto NoTotals = new()
     {
-        Income = 0m, Expense = 0m, Balance = 0m, TransferCount = 0,
+        Income = 0m, Expense = 0m, Balance = 0m, TransferCount = 0, TransferAmount = 0m,
     };
 
     private static readonly TransactionPageDto Empty = new()

@@ -151,6 +151,38 @@ public sealed class TransactionListTests : IDisposable
         Assert.Equal(1, page.Totals.TransferCount);
     }
 
+    /// <summary>
+    /// Die Umbuchungen tragen ihre Summe mit, nicht nur ihre Anzahl.
+    /// </summary>
+    /// <remarks>
+    /// <para>Ohne sie steht der Leser vor einer Lücke, die er nicht ausrechnen kann: oben der
+    /// Kontostand, unten der Saldo, und dazwischen eine Differenz ohne Erklärung. An einem
+    /// echten Konto klaffte so ein sechsstelliger Betrag — richtig gerechnet, und trotzdem
+    /// unverständlich.</para>
+    /// <para>Mitzählen sollen sie weiterhin nicht. Nur verschwiegen werden darf ihre Summe
+    /// nicht.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Die_Umbuchungen_nennen_auch_ihre_Summe()
+    {
+        Add("Gehalt", 3200m, TransactionKind.Income, null);
+        Add("Vermieter", -900m, TransactionKind.Expense, wohnenId);
+        Add("Auf Tagesgeld", -500m, TransactionKind.Transfer);
+        Add("Vom Tagesgeld", 1200m, TransactionKind.Transfer);
+
+        var page = await Service().GetPageAsync(null);
+
+        // Vorzeichenbehaftet: Auf einem Konto kommen Umbuchungen an und gehen ab, und nur so
+        // schliesst ihre Summe die Lücke zwischen Saldo und Kontostand.
+        Assert.Equal(700m, page.Totals.TransferAmount);
+        Assert.Equal(2, page.Totals.TransferCount);
+
+        // Und an den drei Zahlen daneben ändert sich dadurch nichts.
+        Assert.Equal(3200m, page.Totals.Income);
+        Assert.Equal(900m, page.Totals.Expense);
+        Assert.Equal(2300m, page.Totals.Balance);
+    }
+
     [Fact]
     public async Task Summen_folgen_dem_Filter()
     {
