@@ -94,11 +94,16 @@ public sealed class MedicalBillService(
             throw new ArgumentException("Die erwartete Erstattung passt nicht zum Rechnungsbetrag.");
         }
 
+        var anbieter = request.Provider.Trim();
+        var nummer = string.IsNullOrWhiteSpace(request.BillNumber) ? null : request.BillNumber.Trim();
+
+        await RefuseDuplicateAsync(anbieter, nummer, ct);
+
         var bill = new MedicalBill
         {
-            Provider = request.Provider.Trim(),
+            Provider = anbieter,
             BillDate = request.BillDate,
-            BillNumber = string.IsNullOrWhiteSpace(request.BillNumber) ? null : request.BillNumber.Trim(),
+            BillNumber = nummer,
             GrossAmount = request.GrossAmount,
             OwnShare = request.OwnShare,
             ExpectedReimbursement = expected,
@@ -117,6 +122,45 @@ public sealed class MedicalBillService(
         }
 
         return (await GetAsync(bill.Id, ct))!;
+    }
+
+    /// <summary>
+    /// Weist eine Rechnung ab, die unter derselben Nummer beim selben Rechnungssteller schon steht.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Der Abdruck der Datei schützt hier nicht.</b> Beim Einliefern wird er gegen die
+    /// Ablage gehalten, und dieselbe PDF kommt kein zweites Mal hinein. Ein zweiter Scan
+    /// desselben Blattes ist aber eine andere Datei — und von da an war der Weg frei: zwei
+    /// Vorgänge über eine Rechnung, deren Eigenanteil zweimal gegen den Jahresdeckel zählt.
+    /// Beide sehen für sich genommen richtig aus.</para>
+    /// <para><b>Ohne Nummer wird nichts abgewiesen.</b> Dann trägt der Bestand keine Angabe, an
+    /// der sich eine Doppelung erkennen ließe, und ein Verdacht ist kein Grund — zwei
+    /// Rechnungen desselben Hauses vom selben Tag über denselben Betrag sind möglich. Dieselbe
+    /// Abwägung wie beim Vertrag in <c>CreateFormService.DuplicatePolicyAsync</c>: Was ein
+    /// Papier identifiziert, ist seine Nummer beim Aussteller.</para>
+    /// <para>Gefiltert wird in der Datenbank nach der Nummer, verglichen wird der Aussteller
+    /// danach ohne Rücksicht auf Großschreibung. Zwei Lesedurchläufe desselben Kopfes liefern
+    /// „Labor Musterstadt MVZ GmbH“ und „Labor Musterstadt MVZ gmbh“, und das ist derselbe
+    /// Absender.</para>
+    /// </remarks>
+    private async Task RefuseDuplicateAsync(string anbieter, string? nummer, CancellationToken ct)
+    {
+        if (nummer is not { Length: > 0 })
+        {
+            return;
+        }
+
+        var gleicheNummer = await db.MedicalBills.AsNoTracking()
+            .Where(b => b.BillNumber == nummer)
+            .Select(b => b.Provider)
+            .ToListAsync(ct);
+
+        if (gleicheNummer.Any(p => string.Equals(p, anbieter, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new ArgumentException(
+                $"Eine Rechnung mit der Nummer „{nummer}“ von „{anbieter}“ ist schon erfasst. "
+                + "Steht sie wirklich ein zweites Mal auf dem Tisch, trägt sie eine andere Nummer.");
+        }
     }
 
     /// <summary>

@@ -288,13 +288,88 @@ public sealed class MedicalBillTests : IDisposable
         return new MedicalBillService(context, documents, clock);
     }
 
+    // ── Dieselbe Rechnung ein zweites Mal ────────────────────────────────────
+
+    /// <summary>
+    /// Zweimal dieselbe Rechnung ist zweimal derselbe Eigenanteil am Jahresdeckel.
+    /// </summary>
+    /// <remarks>
+    /// Der Abdruck der Datei schützt nicht: Ein zweiter Scan desselben Blattes ist eine andere
+    /// Datei und kommt durch den Eingang. Danach stehen zwei Vorgänge über eine Rechnung, und
+    /// beide sehen für sich genommen richtig aus.
+    /// </remarks>
+    [Fact]
+    public async Task Dieselbe_Rechnung_wird_nicht_zweimal_erfasst()
+    {
+        await CreateBillAsync(gross: 128.40m, ownShare: 12.84m, billNumber: "RG-7781");
+
+        var fehler = await Assert.ThrowsAsync<ArgumentException>(
+            () => CreateBillAsync(gross: 128.40m, ownShare: 12.84m, billNumber: "RG-7781"));
+
+        Assert.Contains("schon erfasst", fehler.Message);
+        Assert.Contains("RG-7781", fehler.Message);
+    }
+
+    /// <summary>
+    /// Derselbe Aussteller, anders geschrieben, ist derselbe Aussteller.
+    /// </summary>
+    /// <remarks>
+    /// Zwei Lesedurchläufe desselben Briefkopfes liefern nicht zeichengleiche Namen. Hängte die
+    /// Prüfung an der Großschreibung, ginge die Dublette genau dann durch, wenn sie aus einem
+    /// zweiten Scan stammt — also in dem Fall, für den sie gebaut ist.
+    /// </remarks>
+    [Fact]
+    public async Task Der_Aussteller_wird_ohne_Ruecksicht_auf_Grossschreibung_verglichen()
+    {
+        await CreateBillAsync(gross: 128.40m, ownShare: 12.84m, billNumber: "RG-7781");
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => CreateBillAsync(
+                gross: 128.40m, ownShare: 12.84m, billNumber: "RG-7781",
+                provider: "dr. meyer, ZAHNARZT"));
+    }
+
+    /// <summary>
+    /// Ohne Nummer wird nichts abgewiesen — ein Verdacht ist kein Grund.
+    /// </summary>
+    /// <remarks>
+    /// Zwei Rechnungen desselben Hauses vom selben Tag über denselben Betrag sind möglich. Ohne
+    /// Nummer trägt der Bestand nichts, woran sich eine Doppelung erkennen ließe, und eine
+    /// Abweisung wäre eine Behauptung.
+    /// </remarks>
+    [Fact]
+    public async Task Ohne_Nummer_wird_nichts_abgewiesen()
+    {
+        await CreateBillAsync(gross: 128.40m, ownShare: 12.84m);
+        var zweite = await CreateBillAsync(gross: 128.40m, ownShare: 12.84m);
+
+        Assert.True(zweite.Id > 0);
+    }
+
+    /// <summary>Dieselbe Nummer bei einem anderen Aussteller ist keine Dublette.</summary>
+    /// <remarks>
+    /// Rechnungsnummern vergibt jedes Haus für sich; „1“ oder „2026-1“ trifft sich leicht. Die
+    /// Nummer allein identifiziert nichts.
+    /// </remarks>
+    [Fact]
+    public async Task Dieselbe_Nummer_bei_anderem_Aussteller_geht_durch()
+    {
+        await CreateBillAsync(gross: 128.40m, ownShare: 12.84m, billNumber: "1");
+
+        var andere = await CreateBillAsync(
+            gross: 63m, ownShare: 6.30m, billNumber: "1", provider: "Musterklinik gGmbH");
+
+        Assert.True(andere.Id > 0);
+    }
+
     private async Task<MedicalBillDetailDto> CreateBillAsync(
-        decimal gross, decimal ownShare, string? billNumber = null, DateTime? submittedAt = null)
+        decimal gross, decimal ownShare, string? billNumber = null, DateTime? submittedAt = null,
+        string provider = "Dr. Meyer, Zahnarzt")
     {
         var service = CreateService();
         var bill = await service.CreateAsync(new CreateMedicalBillRequest
         {
-            Provider = "Dr. Meyer, Zahnarzt",
+            Provider = provider,
             BillDate = new DateOnly(2026, 7, 18),
             BillNumber = billNumber,
             GrossAmount = gross,
