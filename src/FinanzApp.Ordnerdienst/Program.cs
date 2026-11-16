@@ -37,12 +37,30 @@ builder.Services.AddSingleton<FolderInbox>();
 builder.Services.AddSingleton<IIntakeClient, IntakeClient>();
 builder.Services.AddHostedService<FolderWorker>();
 
+// Das Postfach ist die zweite Quelle desselben Eingangs und bleibt aus, solange niemand es
+// einschaltet. Wer den Dienst nur fuer den Scanordner benutzt, merkt von alldem nichts — kein
+// Abschnitt in der Konfiguration, keine Zeile im Protokoll.
+var mailbox = builder.Configuration.GetSection(MailboxOptions.SectionName).Get<MailboxOptions>()
+              ?? new MailboxOptions();
+
+builder.Services.AddSingleton(mailbox);
+
+if (mailbox.Enabled)
+{
+    builder.Services.AddSingleton<IMailbox, Mailbox>();
+    builder.Services.AddHostedService<MailboxWorker>();
+}
+
 var host = builder.Build();
 
 // Geprüft wird vor dem ersten Beleg und nicht bei ihm. Ein Dienst, der läuft und stillschweigend
 // nichts tut, ist schlimmer als einer, der sich weigert und sagt, was fehlt — und im Betrieb
 // steht dieser Grund im Ereignisprotokoll, wo Windows nach dem Start hinsieht.
-if (options.Problems() is { Count: > 0 } problems)
+// Beide Quellen zusammen: Ein Postfach, dem der Server fehlt, ist derselbe Fall wie ein
+// Ordner, den es nicht gibt — der Dienst liefe und taete stillschweigend nichts.
+List<string> problems = [.. options.Problems(), .. mailbox.Problems()];
+
+if (problems.Count > 0)
 {
     var logger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Ordnerdienst");
 

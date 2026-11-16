@@ -378,6 +378,26 @@ wenn Sie ihn im Prüfschritt gesehen und bestätigt haben — daran ändert auch
 der sich selbst leert. Eingerichtet wird der Dienst einmal am Rechner; wie, steht in
 `src/FinanzApp.Ordnerdienst/README.md`.
 
+### Belege aus einem Postfach
+
+Derselbe Dienst kann auch in ein **Postfach** sehen. Aus der Mail wird ein Vorgang — Betreff,
+Absender, Tag —, aus ihren Anhängen werden Belege, und beides geht denselben Weg wie ein Scan:
+abgelegt, wo es hingehört, und im Scaneingang wartend.
+
+Angesehen wird **nicht der Posteingang**, sondern ein eigener Ordner im Postfach (Vorgabe:
+`FinanzApp`). Das dreht die Richtung um: Der Dienst sieht nur, was Sie hineinschieben — dieselbe
+Geste wie das Legen eines Blattes in den Scaneingang. Wer wirklich den ganzen Posteingang will,
+trägt `INBOX` ein; das ist dann eine Entscheidung und kein Versehen.
+
+Eine erledigte Mail wird **verschoben, nicht gelöscht** — nach `Erledigt` unter demselben
+Ordner. Und erst dann, wenn jeder ihrer Anhänge angekommen ist: Scheitert einer, bleibt die
+ganze Mail liegen und kommt beim nächsten Durchgang wieder. Dass dabei nichts doppelt in der
+Ablage landet, besorgt der Eingang selbst — er hält den Abdruck jeder Datei.
+
+Das Postfach ist **ab Werk aus**. Eingeschaltet wird es in derselben Datei wie der Ordner; das
+Kennwort gehört nicht hinein, sondern in `Postfach__Password`. Einzelheiten stehen in
+`src/FinanzApp.Ordnerdienst/README.md`.
+
 ## 8c. Ändern und Löschen
 
 Alles, was sich anlegen lässt, lässt sich auch ändern und löschen. Der Weg dorthin hängt

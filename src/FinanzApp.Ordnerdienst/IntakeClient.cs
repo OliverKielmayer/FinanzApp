@@ -102,33 +102,8 @@ public sealed class IntakeClient : IIntakeClient, IDisposable
             await using var content = new FileStream(
                 path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
 
-            using var form = new MultipartFormDataContent();
             using var file = new StreamContent(content);
-            file.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-            form.Add(file, "file", Path.GetFileName(path));
-
-            var address = "api/scan/intake?source=" + Uri.EscapeDataString(path);
-            using var response = await http.PostAsync(address, form, ct);
-
-            if (response.IsSuccessStatusCode)
-            {
-                var intake = await response.Content.ReadFromJsonAsync<ScanIntakeResultDto>(Json, ct);
-
-                return intake is null
-                    ? (new HandoverResult(HandoverStatus.Deferred, "Die Antwort des Servers war leer."), false)
-                    : (new HandoverResult(HandoverStatus.Handed, intake.Summary) { Intake = intake }, false);
-            }
-
-            // Ein 401 macht die gemerkte Anmeldung ungültig, sonst probierte der nächste Versuch
-            // mit derselben abgelaufenen Sitzung weiter.
-            var abgelaufen = response.StatusCode is HttpStatusCode.Unauthorized;
-            if (abgelaufen)
-            {
-                signedIn = false;
-            }
-
-            var beschreibung = await DescribeAsync(response, ct);
-            return (new HandoverResult(Handover.StatusFor(response.StatusCode), beschreibung), abgelaufen);
+            return await PostAsync(file, Path.GetFileName(path), path, ct);
         }
         catch (IOException ex)
         {
@@ -152,6 +127,125 @@ public sealed class IntakeClient : IIntakeClient, IDisposable
             return (new HandoverResult(
                 HandoverStatus.Deferred, "Der Server hat nicht rechtzeitig geantwortet."), false);
         }
+    }
+
+    /// <summary>
+    /// Legt einen Vorgang an.
+    /// </summary>
+    /// <remarks>
+    /// Scheitert er, bleibt es bei <c>false</c> und die Mail geht trotzdem durch: Ein Vorgang
+    /// ist die Notiz zur Mail, nicht ihr Inhalt. Sie deswegen liegen zu lassen hiesse, einen
+    /// Beleg zurueckzuhalten, weil sein Merkzettel nicht geschrieben werden konnte.
+    /// </remarks>
+    public async Task<bool> CreateTaskAsync(CreateTaskRequest request, CancellationToken ct)
+    {
+        if (!signedIn && await SignInAsync(ct) is not null)
+        {
+            return false;
+        }
+
+        try
+        {
+            using var response = await http.PostAsJsonAsync("api/tasks", request, Json, ct);
+
+            if (response.StatusCode is HttpStatusCode.Unauthorized)
+            {
+                signedIn = false;
+            }
+
+            return response.IsSuccessStatusCode;
+        }
+        catch (HttpRequestException)
+        {
+            return false;
+        }
+        catch (TaskCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Reicht einen Anhang weiter, der nie als Datei auf der Platte lag.</summary>
+    /// <remarks>
+    /// <para>Ein Mailanhang hat keinen Pfad. Ihn erst in einen Ordner zu schreiben, nur damit
+    /// der vorhandene Weg ihn findet, hiesse: ein zweites Original anlegen, das danach jemand
+    /// aufraeumen muss — und die Herkunft verlieren, denn im Dokument stuende dann der
+    /// Ablageordner und nicht der Absender.</para>
+    /// <para>Dieselben Antworten, dieselbe Wiederholung bei abgelaufener Sitzung: Was sich
+    /// unterscheidet, ist nur, woher die Bytes kommen.</para>
+    /// </remarks>
+    public async Task<HandoverResult> HandOverAsync(
+        byte[] content, string fileName, string source, CancellationToken ct)
+    {
+        var (result, sessionExpired) = await SendAsync(content, fileName, source, ct);
+
+        return sessionExpired
+            ? (await SendAsync(content, fileName, source, ct)).Result
+            : result;
+    }
+
+    private async Task<(HandoverResult Result, bool SessionExpired)> SendAsync(
+        byte[] content, string fileName, string source, CancellationToken ct)
+    {
+        if (!signedIn && await SignInAsync(ct) is { } problem)
+        {
+            return (new HandoverResult(HandoverStatus.Blocked, problem), false);
+        }
+
+        try
+        {
+            using var file = new ByteArrayContent(content);
+            return await PostAsync(file, fileName, source, ct);
+        }
+        catch (HttpRequestException ex)
+        {
+            return (Handover.Failure(ex), false);
+        }
+        catch (TaskCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return (new HandoverResult(
+                HandoverStatus.Deferred, "Der Server hat nicht rechtzeitig geantwortet."), false);
+        }
+    }
+
+    /// <summary>
+    /// Der eine Weg zum Eingang — gleich, ob die Bytes aus einer Datei oder aus einer Mail
+    /// kommen.
+    /// </summary>
+    /// <remarks>
+    /// Die Herkunft geht als <c>source</c> mit und steht danach als Beschreibung am Dokument.
+    /// Ohne sie laesse sich ein Beleg nicht mehr bis zu seiner Quelle zurueckverfolgen, und
+    /// genau das ist bei einer Mail die Frage, die zuerst kommt: von wem kam das.
+    /// </remarks>
+    private async Task<(HandoverResult Result, bool SessionExpired)> PostAsync(
+        HttpContent file, string fileName, string source, CancellationToken ct)
+    {
+        using var form = new MultipartFormDataContent();
+        file.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        form.Add(file, "file", fileName);
+
+        var address = "api/scan/intake?source=" + Uri.EscapeDataString(source);
+        using var response = await http.PostAsync(address, form, ct);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var intake = await response.Content.ReadFromJsonAsync<ScanIntakeResultDto>(Json, ct);
+
+            return intake is null
+                ? (new HandoverResult(HandoverStatus.Deferred, "Die Antwort des Servers war leer."), false)
+                : (new HandoverResult(HandoverStatus.Handed, intake.Summary) { Intake = intake }, false);
+        }
+
+        // Ein 401 macht die gemerkte Anmeldung ungültig, sonst probierte der nächste Versuch
+        // mit derselben abgelaufenen Sitzung weiter.
+        var abgelaufen = response.StatusCode is HttpStatusCode.Unauthorized;
+        if (abgelaufen)
+        {
+            signedIn = false;
+        }
+
+        var beschreibung = await DescribeAsync(response, ct);
+        return (new HandoverResult(Handover.StatusFor(response.StatusCode), beschreibung), abgelaufen);
     }
 
     /// <summary>

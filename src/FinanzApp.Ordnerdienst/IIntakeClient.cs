@@ -1,3 +1,5 @@
+using FinanzApp.Shared.Contracts;
+
 namespace FinanzApp.Ordnerdienst;
 
 /// <summary>
@@ -16,4 +18,14 @@ public interface IIntakeClient
 {
     /// <summary>Reicht eine Datei an die FinanzApp weiter.</summary>
     Task<HandoverResult> HandOverAsync(string path, CancellationToken ct);
+
+    /// <summary>Reicht einen Anhang weiter, der nie als Datei auf der Platte lag.</summary>
+    Task<HandoverResult> HandOverAsync(
+        byte[] content, string fileName, string source, CancellationToken ct);
+
+    /// <summary>
+    /// Legt einen Vorgang an — die Mail selbst, nicht ihr Anhang.
+    /// </summary>
+    /// <returns><c>true</c>, wenn er steht. Sonst <c>false</c>, und der Grund im Protokoll.</returns>
+    Task<bool> CreateTaskAsync(CreateTaskRequest request, CancellationToken ct);
 }

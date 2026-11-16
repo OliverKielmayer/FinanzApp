@@ -1,3 +1,4 @@
+using FinanzApp.Shared.Contracts;
 using FinanzApp.Ordnerdienst;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -46,6 +47,16 @@ public sealed class FolderWorkerTests : IDisposable
             Angekommen.Release();
             return Task.FromResult(antwort);
         }
+
+        // Die beiden Wege des Postfachs kommen hier nie vor: Dieser Durchgang hat einen Ordner
+        // als Quelle. Sie stehen da, weil die Schnittstelle sie verlangt — und werfen, damit
+        // ein Test, der sie doch benutzt, es sofort erfaehrt statt still danebenzulaufen.
+        public Task<HandoverResult> HandOverAsync(
+            byte[] content, string fileName, string source, CancellationToken ct)
+            => throw new NotSupportedException("Der Ordnerdurchgang reicht Pfade weiter.");
+
+        public Task<bool> CreateTaskAsync(CreateTaskRequest request, CancellationToken ct)
+            => throw new NotSupportedException("Der Ordnerdurchgang legt keine Vorgaenge an.");
     }
 
     private WatchOptions Options(int maxMegabytes = 25, int maxAttempts = 5) => new()

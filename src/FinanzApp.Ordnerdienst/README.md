@@ -91,6 +91,55 @@ dotnet run --project src/FinanzApp.Ordnerdienst
 > `Development` ist. Ein Dienst startet — und `dotnet run` startet ihn — in `Production`, und dort
 > werden sie **nicht** gelesen. Ohne die zweite Zeile oben sucht man am falschen Ende.
 
+## Das Postfach
+
+Derselbe Dienst kann in ein **Postfach** sehen: Aus der Mail wird ein Vorgang, aus ihren
+Anhängen werden Belege, und beides geht denselben Weg wie eine Datei aus dem Ordner. Ab Werk
+ist das **aus**; ohne `Enabled` meldet der Dienst davon kein Wort.
+
+| Schlüssel | Vorgabe | Bedeutung |
+| --- | --- | --- |
+| `Enabled` | `false` | Ohne diesen Schalter wird kein Postfach angesehen |
+| `Host` | — | Der IMAP-Server. **Pflicht**, wenn eingeschaltet |
+| `Port` | `993` | Der verschlüsselte Zugang |
+| `UseSsl` | `true` | Bleibt `true`, ausser das Postfach steht im eigenen Netz |
+| `User` | — | Benutzername am Postfach. **Pflicht**, wenn eingeschaltet |
+| `Password` | — | **Pflicht**, gehört aber nicht in diese Datei — siehe unten |
+| `Folder` | `FinanzApp` | Der angesehene Ordner. **Nicht** der Posteingang |
+| `DoneFolder` | `Erledigt` | Unterordner von `Folder`; dorthin wandert eine erledigte Mail |
+| `CreateTask` | `true` | Ob aus der Mail ein Vorgang wird |
+| `Extensions` | alle | Angebotene Anhänge; leer heisst: alles anbieten |
+| `MaxMegabytes` | `25` | Grössere Anhänge werden nicht angeboten; `0` schaltet die Prüfung ab |
+| `SweepSeconds` | `300` | Takt — länger als beim Ordner, jeder Durchgang ist eine Anmeldung |
+| `MaxPerSweep` | `20` | Höchstzahl Mails je Durchgang |
+
+Das Kennwort geht denselben Weg wie das des Ordnerdienstes, nur unter anderem Namen:
+
+```powershell
+[Environment]::SetEnvironmentVariable('Postfach__Password', 'geheim', 'Machine')
+```
+
+```powershell
+dotnet user-secrets --project src/FinanzApp.Ordnerdienst set "Postfach:Password" "geheim"
+```
+
+### Warum ein eigener Ordner und nicht der Posteingang
+
+Ein Dienst, der den Posteingang liest, bekommt jede Werbung, jede Benachrichtigung und jede
+private Nachricht zu sehen und legt ihre Anhänge in der Ablage ab. Ein eigener Ordner dreht die
+Richtung um: Er sieht nur, was jemand hineinschiebt — dieselbe Geste wie das Legen eines Blattes
+in den Scaneingang. Wer den Posteingang will, trägt `INBOX` ein.
+
+### Was liegen bleibt
+
+Eine Mail wandert erst nach `Erledigt`, wenn **jeder** ihrer Anhänge angekommen ist. Scheitert
+einer, bleibt die ganze Mail liegen und kommt beim nächsten Durchgang wieder; dass dabei nichts
+doppelt abgelegt wird, besorgt der Eingang selbst — er hält den Abdruck jeder Datei. Abgelehnt
+ist etwas anderes als gescheitert: Was der Server nicht will, will er beim nächsten Mal auch
+nicht, und die Mail wird trotzdem weggeräumt.
+
+Gelöscht wird nie. Der Dienst hat die Mail weitergereicht und nicht bearbeitet.
+
 ### Der Zugang
 
 Ein **eigener Benutzer** des Haushalts mit der Rolle *Mitglied* — nicht der des Inhabers. Der
