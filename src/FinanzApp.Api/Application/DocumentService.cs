@@ -906,6 +906,30 @@ public sealed class DocumentService(
         }
     }
 
+    /// <summary>
+    /// Die Verknüpfung, die den Beleg benennt: sein Objekt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Ein Beleg hängt oft an mehrerem — an der Police <em>und</em> an der Buchung, mit
+    /// der sie bezahlt wurde. Benennen soll ihn das Objekt: Die Buchung ist der Beleg für eine
+    /// Zahlung und nicht die Sache, um die es geht. Ein Konto ebenso wenig.</para>
+    /// <para><b>Vorher stand hier <c>FirstOrDefault()</c> ohne jede Ordnung</b>, und was
+    /// „zuerst“ heißt, entschied ein Index: <c>IX_DocumentLinks_DocumentId_TargetType_TargetId</c>
+    /// liefert nach TargetType aufsteigend, und <see cref="LinkTargetType.Transaction"/> ist 1.
+    /// So gewann die Buchung jedes Mal. Aus einem Schreiben am Haus wurde beim Nachziehen
+    /// „Information_&lt;Name des Verkäufers&gt;“, weil eine Kaufbuchung dazugekommen war —
+    /// entschieden hatte das niemand.</para>
+    /// <para>Unter mehreren Objekten gewinnt das zuerst verknüpfte. Das ist die Zuordnung, mit
+    /// der der Beleg abgelegt wurde; eine später nachgetragene ergänzt sie, sie ersetzt sie
+    /// nicht.</para>
+    /// </remarks>
+    private static DocumentLink? BenennendeVerknuepfung(IEnumerable<DocumentLink> links)
+        => links
+            .OrderBy(l => l.TargetType
+                is LinkTargetType.Transaction or LinkTargetType.Account ? 1 : 0)
+            .ThenBy(l => l.Id)
+            .FirstOrDefault();
+
     private async Task<List<DocumentListItemDto>> LoadAsync(CancellationToken ct)
     {
         var rows = await db.Documents.AsNoTracking()
@@ -918,7 +942,7 @@ public sealed class DocumentService(
         var items = new List<DocumentListItemDto>(rows.Count);
         foreach (var row in rows)
         {
-            var firstLink = row.Links.FirstOrDefault();
+            var firstLink = BenennendeVerknuepfung(row.Links);
             var linkedLabel = firstLink is null
                 ? null
                 : await labels.ResolveAsync(firstLink.TargetType, firstLink.TargetId, ct);
@@ -1189,7 +1213,7 @@ public sealed class DocumentService(
                           ? FilingSuggestions.For(text)?.TypeName
                           : null);
 
-            var ziel = document.Links.FirstOrDefault() is { } verknuepfung
+            var ziel = BenennendeVerknuepfung(document.Links) is { } verknuepfung
                 ? await labels.ResolveAsync(verknuepfung.TargetType, verknuepfung.TargetId, ct)
                 : null;
 

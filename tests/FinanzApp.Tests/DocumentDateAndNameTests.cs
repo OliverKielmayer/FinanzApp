@@ -201,6 +201,132 @@ public sealed class DocumentDateAndNameTests : IDisposable
         Assert.Null(neu);
     }
 
+    // ── Welche Verknüpfung den Namen gibt ───────────────────────────────────
+
+    /// <summary>
+    /// Das Objekt benennt den Beleg, nicht die Buchung.
+    /// </summary>
+    /// <remarks>
+    /// <para>Am echten Bestand aufgefallen: Ein Schreiben zum Haus hieß nach dem Nachziehen
+    /// „Information_&lt;Name des Verkäufers&gt;“. Dazugekommen war nur eine Kaufbuchung — und sie
+    /// gewann, weil „die erste Verknüpfung“ nirgends festgelegt war und ein Index die Reihenfolge
+    /// bestimmte: nach TargetType aufsteigend, und eine Buchung ist 1.</para>
+    /// <para>Die Buchung ist der Beleg für eine Zahlung, nicht die Sache, um die es geht.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Das_Objekt_benennt_den_Beleg_und_nicht_die_Buchung()
+    {
+        var id = MitObjektUndBuchung();
+
+        await Nachziehen();
+
+        using var context = database.Context();
+        var beleg = context.Documents.Single(d => d.Id == id);
+
+        Assert.Equal("Gebuehrenbescheid_Haus_Musterweg_3_2026-03-11.pdf", beleg.FileName);
+        Assert.DoesNotContain("Baumarkt", beleg.FileName);
+    }
+
+    /// <summary>Ohne Objekt benennt die Buchung — besser als gar nichts.</summary>
+    [Fact]
+    public async Task Ohne_Objekt_benennt_die_Buchung()
+    {
+        var id = MitObjektUndBuchung(mitObjekt: false);
+
+        await Nachziehen();
+
+        using var context = database.Context();
+        var beleg = context.Documents.Single(d => d.Id == id);
+
+        Assert.Equal("Gebuehrenbescheid_Baumarkt_Mustermann_2026-03-11.pdf", beleg.FileName);
+    }
+
+    /// <summary>
+    /// Ein Beleg mit erzeugtem Namen, einem Objekt und einer Buchung — in dieser Reihenfolge
+    /// verknüpft, damit die Buchung nicht schon durch ihr Alter hinten steht.
+    /// </summary>
+    private int MitObjektUndBuchung(bool mitObjekt = true)
+    {
+        using var context = database.Context();
+
+        var konto = new Account
+        {
+            Name = "Girokonto",
+            ShortName = "Giro",
+            BankName = "Musterbank",
+            Kind = AccountKind.Checking,
+        };
+        context.Accounts.Add(konto);
+
+        var haus = new Property { Name = "Haus Musterweg 3" };
+        context.Properties.Add(haus);
+        context.SaveChanges();
+
+        var buchung = new Transaction
+        {
+            AccountId = konto.Id,
+            BookingDate = new DateOnly(2026, 3, 11),
+            Payee = "Baumarkt Mustermann",
+            Kind = TransactionKind.Expense,
+            Amount = -249.00m,
+            CreatedAt = clock.Now,
+        };
+        context.Transactions.Add(buchung);
+
+        var typ = new DocumentType { Name = "Gebuehrenbescheid", Area = DocumentArea.Housing };
+        context.DocumentTypes.Add(typ);
+        context.SaveChanges();
+
+        var beleg = new Document
+        {
+            Title = "Scannen0042",
+            RelativePath = "Wohnen/Scannen0042.pdf",
+            FileName = "Scannen0042.pdf",
+            Extension = ".pdf",
+            Area = DocumentArea.Housing,
+            DocumentTypeId = typ.Id,
+            DocumentDate = new DateOnly(2026, 3, 11),
+            HasGeneratedName = true,
+            CreatedAt = clock.Now,
+            UpdatedAt = clock.Now,
+        };
+        context.Documents.Add(beleg);
+        context.SaveChanges();
+
+        Datei(beleg.RelativePath);
+
+        if (mitObjekt)
+        {
+            context.DocumentLinks.Add(new DocumentLink
+            {
+                DocumentId = beleg.Id,
+                TargetType = LinkTargetType.Property,
+                TargetId = haus.Id,
+                CreatedAt = clock.Now,
+            });
+            context.SaveChanges();
+        }
+
+        context.DocumentLinks.Add(new DocumentLink
+        {
+            DocumentId = beleg.Id,
+            TargetType = LinkTargetType.Transaction,
+            TargetId = buchung.Id,
+            CreatedAt = clock.Now,
+        });
+        context.SaveChanges();
+
+        return beleg.Id;
+    }
+
+    /// <summary>Legt die Datei wirklich an — ohne sie fände die Umbenennung nichts zum Bewegen.</summary>
+    private void Datei(string relativerPfad)
+    {
+        var ziel = Path.Combine(root, relativerPfad.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(ziel)!);
+        File.WriteAllText(ziel, "%PDF-1.4 Beleg");
+    }
+
     // ── Suchen nach Monat und Jahr ─────────────────────────────────────────────────────────
 
     /// <summary>
