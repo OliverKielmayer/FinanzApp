@@ -907,28 +907,60 @@ public sealed class DocumentService(
     }
 
     /// <summary>
-    /// Die Verknüpfung, die den Beleg benennt: sein Objekt.
+    /// Die Verknüpfung, die den Beleg benennt: sein nächstes Objekt.
     /// </summary>
     /// <remarks>
-    /// <para>Ein Beleg hängt oft an mehrerem — an der Police <em>und</em> an der Buchung, mit
-    /// der sie bezahlt wurde. Benennen soll ihn das Objekt: Die Buchung ist der Beleg für eine
-    /// Zahlung und nicht die Sache, um die es geht. Ein Konto ebenso wenig.</para>
+    /// <para>Ein Beleg hängt oft an mehrerem — eine Arztrechnung am Vorgang, an der Police, unter
+    /// der sie eingereicht wird, <em>und</em> an der Buchung, mit der sie bezahlt wurde. Benennen
+    /// soll ihn das nächste davon.</para>
     /// <para><b>Vorher stand hier <c>FirstOrDefault()</c> ohne jede Ordnung</b>, und was
     /// „zuerst“ heißt, entschied ein Index: <c>IX_DocumentLinks_DocumentId_TargetType_TargetId</c>
     /// liefert nach TargetType aufsteigend, und <see cref="LinkTargetType.Transaction"/> ist 1.
     /// So gewann die Buchung jedes Mal. Aus einem Schreiben am Haus wurde beim Nachziehen
     /// „Information_&lt;Name des Verkäufers&gt;“, weil eine Kaufbuchung dazugekommen war —
     /// entschieden hatte das niemand.</para>
-    /// <para>Unter mehreren Objekten gewinnt das zuerst verknüpfte. Das ist die Zuordnung, mit
-    /// der der Beleg abgelegt wurde; eine später nachgetragene ergänzt sie, sie ersetzt sie
-    /// nicht.</para>
+    /// <para><b>Danach gewann unter mehreren Objekten das zuerst verknüpfte</b>, und auch das war
+    /// eine Reihenfolge und keine Entscheidung: Eine Arztrechnung hieß
+    /// „Arztrechnung_&lt;Name des Versicherers&gt;“, weil die Police vor dem Vorgang verknüpft
+    /// worden war. Der Versicherer steht an jedem dieser Blätter und unterscheidet keine zwei.</para>
+    /// <para>Gleich nahe Ziele trennt weiter die Reihenfolge des Verknüpfens: Die erste
+    /// Zuordnung ist die, mit der der Beleg abgelegt wurde; eine später nachgetragene ergänzt
+    /// sie, sie ersetzt sie nicht.</para>
     /// </remarks>
     private static DocumentLink? BenennendeVerknuepfung(IEnumerable<DocumentLink> links)
         => links
-            .OrderBy(l => l.TargetType
-                is LinkTargetType.Transaction or LinkTargetType.Account ? 1 : 0)
+            .OrderBy(l => Naehe(l.TargetType))
             .ThenBy(l => l.Id)
             .FirstOrDefault();
+
+    /// <summary>
+    /// Wie nah eine Zielart am Blatt steht — kleiner ist näher.
+    /// </summary>
+    /// <remarks>
+    /// <para>Drei Stufen, und dahinter steht jedes Mal dieselbe Frage: Wovon gibt es genau eines
+    /// zu diesem Blatt?</para>
+    /// <para><b>Der Vorgang</b> ist die Sache selbst — diese Arztrechnung, diese Rechnung, diese
+    /// Abrechnung, diese Anschaffung. <b>Das dauernde Objekt</b> trägt viele Blätter: Unter einer
+    /// Police liegen zwanzig Belege, und ihr Name unterscheidet keinen davon. <b>Die Zahlung</b>
+    /// zuletzt — sie sagt, womit beglichen wurde, und nicht, worum es geht.</para>
+    /// <para>Eine eigene Stufe und nicht der Zahlenwert des Enums: <see cref="LinkTargetType"/>
+    /// zählt in der Reihenfolge, in der die Zielarten entstanden sind, und das ist keine
+    /// Rangfolge. Genau daran hing die Benennung schon einmal — unabsichtlich, über den
+    /// Index.</para>
+    /// </remarks>
+    private static int Naehe(LinkTargetType type) => type switch
+    {
+        LinkTargetType.MedicalBill or LinkTargetType.Invoice
+            or LinkTargetType.Payslip or LinkTargetType.Purchase => 0,
+
+        LinkTargetType.Transaction or LinkTargetType.Account => 2,
+
+        // Police, Vertrag, Darlehen, Immobilie, Fahrzeug, Depot, Arbeitgeber, Arbeitsvertrag.
+        // Und alles Neue: Eine Zielart, die noch niemand eingeordnet hat, gilt als dauerndes
+        // Objekt. Das ist die Mitte und damit die Stufe, auf der ein Versehen am wenigsten
+        // anrichtet — sie drängt sich weder vor den Vorgang noch hinter die Zahlung.
+        _ => 1,
+    };
 
     private async Task<List<DocumentListItemDto>> LoadAsync(CancellationToken ct)
     {

@@ -319,6 +319,175 @@ public sealed class DocumentDateAndNameTests : IDisposable
         return beleg.Id;
     }
 
+    /// <summary>
+    /// Der Vorgang benennt den Beleg, nicht der Vertrag, unter dem er läuft.
+    /// </summary>
+    /// <remarks>
+    /// <para>Am echten Bestand aufgefallen, nachdem die Buchung schon aus dem Weg war: Eine
+    /// Arztrechnung hieß nach dem Nachziehen „Arztrechnung_&lt;Name des Versicherers&gt;“. Sie
+    /// hing an der Police <em>und</em> am Vorgang, und die Police war zuerst verknüpft
+    /// worden.</para>
+    /// <para>Der Versicherer steht an jeder Arztrechnung und unterscheidet keine zwei. Der
+    /// Behandler tut es.</para>
+    /// </remarks>
+    [Fact]
+    public async Task Der_Vorgang_benennt_den_Beleg_und_nicht_der_Vertrag()
+    {
+        var id = MitZielen("Arztrechnung", DocumentArea.Health, context =>
+        {
+            var police = new Policy
+            {
+                Name = "Musterleben Kranken", Provider = "Musterleben", Premium = 310m,
+            };
+            context.Policies.Add(police);
+
+            var vorgang = new MedicalBill
+            {
+                Provider = "Praxis Dr. Test",
+                BillDate = new DateOnly(2026, 3, 11),
+                GrossAmount = 128.40m,
+            };
+            context.MedicalBills.Add(vorgang);
+            context.SaveChanges();
+
+            return
+            [
+                (LinkTargetType.Policy, police.Id),
+                (LinkTargetType.MedicalBill, vorgang.Id),
+            ];
+        });
+
+        await Nachziehen();
+
+        using var context = database.Context();
+        var beleg = context.Documents.Single(d => d.Id == id);
+
+        Assert.Equal("Arztrechnung_Praxis_Dr._Test_2026-03-11.pdf", beleg.FileName);
+    }
+
+    /// <summary>
+    /// Die Anschaffung benennt den Beleg, nicht das Haus, in dem sie steht.
+    /// </summary>
+    /// <remarks>
+    /// Dieselbe Stufe wie beim Vorgang, nur im anderen Bereich: Unter der Immobilie liegen alle
+    /// Belege des Hauses, unter der Anschaffung genau dieser eine.
+    /// </remarks>
+    [Fact]
+    public async Task Die_Anschaffung_benennt_den_Beleg_und_nicht_das_Haus()
+    {
+        var id = MitZielen("Rechnung", DocumentArea.Housing, context =>
+        {
+            var haus = new Property { Name = "Haus Musterweg 3" };
+            context.Properties.Add(haus);
+
+            var anschaffung = new Purchase
+            {
+                Name = "Musterregal", PurchaseDate = new DateOnly(2026, 3, 11),
+            };
+            context.Purchases.Add(anschaffung);
+            context.SaveChanges();
+
+            return
+            [
+                (LinkTargetType.Property, haus.Id),
+                (LinkTargetType.Purchase, anschaffung.Id),
+            ];
+        });
+
+        await Nachziehen();
+
+        using var context = database.Context();
+        var beleg = context.Documents.Single(d => d.Id == id);
+
+        Assert.Equal("Rechnung_Musterregal_2026-03-11.pdf", beleg.FileName);
+    }
+
+    /// <summary>
+    /// Unter gleich nahen Zielen gewinnt das zuerst verknüpfte.
+    /// </summary>
+    /// <remarks>
+    /// Die Nähe ordnet die Arten, nicht die einzelnen Ziele. Stehen zwei auf derselben Stufe,
+    /// entscheidet wie bisher die Zuordnung, mit der der Beleg abgelegt wurde — und nicht,
+    /// welche Art im Enum die kleinere Zahl trägt.
+    /// </remarks>
+    [Fact]
+    public async Task Unter_gleich_nahen_Zielen_gewinnt_das_zuerst_verknuepfte()
+    {
+        var id = MitZielen("Information", DocumentArea.Housing, context =>
+        {
+            var erstes = new Property { Name = "Haus Musterweg 3" };
+            var zweites = new Property { Name = "Wohnung Musterring 7" };
+            context.Properties.AddRange(erstes, zweites);
+            context.SaveChanges();
+
+            return
+            [
+                (LinkTargetType.Property, erstes.Id),
+                (LinkTargetType.Property, zweites.Id),
+            ];
+        });
+
+        await Nachziehen();
+
+        using var context = database.Context();
+        var beleg = context.Documents.Single(d => d.Id == id);
+
+        Assert.Equal("Information_Haus_Musterweg_3_2026-03-11.pdf", beleg.FileName);
+    }
+
+    /// <summary>
+    /// Ein Beleg mit erzeugtem Namen, der an den gelieferten Zielen hängt — einzeln und in
+    /// genau dieser Reihenfolge verknüpft, damit nicht schon das Alter der Verknüpfung
+    /// entscheidet.
+    /// </summary>
+    private int MitZielen(
+        string art, DocumentArea bereich,
+        Func<FinanzAppDbContext, IReadOnlyList<(LinkTargetType Typ, int Id)>> ziele)
+    {
+        using var context = database.Context();
+
+        var liste = ziele(context);
+
+        var typ = new DocumentType { Name = art, Area = bereich };
+        context.DocumentTypes.Add(typ);
+        context.SaveChanges();
+
+        var beleg = new Document
+        {
+            Title = "Scannen0043",
+            RelativePath = "Ablage/Scannen0043.pdf",
+            FileName = "Scannen0043.pdf",
+            Extension = ".pdf",
+            Area = bereich,
+            DocumentTypeId = typ.Id,
+            DocumentDate = new DateOnly(2026, 3, 11),
+            HasGeneratedName = true,
+            CreatedAt = clock.Now,
+            UpdatedAt = clock.Now,
+        };
+        context.Documents.Add(beleg);
+        context.SaveChanges();
+
+        Datei(beleg.RelativePath);
+
+        foreach (var (zieltyp, zielId) in liste)
+        {
+            context.DocumentLinks.Add(new DocumentLink
+            {
+                DocumentId = beleg.Id,
+                TargetType = zieltyp,
+                TargetId = zielId,
+                CreatedAt = clock.Now,
+            });
+
+            // Einzeln gespeichert: Die Reihenfolge der Verknüpfung ist hier der Prüfgegenstand,
+            // und zwei in einem Zug vergebene Ids sagen über sie nichts.
+            context.SaveChanges();
+        }
+
+        return beleg.Id;
+    }
+
     /// <summary>Legt die Datei wirklich an — ohne sie fände die Umbenennung nichts zum Bewegen.</summary>
     private void Datei(string relativerPfad)
     {
