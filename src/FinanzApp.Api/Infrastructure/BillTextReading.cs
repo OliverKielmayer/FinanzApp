@@ -103,6 +103,29 @@ public static class BillTextReader
         new(@"^datum\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     /// <summary>
+    /// Eine Zeile, die nichts als ein Datum ist: das Briefdatum an seinem Platz.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der deutsche Geschäftsbrief setzt sein Datum rechts über den Betreff, ohne jede
+    /// Beschriftung und ohne Ort — bei einem Ministerium, einem Versicherer, einer Werkstatt
+    /// gleichermaßen. Die vier Regeln davor verlangen alle etwas daneben: ein Wort, ein
+    /// „vom“, ein „, den“. Dieses Blatt bietet keines, und der Beleg bekam den Ablagetag.</para>
+    /// <para><b>Nichts als ein Datum</b> ist der ganze Schutz. Eine Zeile, die noch irgendetwas
+    /// anderes trägt, kommt nicht in Frage: Im Briefkopf steht auch „Ablauf 01.07.2038“, und
+    /// eine Regel, die sich das nächstbeste Datum nimmt, datierte das Schreiben Jahre in die
+    /// Zukunft — und in der Liste stünde es vor allem, was es wirklich gibt.</para>
+    /// <para>Die Form ist absichtlich weiter als das, was am Ende gilt: Was wie ein Datum
+    /// <em>aussieht</em>, entscheidet dieses Muster, ob es eines <em>ist</em>,
+    /// <see cref="LetztesDatum"/>. „12. Rate 2026“ steht allein auf einer Zeile und sieht
+    /// genauso aus — nur kennt der Kalender keinen Monat „Rate“.</para>
+    /// <para>An achtundzwanzig echten Schreiben gemessen, bevor die Regel entstand. Jede
+    /// einzelne Fundstelle stand zwischen dem Anschriftenblock und dem Betreff.</para>
+    /// </remarks>
+    private static readonly Regex NurEinDatum =
+        new(@"^\d{1,2}\.\s?(?:\d{1,2}\.\s?\d{2,4}|[A-Za-zÄÖÜäöü]{3,9}\.?\s+\d{4})\.?$",
+            RegexOptions.Compiled);
+
+    /// <summary>
     /// Die Überschrift eines Bescheids mit seinem Datum: „Bescheid über Grunderwerbsteuer vom
     /// 12.03.2026“.
     /// </summary>
@@ -550,12 +573,23 @@ public static class BillTextReader
             }
         }
 
-        // Zuletzt: eine Zeile, die schlicht mit „Datum“ anfängt.
+        // Dann eine Zeile, die schlicht mit „Datum“ anfängt.
         foreach (var zeile in zeilen.Take(25))
         {
             if (DatumZeilenanfang.IsMatch(zeile) && LetztesDatum(zeile) is { } schlicht)
             {
                 return (schlicht, zeile);
+            }
+        }
+
+        // Zuletzt das unbeschriftete Briefdatum: eine Zeile im Kopf, die nichts als ein Datum
+        // ist. Zuletzt, weil sie als einzige ohne jeden Anhaltspunkt daneben auskommt — trägt
+        // das Blatt irgendwo eine Beschriftung, hat die vorher gewonnen.
+        foreach (var zeile in zeilen.Take(25))
+        {
+            if (NurEinDatum.IsMatch(zeile.Trim()) && LetztesDatum(zeile) is { } briefkopf)
+            {
+                return (briefkopf, zeile);
             }
         }
 

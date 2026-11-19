@@ -551,6 +551,142 @@ public sealed class BillTextReadingTests
         Assert.Null(gelesen.DueDate);
     }
 
+    // ── Das unbeschriftete Briefdatum ─────────────────────────────────────
+
+    /// <summary>
+    /// Eine Zeile, die nichts als ein Datum ist, ist das Briefdatum.
+    /// </summary>
+    /// <remarks>
+    /// <para>Am echten Bestand aufgefallen: Zwanzig Jahresberichte desselben Versicherers
+    /// standen alle am Tag ihrer Ablage — ein Stapel ohne Reihenfolge. Das Datum stand auf
+    /// jedem einzelnen, an seinem gewöhnlichen Platz zwischen Anschrift und Betreff, nur ohne
+    /// Beschriftung und ohne Ort daneben.</para>
+    /// <para>Die vier älteren Regeln verlangen alle etwas neben dem Datum: ein Wort, ein
+    /// „vom“, ein „, den“. Ein Geschäftsbrief bietet keines davon.</para>
+    /// </remarks>
+    [Fact]
+    public void Eine_Zeile_aus_nichts_als_einem_Datum_ist_das_Briefdatum()
+    {
+        var gelesen = BillTextReader.Read("""
+            Musterleben Lebensversicherung AG Im Musterfeld 2 12345 Musterstadt
+            Max Mustermann
+            Musterweg 7
+            54321 Musterdorf
+            14.03.2022
+            Seite 1 von 3
+            Versicherungsnummer: 11111111-01
+            """);
+
+        Assert.Equal(new DateOnly(2022, 3, 14), gelesen.BillDate);
+    }
+
+    /// <summary>
+    /// Der ausgeschriebene Monat steht genauso allein.
+    /// </summary>
+    /// <remarks>
+    /// Ein Ministerium schreibt „9. Februar 2024“ und nicht „09.02.2024“. Der Leser kennt
+    /// die Form seit einer Händlerrechnung — gefunden hat er sie hier
+    /// trotzdem nicht, weil keine Regel auf eine Zeile ohne Beschriftung sah.
+    /// </remarks>
+    [Fact]
+    public void Auch_der_ausgeschriebene_Monat_steht_allein_auf_seiner_Zeile()
+    {
+        var gelesen = BillTextReader.Read("""
+            Musterministerium der Finanzen, 11111 Musterstadt
+            Nur per E-Mail
+            poststelle@muster.bund.de
+            9. Februar 2024
+            Betreff: Steuerliche Behandlung von Musterkosten
+            """);
+
+        Assert.Equal(new DateOnly(2024, 2, 9), gelesen.BillDate);
+    }
+
+    /// <summary>
+    /// Steht noch etwas anderes auf der Zeile, ist sie kein Briefdatum.
+    /// </summary>
+    /// <remarks>
+    /// Das ist der ganze Schutz dieser Regel, und er muss halten: Im Briefkopf eines
+    /// Lebensversicherers steht auch der Ablauftag. Nähme sich die Regel das nächstbeste
+    /// Datum, trage das Schreiben einen Tag in zehn Jahren — und stünde in der Liste vor
+    /// allem, was es wirklich gibt.
+    /// </remarks>
+    [Fact]
+    public void Eine_Zeile_mit_mehr_als_dem_Datum_ist_kein_Briefdatum()
+    {
+        var gelesen = BillTextReader.Read("""
+            Musterleben Lebensversicherung AG
+            Max Mustermann
+            Musterweg 7
+            Leistung im Erlebensfall zum Ablauf 01.07.2038
+            garantierte Erlebensfallleistung 12.345,00 EUR
+            """);
+
+        Assert.Null(gelesen.BillDate);
+    }
+
+    /// <summary>
+    /// Ein Datum, das nach einem Monat aussieht, aber keiner ist.
+    /// </summary>
+    /// <remarks>
+    /// „12. Rate 2026“ steht allein auf seiner Zeile und hat dieselbe Gestalt wie
+    /// „12. März 2026“. Über die Form entscheidet das Muster, über das Datum der Kalender —
+    /// und der kennt keinen Monat „Rate“.
+    /// </remarks>
+    [Fact]
+    public void Eine_Rate_ist_kein_Monat()
+    {
+        var gelesen = BillTextReader.Read("""
+            Musterbank AG
+            Max Mustermann
+            12. Rate 2026
+            Die Tilgung läuft in Teilbeträgen.
+            """);
+
+        Assert.Null(gelesen.BillDate);
+    }
+
+    /// <summary>
+    /// Eine Beschriftung gewinnt gegen das nackte Datum.
+    /// </summary>
+    /// <remarks>
+    /// Die neue Regel steht hinter allen anderen, und das ist der Grund: Sie kommt als einzige
+    /// ohne jeden Anhaltspunkt neben dem Datum aus. Trägt das Blatt irgendwo eine
+    /// Beschriftung, weiß die mehr als eine Zeilenposition.
+    /// </remarks>
+    [Fact]
+    public void Die_Beschriftung_gewinnt_gegen_das_nackte_Datum()
+    {
+        var gelesen = BillTextReader.Read("""
+            Musterhandel GmbH
+            Max Mustermann
+            Musterweg 7
+            14.03.2022
+            Rechnungsdatum: 07.02.2027
+            """);
+
+        Assert.Equal(new DateOnly(2027, 2, 7), gelesen.BillDate);
+    }
+
+    /// <summary>
+    /// Tief im Text ist ein nacktes Datum kein Briefdatum.
+    /// </summary>
+    /// <remarks>
+    /// Derselbe Grund wie beim Ortsdatum: Weiter unten stehen Termine, Stichtage und
+    /// Vertragsdaten, die alle wie ein Datum aussehen und etwas anderes meinen. Der Briefkopf
+    /// ist der einzige Ort, an dem die Stellung allein etwas aussagt.
+    /// </remarks>
+    [Fact]
+    public void Tief_im_Text_ist_ein_nacktes_Datum_kein_Briefdatum()
+    {
+        var fueller = string.Join(
+            "\n", Enumerable.Range(1, 25).Select(i => $"Hinweis {i} ohne Bedeutung"));
+
+        var gelesen = BillTextReader.Read($"Musterverlag GmbH\n{fueller}\n14.03.2022\n");
+
+        Assert.Null(gelesen.BillDate);
+    }
+
     /// <summary>Die gelesene Frist landet im Formular des offenen Postens.</summary>
     [Fact]
     public void Der_offene_Posten_bekommt_die_Frist_vorgeschlagen()
