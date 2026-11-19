@@ -1056,6 +1056,80 @@ public class ChargingReading : IHouseholdOwned
 }
 
 /// <summary>
+/// Eine Abrechnung des Ladestroms für einen Zeitraum — das Blatt, das zum Arbeitgeber geht.
+/// </summary>
+/// <remarks>
+/// <para><b>Hier wird festgeschrieben, und nur hier.</b> Verbrauch, Satz und Betrag stehen als
+/// Zahlen in der Zeile, obwohl sie sich aus Ständen und Sätzen ergeben — im Gegensatz zu allem
+/// anderen in diesem Bereich. Der Grund ist der Empfänger: Der Arbeitgeber hat ein Blatt mit
+/// einer Summe bekommen, und ein später geänderter Satz darf diese Summe nicht rückwirkend zu
+/// einer anderen machen. Was er gesehen hat, bleibt stehen.</para>
+/// <para><b>Beide Zählerstände stehen mit darin</b>, Anfang und Ende. Damit trägt das Blatt
+/// seinen eigenen Nachweis: Wer nachrechnen will, braucht die Ablesungen nicht dazu.</para>
+/// <para><b>Eine Abrechnung setzt auf der vorigen auf.</b> Ihr Anfang ist das Ende der
+/// letzten; zwischen zwei Abrechnungen bleibt keine Kilowattstunde liegen und keine wird
+/// zweimal eingereicht. Deshalb lässt sich nur die jüngste zurücknehmen — eine aus der Mitte
+/// hinterließe eine Lücke, die niemandem auffällt.</para>
+/// </remarks>
+public class ChargingStatement : IHouseholdOwned
+{
+    public int Id { get; set; }
+    public int HouseholdId { get; set; }
+
+    /// <summary>Das Arbeitsverhältnis, das erstattet.</summary>
+    public int? EmploymentId { get; set; }
+    public Employment? Employment { get; set; }
+
+    /// <summary>Das Fahrzeug, wie es auf dem Blatt steht.</summary>
+    public int? VehicleId { get; set; }
+    public Vehicle? Vehicle { get; set; }
+
+    /// <summary>Tag und Zählerstand, auf denen die Abrechnung aufsetzt.</summary>
+    public DateOnly FromOn { get; set; }
+    public decimal FromMeterKwh { get; set; }
+
+    /// <summary>Tag und Zählerstand, bis zu denen sie reicht.</summary>
+    public DateOnly ToOn { get; set; }
+    public decimal ToMeterKwh { get; set; }
+
+    /// <summary>Geladen im Zeitraum. Die Differenz der beiden Stände, festgeschrieben.</summary>
+    public decimal Kwh { get; set; }
+
+    /// <summary>
+    /// Der Satz, wenn im Zeitraum nur einer galt. <c>null</c>, wenn mehrere galten.
+    /// </summary>
+    /// <remarks>
+    /// Einen Mischsatz auszurechnen wäre eine Zahl, die in keiner Vereinbarung steht. Der
+    /// Betrag stimmt trotzdem — er ist die Summe der einzeln gerechneten Abschnitte.
+    /// </remarks>
+    public decimal? EuroPerKwh { get; set; }
+
+    /// <summary>Was der Arbeitgeber erstatten soll. Festgeschrieben.</summary>
+    public decimal Amount { get; set; }
+
+    public ChargingStatementStatus Status { get; set; }
+
+    public DateTime? SubmittedAt { get; set; }
+    public DateTime? PaidAt { get; set; }
+
+    /// <summary>Die Buchung, mit der die Erstattung einging.</summary>
+    /// <remarks>
+    /// Freiwillig. Eine Erstattung kann auch über die Gehaltsabrechnung laufen und gar nicht
+    /// als eigene Buchung erscheinen — dann ist sie bezahlt, ohne dass es eine zuzuordnen
+    /// gäbe.
+    /// </remarks>
+    public int? ReimbursementTransactionId { get; set; }
+    public Transaction? ReimbursementTransaction { get; set; }
+
+    public string? Note { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+
+    /// <summary>Was noch aussteht: der Betrag, solange eingereicht und nicht erstattet.</summary>
+    public decimal OpenAmount => Status == ChargingStatementStatus.Submitted ? Amount : 0m;
+}
+
+/// <summary>
 /// Der Erstattungssatz je Kilowattstunde, gültig ab einem Tag.
 /// </summary>
 /// <remarks>

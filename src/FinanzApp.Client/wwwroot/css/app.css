@@ -5650,6 +5650,27 @@ body {
   color: #8a8d8f;
 }
 
+/* Ort, Datum und Unterschrift auf der Stromkostenabrechnung. Zwei Linien, auf die jemand mit
+   der Hand schreibt — sie bleiben leer, denn ein vorgedrucktes Datum waere das des Druckens
+   und nicht das des Unterschreibens. */
+.sheet-sign {
+  display: flex;
+  justify-content: space-between;
+  gap: 32px;
+  margin-top: 26px;
+  padding-top: 4px;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8a8d8f;
+}
+
+.sheet-sign > span {
+  flex: 1;
+  border-top: 1px solid #c7cacc;
+  padding-top: 4px;
+}
+
 /* Die Rechenprobe im Pruefschritt (Abschnitt 15.6). Im Blueprint-Rahmen, weil sie eine
    Konstruktionszeichnung der Zahl darueber ist und keine Meldung. */
 .proof {

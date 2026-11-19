@@ -1,0 +1,177 @@
+@inject IJSRuntime Js
+
+@*
+    Das Blatt für den Arbeitgeber — Stromkosten des Dienstwagens an der privaten Wallbox.
+
+    Es hat keine eigene Rechnung. Jede Zahl darauf ist die, die beim Einreichen festgeschrieben
+    wurde; das Blatt liest sie nur vor. Eine zweite Rechnung hier hieße, dass das Papier etwas
+    anderes behaupten kann als der Vorgang in der Anwendung.
+
+    Gedruckt wird über den Browser, wie beim Steuerjahr-Bericht: Das Druck-Stylesheet blendet
+    alles außer dem Blatt aus, und „In PDF sichern" steht in jedem Druckdialog. Eine
+    PDF-Bibliothek dafür ins Haus zu holen wäre eine Abhängigkeit für etwas, das schon da ist.
+*@
+
+<div class="print-backdrop" @onclick="Close"></div>
+
+<div class="print-overlay">
+    <div class="print-bar">
+        <span class="stack">
+            <span class="label-accent">Abrechnung @Year</span>
+            <span class="meta">@Rows.Count @(Rows.Count == 1 ? "Zeitraum" : "Zeiträume") · @GermanFormat.Euro(Total)</span>
+        </span>
+        <button type="button" class="btn btn-primary" @onclick="PrintAsync">Drucken</button>
+        <button type="button" class="btn btn-secondary" @onclick="Close">Schließen</button>
+    </div>
+
+    <div class="print-scroll">
+        <div class="print-sheet">
+
+            <div class="sheet-head">
+                <span class="stack">
+                    <span class="sheet-brand">@(UserName ?? HouseholdName ?? "FinanzApp")</span>
+                    <span class="sheet-title">Stromkostenabrechnung @Year</span>
+                    <span class="sheet-subject">
+                        Ladestrom des Dienstwagens an der privaten Wallbox · eigener Zähler
+                    </span>
+                </span>
+                <span class="stack-end">
+                    <span class="sheet-label">erstellt</span>
+                    <span class="sheet-stamp num">@GermanFormat.DateTime(Created)</span>
+                </span>
+            </div>
+
+            @*
+                Die Stammdaten stehen oben wie in der Vorlage: Wer rechnet mit wem ab, und über
+                welches Fahrzeug. Ohne sie ist das Blatt eine Liste von Zahlen.
+            *@
+            <div class="sheet-kpis">
+                <div class="stack">
+                    <span class="sheet-label">Arbeitgeber</span>
+                    <span class="sheet-kpi">@(Employer ?? "—")</span>
+                </div>
+                <div class="stack">
+                    <span class="sheet-label">Fahrzeug</span>
+                    <span class="sheet-kpi">@Vehicle()</span>
+                </div>
+                <div class="stack">
+                    <span class="sheet-label">Zu erstatten</span>
+                    <span class="sheet-kpi num">@GermanFormat.Euro(Total)</span>
+                </div>
+            </div>
+
+            <div class="sheet-section">
+                <div class="sheet-section-head">
+                    <span class="sheet-section-title">Zeiträume</span>
+                    <span class="sheet-section-sum num">@GermanFormat.Quantity(TotalKwh) kWh</span>
+                </div>
+
+                @foreach (var zeile in Rows)
+                {
+                    @*
+                        Beide Zählerstände stehen in der Zeile. Damit trägt das Blatt seinen
+                        eigenen Nachweis: Wer nachrechnen will, braucht die Anwendung nicht
+                        dazu — Endstand minus Anfangsstand mal Satz.
+                    *@
+                    <div class="sheet-row">
+                        <span class="stack">
+                            <span class="sheet-row-label">@Zeitraum(zeile)</span>
+                            <span class="sheet-row-doc">@Rechnung(zeile)</span>
+                        </span>
+                        <span class="sheet-row-amount num">@GermanFormat.Euro(zeile.Amount)</span>
+                    </div>
+                }
+            </div>
+
+            <div class="sheet-foot">
+                <div class="sheet-total">
+                    <span class="sheet-total-label">Summe @Year</span>
+                    <span class="sheet-total-amount num">@GermanFormat.Euro(Total)</span>
+                </div>
+
+                <span class="sheet-note">
+                    Die Zählerstände sind an einem eigenen Stromzähler vor der Wallbox abgelesen.
+                    Jeder Zeitraum läuft von Ablesung zu Ablesung; der Verbrauch ist die Differenz
+                    der beiden Stände. Fotos der Zählerstände liegen vor und werden auf Wunsch
+                    nachgereicht.
+                </span>
+
+                @*
+                    Ort, Datum und Unterschrift wie in der Vorlage. Sie bleiben leer — ein
+                    vorgedrucktes Datum wäre das des Druckens und nicht das des Unterschreibens.
+                *@
+                <div class="sheet-sign">
+                    <span>Ort, Datum</span>
+                    <span>Unterschrift</span>
+                </div>
+
+                <div class="sheet-source">
+                    <span>FinanzApp · Arbeit &amp; Beruf · Ladestrom</span>
+                    <span>Seite 1 von 1</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<ChargingStatementDto> Rows { get; set; } = [];
+
+    [Parameter, EditorRequired] public int Year { get; set; }
+
+    [Parameter] public string? Employer { get; set; }
+
+    [Parameter] public string? HouseholdName { get; set; }
+
+    [Parameter] public string? UserName { get; set; }
+
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    /// <summary>
+    /// Der Erstellungszeitpunkt, einmal beim Öffnen genommen.
+    /// </summary>
+    /// <remarks>
+    /// Nicht bei jedem Neuzeichnen: sonst stünde auf dem Blatt eine andere Uhrzeit als in dem
+    /// Moment, in dem der Nutzer es angesehen hat.
+    /// </remarks>
+    private DateTime Created { get; } = DateTime.Now;
+
+    private decimal Total => Rows.Sum(r => r.Amount);
+
+    private decimal TotalKwh => Rows.Sum(r => r.Kwh);
+
+    /// <summary>Das Fahrzeug der jüngsten Zeile — gewechselt wird selten, und dann gilt das neue.</summary>
+    private string Vehicle()
+    {
+        var zeile = Rows.LastOrDefault(r => r.VehicleName is { Length: > 0 });
+
+        if (zeile is null)
+        {
+            return "—";
+        }
+
+        return zeile.VehiclePlate is { Length: > 0 } kennzeichen
+            ? $"{zeile.VehicleName} · {kennzeichen}"
+            : zeile.VehicleName!;
+    }
+
+    private static string Zeitraum(ChargingStatementDto zeile)
+        => $"{GermanFormat.Date(zeile.FromOn)} bis {GermanFormat.Date(zeile.ToOn)}";
+
+    /// <summary>Die Rechnung, offen hingeschrieben: Stände, Verbrauch, Satz.</summary>
+    private static string Rechnung(ChargingStatementDto zeile)
+    {
+        var stand = $"{GermanFormat.Quantity(zeile.FromMeterKwh)} → "
+                    + $"{GermanFormat.Quantity(zeile.ToMeterKwh)} kWh";
+
+        var menge = $"{GermanFormat.Quantity(zeile.Kwh)} kWh";
+
+        return zeile.EuroPerKwh is { } satz
+            ? $"{stand} · {menge} × {GermanFormat.Price(satz)}/kWh"
+            : $"{stand} · {menge} · mehrere Sätze im Zeitraum";
+    }
+
+    private Task Close() => OnClose.InvokeAsync();
+
+    private async Task PrintAsync() => await Js.InvokeVoidAsync("window.print");
+}

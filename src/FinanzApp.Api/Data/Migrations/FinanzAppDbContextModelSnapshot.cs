@@ -349,6 +349,75 @@ namespace FinanzApp.Api.Data.Migrations
                     b.ToTable("ChargingReadings");
                 });
 
+            modelBuilder.Entity("FinanzApp.Api.Data.Entities.ChargingStatement", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("Amount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("EmploymentId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("EuroPerKwh")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("FromMeterKwh")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateOnly>("FromOn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("HouseholdId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("Kwh")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(400)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("ReimbursementTransactionId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("SubmittedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("ToMeterKwh")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateOnly>("ToOn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("VehicleId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmploymentId");
+
+                    b.HasIndex("ReimbursementTransactionId");
+
+                    b.HasIndex("VehicleId");
+
+                    b.HasIndex("HouseholdId", "EmploymentId", "ToOn")
+                        .IsUnique();
+
+                    b.ToTable("ChargingStatements");
+                });
+
             modelBuilder.Entity("FinanzApp.Api.Data.Entities.Contract", b =>
                 {
                     b.Property<int>("Id")
@@ -2241,6 +2310,30 @@ namespace FinanzApp.Api.Data.Migrations
                     b.Navigation("Document");
 
                     b.Navigation("Employment");
+
+                    b.Navigation("Vehicle");
+                });
+
+            modelBuilder.Entity("FinanzApp.Api.Data.Entities.ChargingStatement", b =>
+                {
+                    b.HasOne("FinanzApp.Api.Data.Entities.Employment", "Employment")
+                        .WithMany()
+                        .HasForeignKey("EmploymentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FinanzApp.Api.Data.Entities.Transaction", "ReimbursementTransaction")
+                        .WithMany()
+                        .HasForeignKey("ReimbursementTransactionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FinanzApp.Api.Data.Entities.Vehicle", "Vehicle")
+                        .WithMany()
+                        .HasForeignKey("VehicleId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Employment");
+
+                    b.Navigation("ReimbursementTransaction");
 
                     b.Navigation("Vehicle");
                 });

@@ -682,6 +682,45 @@ public static class FinanzAppApiExtensions
         => api.PostAsync<CreateChargingRateRequest, ChargingRateDto>(
             "api/work/ladestrom/saetze", request, ct);
 
+    public static Task DeleteChargingRateAsync(
+        this FinanzAppApi api, int id, CancellationToken ct = default)
+        => api.SendWithoutResultAsync<object?>(
+            HttpMethod.Delete, $"api/work/ladestrom/saetze/{id}", null, ct);
+
+    public static Task<ChargingStatementDto> CreateChargingStatementAsync(
+        this FinanzAppApi api, CreateChargingStatementRequest request,
+        CancellationToken ct = default)
+        => api.PostAsync<CreateChargingStatementRequest, ChargingStatementDto>(
+            "api/work/ladestrom/abrechnungen", request, ct);
+
+    public static Task<ChargingStatementDto> AdvanceChargingStatementAsync(
+        this FinanzAppApi api, int id, ChargingStatementStatus status,
+        CancellationToken ct = default)
+        => api.PostAsync<AdvanceChargingStatementRequest, ChargingStatementDto>(
+            $"api/work/ladestrom/abrechnungen/{id}/station",
+            new AdvanceChargingStatementRequest { Status = status }, ct);
+
+    public static Task<IReadOnlyList<PaymentCandidateDto>> GetChargingPaymentCandidatesAsync(
+        this FinanzAppApi api, int id, CancellationToken ct = default)
+        => api.GetAsync<IReadOnlyList<PaymentCandidateDto>>(
+            $"api/work/ladestrom/abrechnungen/{id}/zahlungen", ct);
+
+    public static Task<ChargingStatementDto> LinkChargingPaymentAsync(
+        this FinanzAppApi api, int id, int transactionId, CancellationToken ct = default)
+        => api.PostAsync<LinkPaymentRequest, ChargingStatementDto>(
+            $"api/work/ladestrom/abrechnungen/{id}/zahlung",
+            new LinkPaymentRequest { TransactionId = transactionId }, ct);
+
+    public static Task<ChargingStatementDto> DetachChargingPaymentAsync(
+        this FinanzAppApi api, int id, CancellationToken ct = default)
+        => api.SendAsync<object?, ChargingStatementDto>(
+            HttpMethod.Delete, $"api/work/ladestrom/abrechnungen/{id}/zahlung", null, ct);
+
+    public static Task DeleteChargingStatementAsync(
+        this FinanzAppApi api, int id, CancellationToken ct = default)
+        => api.SendWithoutResultAsync<object?>(
+            HttpMethod.Delete, $"api/work/ladestrom/abrechnungen/{id}", null, ct);
+
     public static Task<IReadOnlyList<PaymentCandidateDto>> GetInvoicePaymentCandidatesAsync(
         this FinanzAppApi api, int id, CancellationToken ct = default)
         => api.GetAsync<IReadOnlyList<PaymentCandidateDto>>($"api/invoices/{id}/payment-candidates", ct);

@@ -98,6 +98,7 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
     /// <summary>Der Ladestrom des Dienstwagens: abgelesene Stände und vereinbarte Sätze.</summary>
     public DbSet<ChargingReading> ChargingReadings => Set<ChargingReading>();
     public DbSet<ChargingRate> ChargingRates => Set<ChargingRate>();
+    public DbSet<ChargingStatement> ChargingStatements => Set<ChargingStatement>();
 
     /// <summary>Gelesene Werte samt Herkunft — leer, solange keine Analyse angebunden ist.</summary>
     public DbSet<DocumentExtraction> DocumentExtractions => Set<DocumentExtraction>();
@@ -142,6 +143,14 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
     private static readonly ValueConverter<decimal, long> UnitPriceConverter =
         new(value => (long)Math.Round(value * 10000m, MidpointRounding.AwayFromZero),
             zehntelcent => zehntelcent / 10000m);
+
+    /// <summary>Wie <see cref="UnitPriceConverter"/>, nur für einen Preis, den es geben kann
+    /// oder nicht — etwa den einen Satz eines Zeitraums, in dem mehrere galten.</summary>
+    private static readonly ValueConverter<decimal?, long?> NullableUnitPriceConverter =
+        new(value => value == null
+                ? null
+                : (long)Math.Round(value.Value * 10000m, MidpointRounding.AwayFromZero),
+            zehntelcent => zehntelcent == null ? null : zehntelcent.Value / 10000m);
 
     private static readonly ValueConverter<decimal?, long?> NullableMoneyConverter =
         new(value => value == null ? null : (long)Math.Round(value.Value * 100m, MidpointRounding.AwayFromZero),
@@ -740,6 +749,35 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
             // Ein Satz je Verhältnis und Stichtag. Zwei Sätze ab demselben Tag hieße: Es
             // entscheidet die Reihenfolge der Zeilen, welcher gilt — und die ist keine Aussage.
             e.HasIndex(x => new { x.HouseholdId, x.EmploymentId, x.ValidFrom }).IsUnique();
+        });
+
+        b.Entity<ChargingStatement>(e =>
+        {
+            e.Property(x => x.FromMeterKwh).HasConversion(EnergyConverter);
+            e.Property(x => x.ToMeterKwh).HasConversion(EnergyConverter);
+            e.Property(x => x.Kwh).HasConversion(EnergyConverter);
+            e.Property(x => x.EuroPerKwh).HasConversion(NullableUnitPriceConverter);
+            e.Property(x => x.Amount).HasConversion(MoneyConverter);
+            e.Property(x => x.Note).HasMaxLength(400);
+
+            e.HasOne(x => x.Employment).WithMany()
+                .HasForeignKey(x => x.EmploymentId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Vehicle).WithMany()
+                .HasForeignKey(x => x.VehicleId).OnDelete(DeleteBehavior.SetNull);
+
+            // Eine gelöschte Buchung nimmt keine Abrechnung mit, sie verliert nur ihren
+            // Verweis — dieselbe Regel wie bei der Lohnabrechnung. Eingereicht war sie
+            // trotzdem.
+            e.HasOne(x => x.ReimbursementTransaction).WithMany()
+                .HasForeignKey(x => x.ReimbursementTransactionId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Ein Index, zwei Aufgaben: Die Kette wird immer von hinten gelesen — worauf setzt
+            // die nächste auf? — und zwei Abrechnungen bis zum selben Tag wären derselbe
+            // Zeitraum zweimal eingereicht.
+            e.HasIndex(x => new { x.HouseholdId, x.EmploymentId, x.ToOn }).IsUnique();
+
+            e.Ignore(x => x.OpenAmount);
         });
 
         b.Entity<ReportView>(e =>

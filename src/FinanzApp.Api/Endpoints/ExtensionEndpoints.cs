@@ -406,6 +406,54 @@ public static class ExtensionEndpoints
                 CreateChargingRateRequest request, ChargingService service, CancellationToken ct)
             => await Beanstandet(() => service.AddRateAsync(request, ct)))
             .RequireAuthorization(AuthPolicies.Write);
+
+        api.MapDelete("/ladestrom/saetze/{id:int}", async (
+                int id, ChargingService service, CancellationToken ct)
+            => await service.DeleteRateAsync(id, ct) ? Results.NoContent() : Results.NotFound())
+            .RequireAuthorization(AuthPolicies.Write);
+
+        // Die Abrechnung: der Zeitraum, der noch offen ist, festgeschrieben.
+        api.MapPost("/ladestrom/abrechnungen", async (
+                CreateChargingStatementRequest request, ChargingService service,
+                CancellationToken ct)
+            => await Beanstandet(() => service.CreateStatementAsync(request, ct)))
+            .RequireAuthorization(AuthPolicies.Write);
+
+        api.MapPost("/ladestrom/abrechnungen/{id:int}/station", async (
+                int id, AdvanceChargingStatementRequest request, ChargingService service,
+                CancellationToken ct)
+            => await Beanstandet(async () => await service.AdvanceAsync(id, request.Status, ct)))
+            .RequireAuthorization(AuthPolicies.Write);
+
+        api.MapGet("/ladestrom/abrechnungen/{id:int}/zahlungen", async (
+                int id, ChargingService service, CancellationToken ct)
+            => Results.Ok(await service.GetPaymentCandidatesAsync(id, ct)));
+
+        api.MapPost("/ladestrom/abrechnungen/{id:int}/zahlung", async (
+                int id, LinkPaymentRequest request, ChargingService service, CancellationToken ct)
+            => await Beanstandet(() => service.LinkPaymentAsync(id, request.TransactionId, ct)))
+            .RequireAuthorization(AuthPolicies.Write);
+
+        api.MapDelete("/ladestrom/abrechnungen/{id:int}/zahlung", async (
+                int id, ChargingService service, CancellationToken ct)
+            => await Beanstandet(() => service.DetachPaymentAsync(id, ct)))
+            .RequireAuthorization(AuthPolicies.Write);
+
+        api.MapDelete("/ladestrom/abrechnungen/{id:int}", async (
+                int id, ChargingService service, CancellationToken ct) =>
+            {
+                try
+                {
+                    return await service.DeleteStatementAsync(id, ct)
+                        ? Results.NoContent()
+                        : Results.NotFound();
+                }
+                catch (ArgumentException ex)
+                {
+                    return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+                }
+            })
+            .RequireAuthorization(AuthPolicies.Write);
     }
 
     /// <summary>

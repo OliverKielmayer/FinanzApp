@@ -112,6 +112,29 @@ public enum LinkTargetType
 }
 
 /// <summary>
+/// Stationen einer Ladestromabrechnung.
+/// </summary>
+/// <remarks>
+/// <para>Drei statt der sieben des PKV-Vorgangs, und das ist kein Sparen: Beim Arbeitgeber
+/// gibt es keine Abrechnung des Versicherers, die vor der Zahlung käme, und keine
+/// Teilerstattung — er zahlt den vereinbarten Satz mal die gelesenen Kilowattstunden oder er
+/// fragt nach.</para>
+/// <para><b>Offen ist, was eingereicht und nicht erstattet ist.</b> Erfasst heißt: Sie liegt
+/// da, aber niemand wartet auf Geld.</para>
+/// </remarks>
+public enum ChargingStatementStatus
+{
+    /// <summary>Gerechnet und festgeschrieben, aber noch nicht hinausgegangen.</summary>
+    Recorded = 0,
+
+    /// <summary>Beim Arbeitgeber eingereicht. Ab hier ist der Betrag offen.</summary>
+    Submitted = 1,
+
+    /// <summary>Erstattet — mit oder ohne zugeordnete Buchung.</summary>
+    Paid = 2,
+}
+
+/// <summary>
 /// Stationen eines PKV-Vorgangs. Die Reihenfolge ist die Kette der Oberfläche; die beiden
 /// Ausgänge <see cref="PartiallyReimbursed"/> und <see cref="Rejected"/> stehen daneben.
 /// </summary>

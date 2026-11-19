@@ -1,6 +1,7 @@
 @page "/ladestrom"
 @attribute [Authorize]
 @inherits AppPage
+@inject FinanzAppAuthStateProvider Auth
 
 @*
     Ladestrom — der Dienstwagen an der privaten Wallbox.
@@ -35,6 +36,12 @@
             <div class="kpi-cell">
                 <span class="label-muted">Letzter Stand</span>
                 <span class="kpi-value num">@(Letzter(strom) is { } stand ? Kwh(stand) : "—")</span>
+            </div>
+            <div class="kpi-cell">
+                <span class="label-muted">Offen</span>
+                <span class="kpi-value num @(strom.OpenAmount > 0m ? "accent" : null)">
+                    @State.Euro(strom.OpenAmount)
+                </span>
             </div>
             <div class="kpi-cell">
                 <span class="label-muted">Satz</span>
@@ -303,6 +310,213 @@
 
         @* ── Sätze ───────────────────────────────────────────────────────────────────────── *@
 
+        @* ── Abrechnungen ──────────────────────────────────────────────────── *@
+
+        <div class="list-head">
+            <span class="label-strong">Abrechnungen</span>
+        </div>
+
+        @if (strom.Statements.Count == 0)
+        {
+            <div class="import-nothing">
+                <span class="label-strong">Noch nichts abgerechnet</span>
+                <span class="create-help">
+                    Eine Abrechnung schreibt fest, was sie gerechnet hat — der Arbeitgeber bekommt
+                    ein Blatt mit einer Summe, und ein später vereinbarter Satz ändert sie nicht
+                    mehr.
+                </span>
+            </div>
+        }
+
+        @foreach (var blatt in strom.Statements)
+        {
+            var nummer = blatt.Id;
+            var auf = statement == nummer;
+
+            <button type="button" class="tap import-row plain @(auf ? "picked" : null)"
+                    @onclick="() => ToggleStatement(nummer)">
+                <span class="stack">
+                    <span class="import-row-payee">
+                        @GermanFormat.Date(blatt.FromOn) bis @GermanFormat.Date(blatt.ToOn)
+                    </span>
+                    <span class="meta">@Kwh(blatt.Kwh) @Satzzeile(blatt)</span>
+                    <span class="meta @(blatt.OpenAmount > 0m ? "accent" : null)">
+                        @Stand(blatt)
+                    </span>
+                </span>
+                <span class="stack-end">
+                    <span class="holding-value num">@State.Euro(blatt.Amount)</span>
+                    <span class="meta">@blatt.StatusLabel</span>
+                </span>
+            </button>
+
+            @if (auf)
+            {
+                <div class="blueprint report-payees">
+                    <i class="corner tl" aria-hidden="true"></i>
+                    <i class="corner tr" aria-hidden="true"></i>
+                    <i class="corner bl" aria-hidden="true"></i>
+                    <i class="corner br" aria-hidden="true"></i>
+
+                    @*
+                        Die Rechnung offen hingeschrieben. Sie steht hier und auf dem Blatt, und
+                        beide lesen dieselben festgeschriebenen Zahlen vor — nachrechnen lässt
+                        sich das ohne die Anwendung.
+                    *@
+                    <div class="detail-block">
+                        <span class="detail-label">Zählerstände</span>
+                        <span class="detail-value num">
+                            @Kwh(blatt.FromMeterKwh) → @Kwh(blatt.ToMeterKwh)
+                        </span>
+                    </div>
+                    <div class="detail-block">
+                        <span class="detail-label">Geladen</span>
+                        <span class="detail-value num">@Kwh(blatt.Kwh)</span>
+                    </div>
+                    <div class="detail-block">
+                        <span class="detail-label">Satz</span>
+                        <span class="detail-value num">
+                            @(blatt.EuroPerKwh is { } satz
+                                ? Satz(satz)
+                                : "mehrere im Zeitraum")
+                        </span>
+                    </div>
+                    <div class="detail-block">
+                        <span class="detail-label">Zu erstatten</span>
+                        <span class="detail-value num">@State.Euro(blatt.Amount)</span>
+                    </div>
+
+                    @if (blatt.VehicleName is { Length: > 0 } wagen)
+                    {
+                        <div class="detail-block">
+                            <span class="detail-label">Fahrzeug</span>
+                            <span class="detail-value">
+                                @wagen@(blatt.VehiclePlate is { Length: > 0 } kz ? $" · {kz}" : null)
+                            </span>
+                        </div>
+                    }
+
+                    <div class="detail-block">
+                        <span class="detail-label">Zahlung</span>
+                        <span class="detail-value @(blatt.TransactionId is null ? "missing" : null)">
+                            @(blatt.TransactionLabel ?? "keine Buchung zugeordnet")
+                        </span>
+                    </div>
+
+                    <AuthorizeView Roles="Owner,Member" Context="blattzeile">
+                        <div class="actions">
+                            <button type="button" class="btn btn-secondary" disabled="@busy"
+                                    @onclick="() => ShowSheet(blatt)">Blatt ansehen</button>
+
+                            @if (blatt.Status == ChargingStatementStatus.Recorded)
+                            {
+                                <button type="button" class="btn btn-primary" disabled="@busy"
+                                        @onclick="() => AdvanceAsync(nummer, ChargingStatementStatus.Submitted)">
+                                    eingereicht
+                                </button>
+                            }
+
+                            @if (blatt.Status == ChargingStatementStatus.Submitted)
+                            {
+                                <button type="button" class="btn btn-primary" disabled="@busy"
+                                        @onclick="() => LoadCandidatesAsync(nummer)">Zahlung zuordnen</button>
+                                <button type="button" class="btn btn-secondary" disabled="@busy"
+                                        @onclick="() => AdvanceAsync(nummer, ChargingStatementStatus.Paid)">
+                                    ohne Buchung erstattet
+                                </button>
+                            }
+
+                            @if (blatt.Status == ChargingStatementStatus.Paid)
+                            {
+                                <button type="button" class="btn btn-secondary" disabled="@busy"
+                                        @onclick="() => DetachAsync(nummer)">Zuordnung lösen</button>
+                            }
+
+                            @*
+                                Zurücknehmen nur bei der jüngsten. Der Knopf steht gar nicht erst
+                                da, wenn es nicht geht — ein Knopf, der mit einer Erklärung
+                                antwortet, warum er nicht geht, ist ein Versprechen, das er nicht
+                                hält.
+                            *@
+                            @if (blatt.CanDelete)
+                            {
+                                @if (deletingStatement == nummer)
+                                {
+                                    <button type="button" class="btn btn-danger" disabled="@busy"
+                                            @onclick="() => DeleteStatementAsync(nummer)">
+                                        Wirklich zurücknehmen
+                                    </button>
+                                    <button type="button" class="btn btn-secondary" disabled="@busy"
+                                            @onclick="KeepStatement">Behalten</button>
+                                }
+                                else
+                                {
+                                    <button type="button" class="btn btn-secondary" disabled="@busy"
+                                            @onclick="() => deletingStatement = nummer">
+                                        Abrechnung zurücknehmen
+                                    </button>
+                                }
+                            }
+                        </div>
+
+                        @if (deletingStatement == nummer)
+                        {
+                            <span class="create-help">
+                                Der Zeitraum wird wieder offen und kann neu abgerechnet werden.
+                                Liegt das Blatt schon beim Arbeitgeber, muss das zweite es
+                                ersetzen.
+                            </span>
+                        }
+
+                        @* Die Vorschläge stehen unter der Zeile, zu der sie gehören. *@
+                        @if (candidatesFor == nummer && candidates is { } treffer)
+                        {
+                            @if (treffer.Count == 0)
+                            {
+                                <span class="create-help">
+                                    Keine Buchung gefunden, die passen könnte. Eine Erstattung über
+                                    die Gehaltsabrechnung erscheint gar nicht als eigener Eingang —
+                                    dann hilft „ohne Buchung erstattet“.
+                                </span>
+                            }
+
+                            @foreach (var vorschlag in treffer)
+                            {
+                                <button type="button"
+                                        class="tap import-row plain @(vorschlag.IsBestMatch ? "picked" : null)"
+                                        disabled="@busy"
+                                        @onclick="() => LinkAsync(nummer, vorschlag.TransactionId)">
+                                    <span class="stack">
+                                        <span class="import-row-payee">@vorschlag.Payee</span>
+                                        <span class="meta">
+                                            @GermanFormat.Date(vorschlag.BookingDate) · @vorschlag.AccountName
+                                        </span>
+                                        <span class="meta accent">@vorschlag.Reason</span>
+                                    </span>
+                                    <span class="stack-end">
+                                        <span class="holding-value num">@State.Euro(vorschlag.Amount)</span>
+                                        <span class="meta">zuordnen</span>
+                                    </span>
+                                </button>
+                            }
+                        }
+                    </AuthorizeView>
+                </div>
+            }
+        }
+
+        <AuthorizeView Roles="Owner,Member" Context="neueabrechnung">
+            <div class="tx-totals-note">@Naechste(strom)</div>
+
+            @if (strom.Next.Possible)
+            {
+                <div class="actions">
+                    <button type="button" class="btn btn-primary" disabled="@busy"
+                            @onclick="CreateStatementAsync">Abrechnung erstellen</button>
+                </div>
+            }
+        </AuthorizeView>
+
         <div class="list-head">
             <span class="label-strong">Erstattungssätze</span>
         </div>
@@ -320,6 +534,8 @@
 
         @foreach (var satz in strom.Rates)
         {
+            var satznummer = satz.Id;
+
             <div class="import-row plain">
                 <span class="stack">
                     <span class="import-row-payee">@Satz(satz.EuroPerKwh)</span>
@@ -329,6 +545,25 @@
                         <span class="meta">@hinweis</span>
                     }
                 </span>
+                <AuthorizeView Roles="Owner,Member" Context="satzzeile">
+                    <span class="stack-end">
+                        @*
+                            Was der Satz einmal gerechnet hat, steht in den Abrechnungen und
+                            bleibt dort — die haben ihre Zahlen festgeschrieben. Offene
+                            Zeiträume rechnen danach ohne ihn und sagen es.
+                        *@
+                        @if (deletingRate == satznummer)
+                        {
+                            <button type="button" class="btn btn-danger" disabled="@busy"
+                                    @onclick="() => DeleteRateAsync(satznummer)">Wirklich</button>
+                        }
+                        else
+                        {
+                            <button type="button" class="btn btn-secondary" disabled="@busy"
+                                    @onclick="() => deletingRate = satznummer">entfernen</button>
+                        }
+                    </span>
+                </AuthorizeView>
             </div>
         }
 
@@ -390,6 +625,13 @@
     }
 </AsyncView>
 
+@if (sheet is { Count: > 0 })
+{
+    <ChargingSheet Rows="sheet" Year="sheetYear" Employer="@data?.Employer"
+                   HouseholdName="@Auth.User?.HouseholdName" UserName="@Auth.User?.Name"
+                   OnClose="() => sheet = null" />
+}
+
 @code {
     /// <summary>Die Eingaben der Ablesemaske, roh wie getippt.</summary>
     private sealed class ReadingDraft
@@ -414,6 +656,17 @@
 
     private int? expanded;
     private int? deleting;
+
+    private int? statement;
+    private int? deletingStatement;
+    private int? deletingRate;
+
+    private int? candidatesFor;
+    private IReadOnlyList<PaymentCandidateDto>? candidates;
+
+    /// <summary>Die Zeilen des Blattes, wenn eines offen ist.</summary>
+    private IReadOnlyList<ChargingStatementDto>? sheet;
+    private int sheetYear;
 
     private bool capturing;
     private bool rating;
@@ -546,6 +799,207 @@
         expanded = expanded == id ? null : id;
         deleting = null;
     }
+
+    private void ToggleStatement(int id)
+    {
+        statement = statement == id ? null : id;
+        deletingStatement = null;
+        candidatesFor = null;
+        candidates = null;
+    }
+
+    private void KeepStatement() => deletingStatement = null;
+
+    /// <summary>„0,2000 €/kWh“ — oder der Hinweis, dass im Zeitraum mehrere galten.</summary>
+    private static string Satzzeile(ChargingStatementDto blatt)
+        => blatt.EuroPerKwh is { } satz
+            ? "× " + Satz(satz)
+            : "· mehrere Sätze im Zeitraum";
+
+    /// <summary>Wo die Abrechnung steht, in einem Satz.</summary>
+    private string Stand(ChargingStatementDto blatt)
+    {
+        if (blatt.Status == ChargingStatementStatus.Paid)
+        {
+            return blatt.PaidAt is { } tag
+                ? $"erstattet am {GermanFormat.Date(DateOnly.FromDateTime(tag))}"
+                : "erstattet";
+        }
+
+        if (blatt.Status == ChargingStatementStatus.Submitted)
+        {
+            var seit = blatt.SubmittedAt is { } tag
+                ? $" seit {GermanFormat.Date(DateOnly.FromDateTime(tag))}"
+                : null;
+
+            return $"offen{seit}";
+        }
+
+        return "noch nicht eingereicht";
+    }
+
+    /// <summary>
+    /// Was die nächste Abrechnung umfassen würde — oder warum keine möglich ist.
+    /// </summary>
+    /// <remarks>
+    /// Der Satz steht über der Schaltfläche und nicht hinter ihr. Wer erst nach dem Drücken
+    /// erfährt, dass nichts abzurechnen ist, hat einen Knopf gedrückt, der nichts tut.
+    /// </remarks>
+    private string Naechste(ChargingOverviewDto strom)
+    {
+        var naechste = strom.Next;
+
+        if (!naechste.Possible)
+        {
+            return naechste.Obstacle ?? "Zurzeit lässt sich nichts abrechnen.";
+        }
+
+        return $"Nächste Abrechnung: {GermanFormat.Date(naechste.FromOn!.Value)} bis "
+               + $"{GermanFormat.Date(naechste.ToOn!.Value)} · {Kwh(naechste.Kwh!.Value)} · "
+               + State.Euro(naechste.Amount!.Value);
+    }
+
+    /// <summary>
+    /// Öffnet das Blatt — mit allen Abrechnungen des Jahres bis zu dieser.
+    /// </summary>
+    /// <remarks>
+    /// So wie die Vorlage es zeigt: eine Jahrestabelle, die mit jedem Monat länger wird. Das
+    /// Blatt zu einer früheren Abrechnung zeigt den Stand von damals und nicht den von heute —
+    /// sonst wäre es nicht mehr das Blatt, das eingereicht wurde.
+    /// </remarks>
+    private void ShowSheet(ChargingStatementDto blatt)
+    {
+        sheetYear = blatt.ToOn.Year;
+
+        sheet =
+        [
+            .. (data?.Statements ?? [])
+                .Where(a => a.ToOn.Year == sheetYear && a.ToOn <= blatt.ToOn)
+                .OrderBy(a => a.ToOn),
+        ];
+    }
+
+    private Task CreateStatementAsync() => RunAsync(async () =>
+    {
+        busy = true;
+
+        try
+        {
+            var neu = await Api.CreateChargingStatementAsync(new CreateChargingStatementRequest
+            {
+                EmploymentId = data?.EmploymentId,
+            });
+
+            await LoadAsync();
+            statement = neu.Id;
+            Toasts.Show("Abrechnung erstellt.", ToastKind.Saved);
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    private Task AdvanceAsync(int id, ChargingStatementStatus ziel) => RunAsync(async () =>
+    {
+        busy = true;
+
+        try
+        {
+            await Api.AdvanceChargingStatementAsync(id, ziel);
+            await LoadAsync();
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    private Task LoadCandidatesAsync(int id) => RunAsync(async () =>
+    {
+        busy = true;
+
+        try
+        {
+            candidates = await Api.GetChargingPaymentCandidatesAsync(id);
+            candidatesFor = id;
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    private Task LinkAsync(int id, int transactionId) => RunAsync(async () =>
+    {
+        busy = true;
+
+        try
+        {
+            await Api.LinkChargingPaymentAsync(id, transactionId);
+
+            candidatesFor = null;
+            candidates = null;
+            await LoadAsync();
+            Toasts.Show("Zahlung zugeordnet.", ToastKind.Saved);
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    private Task DetachAsync(int id) => RunAsync(async () =>
+    {
+        busy = true;
+
+        try
+        {
+            await Api.DetachChargingPaymentAsync(id);
+            await LoadAsync();
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    private Task DeleteStatementAsync(int id) => RunAsync(async () =>
+    {
+        busy = true;
+
+        try
+        {
+            await Api.DeleteChargingStatementAsync(id);
+
+            deletingStatement = null;
+            statement = null;
+            await LoadAsync();
+            Toasts.Show("Abrechnung zurückgenommen.", ToastKind.Saved);
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    private Task DeleteRateAsync(int id) => RunAsync(async () =>
+    {
+        busy = true;
+
+        try
+        {
+            await Api.DeleteChargingRateAsync(id);
+
+            deletingRate = null;
+            await LoadAsync();
+            Toasts.Show("Satz entfernt.", ToastKind.Saved);
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
 
     // ── Erfassen ───────────────────────────────────────────────────────────────────────────
 
