@@ -267,6 +267,88 @@ namespace FinanzApp.Api.Data.Migrations
                     b.ToTable("Categories");
                 });
 
+            modelBuilder.Entity("FinanzApp.Api.Data.Entities.ChargingRate", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("EmploymentId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("EuroPerKwh")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("HouseholdId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(400)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("ValidFrom")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmploymentId");
+
+                    b.HasIndex("HouseholdId", "EmploymentId", "ValidFrom")
+                        .IsUnique();
+
+                    b.ToTable("ChargingRates");
+                });
+
+            modelBuilder.Entity("FinanzApp.Api.Data.Entities.ChargingReading", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("DocumentId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("EmploymentId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("HouseholdId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("MeterKwh")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(400)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("ReadOn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("VehicleId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentId");
+
+                    b.HasIndex("EmploymentId");
+
+                    b.HasIndex("VehicleId");
+
+                    b.HasIndex("HouseholdId", "ReadOn");
+
+                    b.HasIndex("HouseholdId", "EmploymentId", "ReadOn")
+                        .IsUnique();
+
+                    b.ToTable("ChargingReadings");
+                });
+
             modelBuilder.Entity("FinanzApp.Api.Data.Entities.Contract", b =>
                 {
                     b.Property<int>("Id")
@@ -2127,6 +2209,40 @@ namespace FinanzApp.Api.Data.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Contributor");
+                });
+
+            modelBuilder.Entity("FinanzApp.Api.Data.Entities.ChargingRate", b =>
+                {
+                    b.HasOne("FinanzApp.Api.Data.Entities.Employment", "Employment")
+                        .WithMany()
+                        .HasForeignKey("EmploymentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Employment");
+                });
+
+            modelBuilder.Entity("FinanzApp.Api.Data.Entities.ChargingReading", b =>
+                {
+                    b.HasOne("FinanzApp.Api.Data.Entities.Document", "Document")
+                        .WithMany()
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FinanzApp.Api.Data.Entities.Employment", "Employment")
+                        .WithMany()
+                        .HasForeignKey("EmploymentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FinanzApp.Api.Data.Entities.Vehicle", "Vehicle")
+                        .WithMany()
+                        .HasForeignKey("VehicleId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Document");
+
+                    b.Navigation("Employment");
+
+                    b.Navigation("Vehicle");
                 });
 
             modelBuilder.Entity("FinanzApp.Api.Data.Entities.Contract", b =>

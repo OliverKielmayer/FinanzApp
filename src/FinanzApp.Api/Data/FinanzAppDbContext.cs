@@ -95,6 +95,10 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
     public DbSet<Payslip> Payslips => Set<Payslip>();
     public DbSet<WorkAgreement> WorkAgreements => Set<WorkAgreement>();
 
+    /// <summary>Der Ladestrom des Dienstwagens: abgelesene Stände und vereinbarte Sätze.</summary>
+    public DbSet<ChargingReading> ChargingReadings => Set<ChargingReading>();
+    public DbSet<ChargingRate> ChargingRates => Set<ChargingRate>();
+
     /// <summary>Gelesene Werte samt Herkunft — leer, solange keine Analyse angebunden ist.</summary>
     public DbSet<DocumentExtraction> DocumentExtractions => Set<DocumentExtraction>();
 
@@ -115,6 +119,29 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
     /// </remarks>
     private static readonly ValueConverter<decimal, long> MoneyConverter =
         new(value => (long)Math.Round(value * 100m, MidpointRounding.AwayFromZero), cents => cents / 100m);
+
+    /// <summary>
+    /// Kilowattstunden als ganze Wattstunden.
+    /// </summary>
+    /// <remarks>
+    /// Dieselbe Überlegung wie beim Geld in Cent: Das Display der Wallbox zeigt drei
+    /// Nachkommastellen, und ein <c>double</c> trifft 1234,567 nicht. Der Fehler bliebe
+    /// unsichtbar, bis zwei Stände voneinander abgezogen werden — dann steht er als Verbrauch
+    /// da.
+    /// </remarks>
+    private static readonly ValueConverter<decimal, long> EnergyConverter =
+        new(value => (long)Math.Round(value * 1000m, MidpointRounding.AwayFromZero), wh => wh / 1000m);
+
+    /// <summary>
+    /// Ein Preis je Einheit als ganze Zehntelcent.
+    /// </summary>
+    /// <remarks>
+    /// Vier Nachkommastellen statt zwei: Ein Erstattungssatz von 0,2635 €/kWh ist üblich, und
+    /// auf Cent gerundet läge die Jahressumme um Euro daneben.
+    /// </remarks>
+    private static readonly ValueConverter<decimal, long> UnitPriceConverter =
+        new(value => (long)Math.Round(value * 10000m, MidpointRounding.AwayFromZero),
+            zehntelcent => zehntelcent / 10000m);
 
     private static readonly ValueConverter<decimal?, long?> NullableMoneyConverter =
         new(value => value == null ? null : (long)Math.Round(value.Value * 100m, MidpointRounding.AwayFromZero),
@@ -677,6 +704,42 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
                 .HasForeignKey(x => x.EmploymentId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Document).WithMany()
                 .HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        b.Entity<ChargingReading>(e =>
+        {
+            e.Property(x => x.MeterKwh).HasConversion(EnergyConverter);
+            e.Property(x => x.Note).HasMaxLength(400);
+
+            // Verhältnis, Fahrzeug und Beleg bleiben stehen, wenn die Ablesung geht — und
+            // umgekehrt: Keines von ihnen nimmt einen Zählerstand mit, der einmal dastand.
+            e.HasOne(x => x.Employment).WithMany()
+                .HasForeignKey(x => x.EmploymentId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Vehicle).WithMany()
+                .HasForeignKey(x => x.VehicleId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Document).WithMany()
+                .HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.SetNull);
+
+            // Die Reihe wird immer in der Zeit gelesen: der vorige Stand, der nächste, der zum
+            // Stichtag. Ohne diesen Index läuft jede dieser Fragen über die ganze Tabelle.
+            e.HasIndex(x => new { x.HouseholdId, x.ReadOn });
+
+            // Zwei Ablesungen an einem Tag wären zwei Stände für denselben Zeitpunkt, und der
+            // Verbrauch dazwischen wäre nicht mehr zu ordnen.
+            e.HasIndex(x => new { x.HouseholdId, x.EmploymentId, x.ReadOn }).IsUnique();
+        });
+
+        b.Entity<ChargingRate>(e =>
+        {
+            e.Property(x => x.EuroPerKwh).HasConversion(UnitPriceConverter);
+            e.Property(x => x.Note).HasMaxLength(400);
+
+            e.HasOne(x => x.Employment).WithMany()
+                .HasForeignKey(x => x.EmploymentId).OnDelete(DeleteBehavior.SetNull);
+
+            // Ein Satz je Verhältnis und Stichtag. Zwei Sätze ab demselben Tag hieße: Es
+            // entscheidet die Reihenfolge der Zeilen, welcher gilt — und die ist keine Aussage.
+            e.HasIndex(x => new { x.HouseholdId, x.EmploymentId, x.ValidFrom }).IsUnique();
         });
 
         b.Entity<ReportView>(e =>

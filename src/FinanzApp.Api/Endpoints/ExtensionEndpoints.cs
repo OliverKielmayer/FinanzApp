@@ -385,6 +385,47 @@ public static class ExtensionEndpoints
                 int id, EmploymentService service, CancellationToken ct)
             => await Guarded(() => service.DetachPaymentAsync(id, ct)))
             .RequireAuthorization(AuthPolicies.Write);
+
+        // Der Ladestrom des Dienstwagens. Er hängt hier und nicht am Fahrzeug: Erstattet wird
+        // vom Arbeitgeber, und der Zähler an der Wand bleibt, wenn der Wagen wechselt.
+        api.MapGet("/ladestrom", async (
+                int? employmentId, ChargingService service, CancellationToken ct)
+            => Results.Ok(await service.GetAsync(employmentId, ct)));
+
+        api.MapPost("/ladestrom/ablesungen", async (
+                CreateChargingReadingRequest request, ChargingService service, CancellationToken ct)
+            => await Beanstandet(() => service.AddReadingAsync(request, ct)))
+            .RequireAuthorization(AuthPolicies.Write);
+
+        api.MapDelete("/ladestrom/ablesungen/{id:int}", async (
+                int id, ChargingService service, CancellationToken ct)
+            => await service.DeleteReadingAsync(id, ct) ? Results.NoContent() : Results.NotFound())
+            .RequireAuthorization(AuthPolicies.Write);
+
+        api.MapPost("/ladestrom/saetze", async (
+                CreateChargingRateRequest request, ChargingService service, CancellationToken ct)
+            => await Beanstandet(() => service.AddRateAsync(request, ct)))
+            .RequireAuthorization(AuthPolicies.Write);
+    }
+
+    /// <summary>
+    /// Wie <see cref="Guarded{T}"/>, nur auch für <see cref="ArgumentException"/>.
+    /// </summary>
+    /// <remarks>
+    /// Ein verlesener Zählerstand ist ein Einwand gegen die Eingabe, kein Regelverstoß im Sinn
+    /// von <see cref="RuleViolationException"/> — und schon gar kein Absturz. Der Mensch soll
+    /// lesen, was nicht stimmt, und es berichtigen können.
+    /// </remarks>
+    private static async Task<IResult> Beanstandet<T>(Func<Task<T>> work)
+    {
+        try
+        {
+            return Results.Ok(await work());
+        }
+        catch (Exception ex) when (ex is ArgumentException or RuleViolationException)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
     }
 
     /// <summary>Fachliche Verstöße kommen als lesbare 400er zurück, nicht als Absturz.</summary>

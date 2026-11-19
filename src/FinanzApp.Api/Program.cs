@@ -204,6 +204,7 @@ builder.Services.AddScoped<DocumentService>();
 builder.Services.AddScoped<DocumentActionService>();
 builder.Services.AddScoped<TaskService>();
 builder.Services.AddScoped<MedicalBillService>();
+builder.Services.AddScoped<ChargingService>();
 builder.Services.AddScoped<PolicyService>();
 builder.Services.AddScoped<VehicleService>();
 builder.Services.AddScoped<PurchaseService>();

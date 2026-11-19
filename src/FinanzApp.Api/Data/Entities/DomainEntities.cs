@@ -990,3 +990,107 @@ public class WorkAgreement : IHouseholdOwned
     public int? DocumentId { get; set; }
     public Document? Document { get; set; }
 }
+
+/// <summary>
+/// Eine Ablesung am Stromzähler vor der Wallbox.
+/// </summary>
+/// <remarks>
+/// <para><b>Der Stand, nicht der Verbrauch.</b> Abgelesen wird, was auf dem Display steht. Was
+/// geladen wurde, ist die Differenz zur vorigen Ablesung — gerechnet, nie gespeichert. Beides
+/// zu führen hieße, dieselbe Aussage zweimal zu halten: Wer eine verlesene Ablesung
+/// berichtigt, lässt die gespeicherten Verbräuche danach falsch stehen, und niemand sieht es,
+/// weil beide Zahlen für sich stimmig aussehen.</para>
+/// <para><b>Am Arbeitsverhältnis und nicht am Fahrzeug.</b> Erstattet wird vom Arbeitgeber,
+/// und der Zähler hängt an der Wand: Ein Wechsel des Dienstwagens bricht die Reihe der
+/// Stände nicht. Welches Fahrzeug geladen wurde, steht als Angabe daneben — es gehört auf die
+/// Abrechnung, trägt die Reihe aber nicht.</para>
+/// <para><b>Nichts rechnet sich aus dem Kalender.</b> Ein Monat läuft von Ablesung zu
+/// Ablesung, nicht vom Ersten zum Letzten: Niemand steht um Mitternacht am Zähler. Ein
+/// Zeitraum, der sich am Kalender festmachte, verschenkte oder erfand die Tage dazwischen.</para>
+/// </remarks>
+public class ChargingReading : IHouseholdOwned
+{
+    public int Id { get; set; }
+    public int HouseholdId { get; set; }
+
+    /// <summary>
+    /// Das Arbeitsverhältnis, das erstattet. <c>null</c>, wenn es gelöscht wurde.
+    /// </summary>
+    /// <remarks>
+    /// Dasselbe Verhältnis wie bei der <see cref="Payslip"/>: Die Ablesung ist eine Tatsache,
+    /// das Verhältnis war nur ihre Schublade. Ein abgelaufener Dienstvertrag löscht keinen
+    /// Zählerstand, der einmal auf dem Display stand.
+    /// </remarks>
+    public int? EmploymentId { get; set; }
+    public Employment? Employment { get; set; }
+
+    /// <summary>Das geladene Fahrzeug. Steht auf der Abrechnung, trägt die Reihe nicht.</summary>
+    public int? VehicleId { get; set; }
+    public Vehicle? Vehicle { get; set; }
+
+    /// <summary>Der Tag, an dem abgelesen wurde.</summary>
+    public DateOnly ReadOn { get; set; }
+
+    /// <summary>
+    /// Der abgelesene Stand in Kilowattstunden.
+    /// </summary>
+    /// <remarks>
+    /// In Wattstunden gespeichert, aus demselben Grund, aus dem Geld in Cent liegt: Das Display
+    /// zeigt drei Nachkommastellen, und eine Gleitkommazahl trifft 1234,567 nicht genau. Beim
+    /// Abziehen zweier Stände sähe man den Fehler zuerst — als Verbrauch, der um eine
+    /// Tausendstel danebenliegt.
+    /// </remarks>
+    public decimal MeterKwh { get; set; }
+
+    /// <summary>Das Foto vom Display. <c>null</c>, solange keines abgelegt ist.</summary>
+    /// <remarks>
+    /// Der Nachweis gegenüber dem Arbeitgeber. Freiwillig, weil ein nachgetragenes Foto besser
+    /// ist als eine Ablesung, die niemand einträgt, solange das Bild noch im Telefon liegt.
+    /// </remarks>
+    public int? DocumentId { get; set; }
+    public Document? Document { get; set; }
+
+    public string? Note { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>
+/// Der Erstattungssatz je Kilowattstunde, gültig ab einem Tag.
+/// </summary>
+/// <remarks>
+/// <para><b>Eine Zeile je Vereinbarung, kein einzelnes Feld.</b> Der Satz wird mit dem
+/// Arbeitgeber vereinbart und wechselt, meist zum Kalenderjahr. Stünde er als eine Zahl am
+/// Arbeitsverhältnis, rechnete jede frühere Abrechnung nach einer Änderung rückwirkend neu —
+/// und zeigte einen Betrag, den der Arbeitgeber nie gesehen hat.</para>
+/// <para><b>Kein Bis-Datum.</b> Ein Satz gilt bis zum Tag vor dem nächsten. Zwei Felder, die
+/// dasselbe sagen, laufen auseinander, sobald jemand nur eines pflegt — dieselbe Überlegung
+/// wie beim Verbrauch, der sich aus zwei Ständen ergibt und nicht daneben steht.</para>
+/// <para><b>Geraten wird nichts.</b> Gibt es für einen Tag keinen Satz, bleibt der Betrag
+/// offen und die Abrechnung sagt es. Ein unterstellter Satz sähe aus wie ein vereinbarter.</para>
+/// </remarks>
+public class ChargingRate : IHouseholdOwned
+{
+    public int Id { get; set; }
+    public int HouseholdId { get; set; }
+
+    /// <summary>Das Arbeitsverhältnis, mit dem der Satz vereinbart ist.</summary>
+    public int? EmploymentId { get; set; }
+    public Employment? Employment { get; set; }
+
+    /// <summary>Ab welchem Tag der Satz gilt.</summary>
+    public DateOnly ValidFrom { get; set; }
+
+    /// <summary>
+    /// Der Satz in Euro je Kilowattstunde.
+    /// </summary>
+    /// <remarks>
+    /// Vier Nachkommastellen, in Zehntelcent gespeichert: Sätze wie 0,2635 €/kWh kommen vor,
+    /// und auf zwei Stellen gerundet wäre die Jahressumme um Euro daneben.
+    /// </remarks>
+    public decimal EuroPerKwh { get; set; }
+
+    public string? Note { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+}
