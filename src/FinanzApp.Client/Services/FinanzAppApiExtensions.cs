@@ -658,6 +658,30 @@ public static class FinanzAppApiExtensions
         => api.SendAsync<object?, PayslipRowDto>(
             HttpMethod.Delete, $"api/work/payslips/{id}/payment", null, ct);
 
+    // ── Ladestrom ──────────────────────────────────────────────────────────────────────────
+
+    public static Task<ChargingOverviewDto> GetChargingAsync(
+        this FinanzAppApi api, int? employmentId = null, CancellationToken ct = default)
+        => api.GetAsync<ChargingOverviewDto>(
+            employmentId is { } id ? $"api/work/ladestrom?employmentId={id}" : "api/work/ladestrom",
+            ct);
+
+    public static Task<ChargingReadingDto> CreateChargingReadingAsync(
+        this FinanzAppApi api, CreateChargingReadingRequest request, CancellationToken ct = default)
+        => api.PostAsync<CreateChargingReadingRequest, ChargingReadingDto>(
+            "api/work/ladestrom/ablesungen", request, ct);
+
+    /// <summary>Löscht eine Ablesung. Ohne Ergebnis — der Endpunkt antwortet 204.</summary>
+    public static Task DeleteChargingReadingAsync(
+        this FinanzAppApi api, int id, CancellationToken ct = default)
+        => api.SendWithoutResultAsync<object?>(
+            HttpMethod.Delete, $"api/work/ladestrom/ablesungen/{id}", null, ct);
+
+    public static Task<ChargingRateDto> CreateChargingRateAsync(
+        this FinanzAppApi api, CreateChargingRateRequest request, CancellationToken ct = default)
+        => api.PostAsync<CreateChargingRateRequest, ChargingRateDto>(
+            "api/work/ladestrom/saetze", request, ct);
+
     public static Task<IReadOnlyList<PaymentCandidateDto>> GetInvoicePaymentCandidatesAsync(
         this FinanzAppApi api, int id, CancellationToken ct = default)
         => api.GetAsync<IReadOnlyList<PaymentCandidateDto>>($"api/invoices/{id}/payment-candidates", ct);

@@ -103,6 +103,11 @@ public static class ScreenCatalog
         new("/arbeit", "Beruf", "Arbeit & Beruf", IsDetail: true,
             Group: NavGroup.Holdings, InAreaList: true),
 
+        // Kein eigener Punkt in der Navigation: Der Ladestrom wird aus Arbeit & Beruf heraus
+        // geoeffnet und ist eine Sache, die es einmal gibt. In der Bereichsliste stuende er
+        // neben Depot und Immobilien — und waere dort das kleinste Ding unter lauter grossen.
+        new("/ladestrom", "Beruf", "Ladestrom", IsDetail: true),
+
         new("/auswertungen", "Analyse", "Auswertungen", IsDetail: true,
             Group: NavGroup.Analysis, InAreaList: true),
         new("/gesundheit", "Gesundheit", "Gesundheit & PKV", IsDetail: true,

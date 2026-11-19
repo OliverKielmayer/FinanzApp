@@ -1,0 +1,718 @@
+@page "/ladestrom"
+@attribute [Authorize]
+@inherits AppPage
+
+@*
+    Ladestrom — der Dienstwagen an der privaten Wallbox.
+
+    Die Seite hat keine eigene Rechnung. Verbrauch, Satz und Betrag kommen so, wie der Dienst
+    sie geliefert hat; sie hier noch einmal auszurechnen hieße, zwei Rechnungen für dieselbe
+    Aussage zu führen — und der Tag, an dem sie auseinanderlaufen, fällt niemandem auf.
+
+    Erfasst wird **ein** Stand je Ablesung. Was dazwischen geladen wurde, ist die Differenz zur
+    vorigen und steht nirgends geschrieben. Deshalb lässt sich eine verlesene Ablesung löschen,
+    ohne dass irgendetwas nachgerechnet werden müsste.
+*@
+
+<PageTitle>Ladestrom — FinanzApp</PageTitle>
+
+<AsyncView Loading="Loading" Error="@Error" Stale="HasLoadedOnce" Retry="ReloadAsync">
+    @if (data is { } strom)
+    {
+        <section class="hero">
+            <span class="label-muted">
+                Ladestrom@(strom.Employer is { Length: > 0 } wer ? " · " + wer : null)
+            </span>
+            <span class="hero-value num">@Kwh(strom.TotalKwh)</span>
+            <span class="loan-sub">@HeadSub(strom)</span>
+        </section>
+
+        <section class="kpi">
+            <div class="kpi-cell">
+                <span class="label-muted">Erstattung gesamt</span>
+                <span class="kpi-value num">@State.Euro(strom.TotalAmount)</span>
+            </div>
+            <div class="kpi-cell">
+                <span class="label-muted">Letzter Stand</span>
+                <span class="kpi-value num">@(Letzter(strom) is { } stand ? Kwh(stand) : "—")</span>
+            </div>
+            <div class="kpi-cell">
+                <span class="label-muted">Satz</span>
+                <span class="kpi-value accent num">
+                    @(strom.Rates.Count > 0 ? Satz(strom.Rates[0].EuroPerKwh) : "—")
+                </span>
+            </div>
+        </section>
+
+        @*
+            Eine Summe, der etwas fehlt, muss es sagen. Sonst steht da eine Zahl, die aussieht
+            wie das Ganze — und jemand gibt sie dem Arbeitgeber.
+        *@
+        @if (strom.PeriodsWithoutRate > 0)
+        {
+            <div class="tx-totals-note">
+                @strom.PeriodsWithoutRate
+                @(strom.PeriodsWithoutRate == 1 ? "Zeitraum hat" : "Zeiträume haben")
+                keinen vereinbarten Satz — @(strom.PeriodsWithoutRate == 1 ? "er fehlt" : "sie fehlen")
+                in der Erstattung oben. Trag den Satz unten ein, dann rechnet sie vollständig.
+            </div>
+        }
+
+        @* ── Ablesungen ──────────────────────────────────────────────────────────────────── *@
+
+        <div class="list-head">
+            <span class="label-strong">Ablesungen</span>
+        </div>
+
+        @if (strom.Readings.Count == 0)
+        {
+            <div class="import-nothing">
+                <span class="label-strong">Noch nichts abgelesen</span>
+                <span class="create-help">
+                    Die erste Ablesung ist der Anfang der Reihe. Einen Verbrauch hat sie noch
+                    nicht — dafür braucht es eine zweite.
+                </span>
+            </div>
+        }
+
+        @foreach (var zeile in strom.Readings)
+        {
+            var id = zeile.Id;
+            var offen = expanded == id;
+
+            <button type="button" class="tap import-row plain @(offen ? "picked" : null)"
+                    @onclick="() => Toggle(id)">
+                <span class="stack">
+                    <span class="import-row-payee">@GermanFormat.Date(zeile.ReadOn)</span>
+                    <span class="meta">@Zeitraum(zeile)</span>
+                    @if (zeile.RateChangedInPeriod)
+                    {
+                        <span class="meta accent">
+                            Im Zeitraum hat ein neuer Satz begonnen — gerechnet wird mit dem vom
+                            Ablesetag.
+                        </span>
+                    }
+                </span>
+                <span class="stack-end">
+                    <span class="holding-value num">@Kwh(zeile.MeterKwh)</span>
+                    <span class="meta">Zählerstand</span>
+                </span>
+            </button>
+
+            @if (offen)
+            {
+                <div class="blueprint report-payees">
+                    <i class="corner tl" aria-hidden="true"></i>
+                    <i class="corner tr" aria-hidden="true"></i>
+                    <i class="corner bl" aria-hidden="true"></i>
+                    <i class="corner br" aria-hidden="true"></i>
+
+                    <div class="detail-block">
+                        <span class="detail-label">Zählerstand</span>
+                        <span class="detail-value num">@Kwh(zeile.MeterKwh)</span>
+                    </div>
+
+                    @*
+                        Gerechnet, nicht erfasst — und darum steht die Rechnung dabei. Ohne sie
+                        sähe der Verbrauch aus wie eine abgelesene Zahl.
+                    *@
+                    <div class="detail-block">
+                        <span class="detail-label">
+                            @(zeile.Since is { } seit
+                                ? $"Geladen seit dem {GermanFormat.Date(seit)}"
+                                : "Geladen")
+                        </span>
+                        <span class="detail-value num @(zeile.Kwh is null ? "missing" : null)">
+                            @(zeile.Kwh is { } menge ? Kwh(menge) : "erste Ablesung der Reihe")
+                        </span>
+                    </div>
+
+                    <div class="detail-block">
+                        <span class="detail-label">Satz</span>
+                        <span class="detail-value num @(zeile.EuroPerKwh is null ? "missing" : null)">
+                            @(zeile.EuroPerKwh is { } satz ? Satz(satz) : "nicht vereinbart")
+                        </span>
+                    </div>
+
+                    <div class="detail-block">
+                        <span class="detail-label">Erstattung</span>
+                        <span class="detail-value num @(zeile.Amount is null ? "missing" : null)">
+                            @(zeile.Amount is { } betrag ? State.Euro(betrag) : "—")
+                        </span>
+                    </div>
+
+                    @if (zeile.VehicleName is { Length: > 0 } fahrzeug)
+                    {
+                        <div class="detail-block">
+                            <span class="detail-label">Fahrzeug</span>
+                            <span class="detail-value">@fahrzeug</span>
+                        </div>
+                    }
+
+                    <div class="detail-block">
+                        <span class="detail-label">Nachweis</span>
+                        <span class="detail-value @(zeile.DocumentId is null ? "missing" : null)">
+                            @(zeile.DocumentName ?? "kein Foto hinterlegt")
+                        </span>
+                    </div>
+
+                    @if (zeile.Note is { Length: > 0 } notiz)
+                    {
+                        <div class="detail-block">
+                            <span class="detail-label">Notiz</span>
+                            <span class="detail-value">@notiz</span>
+                        </div>
+                    }
+
+                    <AuthorizeView Roles="Owner,Member" Context="row">
+                        <div class="actions">
+                            @if (zeile.DocumentId is { } beleg)
+                            {
+                                <a class="btn btn-secondary" href="@($"/dokumente/{beleg}")">Foto öffnen</a>
+                            }
+
+                            @*
+                                Löschen ohne Rückfrage wäre hier zu schnell: Die Ablesung trägt
+                                zwei Zeiträume, den vor und den nach ihr. Dass die zusammen-
+                                wachsen, ist richtig — aber es soll niemanden überraschen.
+                            *@
+                            @if (deleting == id)
+                            {
+                                <button type="button" class="btn btn-danger" disabled="@busy"
+                                        @onclick="() => DeleteAsync(id)">Wirklich löschen</button>
+                                <button type="button" class="btn btn-secondary" disabled="@busy"
+                                        @onclick="KeepReading">Behalten</button>
+                            }
+                            else
+                            {
+                                <button type="button" class="btn btn-secondary" disabled="@busy"
+                                        @onclick="() => deleting = id">Ablesung löschen</button>
+                            }
+                        </div>
+
+                        @if (deleting == id)
+                        {
+                            <span class="create-help">
+                                Der Zeitraum davor und der danach wachsen zusammen. Der Verbrauch
+                                über das Ganze bleibt derselbe — er stand nie irgendwo
+                                geschrieben.
+                            </span>
+                        }
+                    </AuthorizeView>
+                </div>
+            }
+        }
+
+        @* ── Ablesung erfassen ───────────────────────────────────────────────────────────── *@
+
+        <AuthorizeView Roles="Owner,Member" Context="capture">
+            @if (capturing)
+            {
+                <div class="blueprint report-payees">
+                    <i class="corner tl" aria-hidden="true"></i>
+                    <i class="corner tr" aria-hidden="true"></i>
+                    <i class="corner bl" aria-hidden="true"></i>
+                    <i class="corner br" aria-hidden="true"></i>
+
+                    <div class="field">
+                        <label for="ls-tag">Abgelesen am</label>
+                        <input id="ls-tag" class="input" type="date" value="@fresh.ReadOn"
+                               @oninput="e => fresh.ReadOn = e.Value?.ToString() ?? string.Empty" />
+                    </div>
+
+                    <div class="field">
+                        <label for="ls-stand">Zählerstand in kWh</label>
+                        <input id="ls-stand" class="input" inputmode="decimal" value="@fresh.Meter"
+                               placeholder="wie auf dem Display"
+                               @oninput="e => fresh.Meter = e.Value?.ToString() ?? string.Empty" />
+                        <span class="create-help">
+                            Der Stand, nicht der Verbrauch. Was seit der letzten Ablesung geladen
+                            wurde, rechnet die App.
+                        </span>
+                    </div>
+
+                    @if (vehicles is { Count: > 0 })
+                    {
+                        <div class="field">
+                            <label for="ls-fahrzeug">Fahrzeug</label>
+                            <select id="ls-fahrzeug" class="input" value="@fresh.Vehicle"
+                                    @onchange="e => fresh.Vehicle = e.Value?.ToString() ?? string.Empty">
+                                <option value="">— ohne —</option>
+                                @foreach (var wagen in vehicles)
+                                {
+                                    <option value="@wagen.Id">@wagen.Name · @wagen.Plate</option>
+                                }
+                            </select>
+                        </div>
+                    }
+
+                    @*
+                        Der Nachweis gegenüber dem Arbeitgeber. Zur Auswahl stehen die zuletzt
+                        abgelegten Belege: Das Foto kommt über den Scaneingang oder das Postfach
+                        herein und steht dann oben in dieser Liste.
+                    *@
+                    @if (documents is { Count: > 0 })
+                    {
+                        <div class="field">
+                            <label for="ls-beleg">Foto vom Zählerstand</label>
+                            <select id="ls-beleg" class="input" value="@fresh.Document"
+                                    @onchange="e => fresh.Document = e.Value?.ToString() ?? string.Empty">
+                                <option value="">— später —</option>
+                                @foreach (var beleg in documents)
+                                {
+                                    <option value="@beleg.Id">@BelegLabel(beleg)</option>
+                                }
+                            </select>
+                        </div>
+                    }
+
+                    <div class="field">
+                        <label for="ls-notiz">Notiz</label>
+                        <input id="ls-notiz" class="input" value="@fresh.Note"
+                               placeholder="optional"
+                               @oninput="e => fresh.Note = e.Value?.ToString() ?? string.Empty" />
+                    </div>
+
+                    @{ var vorschau = Vorschau(strom); }
+                    <span class="create-help @(vorschau?.Warnt == true ? "accent" : null)">
+                        @(vorschau?.Text ?? "Die erste Ablesung einer Reihe hat noch keinen Verbrauch.")
+                    </span>
+
+                    @if (problem is { Length: > 0 })
+                    {
+                        <span class="create-problem">@problem</span>
+                    }
+
+                    <div class="actions">
+                        <button type="button" class="btn btn-primary" disabled="@busy"
+                                @onclick="SaveReadingAsync">Ablesung erfassen</button>
+                        <button type="button" class="btn btn-secondary" disabled="@busy"
+                                @onclick="CancelCapture">Abbrechen</button>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="actions">
+                    <button type="button" class="btn btn-primary" @onclick="StartCapture">
+                        Ablesung erfassen
+                    </button>
+                </div>
+            }
+        </AuthorizeView>
+
+        @* ── Sätze ───────────────────────────────────────────────────────────────────────── *@
+
+        <div class="list-head">
+            <span class="label-strong">Erstattungssätze</span>
+        </div>
+
+        @if (strom.Rates.Count == 0)
+        {
+            <div class="import-nothing">
+                <span class="label-strong">Kein Satz vereinbart</span>
+                <span class="create-help">
+                    Ohne Satz bleibt der Betrag offen. Geraten wird keiner — ein unterstellter
+                    Satz sähe aus wie ein vereinbarter.
+                </span>
+            </div>
+        }
+
+        @foreach (var satz in strom.Rates)
+        {
+            <div class="import-row plain">
+                <span class="stack">
+                    <span class="import-row-payee">@Satz(satz.EuroPerKwh)</span>
+                    <span class="meta">@Geltung(satz)</span>
+                    @if (satz.Note is { Length: > 0 } hinweis)
+                    {
+                        <span class="meta">@hinweis</span>
+                    }
+                </span>
+            </div>
+        }
+
+        <AuthorizeView Roles="Owner,Member" Context="satzbereich">
+            @if (rating)
+            {
+                <div class="blueprint report-payees">
+                    <i class="corner tl" aria-hidden="true"></i>
+                    <i class="corner tr" aria-hidden="true"></i>
+                    <i class="corner bl" aria-hidden="true"></i>
+                    <i class="corner br" aria-hidden="true"></i>
+
+                    <div class="field">
+                        <label for="ls-ab">Gültig ab</label>
+                        <input id="ls-ab" class="input" type="date" value="@rate.ValidFrom"
+                               @oninput="e => rate.ValidFrom = e.Value?.ToString() ?? string.Empty" />
+                        <span class="create-help">
+                            Der Satz gilt bis zum Tag vor dem nächsten. Ein Bis-Datum gibt es
+                            nicht — zwei Felder, die dasselbe sagen, laufen auseinander.
+                        </span>
+                    </div>
+
+                    <div class="field">
+                        <label for="ls-satz">Euro je kWh</label>
+                        <input id="ls-satz" class="input" inputmode="decimal" value="@rate.Euro"
+                               placeholder="z. B. 0,2635"
+                               @oninput="e => rate.Euro = e.Value?.ToString() ?? string.Empty" />
+                    </div>
+
+                    <div class="field">
+                        <label for="ls-satz-notiz">Notiz</label>
+                        <input id="ls-satz-notiz" class="input" value="@rate.Note"
+                               placeholder="woher der Satz stammt"
+                               @oninput="e => rate.Note = e.Value?.ToString() ?? string.Empty" />
+                    </div>
+
+                    @if (rateProblem is { Length: > 0 })
+                    {
+                        <span class="create-problem">@rateProblem</span>
+                    }
+
+                    <div class="actions">
+                        <button type="button" class="btn btn-primary" disabled="@busy"
+                                @onclick="SaveRateAsync">Satz eintragen</button>
+                        <button type="button" class="btn btn-secondary" disabled="@busy"
+                                @onclick="CancelRate">Abbrechen</button>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="actions">
+                    <button type="button" class="btn btn-secondary" @onclick="StartRate">
+                        Satz eintragen
+                    </button>
+                </div>
+            }
+        </AuthorizeView>
+    }
+</AsyncView>
+
+@code {
+    /// <summary>Die Eingaben der Ablesemaske, roh wie getippt.</summary>
+    private sealed class ReadingDraft
+    {
+        public string ReadOn { get; set; } = string.Empty;
+        public string Meter { get; set; } = string.Empty;
+        public string Vehicle { get; set; } = string.Empty;
+        public string Document { get; set; } = string.Empty;
+        public string Note { get; set; } = string.Empty;
+    }
+
+    private sealed class RateDraft
+    {
+        public string ValidFrom { get; set; } = string.Empty;
+        public string Euro { get; set; } = string.Empty;
+        public string Note { get; set; } = string.Empty;
+    }
+
+    private ChargingOverviewDto? data;
+    private IReadOnlyList<VehicleListItemDto>? vehicles;
+    private IReadOnlyList<DocumentListItemDto>? documents;
+
+    private int? expanded;
+    private int? deleting;
+
+    private bool capturing;
+    private bool rating;
+    private bool busy;
+
+    private ReadingDraft fresh = new();
+    private RateDraft rate = new();
+
+    private string? problem;
+    private string? rateProblem;
+
+    protected override async Task LoadAsync()
+    {
+        data = await Api.GetChargingAsync();
+
+        // Fahrzeuge und Belege sind Beiwerk: Fehlen sie, bleibt das jeweilige Feld weg und die
+        // Ablesung lässt sich trotzdem erfassen. Ein Abruf, der die Seite scheitern lässt, weil
+        // ein Auswahlfeld leer bliebe, wäre die falsche Abhängigkeit.
+        vehicles ??= await Versuche(() => Api.GetVehiclesAsync());
+        // Nur die letzten fünfundzwanzig: Das Foto vom Zähler ist eben hereingekommen und
+        // steht damit oben. Ein Auswahlfeld mit der ganzen Ablage wäre eine Liste, durch die
+        // niemand scrollt — und das Feld ist ohnehin freiwillig.
+        documents ??= (await Versuche(() => Api.GetDocumentsAsync()))?.Items.Take(25).ToList();
+    }
+
+    private static async Task<T?> Versuche<T>(Func<Task<T>> abruf) where T : class
+    {
+        try
+        {
+            return await abruf();
+        }
+        catch (ApiException)
+        {
+            return null;
+        }
+    }
+
+    // ── Kopf und Zeilen ────────────────────────────────────────────────────────────────────
+
+    /// <summary>„3 Ablesungen · seit 30.09.2026“ — oder was davon dasteht.</summary>
+    private static string HeadSub(ChargingOverviewDto strom)
+    {
+        if (strom.Readings.Count == 0)
+        {
+            return "geladen · noch keine Ablesung";
+        }
+
+        var erste = strom.Readings[^1].ReadOn;
+
+        return $"geladen · {strom.Readings.Count} "
+               + (strom.Readings.Count == 1 ? "Ablesung" : "Ablesungen")
+               + $" · seit {GermanFormat.Date(erste)}";
+    }
+
+    /// <summary>Der jüngste Zählerstand — die Liste führt ihn zuerst.</summary>
+    private static decimal? Letzter(ChargingOverviewDto strom)
+        => strom.Readings.Count > 0 ? strom.Readings[0].MeterKwh : null;
+
+    /// <summary>Was zwischen dieser Ablesung und der vorigen liegt.</summary>
+    private string Zeitraum(ChargingReadingDto zeile)
+    {
+        if (zeile.Kwh is not { } menge)
+        {
+            return "Anfang der Reihe";
+        }
+
+        var teile = new List<string> { Kwh(menge) + " geladen" };
+
+        if (zeile.Since is { } seit)
+        {
+            teile.Add($"seit {GermanFormat.Date(seit)}");
+        }
+
+        teile.Add(zeile.Amount is { } betrag ? State.Euro(betrag) : "ohne Satz");
+
+        return string.Join(" · ", teile);
+    }
+
+    /// <summary>„ab 01.01.2026“ bzw. „01.01.2026 bis 31.12.2026“.</summary>
+    private static string Geltung(ChargingRateDto satz)
+        => satz.ValidUntil is { } bis
+            ? $"{GermanFormat.Date(satz.ValidFrom)} bis {GermanFormat.Date(bis)}"
+            : $"ab {GermanFormat.Date(satz.ValidFrom)}";
+
+    private static string BelegLabel(DocumentListItemDto beleg)
+        => beleg.DocumentDate is { } tag
+            ? $"{beleg.Title} · {GermanFormat.Date(tag)}"
+            : beleg.Title;
+
+    /// <summary>
+    /// Was der eingetippte Stand ergäbe.
+    /// </summary>
+    /// <remarks>
+    /// Der Hinweis rechnet mit, bevor gespeichert wird — ein Zahlendreher fällt hier auf und
+    /// nicht erst in der Abrechnung an den Arbeitgeber. Gerechnet wird gegen den <em>letzten</em>
+    /// Stand; wer eine Ablesung mitten in die Reihe nachträgt, sieht den Hinweis nicht, aber der
+    /// Dienst prüft sie trotzdem nach beiden Seiten.
+    /// </remarks>
+    private (string Text, bool Warnt)? Vorschau(ChargingOverviewDto strom)
+    {
+        if (Parse(fresh.Meter) is not { } stand
+            || !DateOnly.TryParse(fresh.ReadOn, out var tag))
+        {
+            return null;
+        }
+
+        var davor = strom.Readings.Where(r => r.ReadOn < tag).MaxBy(r => r.ReadOn);
+        var danach = strom.Readings.Where(r => r.ReadOn > tag).MinBy(r => r.ReadOn);
+
+        if (davor is { } vorher && stand < vorher.MeterKwh)
+        {
+            return ($"Das liegt unter dem Stand vom {GermanFormat.Date(vorher.ReadOn)} "
+                    + $"({Kwh(vorher.MeterKwh)}). Ein Zähler zählt aufwärts.", true);
+        }
+
+        if (danach is { } nachher && stand > nachher.MeterKwh)
+        {
+            return ($"Das liegt über dem Stand vom {GermanFormat.Date(nachher.ReadOn)} "
+                    + $"({Kwh(nachher.MeterKwh)}), der später abgelesen wurde.", true);
+        }
+
+        return davor is { } basis
+            ? ($"Das wären {Kwh(stand - basis.MeterKwh)} seit dem "
+               + $"{GermanFormat.Date(basis.ReadOn)}.", false)
+            : null;
+    }
+
+    private void Toggle(int id)
+    {
+        expanded = expanded == id ? null : id;
+        deleting = null;
+    }
+
+    // ── Erfassen ───────────────────────────────────────────────────────────────────────────
+
+    private void CancelCapture()
+    {
+        capturing = false;
+        problem = null;
+    }
+
+    private void CancelRate()
+    {
+        rating = false;
+        rateProblem = null;
+    }
+
+    private void KeepReading() => deleting = null;
+
+    private void StartCapture()
+    {
+        capturing = true;
+        problem = null;
+        fresh = new ReadingDraft
+        {
+            ReadOn = DateTime.Now.ToString("yyyy-MM-dd"),
+            Vehicle = vehicles?.Count == 1 ? vehicles[0].Id.ToString() : string.Empty,
+        };
+    }
+
+    private void StartRate()
+    {
+        rating = true;
+        rateProblem = null;
+
+        // Der 1. Januar als Vorschlag: Der Satz wird je Kalenderjahr vereinbart. Ein Vorschlag
+        // ist kein Zwang — das Feld lässt sich überschreiben.
+        rate = new RateDraft { ValidFrom = $"{DateTime.Now.Year}-01-01" };
+    }
+
+    private Task SaveReadingAsync() => RunAsync(async () =>
+    {
+        busy = true;
+        problem = null;
+
+        try
+        {
+            if (!DateOnly.TryParse(fresh.ReadOn, out var tag))
+            {
+                problem = "Das Ablesedatum fehlt.";
+                return;
+            }
+
+            if (Parse(fresh.Meter) is not { } stand)
+            {
+                problem = "Der Zählerstand fehlt.";
+                return;
+            }
+
+            await Api.CreateChargingReadingAsync(new CreateChargingReadingRequest
+            {
+                EmploymentId = data?.EmploymentId,
+                VehicleId = int.TryParse(fresh.Vehicle, out var wagen) ? wagen : null,
+                ReadOn = tag,
+                MeterKwh = stand,
+                DocumentId = int.TryParse(fresh.Document, out var beleg) ? beleg : null,
+                Note = fresh.Note,
+            });
+
+            capturing = false;
+            await LoadAsync();
+            Toasts.Show("Ablesung erfasst.", ToastKind.Saved);
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    private Task SaveRateAsync() => RunAsync(async () =>
+    {
+        busy = true;
+        rateProblem = null;
+
+        try
+        {
+            if (!DateOnly.TryParse(rate.ValidFrom, out var ab))
+            {
+                rateProblem = "Das Datum „gültig ab“ fehlt.";
+                return;
+            }
+
+            if (Parse(rate.Euro) is not { } satz)
+            {
+                rateProblem = "Der Satz fehlt.";
+                return;
+            }
+
+            await Api.CreateChargingRateAsync(new CreateChargingRateRequest
+            {
+                EmploymentId = data?.EmploymentId,
+                ValidFrom = ab,
+                EuroPerKwh = satz,
+                Note = rate.Note,
+            });
+
+            rating = false;
+            await LoadAsync();
+            Toasts.Show("Satz eingetragen.", ToastKind.Saved);
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    private Task DeleteAsync(int id) => RunAsync(async () =>
+    {
+        busy = true;
+
+        try
+        {
+            await Api.DeleteChargingReadingAsync(id);
+
+            deleting = null;
+            expanded = null;
+            await LoadAsync();
+            Toasts.Show("Ablesung gelöscht.", ToastKind.Saved);
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    // ── Formate ────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Kilowattstunden mit so vielen Nachkommastellen, wie wirklich dastehen.</summary>
+    private static string Kwh(decimal wert)
+        => GermanFormat.Quantity(wert) + " kWh";
+
+    /// <summary>Ein Satz je kWh — vier Nachkommastellen, wenn er sie trägt.</summary>
+    private static string Satz(decimal wert)
+        => GermanFormat.Price(wert) + "/kWh";
+
+    /// <summary>Zahl wie getippt: deutsch mit Komma, notfalls mit Punkt.</summary>
+    /// <remarks>
+    /// Dieselbe Lesart wie in der Lohnmaske. Ein Zählerstand wird aus einem Display
+    /// abgeschrieben, und wer „1.234,567“ tippt, meint nicht 1234567.
+    /// </remarks>
+    private static decimal? Parse(string text)
+    {
+        var sauber = text.Trim().Replace("kWh", string.Empty).Replace("€", string.Empty)
+            .Replace(" ", string.Empty);
+
+        if (sauber.Length == 0)
+        {
+            return null;
+        }
+
+        if (sauber.Contains(','))
+        {
+            sauber = sauber.Replace(".", string.Empty).Replace(',', '.');
+        }
+
+        return decimal.TryParse(
+            sauber, System.Globalization.NumberStyles.Number,
+            System.Globalization.CultureInfo.InvariantCulture, out var wert)
+            ? wert
+            : null;
+    }
+}
