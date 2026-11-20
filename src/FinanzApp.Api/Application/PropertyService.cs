@@ -489,6 +489,84 @@ public sealed class PropertyService(
                ?? throw new RuleViolationException("Diesen Vertrag gibt es nicht.");
     }
 
+    /// <summary>
+    /// Schreibt eine Kennzahl, ohne den Dienst zu bauen — für die Belegübernahme.
+    /// </summary>
+    /// <remarks>
+    /// <para>Dieselbe Bauart wie <see cref="PolicyService.RecordReportAsync"/>: Der Weg vom
+    /// Beleg zum Objekt läuft im Prüfschritt und nicht über die Oberfläche, und er soll
+    /// trotzdem genau dieselbe Zeile schreiben.</para>
+    /// <para><b>Ohne die Prüfungen von <see cref="AddContractFactAsync"/></b>, und das ist
+    /// Absicht: Was hier ankommt, hat eine Leseregel aus einem Beleg geholt, und die bringt
+    /// ihre Einheit selbst mit. Eine zweite Prüfung würde nur dieselbe Bedingung an zwei
+    /// Stellen pflegen. <b>Gespeichert wird trotzdem nur, was eine Einheit trägt</b> — die
+    /// Schranke, die den stillen Fehler verhindert, gilt auf jedem Weg.</para>
+    /// </remarks>
+    /// <returns><c>true</c>, wenn eine Zeile entstanden oder berichtigt wurde.</returns>
+    public static async Task<bool> RecordFactAsync(
+        FinanzAppDbContext db,
+        IClock clock,
+        int contractId,
+        string key,
+        string label,
+        ContractFactKind kind,
+        DateOnly validFrom,
+        CancellationToken ct,
+        decimal? number = null,
+        string? text = null,
+        DateOnly? date = null,
+        string? unit = null,
+        int? documentId = null)
+    {
+        var schluessel = key.Trim().ToLowerInvariant();
+
+        var zahlig = kind is ContractFactKind.Money or ContractFactKind.UnitPrice
+            or ContractFactKind.Quantity;
+
+        if (zahlig && (number is null || unit is not { Length: > 0 }))
+        {
+            return false;
+        }
+
+        if (kind == ContractFactKind.Text && text is not { Length: > 0 })
+        {
+            return false;
+        }
+
+        if (kind == ContractFactKind.Date && date is null)
+        {
+            return false;
+        }
+
+        var vorhanden = await db.ContractFacts.FirstOrDefaultAsync(
+            f => f.ContractId == contractId && f.Key == schluessel && f.ValidFrom == validFrom,
+            ct);
+
+        if (vorhanden is null)
+        {
+            vorhanden = new ContractFact
+            {
+                ContractId = contractId,
+                Key = schluessel,
+                Label = label,
+                ValidFrom = validFrom,
+                CreatedAt = clock.Now,
+            };
+
+            db.ContractFacts.Add(vorhanden);
+        }
+
+        vorhanden.Label = label;
+        vorhanden.Kind = kind;
+        vorhanden.Number = number;
+        vorhanden.Text = text?.Trim();
+        vorhanden.Date = date;
+        vorhanden.Unit = zahlig ? unit : null;
+        vorhanden.DocumentId = documentId;
+
+        return true;
+    }
+
     /// <summary>Entfernt eine Kennzahl.</summary>
     /// <remarks>
     /// Ohne Schranke: Eine Kennzahl steht auf keinem Papier, das hinausgegangen ist, und hängt

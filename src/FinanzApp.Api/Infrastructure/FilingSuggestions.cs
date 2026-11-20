@@ -56,6 +56,18 @@ public static class FilingSuggestions
         // („Patient“), verfehlte die Schwelle und wurde von der allgemeinen Rechnung
         // eingesammelt. Das ist nicht falsch, aber es ist die gröbere Schublade, und genau
         // dagegen steht die Reihenfolge dieser Liste.
+        // Strom und Gas. Sie steht vor der Arztrechnung, weil die Reihenfolge nichts
+        // entscheidet, solange sich die Wörter nicht überschneiden — und „Lieferstelle“ steht
+        // auf keiner Rechnung eines Arztes.
+        //
+        // Die Leseregel in DocumentKindLibrary greift nur, wenn alle drei ihrer Kennzeichen
+        // dastehen. Hier reichen zwei Punkte: Ein Schreiben des Versorgers, dem ein Wort
+        // fehlt, soll wenigstens in der richtigen Schublade landen.
+        new("Stromvertrag", DocumentArea.Housing, "Vertrag",
+            Strong: ["lieferstelle", "marktlokation", "messlokation", "netzbetreiber"],
+            Weak: ["grundpreis", "arbeitspreis", "verbrauchspreis", "kwh", "zählernummer",
+                   "zählerstand", "stromtarif"]),
+
         new("Arztrechnung", DocumentArea.Health, "Arztrechnung",
             Strong: ["arztrechnung", "zahnarzt", "goä", "gebührenordnung für ärzte", "liquidation",
                      "honorarrechnung", "gebührenordnung für zahnärzte"],

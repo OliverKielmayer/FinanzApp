@@ -116,6 +116,22 @@ public sealed record DocumentFieldRule
     public bool Soft { get; init; }
 
     /// <summary>
+    /// Der Wert steht in derselben Zelle wie seine Beschriftung — nie in der nächsten.
+    /// </summary>
+    /// <remarks>
+    /// <para>Sonst sucht <c>ByLabel</c> von rechts nach links die erste lesbare Zelle, und das
+    /// ist richtig, wo eine Tabelle Beschriftung und Wert in zwei Spalten setzt
+    /// („Depotwert · 95.558,12 · EUR“).</para>
+    /// <para><b>In einem zweispaltigen Brief ist es falsch.</b> Ein Versorgerschreiben führt
+    /// links die Vertragsangaben und rechts die Bankverbindung; die Textebene hängt beide an
+    /// dieselbe Zeile. Aus „Zählernummer: 1B QQ0 …“ + „BIC“ wird dann die Zählernummer
+    /// „BIC“ — eine Überschrift aus der Nachbarspalte, gelesen als Wert.</para>
+    /// <para>Nur für Felder setzen, deren Wert mit seiner Beschriftung in einer Zelle steht.
+    /// Es ist eine Aussage über den Satz des Papiers, keine allgemeine Regel.</para>
+    /// </remarks>
+    public bool SameCell { get; init; }
+
+    /// <summary>
     /// Ein zweites Feld, das in derselben Zeile mit angezeigt wird.
     /// </summary>
     /// <remarks>
@@ -271,6 +287,16 @@ public enum DocumentTargetKind
 {
     Policy,
     Depot,
+
+    /// <summary>
+    /// Ein Dauerschuldverhältnis — Ziel eines Versorgungsvertrags.
+    /// </summary>
+    /// <remarks>
+    /// Anders als Police und Depot trägt es seine Werte <b>nicht als Felder</b>: Grundpreis und
+    /// Arbeitspreis wandern in die Kennzahlen des Vertrags, weil jede Vertragsart andere
+    /// führt und weil eine Preisänderung den vorigen Wert nicht überschreiben darf.
+    /// </remarks>
+    Contract,
 
     /// <summary>
     /// Das Arbeitsverhältnis — Ziel einer Gehaltsabrechnung.
@@ -1494,6 +1520,179 @@ public static class DocumentKindLibrary
         ],
     };
 
+    /// <summary>
+    /// Ein Stromliefervertrag — das Schreiben, mit dem ein Versorger die Lieferung bestätigt.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Die erste Art, die auf einen Vertrag zielt</b>, und sie legt ihre Werte anders
+    /// ab als alle vorigen: nicht in Felder des Objekts, sondern in seine Kennzahlen. Der
+    /// Grund steht dort — jede Vertragsart führt andere Zahlen, und eine Preisänderung darf
+    /// den vorigen Wert nicht löschen, sondern nur beenden.</para>
+    /// <para><b>Die Kennzeichen sind gemessen</b>, am 20.11.2026 gegen 125 Belege mit Text aus
+    /// der gewachsenen Ablage. „Lieferstelle“ steht in genau einem, „Grundpreis“ in zwei (das
+    /// zweite ist ein Schreiben des Bundesfinanzministeriums zum Ladestrom, das keine
+    /// Lieferstelle kennt). Zusammen mit „Strom“ treffen sie den Vertrag und sonst nichts.</para>
+    /// <para><b>Eine Stromrechnung trägt dieselben drei Wörter</b> — dagegen steht hier keine
+    /// Schranke, und das ist bewusst: Sie führt denselben Grundpreis und denselben
+    /// Arbeitspreis, und die gehören ohnehin an den Vertrag. Falsch wäre nur die Beschriftung.
+    /// Deshalb bleibt <see cref="DocumentKind.IsNotice"/> auf <c>false</c>: Eine Rechnung
+    /// verlangt etwas, und das soll niemand verschweigen.</para>
+    /// <para><b>Der Preis steht in zwei Einheiten auf dem Markt.</b> Das gemessene Schreiben
+    /// weist „Verbrauchspreis Cent/kWh“ aus, andere Versorger rechnen in Euro. Beide Felder
+    /// stehen deshalb da, beide dürfen fehlen; welches getroffen hat, entscheidet die
+    /// Übernahme. Geraten wird nichts — wo keines greift, bleibt die Kennzahl leer.</para>
+    /// </remarks>
+    public static readonly DocumentKind PowerContract = new()
+    {
+        Key = "stromvertrag",
+        Label = "Stromvertrag",
+        TypeName = "Vertrag",
+        Area = DocumentArea.Housing,
+        Target = DocumentTargetKind.Contract,
+        TargetNoun = "Vertrag",
+        TargetLink = "Zum Vertrag",
+        FolderTemplate = "Wohnen/Strom",
+        FileTemplate = "Stromvertrag_{stichtag}",
+
+        Markers =
+        [
+            // Jedes mit seiner eigenen Aufgabe: „Lieferstelle“ macht es zu einem
+            // Versorgungsvertrag, „Grundpreis“ zu einem mit Preisen (und nicht zu einem
+            // Begleitschreiben), „Strom“ zu einem über Strom und nicht über Gas.
+            new("Lieferstelle"),
+            new("Grundpreis"),
+            new("Strom"),
+        ],
+
+        // Der fachliche Stichtag ist der Tag, ab dem geliefert wird — nicht der Briefkopf.
+        // Zwei Schreiben desselben Versorgers zum selben Lieferbeginn sind dieselbe Sache.
+        AsOfField = "lieferbeginn",
+        DocumentDateField = "briefdatum",
+
+        // Die Nummer, über die der Vertrag gefunden wird. Das gemessene Schreiben führt zwei
+        // — Vertragskonto und Geschäftspartnernummer —, und die erste ist die, die es selbst
+        // für den Schriftverkehr verlangt.
+        TargetNumberField = "vertragskonto",
+
+        Fields =
+        [
+            new()
+            {
+                Key = "grundpreis_monat", Label = "Grundpreis",
+                Kind = DocumentValueKind.Money,
+
+                // „Grundpreis Euro/Monat 12,00“ — die Einheit steht in der Beschriftung und
+                // nicht beim Wert. Deshalb zwei Beschriftungen und nicht eine: Wer in Euro je
+                // Jahr rechnet, meint eine andere Zahl, und beide heißen „Grundpreis“.
+                Labels = ["Grundpreis Euro/Monat", "Grundpreis EUR/Monat", "Grundpreis €/Monat"],
+                Lead = true, Optional = true,
+            },
+            new()
+            {
+                Key = "grundpreis_jahr", Label = "Grundpreis je Jahr",
+                Kind = DocumentValueKind.Money,
+                Labels = ["Grundpreis Euro/Jahr", "Grundpreis EUR/Jahr", "Grundpreis €/Jahr"],
+                Lead = true, Optional = true,
+            },
+            new()
+            {
+                Key = "arbeitspreis_cent", Label = "Arbeitspreis in Cent",
+                Kind = DocumentValueKind.Price,
+                Labels =
+                [
+                    "Verbrauchspreis Cent/kWh", "Arbeitspreis Cent/kWh",
+                    "Verbrauchspreis ct/kWh", "Arbeitspreis ct/kWh",
+                ],
+                Lead = true, Optional = true,
+            },
+            new()
+            {
+                Key = "arbeitspreis_euro", Label = "Arbeitspreis in Euro",
+                Kind = DocumentValueKind.Price,
+                Labels =
+                [
+                    "Verbrauchspreis Euro/kWh", "Arbeitspreis Euro/kWh",
+                    "Verbrauchspreis EUR/kWh", "Arbeitspreis EUR/kWh",
+                    "Verbrauchspreis €/kWh", "Arbeitspreis €/kWh",
+                ],
+                Lead = true, Optional = true,
+            },
+            new()
+            {
+                Key = "tarif", Label = "Tarif",
+                Kind = DocumentValueKind.Text,
+                Labels = ["Tarif:"],
+                SameCell = true,
+                Lead = true, Optional = true,
+            },
+            new()
+            {
+                Key = "abschlag", Label = "Abschlag je Monat",
+                Kind = DocumentValueKind.Money,
+                Locator = DocumentLocator.Pattern,
+
+                // „Ihr Abschlag: 88,00 Euro/Monat (inklusive 19 % Umsatzsteuer)“. Als
+                // Beschriftung gelesen käme die 19 zurück — sie steht weiter rechts in
+                // derselben Zelle, und von rechts nach links gewinnt sie.
+                Pattern = @"Abschlag:?\s+(\d{1,3}(?:[.\s]\d{3})*,\d{2})\s*(?:Euro|EUR|€)",
+                Lead = true, Optional = true,
+            },
+            new()
+            {
+                Key = "lieferbeginn", Label = "Lieferbeginn",
+                Kind = DocumentValueKind.Date,
+                Locator = DocumentLocator.Pattern,
+
+                // „Ab dem 10.09.2026 liefern wir Ihnen …“. Der Anker ist das Verb und nicht
+                // das „Ab dem“ davor: Ein Schreiben nennt ein halbes Dutzend Daten, und das
+                // erstbeste wäre der Briefkopf.
+                Pattern = @"[Aa]b dem (\d{1,2}\.\d{1,2}\.\d{4}) liefern",
+                Lead = true, Optional = true,
+            },
+            new()
+            {
+                Key = "kuendbar_zum", Label = "Nächstmöglich kündbar",
+                Kind = DocumentValueKind.Date,
+                Locator = DocumentLocator.Pattern,
+
+                // „Der Vertrag ist nächstmöglich zum 13.02.2027 … kündbar.“
+                Pattern = @"nächstmöglich zum (\d{1,2}\.\d{1,2}\.\d{4})",
+                Lead = true, Optional = true,
+            },
+            new()
+            {
+                Key = "zaehlernummer", Label = "Zählernummer",
+                Kind = DocumentValueKind.Text,
+                Labels = ["Zählernummer"],
+                SameCell = true,
+                Lead = true, Optional = true,
+            },
+            new()
+            {
+                Key = "vertragskonto", Label = "Vertragskonto",
+                Kind = DocumentValueKind.Text,
+                Labels = ["Vertragskonto:"],
+                SameCell = true,
+            },
+            new()
+            {
+                Key = "briefdatum", Label = "Datum des Schreibens",
+                Kind = DocumentValueKind.Date,
+                Locator = DocumentLocator.Pattern,
+                Pattern = @"^\s*(\d{1,2}\.\d{1,2}\.\d{4})\s*$",
+            },
+        ],
+
+        Steps =
+        [
+            "Text gelesen ({seiten} Seiten)",
+            "Absender: {absender}",
+            "Typ: Stromvertrag",
+            "{ziel}",
+            "{werte} Werte gelesen",
+        ],
+    };
+
     public static readonly IReadOnlyList<DocumentKind> All =
     [
         // Die Reihenfolge ist die Rangfolge. Der Riester-Bericht nennt in einem Nebensatz auch
@@ -1508,6 +1707,11 @@ public static class DocumentKindLibrary
         // Steht hinten und kann niemandem etwas wegnehmen: Ihre beiden Kennzeichen kommen in
         // keinem der Berichte vor.
         Payslip,
+
+        // Dasselbe gilt hier: „Lieferstelle“ steht in keinem Bericht und in keiner
+        // Abrechnung. Die Reihenfolge entscheidet also nichts — sie steht nur zuletzt, weil
+        // sie zuletzt dazugekommen ist.
+        PowerContract,
     ];
 
     /// <summary>
@@ -2009,7 +2213,9 @@ public sealed class DocumentFieldExtractor
                 }
 
                 // Steht die Beschriftung in der letzten Zelle, ist der Wert der Rest dahinter.
-                if (stelle == zeile.Cells.Count - 1)
+                // Dasselbe, wenn die Regel sagt, dass der Wert ihre Zelle nicht verlässt: Dann
+                // ist alles rechts davon eine andere Spalte und geht die Beschriftung nichts an.
+                if (stelle == zeile.Cells.Count - 1 || regel.SameCell)
                 {
                     var rest = zeile.Cells[stelle][beschriftung.Length..].TrimStart(':', ' ');
 

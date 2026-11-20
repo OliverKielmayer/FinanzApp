@@ -540,6 +540,7 @@ public sealed class ScanIntakeService(
     {
         DocumentTargetKind.Depot => LinkTargetType.Portfolio,
         DocumentTargetKind.Employment => LinkTargetType.Employer,
+        DocumentTargetKind.Contract => LinkTargetType.Contract,
         _ => LinkTargetType.Policy,
     };
 

@@ -72,7 +72,7 @@ public sealed class DocumentScanService(
         var werte = gelesen.Values;
         var stichtag = Date(werte, art.AsOfField);
         var schreiben = Date(werte, art.DocumentDateField);
-        var ziel = await TargetAsync(art, Text(werte, art.TargetNumberField), ct);
+        var ziel = await TargetAsync(art, Text(werte, art.TargetNumberField), inhalt, ct);
 
         buffer.Position = 0;
         var ablage = await documents.UploadAsync(
@@ -195,7 +195,7 @@ public sealed class DocumentScanService(
         var werte = gelesen.Values;
         var stichtag = Date(werte, art.AsOfField);
         var schreiben = Date(werte, art.DocumentDateField);
-        var ziel = await TargetAsync(art, Text(werte, art.TargetNumberField), ct);
+        var ziel = await TargetAsync(art, Text(werte, art.TargetNumberField), inhalt, ct);
 
         // Die erkannte Art gehört zum Abdruck: die Bestätigung liest sie von dort. Ohne diese
         // Zeile zeigte die Nachschau den Prüfschritt, und die Übernahme antwortete „kein Typ
@@ -411,6 +411,7 @@ public sealed class DocumentScanService(
             DocumentTargetKind.Policy => await ApplyPolicyAsync(art, dokument, werte, ct),
             DocumentTargetKind.Depot => await ApplyDepotAsync(art, dokument, werte, gruppen, ct),
             DocumentTargetKind.Employment => await ApplyEmploymentAsync(art, dokument, werte, ct),
+            DocumentTargetKind.Contract => await ApplyContractAsync(art, dokument, werte, ct),
             _ => throw new RuleViolationException("Für diesen Typ gibt es kein Ziel."),
         };
 
@@ -513,6 +514,183 @@ public sealed class DocumentScanService(
             Rule = $"Absender „{vertrag.Provider}“ + „{art.Label.Split(' ')[0]}“ → künftig automatisch hierher",
             TargetLink = art.TargetLink,
             TargetHref = $"/police/{vertrag.Id}",
+        };
+    }
+
+    /// <summary>
+    /// Was ein bestätigter Stromvertrag am Vertrag ändert.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Die Zahlen gehen in die Kennzahlen, nicht in die Felder.</b> Ein Vertrag trägt
+    /// Anbieter, Nummer, Abschlag und Kündigungsfrist — für Grundpreis und Arbeitspreis hat
+    /// er keine Spalte, und das soll so bleiben: Beim nächsten Schreiben desselben Versorgers
+    /// stehen dort andere Zahlen, und die alten müssen lesbar bleiben.</para>
+    /// <para><b>Ein Stichtag für alle.</b> Er ist der Lieferbeginn, ersatzweise das Datum des
+    /// Schreibens. Jede Kennzahl desselben Schreibens gilt ab demselben Tag — sie stehen auf
+    /// einem Blatt.</para>
+    /// <para><b>Der Arbeitspreis wird in Euro abgelegt</b>, auch wo das Papier Cent ausweist.
+    /// Die Umrechnung ist ein Faktor hundert und nichts Erfundenes; sie macht aus zwei
+    /// Schreibweisen derselben Größe eine, und ohne sie verglichen sich zwei Verträge still
+    /// falsch. <b>Der Grundpreis dagegen bleibt, wie er dasteht</b> — ein Jahresgrundpreis
+    /// durch zwölf wäre eine Zahl, die auf keinem Papier steht und sich nicht glatt teilt.
+    /// Welche Einheit gilt, sagt die Kennzahl selbst.</para>
+    /// <para><b>Am Vertrag selbst wird nur ergänzt, nie überschrieben.</b> Was dort steht, hat
+    /// ein Mensch gepflegt; ein Leseergebnis weiß es nicht besser. Die neue Vertragsnummer
+    /// nach einem Umzug trägt deshalb niemand automatisch nach — sie steht als Kennzahl da
+    /// und fällt auf.</para>
+    /// </remarks>
+    private async Task<ScanResultDto> ApplyContractAsync(
+        DocumentKind art, Document dokument, Dictionary<string, ScanValue> werte,
+        CancellationToken ct)
+    {
+        var nummer = werte.GetValueOrDefault(art.TargetNumberField)?.Text;
+
+        var vertrag = await FindContractAsync(nummer, dokument.ContentText, ct);
+
+        if (vertrag is null)
+        {
+            throw new RuleViolationException(
+                nummer is { Length: > 0 }
+                    ? $"Zur Nummer {nummer} und zum Absender dieses Schreibens gibt es keinen "
+                      + "eindeutigen Vertrag. Trage ihn unter „Wohnen“ ein oder setze die Nummer "
+                      + "an den vorhandenen."
+                    : "Dieses Schreiben lässt sich keinem Vertrag zuordnen.");
+        }
+
+        // Der Tag, ab dem alles auf diesem Blatt gilt.
+        var ab = werte.GetValueOrDefault(art.AsOfField)?.Date
+                 ?? dokument.DocumentDate
+                 ?? DateOnly.FromDateTime(clock.Now);
+
+        var geschrieben = 0;
+
+        // Der Wirkungssatz entsteht beim Schreiben und nicht danach: Es soll genau das
+        // dastehen, was auch abgelegt wurde — nicht das, was abgelegt worden wäre.
+        var wirkung = new List<ScanEffectPart>();
+
+        async Task Kennzahl(
+            string key, string label, ContractFactKind kind,
+            decimal? zahl = null, string? text = null, DateOnly? datum = null, string? einheit = null)
+        {
+            if (!await PropertyService.RecordFactAsync(
+                    db, clock, vertrag.Id, key, label, kind, ab, ct,
+                    number: zahl, text: text, date: datum, unit: einheit,
+                    documentId: dokument.Id))
+            {
+                return;
+            }
+
+            geschrieben++;
+
+            if (wirkung.Count > 0)
+            {
+                wirkung.Add(new ScanEffectPart { Text = "·" });
+            }
+
+            wirkung.Add(new ScanEffectPart { Text = label });
+
+            // Die Einheit ohne ihr Währungszeichen: Das setzt die Oberfläche an den Betrag,
+            // und zweimal € in einer Zeile wäre eines zu viel.
+            var dahinter = einheit?.Replace("€", string.Empty, StringComparison.Ordinal);
+
+            switch (kind)
+            {
+                case ContractFactKind.Money:
+                    wirkung.Add(new ScanEffectPart { Money = zahl });
+                    break;
+
+                case ContractFactKind.UnitPrice:
+                    wirkung.Add(new ScanEffectPart { Price = zahl });
+                    break;
+
+                case ContractFactKind.Quantity:
+                    wirkung.Add(new ScanEffectPart { Quantity = zahl });
+                    break;
+
+                default:
+                    wirkung.Add(new ScanEffectPart
+                    {
+                        Text = text ?? (datum is { } tag ? GermanFormat.Date(tag) : null),
+                    });
+
+                    break;
+            }
+
+            if (dahinter is { Length: > 0 })
+            {
+                wirkung.Add(new ScanEffectPart { Text = dahinter });
+            }
+        }
+
+        // Der Grundpreis in der Einheit, in der er dasteht.
+        if (werte.GetValueOrDefault("grundpreis_monat")?.Number is { } jeMonat)
+        {
+            await Kennzahl("grundpreis", "Grundpreis", ContractFactKind.Money,
+                zahl: jeMonat, einheit: "€/Monat");
+        }
+        else if (werte.GetValueOrDefault("grundpreis_jahr")?.Number is { } jeJahr)
+        {
+            await Kennzahl("grundpreis", "Grundpreis", ContractFactKind.Money,
+                zahl: jeJahr, einheit: "€/Jahr");
+        }
+
+        // Der Arbeitspreis immer in Euro je Kilowattstunde.
+        var arbeitspreis = werte.GetValueOrDefault("arbeitspreis_euro")?.Number
+                           ?? werte.GetValueOrDefault("arbeitspreis_cent")?.Number / 100m;
+
+        if (arbeitspreis is { } preis)
+        {
+            await Kennzahl("arbeitspreis", "Arbeitspreis", ContractFactKind.UnitPrice,
+                zahl: preis, einheit: "€/kWh");
+        }
+
+        if (werte.GetValueOrDefault("abschlag")?.Number is { } abschlag)
+        {
+            await Kennzahl("abschlag", "Abschlag", ContractFactKind.Money,
+                zahl: abschlag, einheit: "€/Monat");
+        }
+
+        if (werte.GetValueOrDefault("tarif")?.Text is { Length: > 0 } tarif)
+        {
+            await Kennzahl("tarif", "Tarif", ContractFactKind.Text, text: tarif);
+        }
+
+        if (werte.GetValueOrDefault("zaehlernummer")?.Text is { Length: > 0 } zaehler)
+        {
+            await Kennzahl("zaehlernummer", "Zählernummer", ContractFactKind.Text, text: zaehler);
+        }
+
+        if (nummer is { Length: > 0 })
+        {
+            await Kennzahl("vertragskonto", "Vertragskonto", ContractFactKind.Text, text: nummer);
+        }
+
+        // Was am Vertrag leer ist, wird ergänzt — und nur das.
+        if (werte.GetValueOrDefault(art.AsOfField)?.Date is { } beginn)
+        {
+            vertrag.StartsOn ??= beginn;
+        }
+
+        if (werte.GetValueOrDefault("kuendbar_zum")?.Date is { } kuendbar)
+        {
+            vertrag.NoticeToDate ??= kuendbar;
+        }
+
+        await documents.LinkAsync(dokument.Id, LinkTargetType.Contract, vertrag.Id, ct);
+        await documents.RefileAsync(dokument.Id, dokument.Area, vertrag.Provider, ct);
+
+        return new ScanResultDto
+        {
+            Saved = true,
+            Title = art.Label + " abgelegt",
+            Subtitle = $"bei {vertrag.Provider} · ab {GermanFormat.Date(ab)}",
+            LeadLabel = geschrieben == 1 ? "Kennzahl" : "Kennzahlen",
+            LeadNumber = geschrieben,
+            LeadIsMoney = false,
+            Effect = wirkung,
+            Rule = $"Absender „{vertrag.Provider}“ + „Stromvertrag“ → künftig automatisch hierher",
+            TargetLink = art.TargetLink,
+            TargetHref = $"/vertraege/{vertrag.Id}",
         };
     }
 
@@ -946,7 +1124,8 @@ public sealed class DocumentScanService(
     /// Die Nummer und nicht der Name: Absenderbezeichnungen wechseln („finanzen.net zero GmbH“
     /// steht auf dem Papier, „finanzen.net ZERO“ im Depot), eine Vertragsnummer nicht.
     /// </remarks>
-    private async Task<Target?> TargetAsync(DocumentKind art, string? nummer, CancellationToken ct)
+    private async Task<Target?> TargetAsync(
+        DocumentKind art, string? nummer, PdfContent inhalt, CancellationToken ct)
     {
         if (art.Target == DocumentTargetKind.Policy)
         {
@@ -972,6 +1151,19 @@ public sealed class DocumentScanService(
             return stelle is null
                 ? null
                 : new Target(stelle.Id, stelle.Employer, stelle.Position, "/arbeit");
+        }
+
+        if (art.Target == DocumentTargetKind.Contract)
+        {
+            var vertrag = await FindContractAsync(
+                nummer, string.Join("\n", inhalt.Lines.Select(z => z.Text)), ct);
+
+            return vertrag is null
+                ? null
+                : new Target(vertrag.Id, vertrag.Provider,
+                    Join(vertrag.Name,
+                        vertrag.ContractNumber is { Length: > 0 } v ? "Nr. " + v : null),
+                    $"/vertraege/{vertrag.Id}");
         }
 
         var depot = await FindDepotAsync(nummer, ct);
@@ -1065,6 +1257,46 @@ public sealed class DocumentScanService(
         => nummer is not { Length: > 0 }
             ? null
             : await db.Policies.FirstOrDefaultAsync(p => p.PolicyNumber == nummer, ct);
+
+    /// <summary>
+    /// Der Vertrag, zu dem ein Versorgungsschreiben gehört.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Erst die Nummer, dann der Anbieter</b> — und der zweite Weg ist hier erlaubt,
+    /// wo er bei einer Police falsch wäre. Der Grund steht im Bestand: Ein Versorger hat ein
+    /// Dauerschuldverhältnis je Lieferstelle, ein Versicherer dagegen fünf Policen beim selben
+    /// Haus. Deshalb die Schranke <b>genau einer</b>: Wo zwei Verträge denselben Anbieter
+    /// tragen — Internet und Fernsehen beim selben Haus —, wird nichts zugeordnet.</para>
+    /// <para><b>Warum die Nummer allein nicht reicht</b>, zeigt der gemessene Fall: Nach einem
+    /// Umzug vergibt der Versorger ein neues Vertragskonto, und der Bestand trägt noch das
+    /// alte. Beide Nummern sind richtig, keine passt zur anderen — und ohne den zweiten Weg
+    /// fände das Schreiben seinen Vertrag nie, obwohl er einen Meter daneben steht.</para>
+    /// <para>Vier Zeichen ist die Untergrenze für den Anbieternamen. Darunter träfe er
+    /// Silben: „BMA“ steht auch in einem Wort mitten im Fließtext.</para>
+    /// </remarks>
+    private async Task<Contract?> FindContractAsync(
+        string? nummer, string? text, CancellationToken ct)
+    {
+        var vertraege = await db.Contracts.ToListAsync(ct);
+
+        if (Digits(nummer) is { Length: >= 4 } ziffern
+            && vertraege.FirstOrDefault(c => Digits(c.ContractNumber) == ziffern) is { } genau)
+        {
+            return genau;
+        }
+
+        if (text is not { Length: > 0 })
+        {
+            return null;
+        }
+
+        var genannt = vertraege
+            .Where(c => c.Provider.Trim() is { Length: >= 4 } anbieter
+                        && text.Contains(anbieter, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        return genannt.Count == 1 ? genannt[0] : null;
+    }
 
     private async Task<Depot?> FindDepotAsync(string? nummer, CancellationToken ct)
         => nummer is not { Length: > 0 }
