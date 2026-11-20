@@ -115,21 +115,6 @@ public sealed record DocumentFieldRule
     /// <summary>Ohne Garantie — nie Teil einer Vermögenssumme.</summary>
     public bool Soft { get; init; }
 
-    /// <summary>
-    /// Der Wert steht in derselben Zelle wie seine Beschriftung — nie in der nächsten.
-    /// </summary>
-    /// <remarks>
-    /// <para>Sonst sucht <c>ByLabel</c> von rechts nach links die erste lesbare Zelle, und das
-    /// ist richtig, wo eine Tabelle Beschriftung und Wert in zwei Spalten setzt
-    /// („Depotwert · 95.558,12 · EUR“).</para>
-    /// <para><b>In einem zweispaltigen Brief ist es falsch.</b> Ein Versorgerschreiben führt
-    /// links die Vertragsangaben und rechts die Bankverbindung; die Textebene hängt beide an
-    /// dieselbe Zeile. Aus „Zählernummer: 1B QQ0 …“ + „BIC“ wird dann die Zählernummer
-    /// „BIC“ — eine Überschrift aus der Nachbarspalte, gelesen als Wert.</para>
-    /// <para>Nur für Felder setzen, deren Wert mit seiner Beschriftung in einer Zelle steht.
-    /// Es ist eine Aussage über den Satz des Papiers, keine allgemeine Regel.</para>
-    /// </remarks>
-    public bool SameCell { get; init; }
 
     /// <summary>
     /// Ein zweites Feld, das in derselben Zeile mit angezeigt wird.
@@ -1542,6 +1527,21 @@ public static class DocumentKindLibrary
     /// stehen deshalb da, beide dürfen fehlen; welches getroffen hat, entscheidet die
     /// Übernahme. Geraten wird nichts — wo keines greift, bleibt die Kennzahl leer.</para>
     /// </remarks>
+    /// <summary>Die Zahl eines Preises, deutsch geschrieben.</summary>
+    /// <remarks>
+    /// Nachkommastellen dürfen fehlen und dürfen bis zu vier sein: Ein Grundpreis steht mit
+    /// zweien da, ein Arbeitspreis in Euro mit vieren.
+    /// </remarks>
+    private const string Preiszahl = @"(\d{1,3}(?:[.\s]\d{3})*(?:,\d{1,4})?)";
+
+    /// <summary>„Grundpreis Euro/Monat 12,00“ — Beschriftung, Einheit, Wert.</summary>
+    private static string Grundpreis(string zeitraum)
+        => @"Grundpreis\s+(?:Euro|EUR|€)\s?/\s?" + zeitraum + @"\s+" + Preiszahl;
+
+    /// <summary>„Verbrauchspreis Cent/kWh 24,00“ — dieselbe Form, andere Wörter.</summary>
+    private static string Arbeitspreis(string einheit)
+        => @"(?:Verbrauchspreis|Arbeitspreis)\s+(?:" + einheit + @")\s?/\s?kWh\s+" + Preiszahl;
+
     public static readonly DocumentKind PowerContract = new()
     {
         Key = "stromvertrag",
@@ -1580,41 +1580,40 @@ public static class DocumentKindLibrary
             {
                 Key = "grundpreis_monat", Label = "Grundpreis",
                 Kind = DocumentValueKind.Money,
+                Locator = DocumentLocator.Pattern,
 
-                // „Grundpreis Euro/Monat 12,00“ — die Einheit steht in der Beschriftung und
-                // nicht beim Wert. Deshalb zwei Beschriftungen und nicht eine: Wer in Euro je
-                // Jahr rechnet, meint eine andere Zahl, und beide heißen „Grundpreis“.
-                Labels = ["Grundpreis Euro/Monat", "Grundpreis EUR/Monat", "Grundpreis €/Monat"],
+                // „Grundpreis Euro/Monat 12,00“ — und das sind <b>drei Zellen</b>: die
+                // Beschriftung, die Einheit, der Wert. Am abgelegten Schreiben gemessen.
+                //
+                // Deshalb ein Muster über die ganze Zeile und keine Beschriftung: „Grundpreis“
+                // allein träfe auch den Jahresgrundpreis, und „Grundpreis Euro/Monat“ träfe
+                // keine Zelle, weil es zwei sind. Das Muster liest die Einheit mit und
+                // entscheidet damit, welches der beiden Felder gilt.
+                Pattern = Grundpreis("Monat"),
                 Lead = true, Optional = true,
             },
             new()
             {
                 Key = "grundpreis_jahr", Label = "Grundpreis je Jahr",
                 Kind = DocumentValueKind.Money,
-                Labels = ["Grundpreis Euro/Jahr", "Grundpreis EUR/Jahr", "Grundpreis €/Jahr"],
+                Locator = DocumentLocator.Pattern,
+                Pattern = Grundpreis("Jahr"),
                 Lead = true, Optional = true,
             },
             new()
             {
                 Key = "arbeitspreis_cent", Label = "Arbeitspreis in Cent",
                 Kind = DocumentValueKind.Price,
-                Labels =
-                [
-                    "Verbrauchspreis Cent/kWh", "Arbeitspreis Cent/kWh",
-                    "Verbrauchspreis ct/kWh", "Arbeitspreis ct/kWh",
-                ],
+                Locator = DocumentLocator.Pattern,
+                Pattern = Arbeitspreis("Cent|ct"),
                 Lead = true, Optional = true,
             },
             new()
             {
                 Key = "arbeitspreis_euro", Label = "Arbeitspreis in Euro",
                 Kind = DocumentValueKind.Price,
-                Labels =
-                [
-                    "Verbrauchspreis Euro/kWh", "Arbeitspreis Euro/kWh",
-                    "Verbrauchspreis EUR/kWh", "Arbeitspreis EUR/kWh",
-                    "Verbrauchspreis €/kWh", "Arbeitspreis €/kWh",
-                ],
+                Locator = DocumentLocator.Pattern,
+                Pattern = Arbeitspreis("Euro|EUR|€"),
                 Lead = true, Optional = true,
             },
             new()
@@ -1622,7 +1621,6 @@ public static class DocumentKindLibrary
                 Key = "tarif", Label = "Tarif",
                 Kind = DocumentValueKind.Text,
                 Labels = ["Tarif:"],
-                SameCell = true,
                 Lead = true, Optional = true,
             },
             new()
@@ -1664,7 +1662,6 @@ public static class DocumentKindLibrary
                 Key = "zaehlernummer", Label = "Zählernummer",
                 Kind = DocumentValueKind.Text,
                 Labels = ["Zählernummer"],
-                SameCell = true,
                 Lead = true, Optional = true,
             },
             new()
@@ -1672,7 +1669,6 @@ public static class DocumentKindLibrary
                 Key = "vertragskonto", Label = "Vertragskonto",
                 Kind = DocumentValueKind.Text,
                 Labels = ["Vertragskonto:"],
-                SameCell = true,
             },
             new()
             {
@@ -2213,9 +2209,7 @@ public sealed class DocumentFieldExtractor
                 }
 
                 // Steht die Beschriftung in der letzten Zelle, ist der Wert der Rest dahinter.
-                // Dasselbe, wenn die Regel sagt, dass der Wert ihre Zelle nicht verlässt: Dann
-                // ist alles rechts davon eine andere Spalte und geht die Beschriftung nichts an.
-                if (stelle == zeile.Cells.Count - 1 || regel.SameCell)
+                if (stelle == zeile.Cells.Count - 1)
                 {
                     var rest = zeile.Cells[stelle][beschriftung.Length..].TrimStart(':', ' ');
 
@@ -2257,11 +2251,26 @@ public sealed class DocumentFieldExtractor
                     continue;
                 }
 
-                // Sonst von rechts nach links die erste Zelle, die sich lesen lässt. Die letzte
-                // ist nicht immer der Wert: „Depotwert · 95.558,12 · EUR“ trägt hinten die
-                // Währung, und wer stur die letzte nimmt, findet dort keinen Betrag.
-                for (var i = zeile.Cells.Count - 1; i > stelle; i--)
+                // Sonst die erste Zelle neben der Beschriftung, die sich lesen lässt — und die
+                // Richtung hängt daran, was gesucht wird.
+                //
+                // <b>Zahlen von rechts.</b> Die letzte Zelle ist nicht immer der Wert:
+                // „Depotwert · 95.558,12 · EUR“ trägt hinten die Währung, und wer stur die letzte
+                // nimmt, findet dort keinen Betrag. Von rechts gelesen fällt sie durch, weil
+                // sie keine Zahl ist.
+                //
+                // <b>Text von links.</b> Denselben Kniff gibt es hier nicht: Jede Zelle ist
+                // lesbarer Text, auch die aus der Nachbarspalte. Am Versorgerschreiben
+                // gemessen steht da „Zählernummer:“ · „1B QQ0 …“ · „BIC“ — von rechts
+                // gelesen wäre die Zählernummer „BIC“, die Überschrift der Bankspalte. Ein
+                // Textwert steht neben seiner Beschriftung; was weiter rechts folgt, gehört
+                // einer anderen Spalte.
+                var vonLinks = regel.Kind == DocumentValueKind.Text;
+
+                for (var n = 1; n <= zeile.Cells.Count - 1 - stelle; n++)
                 {
+                    var i = vonLinks ? stelle + n : zeile.Cells.Count - n;
+
                     if (Read(regel, zeile.Cells[i]) is { } wert)
                     {
                         return wert with { Page = zeile.Page, Confidence = basis };

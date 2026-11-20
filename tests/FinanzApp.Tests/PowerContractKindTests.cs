@@ -23,15 +23,26 @@ public sealed class PowerContractKindTests
     // ── Die Vorlage ────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Ein Lieferschreiben im Aufbau des Originals.
+    /// Ein Lieferschreiben im Aufbau des Originals — <b>samt seinem Zellenschnitt</b>.
     /// </summary>
-    /// <param name="preiszeile">
-    /// Die Zeile mit dem Arbeitspreis. Sie heißt bei jedem Versorger anders und trägt ihre
-    /// Einheit im Namen — deshalb ist sie der Parameter dieser Vorlage.
+    /// <remarks>
+    /// <para>Der Schnitt ist der Punkt. Die erste Fassung dieser Vorlage setzte Beschriftung
+    /// und Wert in <em>eine</em> Zelle, weil der gelesene Text so aussieht — die Zeile wird
+    /// zum Suchen mit Leerzeichen zusammengefügt. Am abgelegten Schreiben nachgesehen sind es
+    /// drei: „Grundpreis“ · „Euro/Monat“ · „12,00“. Mit der erfundenen Vorlage waren zwölf
+    /// Prüfungen grün, während die Regel am echten Beleg fünf von neun Werten nicht fand.</para>
+    /// <para>Auf Seite eins hängt rechts die Bankspalte an derselben Zeile, auf der
+    /// Datenseite nicht — auch das ist abgeschrieben und nicht ausgedacht.</para>
+    /// </remarks>
+    /// <param name="preiseinheit">
+    /// Die mittlere Zelle der Preiszeile. Sie entscheidet, welches Feld gilt: „Cent/kWh“
+    /// oder „Euro/kWh“ sind dieselbe Größe, Faktor hundert.
     /// </param>
     private static PdfContent Schreiben(
-        string preiszeile = "Verbrauchspreis Cent/kWh 24,00",
-        string grundpreiszeile = "Grundpreis Euro/Monat 12,00",
+        string preiseinheit = "Cent/kWh",
+        string preis = "24,00",
+        string grundpreiseinheit = "Euro/Monat",
+        string grundpreis = "12,00",
         string abschlag = "Ihr Abschlag: 88,00 Euro/Monat (inklusive 19 % Umsatzsteuer)",
         string tarif = "Musterstrom Basis",
         bool mitLieferstelle = true)
@@ -43,8 +54,11 @@ public sealed class PowerContractKindTests
             Line(1, "Musterweg 3", "Musterplatz 1"),
             Line(1, "12345 Musterstadt", "Datum"),
             Line(1, "11.03.2026"),
-            Line(1, "Vertragskonto: 111 222 333 444", "IBAN"),
-            Line(1, "Zählernummer: 1B QQ0 999 000 111", "BIC"),
+
+            // Drei Zellen: Beschriftung, Wert — und die Überschrift der Bankspalte, die auf
+            // derselben Höhe steht. Genau so steht es im abgelegten Schreiben.
+            Line(1, "Vertragskonto:", "111 222 333 444", "IBAN"),
+            Line(1, "Zählernummer:", "1B QQ0 999 000 111", "BIC"),
 
             // Der Lieferbeginn steckt im Fließtext und nicht in der Tabelle. Rechts daneben
             // steht der Aufsichtsrat — die Textebene hängt ihn an dieselbe Zeile.
@@ -54,17 +68,17 @@ public sealed class PowerContractKindTests
             Line(1, abschlag),
             Line(1, "Den Abschlag buchen wir jeweils zum 5. jedes Monats ab."),
 
-            // Seite zwei: die Vertragsdaten als Tabelle.
+            // Seite zwei: die Vertragsdaten als Tabelle, zwei und drei Zellen je Zeile.
             Line(2, "Ausführliche Informationen zu Ihren Vertragsdaten:"),
-            Line(2, "Geschäftspartnernummer: 9 888 777 666"),
-            Line(2, mitLieferstelle ? "Lieferstelle: Musterweg 3" : "Abnahmestelle: Musterweg 3"),
-            Line(2, "Tarif: " + tarif),
-            Line(2, "Zählernummer: 1B QQ0 999 000 111"),
-            Line(2, "Zählerstand: 9.100,0 kWh"),
+            Line(2, "Geschäftspartnernummer:", "9 888 777 666"),
+            Line(2, mitLieferstelle ? "Lieferstelle:" : "Abnahmestelle:", "Musterweg 3"),
+            Line(2, "Tarif:", tarif),
+            Line(2, "Zählernummer:", "1B QQ0 999 000 111"),
+            Line(2, "Zählerstand:", "9.100,0 kWh"),
             Line(2, "Strompreis:"),
-            Line(2, grundpreiszeile),
-            Line(2, preiszeile),
-            Line(2, "Umsatzsteuer % 19"),
+            Line(2, "Grundpreis", grundpreiseinheit, grundpreis),
+            Line(2, "Verbrauchspreis", preiseinheit, preis),
+            Line(2, "Umsatzsteuer %", "19"),
             Line(2, "Mindestvertragslaufzeit"),
             Line(2, "12 Monate"),
             Line(2, "Der Vertrag ist nächstmöglich zum 30.06.2027 unter Beachtung der "
@@ -134,7 +148,7 @@ public sealed class PowerContractKindTests
     [Fact]
     public void Der_Arbeitspreis_in_Euro_landet_im_Euro_Feld()
     {
-        var werte = Lies(Schreiben(preiszeile: "Arbeitspreis Euro/kWh 0,2400"));
+        var werte = Lies(Schreiben(preiseinheit: "Euro/kWh", preis: "0,2400"));
 
         Assert.Equal(0.2400m, werte["arbeitspreis_euro"].Number);
         Assert.False(werte.ContainsKey("arbeitspreis_cent"));
@@ -154,7 +168,7 @@ public sealed class PowerContractKindTests
     [Fact]
     public void Ein_Preis_mit_vier_Stellen_bleibt_ganz()
     {
-        var werte = Lies(Schreiben(preiszeile: "Arbeitspreis Euro/kWh 0,2375"));
+        var werte = Lies(Schreiben(preiseinheit: "Euro/kWh", preis: "0,2375"));
 
         Assert.Equal(0.2375m, werte["arbeitspreis_euro"].Number);
     }
@@ -163,7 +177,7 @@ public sealed class PowerContractKindTests
     [Fact]
     public void Grundpreis_je_Jahr_landet_nicht_im_Monatsfeld()
     {
-        var werte = Lies(Schreiben(grundpreiszeile: "Grundpreis Euro/Jahr 144,00"));
+        var werte = Lies(Schreiben(grundpreiseinheit: "Euro/Jahr", grundpreis: "144,00"));
 
         Assert.Equal(144.00m, werte["grundpreis_jahr"].Number);
         Assert.False(werte.ContainsKey("grundpreis_monat"));
@@ -229,10 +243,13 @@ public sealed class PowerContractKindTests
     /// Die Zählernummer und nicht das Wort aus der Nachbarspalte.
     /// </summary>
     /// <remarks>
-    /// Auf Seite eins steht rechts von ihr die Überschrift „BIC“ der Bankspalte. Die
-    /// Beschriftungssuche geht von rechts nach links und nähme sie — wäre die Nummer nicht
-    /// in derselben Zelle wie ihre Beschriftung. Auf Seite zwei steht die Zeile sauber;
-    /// gefunden wird die erste, und die trägt den Nachbarn.
+    /// <para>Auf Seite eins stehen drei Zellen nebeneinander: „Zählernummer:“, die Nummer,
+    /// und die Überschrift „BIC“ der Bankspalte. Gefunden wird die erste Zeile, und die
+    /// trägt den Nachbarn — auf Seite zwei stünde sie sauber da.</para>
+    /// <para>Von rechts gelesen wäre die Zählernummer „BIC“. Deshalb liest
+    /// <c>ByLabel</c> einen <em>Textwert</em> von links: Er steht neben seiner Beschriftung,
+    /// und was weiter rechts folgt, gehört einer anderen Spalte. Bei einer Zahl bleibt es
+    /// umgekehrt — dort fällt die Währungszelle am Ende von selbst durch.</para>
     /// </remarks>
     [Fact]
     public void Die_Zaehlernummer_schleppt_keine_Nachbarspalte_mit()
