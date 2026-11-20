@@ -44,6 +44,17 @@ public static class GermanFormat
     public static string Decimal2(decimal value) => value.ToString("N2", Numbers);
 
     /// <summary>
+    /// Eine Zahl mit fester Stellenzahl und <em>ohne</em> Einheit.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Euro"/> und <see cref="Price"/> hängen das Eurozeichen an. Eine
+    /// Vertragskennzahl trägt ihre eigene Einheit — „€/kWh“, „kWh“ —, und zwei Zeichen in
+    /// einer Zeile wären eines zu viel.
+    /// </remarks>
+    public static string Decimals(decimal value, int decimals)
+        => value.ToString("N" + decimals.ToString(CultureInfo.InvariantCulture), Numbers);
+
+    /// <summary>
     /// Ein Wertpapierkurs: mindestens zwei, höchstens vier Nachkommastellen.
     /// </summary>
     /// <remarks>

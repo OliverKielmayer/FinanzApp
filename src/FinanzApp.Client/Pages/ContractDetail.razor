@@ -75,6 +75,170 @@
             </div>
         }
 
+        @*
+            Die Kennzahlen — was diesen Vertrag mit einem anderen vergleichbar macht. Sie stehen
+            vor den Rechnungen, weil sie den Vertrag beschreiben und nicht seinen Verlauf.
+        *@
+        <div class="list-head">
+            <span class="label-strong">Kennzahlen</span>
+            <span class="list-count num">@contract.Facts.Count(f => f.IsCurrent)</span>
+        </div>
+
+        @if (contract.Facts.Count == 0)
+        {
+            <div class="empty-area">
+                <span class="empty-area-text">
+                    Noch keine Kennzahl. Grundpreis und Arbeitspreis eines Stromvertrags,
+                    Datenvolumen eines Mobilfunkvertrags — was man beim nächsten Angebot
+                    danebenlegen will.
+                </span>
+            </div>
+        }
+
+        @foreach (var fact in contract.Facts)
+        {
+            <div class="detail-block @(fact.IsCurrent ? null : "missing")">
+                <span class="detail-label">@fact.Label</span>
+                <span class="detail-value num">@Wert(fact)</span>
+                <span class="meta">@Geltung(fact)</span>
+
+                <AuthorizeView Roles="Owner,Member" Context="kennzahl">
+                    @if (deletingFact == fact.Id)
+                    {
+                        <div class="create-problem">
+                            <span>
+                                „@fact.Label“ ab @GermanFormat.Date(fact.ValidFrom) entfernen?
+                                Der Verlauf verliert damit einen Stand.
+                            </span>
+                        </div>
+                        <div class="actions">
+                            <button type="button" class="btn btn-danger" disabled="@busy"
+                                    @onclick="() => DeleteFactAsync(fact.Id)">Entfernen</button>
+                            <button type="button" class="btn btn-secondary"
+                                    @onclick="KeepFact">Behalten</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="actions">
+                            @if (fact.DocumentId is { } beleg)
+                            {
+                                <a class="btn btn-secondary" href="@($"/dokumente/{beleg}")">Beleg</a>
+                            }
+                            <button type="button" class="btn btn-secondary"
+                                    @onclick="() => AskDeleteFact(fact.Id)">Entfernen</button>
+                        </div>
+                    }
+                </AuthorizeView>
+            </div>
+        }
+
+        <AuthorizeView Roles="Owner,Member" Context="eintrag">
+            @if (capturing)
+            {
+                <div class="blueprint report-payees">
+                    <i class="corner tl" aria-hidden="true"></i>
+                    <i class="corner br" aria-hidden="true"></i>
+
+                    <div class="field">
+                        <label for="kz-label">Was</label>
+                        <input id="kz-label" class="input" value="@fresh.Label"
+                               placeholder="Arbeitspreis"
+                               @oninput="e => fresh.Label = e.Value?.ToString() ?? string.Empty" />
+                        <span class="create-help">
+                            Wie es auf dem Papier heißt. Verglichen wird über den Schlüssel darunter —
+                            zwei Verträge nennen dieselbe Zahl gern verschieden.
+                        </span>
+                    </div>
+
+                    <div class="field">
+                        <label for="kz-key">Schlüssel</label>
+                        <input id="kz-key" class="input" value="@fresh.Key"
+                               placeholder="arbeitspreis"
+                               @oninput="e => fresh.Key = e.Value?.ToString() ?? string.Empty" />
+                    </div>
+
+                    <div class="field">
+                        <label for="kz-art">Art</label>
+                        <select id="kz-art" class="input" value="@fresh.Kind"
+                                @onchange="e => fresh.Kind = e.Value?.ToString() ?? string.Empty">
+                            <option value="UnitPrice">Preis je Einheit</option>
+                            <option value="Money">Betrag</option>
+                            <option value="Quantity">Menge</option>
+                            <option value="Text">Angabe</option>
+                            <option value="Date">Stichtag</option>
+                        </select>
+                    </div>
+
+                    @if (fresh.Kind == "Text")
+                    {
+                        <div class="field">
+                            <label for="kz-text">Angabe</label>
+                            <input id="kz-text" class="input" value="@fresh.Text"
+                                   @oninput="e => fresh.Text = e.Value?.ToString() ?? string.Empty" />
+                        </div>
+                    }
+                    else if (fresh.Kind == "Date")
+                    {
+                        <div class="field">
+                            <label for="kz-datum">Stichtag</label>
+                            <input id="kz-datum" class="input" type="date" value="@fresh.Date"
+                                   @oninput="e => fresh.Date = e.Value?.ToString() ?? string.Empty" />
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="field">
+                            <label for="kz-zahl">Wert</label>
+                            <input id="kz-zahl" class="input" inputmode="decimal" value="@fresh.Number"
+                                   @oninput="e => fresh.Number = e.Value?.ToString() ?? string.Empty" />
+                        </div>
+
+                        <div class="field">
+                            <label for="kz-einheit">Einheit</label>
+                            <input id="kz-einheit" class="input" value="@fresh.Unit"
+                                   placeholder="€/kWh"
+                                   @oninput="e => fresh.Unit = e.Value?.ToString() ?? string.Empty" />
+                            <span class="create-help">
+                                Pflicht, und mit Absicht: 24,00 ct/kWh und 0,2400 €/kWh sind dieselbe
+                                Größe. Zwei Verträge in verschiedenen Einheiten vergleichen sich still
+                                falsch.
+                            </span>
+                        </div>
+                    }
+
+                    <div class="field">
+                        <label for="kz-ab">Gilt ab</label>
+                        <input id="kz-ab" class="input" type="date" value="@fresh.ValidFrom"
+                               @oninput="e => fresh.ValidFrom = e.Value?.ToString() ?? string.Empty" />
+                        <span class="create-help">
+                            Ein Tag in der Zukunft ist in Ordnung — eine Preiserhöhung wird
+                            angekündigt, bevor sie gilt.
+                        </span>
+                    </div>
+
+                    @if (problem is { Length: > 0 } fehler)
+                    {
+                        <div class="create-problem"><span>@fehler</span></div>
+                    }
+
+                    <div class="actions">
+                        <button type="button" class="btn btn-primary" disabled="@busy"
+                                @onclick="SaveFactAsync">Eintragen</button>
+                        <button type="button" class="btn btn-secondary"
+                                @onclick="CancelCapture">Abbrechen</button>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="actions">
+                    <button type="button" class="btn btn-secondary"
+                            @onclick="StartCapture">Kennzahl eintragen</button>
+                </div>
+            }
+        </AuthorizeView>
+
         <div class="list-head">
             <span class="label-strong">Rechnungen</span>
             <span class="list-count num">@contract.Invoices.Count</span>
@@ -124,6 +288,26 @@
 
     private ContractDetailDto? data;
 
+    private bool capturing;
+    private bool busy;
+    private int? deletingFact;
+    private string? problem;
+
+    private readonly Entwurf fresh = new();
+
+    /// <summary>Was in der Maske steht — alles als Text, bis es geprüft ist.</summary>
+    private sealed class Entwurf
+    {
+        public string Label { get; set; } = string.Empty;
+        public string Key { get; set; } = string.Empty;
+        public string Kind { get; set; } = "UnitPrice";
+        public string Number { get; set; } = string.Empty;
+        public string Unit { get; set; } = string.Empty;
+        public string Text { get; set; } = string.Empty;
+        public string Date { get; set; } = string.Empty;
+        public string ValidFrom { get; set; } = string.Empty;
+    }
+
     protected override async Task LoadAsync() => data = await Api.GetContractAsync(Id);
 
     private static string Describe(InvoiceListItemDto invoice) => invoice switch
@@ -133,4 +317,168 @@
         { IsOverdue: true } => $"überfällig seit {-invoice.DaysUntilDue} T",
         _ => $"offen, fällig {GermanFormat.Date(invoice.DueOn)}",
     };
+
+    /// <summary>Der Wert mit seiner Einheit — die Einheit gehört zur Zahl und nicht daneben.</summary>
+    private static string Wert(ContractFactDto fact) => fact.Kind switch
+    {
+        ContractFactKind.Text => fact.Text ?? "—",
+        ContractFactKind.Date => fact.Date is { } tag ? GermanFormat.Date(tag) : "—",
+        _ => fact.Number is { } zahl
+            ? GermanFormat.Decimals(zahl, Stellen(fact.Kind)) + " " + fact.Unit
+            : "—",
+    };
+
+    /// <summary>
+    /// Wie viele Nachkommastellen gezeigt werden.
+    /// </summary>
+    /// <remarks>
+    /// Vier beim Preis je Einheit: 0,24 stünde da, wo 0,2375 vereinbart ist, und die Differenz
+    /// macht über ein Jahr Euro aus. Bei Betrag und Menge sind zwei genug.
+    /// </remarks>
+    private static int Stellen(ContractFactKind kind)
+        => kind == ContractFactKind.UnitPrice ? 4 : 2;
+
+    private static string Geltung(ContractFactDto fact)
+    {
+        var ab = "ab " + GermanFormat.Date(fact.ValidFrom);
+
+        if (fact.IsFuture)
+        {
+            return ab + " · noch nicht in Kraft";
+        }
+
+        if (fact.ValidUntil is { } bis)
+        {
+            return ab + " bis " + GermanFormat.Date(bis);
+        }
+
+        return fact.IsCurrent ? ab + " · gilt" : ab;
+    }
+
+    private void StartCapture()
+    {
+        capturing = true;
+        problem = null;
+        deletingFact = null;
+        fresh.ValidFrom = DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd");
+    }
+
+    private void CancelCapture()
+    {
+        capturing = false;
+        problem = null;
+    }
+
+    private void AskDeleteFact(int id) => deletingFact = id;
+
+    private void KeepFact() => deletingFact = null;
+
+    /// <summary>
+    /// Was in der Maske steht, als Anfrage — oder der Grund, warum nicht.
+    /// </summary>
+    /// <remarks>
+    /// Geprüft wird hier <em>und</em> im Dienst. Hier, damit ein Tippfehler sofort dasteht; dort,
+    /// weil ein Bildschirm keine Regel ist — der Beleg-Übernahmeweg geht an dieser Maske vorbei.
+    /// </remarks>
+    private AddContractFactRequest? Gelesen()
+    {
+        if (!Enum.TryParse<ContractFactKind>(fresh.Kind, out var art))
+        {
+            problem = "Diese Art von Kennzahl gibt es nicht.";
+            return null;
+        }
+
+        if (!DateOnly.TryParse(fresh.ValidFrom, out var ab))
+        {
+            problem = "Ohne Stichtag lässt sich nicht sagen, wann der Wert gilt.";
+            return null;
+        }
+
+        decimal? zahl = null;
+
+        if (art is ContractFactKind.Money or ContractFactKind.UnitPrice or ContractFactKind.Quantity)
+        {
+            if (!decimal.TryParse(fresh.Number, System.Globalization.NumberStyles.Number,
+                    System.Globalization.CultureInfo.GetCultureInfo("de-DE"), out var wert)
+                && !decimal.TryParse(fresh.Number, System.Globalization.NumberStyles.Number,
+                    System.Globalization.CultureInfo.InvariantCulture, out wert))
+            {
+                problem = "Der Wert ist keine Zahl.";
+                return null;
+            }
+
+            zahl = wert;
+        }
+
+        DateOnly? stichtag = null;
+
+        if (art == ContractFactKind.Date)
+        {
+            if (!DateOnly.TryParse(fresh.Date, out var tag))
+            {
+                problem = "Zu dieser Kennzahl gehört ein Datum.";
+                return null;
+            }
+
+            stichtag = tag;
+        }
+
+        return new AddContractFactRequest
+        {
+            Key = fresh.Key is { Length: > 0 } ? fresh.Key : fresh.Label,
+            Label = fresh.Label,
+            Kind = art,
+            Number = zahl,
+            Text = fresh.Text,
+            Date = stichtag,
+            Unit = fresh.Unit,
+            ValidFrom = ab,
+        };
+    }
+
+    private Task SaveFactAsync() => RunAsync(async () =>
+    {
+        problem = null;
+
+        if (Gelesen() is not { } anfrage)
+        {
+            return;
+        }
+
+        busy = true;
+
+        try
+        {
+            data = await Api.AddContractFactAsync(Id, anfrage);
+
+            capturing = false;
+            fresh.Label = string.Empty;
+            fresh.Key = string.Empty;
+            fresh.Number = string.Empty;
+            fresh.Text = string.Empty;
+            fresh.Date = string.Empty;
+            Toasts.Show("Kennzahl eingetragen.", ToastKind.Saved);
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    private Task DeleteFactAsync(int id) => RunAsync(async () =>
+    {
+        busy = true;
+
+        try
+        {
+            data = await Api.DeleteContractFactAsync(id);
+
+            deletingFact = null;
+            Toasts.Show("Kennzahl entfernt.", ToastKind.Saved);
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
 }

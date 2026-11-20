@@ -454,9 +454,84 @@ public class Contract : IHouseholdOwned
 
     public List<Invoice> Invoices { get; set; } = [];
 
+    /// <summary>
+    /// Die Kennzahlen dieses Vertrags — was ihn mit einem anderen vergleichbar macht.
+    /// </summary>
+    /// <remarks>
+    /// Sie stehen nicht als Spalten hier, weil jede Vertragsart andere trägt: Strom hat
+    /// Grundpreis und Arbeitspreis, Mobilfunk Datenvolumen und Freiminuten, eine Mitgliedschaft
+    /// gar keine. Als Spalten stünden sie bei allen anderen leer — und die nächste Art brächte
+    /// die nächsten zwei.
+    /// </remarks>
+    public List<ContractFact> Facts { get; set; } = [];
+
     /// <summary>Letzter Tag für eine Kündigung zum Stichtag.</summary>
     public DateOnly? NoticeDeadline
         => NoticeToDate is { } to ? to.AddDays(-7 * NoticePeriodWeeks) : null;
+}
+
+/// <summary>
+/// Eine Kennzahl eines Vertrags, gültig ab einem Tag.
+/// </summary>
+/// <remarks>
+/// <para><b>Mit Historie, und das ist der ganze Zweck.</b> Wer den Anbieter wechselt, will den
+/// alten Preis neben den neuen legen; wer eine Preiserhöhung bekommt, will wissen, was vorher
+/// galt. Ein überschriebenes Feld kann beides nicht. Eine neue Vereinbarung ist deshalb eine
+/// <em>zweite Zeile</em> und keine Änderung der ersten.</para>
+/// <para><b>Ein Tag in der Zukunft ist erlaubt</b> — anders als bei einer Ablesung. Ein
+/// Zählerstand von morgen ist ein Tippfehler, ein Preis ab dem 01.01. des nächsten Jahres
+/// steht so im Schreiben.</para>
+/// </remarks>
+public class ContractFact : IHouseholdOwned
+{
+    public int Id { get; set; }
+    public int HouseholdId { get; set; }
+
+    public int ContractId { get; set; }
+    public Contract? Contract { get; set; }
+
+    /// <summary>Woran die Kennzahl wiedererkannt wird — „grundpreis“, „arbeitspreis“.</summary>
+    /// <remarks>
+    /// Der Schlüssel und nicht die Beschriftung: Zwei Verträge heißen dieselbe Zahl gern
+    /// verschieden („Arbeitspreis“ beim einen, „Verbrauchspreis“ beim anderen). Verglichen wird
+    /// über den Schlüssel, gezeigt wird die Beschriftung.
+    /// </remarks>
+    public required string Key { get; set; }
+
+    /// <summary>Wie sie auf dem Papier heißt.</summary>
+    public required string Label { get; set; }
+
+    public ContractFactKind Kind { get; set; }
+
+    /// <summary>Bei Geld, Preis und Menge der Wert; sonst leer.</summary>
+    public decimal? Number { get; set; }
+
+    /// <summary>Bei einer Textangabe der Wert; sonst leer.</summary>
+    public string? Text { get; set; }
+
+    /// <summary>Bei einem Stichtag der Wert; sonst leer.</summary>
+    public DateOnly? Date { get; set; }
+
+    /// <summary>
+    /// Die Einheit — „€/Monat“, „€/kWh“, „kWh“.
+    /// </summary>
+    /// <remarks>
+    /// <b>Pflicht bei jeder Zahl.</b> Ein Stromvertrag weist 24,00 Cent je Kilowattstunde aus,
+    /// der Erstattungssatz 0,2400 Euro je Kilowattstunde — dieselbe Größe, Faktor hundert. Ein
+    /// Vergleich über zwei Verträge, von denen einer in Cent und einer in Euro abliegt, ist
+    /// still falsch. Die Einheit zwingt den Eintragenden, sich zu entscheiden.
+    /// </remarks>
+    public string? Unit { get; set; }
+
+    public DateOnly ValidFrom { get; set; }
+
+    /// <summary>Der Beleg, aus dem sie stammt — leer bei einer von Hand eingetragenen.</summary>
+    public int? DocumentId { get; set; }
+    public Document? Document { get; set; }
+
+    public string? Note { get; set; }
+
+    public DateTime CreatedAt { get; set; }
 }
 
 /// <summary>

@@ -408,6 +408,69 @@ public sealed record ContractDetailDto
 
     public required IReadOnlyList<InvoiceListItemDto> Invoices { get; init; }
     public required IReadOnlyList<DocumentListItemDto> Documents { get; init; }
+
+    /// <summary>
+    /// Die Kennzahlen, jüngster Stichtag zuerst.
+    /// </summary>
+    /// <remarks>
+    /// Alle, nicht nur die geltenden: Wer wechseln will, schaut auf den Verlauf. Welche heute
+    /// gilt, sagt <see cref="ContractFactDto.IsCurrent"/>.
+    /// </remarks>
+    public required IReadOnlyList<ContractFactDto> Facts { get; init; }
+}
+
+/// <summary>
+/// Eine Kennzahl des Vertrags, wie sie angezeigt wird.
+/// </summary>
+public sealed record ContractFactDto
+{
+    public required int Id { get; init; }
+    public required string Key { get; init; }
+    public required string Label { get; init; }
+    public required ContractFactKind Kind { get; init; }
+
+    public decimal? Number { get; init; }
+    public string? Text { get; init; }
+    public DateOnly? Date { get; init; }
+    public string? Unit { get; init; }
+
+    public required DateOnly ValidFrom { get; init; }
+
+    /// <summary>
+    /// Bis wann sie gilt — der Tag vor dem nächsten Stichtag derselben Kennzahl.
+    /// </summary>
+    /// <remarks>
+    /// Abgeleitet und nicht gespeichert: Eine zweite Zeile zu schreiben, hieße sonst, die erste
+    /// zu ändern. Genau das soll die Historie nicht tun.
+    /// </remarks>
+    public DateOnly? ValidUntil { get; init; }
+
+    /// <summary>Ob diese Zeile heute gilt.</summary>
+    public required bool IsCurrent { get; init; }
+
+    /// <summary>Ob ihr Stichtag noch bevorsteht — vereinbart, aber noch nicht in Kraft.</summary>
+    public required bool IsFuture { get; init; }
+
+    public int? DocumentId { get; init; }
+    public string? DocumentTitle { get; init; }
+    public string? Note { get; init; }
+}
+
+/// <summary>Eine Kennzahl eintragen.</summary>
+public sealed record AddContractFactRequest
+{
+    public required string Key { get; init; }
+    public required string Label { get; init; }
+    public required ContractFactKind Kind { get; init; }
+
+    public decimal? Number { get; init; }
+    public string? Text { get; init; }
+    public DateOnly? Date { get; init; }
+    public string? Unit { get; init; }
+
+    public required DateOnly ValidFrom { get; init; }
+    public int? DocumentId { get; init; }
+    public string? Note { get; init; }
 }
 
 public sealed record InvoiceListItemDto

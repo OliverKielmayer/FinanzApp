@@ -868,6 +868,18 @@ public static class ExtensionEndpoints
             return contract is null ? Results.NotFound() : Results.Ok(contract);
         });
 
+        // Die Kennzahlen eines Vertrags — was ihn mit einem anderen vergleichbar macht.
+        contracts.MapPost("/{id:int}/kennzahlen", async (
+                int id, AddContractFactRequest request, PropertyService service,
+                CancellationToken ct)
+            => await Beanstandet(() => service.AddContractFactAsync(id, request, ct)))
+            .RequireAuthorization(AuthPolicies.Write);
+
+        contracts.MapDelete("/kennzahlen/{id:int}", async (
+                int id, PropertyService service, CancellationToken ct)
+            => await Beanstandet(() => service.DeleteContractFactAsync(id, ct)))
+            .RequireAuthorization(AuthPolicies.Write);
+
         var invoices = app.MapGroup("/api/invoices").WithTags("Wohnen").RequireAuthorization();
 
         invoices.MapGet("/{id:int}", async (int id, PropertyService service, CancellationToken ct) =>

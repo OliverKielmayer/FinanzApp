@@ -107,6 +107,7 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
     public DbSet<Policy> Policies => Set<Policy>();
     public DbSet<Property> Properties => Set<Property>();
     public DbSet<Contract> Contracts => Set<Contract>();
+    public DbSet<ContractFact> ContractFacts => Set<ContractFact>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<TaskItem> TaskItems => Set<TaskItem>();
 
@@ -143,6 +144,21 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
     private static readonly ValueConverter<decimal, long> UnitPriceConverter =
         new(value => (long)Math.Round(value * 10000m, MidpointRounding.AwayFromZero),
             zehntelcent => zehntelcent / 10000m);
+
+    /// <summary>
+    /// Die Zahl einer Vertragskennzahl — ebenfalls in Zehntelcent, was immer sie bedeutet.
+    /// </summary>
+    /// <remarks>
+    /// <b>Eine Nachkommastellen-Tiefe für alle Arten</b>, obwohl Geld nur zwei braucht. Der
+    /// Grund steht in der Spalte daneben: In dieselbe Zahl fällt ein Grundpreis von 12,00 wie
+    /// ein Arbeitspreis von 0,2400. Zwei Spalten mit zwei Genauigkeiten hieße, beim Lesen zu
+    /// wissen, welche gilt — und beim Vergleich zweier Verträge liegt genau dort der Fehler.
+    /// </remarks>
+    private static readonly ValueConverter<decimal?, long?> FactNumberConverter =
+        new(value => value == null
+                ? null
+                : (long)Math.Round(value.Value * 10000m, MidpointRounding.AwayFromZero),
+            zehntelcent => zehntelcent == null ? null : zehntelcent.Value / 10000m);
 
     /// <summary>Wie <see cref="UnitPriceConverter"/>, nur für einen Preis, den es geben kann
     /// oder nicht — etwa den einen Satz eines Zeitraums, in dem mehrere galten.</summary>
@@ -854,6 +870,29 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
                 .HasForeignKey(x => x.PropertyId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Account).WithMany()
                 .HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        b.Entity<ContractFact>(e =>
+        {
+            e.Property(x => x.Key).HasMaxLength(60).IsRequired();
+            e.Property(x => x.Label).HasMaxLength(120).IsRequired();
+            e.Property(x => x.Unit).HasMaxLength(20);
+            e.Property(x => x.Text).HasMaxLength(200);
+            e.Property(x => x.Note).HasMaxLength(400);
+            e.Property(x => x.Number).HasConversion(FactNumberConverter);
+
+            e.HasOne(x => x.Contract).WithMany(c => c.Facts)
+                .HasForeignKey(x => x.ContractId).OnDelete(DeleteBehavior.Cascade);
+
+            // Der Beleg darf verschwinden, die Kennzahl bleibt. Sie stand in einem Vertrag,
+            // bevor jemand das Papier dazu abgelegt hat, und sie gilt weiter, wenn es wieder
+            // weg ist — nur ihre Herkunft ist dann nicht mehr nachzuschlagen.
+            e.HasOne(x => x.Document).WithMany()
+                .HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.SetNull);
+
+            // Ein Wert je Kennzahl und Stichtag. Zwei ab demselben Tag hieße: Es entscheidet
+            // die Reihenfolge der Zeilen, welcher gilt — und die ist keine Aussage.
+            e.HasIndex(x => new { x.HouseholdId, x.ContractId, x.Key, x.ValidFrom }).IsUnique();
         });
 
         b.Entity<Invoice>(e =>

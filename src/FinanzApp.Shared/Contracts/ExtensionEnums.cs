@@ -112,6 +112,35 @@ public enum LinkTargetType
 }
 
 /// <summary>
+/// Wie der Wert einer Vertragskennzahl zu lesen ist.
+/// </summary>
+/// <remarks>
+/// <para>Die Art sagt, <em>welche</em> der drei Spalten gilt. Drei Spalten statt einer
+/// Zeichenkette, weil verglichen werden soll: Ein Grundpreis, der als Text abliegt, muss vor
+/// jeder Summe geparst werden — und irgendwann parst ihn jemand falsch.</para>
+/// <para><b>Geld und Preis je Einheit sind nicht dasselbe.</b> 12,00 € im Monat sind Geld,
+/// 0,2400 € je Kilowattstunde sind ein Preis: zwei Nachkommastellen gegen vier. Auf Cent
+/// gerundet läge eine Jahresrechnung um Euro daneben.</para>
+/// </remarks>
+public enum ContractFactKind
+{
+    /// <summary>Ein Betrag — Grundpreis, Bonus, Abschlag.</summary>
+    Money = 0,
+
+    /// <summary>Ein Preis je Einheit — Arbeitspreis je Kilowattstunde.</summary>
+    UnitPrice = 1,
+
+    /// <summary>Eine Menge ohne Währung — Jahresverbrauch in Kilowattstunden.</summary>
+    Quantity = 2,
+
+    /// <summary>Eine Angabe, die sich nicht rechnen lässt — Tarifname, Zählernummer.</summary>
+    Text = 3,
+
+    /// <summary>Ein Stichtag, für den der Vertrag kein eigenes Feld hat — Preisgarantie bis.</summary>
+    Date = 4,
+}
+
+/// <summary>
 /// Stationen einer Ladestromabrechnung.
 /// </summary>
 /// <remarks>

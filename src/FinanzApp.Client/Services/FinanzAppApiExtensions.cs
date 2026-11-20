@@ -571,6 +571,19 @@ public static class FinanzAppApiExtensions
         this FinanzAppApi api, int id, CancellationToken ct = default)
         => api.GetAsync<InvoiceDetailDto>($"api/invoices/{id}", ct);
 
+    // ── Vertragskennzahlen ────────────────────────────────────────────────────
+
+    public static Task<ContractDetailDto> AddContractFactAsync(
+        this FinanzAppApi api, int contractId, AddContractFactRequest request,
+        CancellationToken ct = default)
+        => api.PostAsync<AddContractFactRequest, ContractDetailDto>(
+            $"api/contracts/{contractId}/kennzahlen", request, ct);
+
+    public static Task<ContractDetailDto> DeleteContractFactAsync(
+        this FinanzAppApi api, int id, CancellationToken ct = default)
+        => api.SendAsync<object?, ContractDetailDto>(
+            HttpMethod.Delete, $"api/contracts/kennzahlen/{id}", null, ct);
+
     // ── Depot: ausgeführte Orders ──────────────────────────────────────────────────────────
 
     public static Task<DepotTradesDto> GetDepotTradesAsync(

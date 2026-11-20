@@ -483,6 +483,70 @@ namespace FinanzApp.Api.Data.Migrations
                     b.ToTable("Contracts");
                 });
 
+            modelBuilder.Entity("FinanzApp.Api.Data.Entities.ContractFact", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ContractId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly?>("Date")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("DocumentId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("HouseholdId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(400)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("Number")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Text")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Unit")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("ValidFrom")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContractId");
+
+                    b.HasIndex("DocumentId");
+
+                    b.HasIndex("HouseholdId", "ContractId", "Key", "ValidFrom")
+                        .IsUnique();
+
+                    b.ToTable("ContractFacts");
+                });
+
             modelBuilder.Entity("FinanzApp.Api.Data.Entities.Depot", b =>
                 {
                     b.Property<int>("Id")
@@ -2355,6 +2419,24 @@ namespace FinanzApp.Api.Data.Migrations
                     b.Navigation("Property");
                 });
 
+            modelBuilder.Entity("FinanzApp.Api.Data.Entities.ContractFact", b =>
+                {
+                    b.HasOne("FinanzApp.Api.Data.Entities.Contract", "Contract")
+                        .WithMany("Facts")
+                        .HasForeignKey("ContractId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinanzApp.Api.Data.Entities.Document", "Document")
+                        .WithMany()
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Contract");
+
+                    b.Navigation("Document");
+                });
+
             modelBuilder.Entity("FinanzApp.Api.Data.Entities.Depot", b =>
                 {
                     b.HasOne("FinanzApp.Api.Data.Entities.Account", "Account")
@@ -2711,6 +2793,8 @@ namespace FinanzApp.Api.Data.Migrations
 
             modelBuilder.Entity("FinanzApp.Api.Data.Entities.Contract", b =>
                 {
+                    b.Navigation("Facts");
+
                     b.Navigation("Invoices");
                 });
 

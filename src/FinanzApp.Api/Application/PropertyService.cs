@@ -288,6 +288,7 @@ public sealed class PropertyService(
             .Include(c => c.Property)
             .Include(c => c.Account)
             .Include(c => c.Invoices)
+            .Include(c => c.Facts).ThenInclude(f => f.Document)
             .FirstOrDefaultAsync(c => c.Id == id, ct);
 
         if (contract is null)
@@ -321,7 +322,191 @@ public sealed class PropertyService(
                     .Select(ToInvoiceListItem),
             ],
             Documents = await documents.GetForTargetAsync(LinkTargetType.Contract, contract.Id, ct),
+            Facts = Facts(contract.Facts, DateOnly.FromDateTime(clock.Now)),
         };
+    }
+
+    /// <summary>
+    /// Die Kennzahlen eines Vertrags, mit abgeleiteter Geltungsdauer.
+    /// </summary>
+    /// <remarks>
+    /// Gerechnet wird je Schlüssel: „Arbeitspreis gilt bis“ ist der Tag vor dem nächsten
+    /// Arbeitspreis, nicht vor der nächsten Kennzahl überhaupt. Ohne die Gruppierung endete
+    /// jeder Wert am Stichtag des nächstbesten.
+    /// </remarks>
+    private static IReadOnlyList<ContractFactDto> Facts(
+        IEnumerable<ContractFact> facts, DateOnly today)
+    {
+        var dtos = new List<ContractFactDto>();
+
+        foreach (var reihe in facts.GroupBy(f => f.Key))
+        {
+            var sortiert = reihe.OrderBy(f => f.ValidFrom).ThenBy(f => f.Id).ToList();
+
+            // Die geltende ist die letzte, deren Stichtag erreicht ist. Gibt es keine solche,
+            // gilt heute keine — eine erst ab nächstem Jahr vereinbarte ist noch nicht in Kraft.
+            var geltend = sortiert.LastOrDefault(f => f.ValidFrom <= today);
+
+            for (var i = 0; i < sortiert.Count; i++)
+            {
+                var fact = sortiert[i];
+                var naechste = i + 1 < sortiert.Count ? sortiert[i + 1] : null;
+
+                dtos.Add(new ContractFactDto
+                {
+                    Id = fact.Id,
+                    Key = fact.Key,
+                    Label = fact.Label,
+                    Kind = fact.Kind,
+                    Number = fact.Number,
+                    Text = fact.Text,
+                    Date = fact.Date,
+                    Unit = fact.Unit,
+                    ValidFrom = fact.ValidFrom,
+                    ValidUntil = naechste?.ValidFrom.AddDays(-1),
+                    IsCurrent = geltend is not null && geltend.Id == fact.Id,
+                    IsFuture = fact.ValidFrom > today,
+                    DocumentId = fact.DocumentId,
+                    DocumentTitle = fact.Document?.Title,
+                    Note = fact.Note,
+                });
+            }
+        }
+
+        return
+        [
+            .. dtos
+                .OrderBy(f => f.Label)
+                .ThenByDescending(f => f.ValidFrom),
+        ];
+    }
+
+    /// <summary>
+    /// Trägt eine Kennzahl ein — oder berichtigt die vom selben Stichtag.
+    /// </summary>
+    /// <remarks>
+    /// <para>Berichtigt und nicht abgewiesen: Wer sich vertippt und denselben Tag noch einmal
+    /// einträgt, meint die Berichtigung. Eine zweite Zeile zum selben Tag wäre dagegen keine
+    /// Aussage darüber, welche gilt.</para>
+    /// <para><b>Ein Stichtag in der Zukunft ist erlaubt.</b> Preiserhöhungen werden angekündigt,
+    /// bevor sie gelten, und das Schreiben liegt dann schon vor.</para>
+    /// </remarks>
+    public async Task<ContractDetailDto> AddContractFactAsync(
+        int contractId, AddContractFactRequest request, CancellationToken ct = default)
+    {
+        var vertrag = await db.Contracts.FirstOrDefaultAsync(c => c.Id == contractId, ct)
+                      ?? throw new RuleViolationException("Diesen Vertrag gibt es nicht.");
+
+        var key = (request.Key ?? string.Empty).Trim().ToLowerInvariant();
+        var label = (request.Label ?? string.Empty).Trim();
+
+        if (key.Length == 0)
+        {
+            throw new RuleViolationException("Ohne Schlüssel lässt sich nichts vergleichen.");
+        }
+
+        if (label.Length == 0)
+        {
+            throw new RuleViolationException("Die Kennzahl braucht eine Beschriftung.");
+        }
+
+        decimal? zahl = null;
+        string? text = null;
+        DateOnly? datum = null;
+        var einheit = request.Unit?.Trim();
+
+        switch (request.Kind)
+        {
+            case ContractFactKind.Money:
+            case ContractFactKind.UnitPrice:
+            case ContractFactKind.Quantity:
+                zahl = request.Number
+                       ?? throw new RuleViolationException("Zu dieser Kennzahl gehört eine Zahl.");
+
+                // Die Einheit ist Pflicht: 24,00 Cent und 0,2400 Euro sind dieselbe Größe, und
+                // ein Vergleich zweier Verträge, von denen einer in Cent abliegt, ist still
+                // falsch. Ein Fehler, der nicht auffällt, ist teurer als eine Rückfrage.
+                if (einheit is not { Length: > 0 })
+                {
+                    throw new RuleViolationException(
+                        "Zu einer Zahl gehört die Einheit — €/Monat, €/kWh, kWh.");
+                }
+
+                break;
+
+            case ContractFactKind.Text:
+                text = request.Text?.Trim();
+                einheit = null;
+
+                if (text is not { Length: > 0 })
+                {
+                    throw new RuleViolationException("Zu dieser Kennzahl gehört eine Angabe.");
+                }
+
+                break;
+
+            case ContractFactKind.Date:
+                datum = request.Date
+                        ?? throw new RuleViolationException("Zu dieser Kennzahl gehört ein Datum.");
+                einheit = null;
+                break;
+
+            default:
+                throw new RuleViolationException("Diese Art von Kennzahl gibt es nicht.");
+        }
+
+        var vorhanden = await db.ContractFacts
+            .FirstOrDefaultAsync(
+                f => f.ContractId == contractId && f.Key == key && f.ValidFrom == request.ValidFrom,
+                ct);
+
+        if (vorhanden is null)
+        {
+            vorhanden = new ContractFact
+            {
+                ContractId = contractId,
+                Key = key,
+                Label = label,
+                ValidFrom = request.ValidFrom,
+                CreatedAt = clock.Now,
+            };
+
+            db.ContractFacts.Add(vorhanden);
+        }
+
+        vorhanden.Label = label;
+        vorhanden.Kind = request.Kind;
+        vorhanden.Number = zahl;
+        vorhanden.Text = text;
+        vorhanden.Date = datum;
+        vorhanden.Unit = einheit;
+        vorhanden.DocumentId = request.DocumentId;
+        vorhanden.Note = request.Note?.Trim();
+
+        await db.SaveChangesAsync(ct);
+
+        return await GetContractAsync(contractId, ct)
+               ?? throw new RuleViolationException("Diesen Vertrag gibt es nicht.");
+    }
+
+    /// <summary>Entfernt eine Kennzahl.</summary>
+    /// <remarks>
+    /// Ohne Schranke: Eine Kennzahl steht auf keinem Papier, das hinausgegangen ist, und hängt
+    /// an keiner Zahlung. Wer sie falsch eingetragen hat, soll sie wegnehmen können.
+    /// </remarks>
+    public async Task<ContractDetailDto> DeleteContractFactAsync(
+        int id, CancellationToken ct = default)
+    {
+        var fact = await db.ContractFacts.FirstOrDefaultAsync(f => f.Id == id, ct)
+                   ?? throw new RuleViolationException("Diese Kennzahl gibt es nicht.");
+
+        var contractId = fact.ContractId;
+
+        db.ContractFacts.Remove(fact);
+        await db.SaveChangesAsync(ct);
+
+        return await GetContractAsync(contractId, ct)
+               ?? throw new RuleViolationException("Diesen Vertrag gibt es nicht.");
     }
 
     public async Task<InvoiceDetailDto?> GetInvoiceAsync(int id, CancellationToken ct = default)
