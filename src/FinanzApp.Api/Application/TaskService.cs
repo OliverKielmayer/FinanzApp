@@ -71,6 +71,7 @@ public sealed class TaskService(FinanzAppDbContext db, IClock clock)
             {
                 Id = row.Id,
                 Title = row.Title,
+                TitleEdited = row.TitleEdited,
                 Detail = row.Detail,
                 DueOn = row.DueOn,
                 State = row.State,
@@ -149,12 +150,59 @@ public sealed class TaskService(FinanzAppDbContext db, IClock clock)
         {
             Id = item.Id,
             Title = item.Title,
+            TitleEdited = item.TitleEdited,
             Detail = item.Detail,
             DueOn = item.DueOn,
             State = item.State,
             Source = item.Source,
             DaysOverdue = item.DueOn is { } due ? today.DayNumber - due.DayNumber : 0,
         };
+    }
+
+    /// <summary>
+    /// Gibt einem Vorgang einen anderen Titel.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Warum es das braucht.</b> Jeder Vorgang, den die Anwendung selbst anlegt, trägt
+    /// einen Titel aus zweiter Hand — einen Dateinamen vom Scanner, einen Mailbetreff. Daraus
+    /// wird „Scannen_1“ oder „AB1 0000 1111 22“, und in einer Liste offener Vorgänge sagt das
+    /// nichts. Was zu tun ist, weiß der Mensch, der das Blatt gelesen hat.</para>
+    /// <para><b>Nur der Titel, und das Kennzeichen dazu.</b> Siehe
+    /// <see cref="TaskItem.TitleEdited"/>: Ohne es schriebe der Abgleich den alten Titel beim
+    /// nächsten Lesen zurück.</para>
+    /// <para><b>Auch ein erledigter darf umbenannt werden.</b> Er steht in der Liste der
+    /// erledigten, und auch dort ist „Scannen_1“ keine Auskunft.</para>
+    /// </remarks>
+    /// <returns><c>false</c>, wenn es den Vorgang nicht gibt.</returns>
+    public async Task<bool> RenameAsync(int id, string? title, CancellationToken ct = default)
+    {
+        var sauber = (title ?? string.Empty).Trim();
+
+        if (sauber.Length == 0)
+        {
+            throw new ArgumentException("Der Vorgang braucht einen Titel.");
+        }
+
+        // Dieselbe Grenze wie in der Datenbank. Abgeschnitten statt abgewiesen wäre die
+        // schlechtere Antwort: Der Rest verschwände, ohne dass es jemand sagt.
+        if (sauber.Length > 200)
+        {
+            throw new ArgumentException(
+                $"Der Titel ist {sauber.Length} Zeichen lang. Höchstens 200 passen hinein.");
+        }
+
+        var item = await db.TaskItems.FirstOrDefaultAsync(t => t.Id == id, ct);
+
+        if (item is null)
+        {
+            return false;
+        }
+
+        item.Title = sauber;
+        item.TitleEdited = true;
+
+        await db.SaveChangesAsync(ct);
+        return true;
     }
 
     public async Task<bool> SetStateAsync(int id, TaskState state, CancellationToken ct = default)
@@ -205,10 +253,24 @@ public sealed class TaskService(FinanzAppDbContext db, IClock clock)
                 return;
             }
 
-            // Eine erledigte Aufgabe wird nicht wiederbelebt; die übrigen bleiben am Bestand.
-            if (item.State != TaskState.Done && (item.Title != title || item.Detail != detail || item.DueOn != due))
+            if (item.State == TaskState.Done)
             {
-                item.Title = title;
+                // Eine erledigte Aufgabe wird nicht wiederbelebt.
+                return;
+            }
+
+            // Ein von Hand gegebener Titel gewinnt gegen den abgeleiteten — sonst wäre
+            // Umbenennen eine Geste ohne Wirkung. Frist und Beschreibung wandern weiter mit:
+            // Sie sind Tatsachen aus dem Bestand, und wer umbenennt, will sie nicht einfrieren.
+            var titelFolgt = !item.TitleEdited && item.Title != title;
+
+            if (titelFolgt || item.Detail != detail || item.DueOn != due)
+            {
+                if (titelFolgt)
+                {
+                    item.Title = title;
+                }
+
                 item.Detail = detail;
                 item.DueOn = due;
                 changed = true;

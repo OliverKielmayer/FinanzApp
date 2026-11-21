@@ -1991,6 +1991,9 @@ namespace FinanzApp.Api.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("TitleEdited")
+                        .HasColumnType("INTEGER");
+
                     b.HasKey("Id");
 
                     b.HasIndex("HouseholdId", "State", "DueOn");

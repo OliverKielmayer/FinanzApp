@@ -215,6 +215,23 @@ public static class ExtensionEndpoints
             => await service.SetStateAsync(id, request.State, ct) ? Results.NoContent() : Results.NotFound())
             .RequireAuthorization(AuthPolicies.Write);
 
+        // Umbenennen. Was die Anwendung selbst anlegt, heißt nach einem Dateinamen oder einem
+        // Mailbetreff — „Scannen_1“ sagt in einer Liste offener Vorgänge nichts.
+        api.MapPatch("/{id:int}/titel", async (
+            int id, RenameTaskRequest request, TaskService service, CancellationToken ct) =>
+        {
+            try
+            {
+                return await service.RenameAsync(id, request.Title, ct)
+                    ? Results.NoContent()
+                    : Results.NotFound();
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization(AuthPolicies.Write);
+
         // Einen Vorschlag annehmen: Buchung zuordnen, Vorgang schliessen. Nur für die Treffer,
         // die sich nicht von allein entschieden haben — die anderen sind längst zu.
         api.MapPost("/{id:int}/zahlung/{transactionId:int}", async (

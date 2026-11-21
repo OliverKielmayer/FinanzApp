@@ -573,6 +573,11 @@ public static class FinanzAppApiExtensions
 
     // ── Vertragskennzahlen ────────────────────────────────────────────────────
 
+    public static Task RenameTaskAsync(
+        this FinanzAppApi api, int id, string title, CancellationToken ct = default)
+        => api.SendWithoutResultAsync(
+            HttpMethod.Patch, $"api/tasks/{id}/titel", new RenameTaskRequest { Title = title }, ct);
+
     public static Task<ContractDetailDto> AddContractFactAsync(
         this FinanzAppApi api, int contractId, AddContractFactRequest request,
         CancellationToken ct = default)

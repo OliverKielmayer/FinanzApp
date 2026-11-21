@@ -5,6 +5,10 @@ public sealed record TaskItemDto
 {
     public required int Id { get; init; }
     public required string Title { get; init; }
+
+    /// <summary>Ob den Titel ein Mensch gegeben hat — dann folgt er dem Bestand nicht mehr.</summary>
+    public bool TitleEdited { get; init; }
+
     public string? Detail { get; init; }
     public DateOnly? DueOn { get; init; }
     public required TaskState State { get; init; }
@@ -45,6 +49,12 @@ public sealed record TaskItemDto
     /// der Normalfall.
     /// </remarks>
     public IReadOnlyList<TaskPaymentDto> PaymentSuggestions { get; init; } = [];
+}
+
+/// <summary>Einem Vorgang einen anderen Titel geben.</summary>
+public sealed record RenameTaskRequest
+{
+    public required string Title { get; init; }
 }
 
 /// <summary>Eine Buchung, die zu einer Forderung aus einem Schreiben passt.</summary>

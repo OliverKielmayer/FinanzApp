@@ -46,6 +46,17 @@
                 </button>
 
                 @*
+                    Umbenennen. Was die Anwendung selbst anlegt, heißt nach einem Dateinamen
+                    oder einem Mailbetreff — „Scannen_1“ sagt in dieser Liste nichts, und was zu
+                    tun ist, weiß nur, wer das Blatt gelesen hat.
+                *@
+                <AuthorizeView Roles="Owner,Member" Context="benennen">
+                    <button type="button" class="btn btn-ghost" disabled="@busy"
+                            title="Umbenennen"
+                            @onclick="() => StartRename(item)">Umbenennen</button>
+                </AuthorizeView>
+
+                @*
                     Abhaken gibt es nur, wo kein Objekt den Stand trägt. Eine offene Rechnung
                     wird an der Rechnung bezahlt; hier abgehakt bliebe sie offen, und der
                     einzige Hinweis darauf wäre weg.
@@ -59,6 +70,35 @@
                     </AuthorizeView>
                 }
             </div>
+
+            @if (renaming == item.Id)
+            {
+                <div class="work-match">
+                    <span class="work-match-text">
+                        <input class="input" value="@fresh" aria-label="Neuer Titel"
+                               @oninput="e => fresh = e.Value?.ToString() ?? string.Empty" />
+
+                        @if (problem is { Length: > 0 } fehler)
+                        {
+                            <span class="work-match-why">@fehler</span>
+                        }
+                        else
+                        {
+                            <span class="work-match-why">
+                                Frist und Beschreibung bleiben am Bestand — nur der Titel wird
+                                deiner.
+                            </span>
+                        }
+                    </span>
+
+                    <AuthorizeView Roles="Owner,Member" Context="speichern">
+                        <button type="button" class="btn btn-primary" disabled="@busy"
+                                @onclick="() => RenameAsync(item)">Speichern</button>
+                        <button type="button" class="btn btn-secondary"
+                                @onclick="CancelRename">Abbrechen</button>
+                    </AuthorizeView>
+                </div>
+            }
 
             @*
                 Was der Abgleich gefunden, aber nicht entschieden hat. Eindeutig Belegtes ist
@@ -108,6 +148,64 @@
     private TaskListDto? data;
     private TaskState? filter = TaskState.Open;
     private bool busy;
+
+    /// <summary>Der Vorgang, dessen Titel gerade bearbeitet wird.</summary>
+    private int? renaming;
+    private string fresh = string.Empty;
+    private string? problem;
+
+    private void StartRename(TaskItemDto item)
+    {
+        renaming = item.Id;
+        fresh = item.Title;
+        problem = null;
+    }
+
+    private void CancelRename()
+    {
+        renaming = null;
+        problem = null;
+    }
+
+    /// <summary>
+    /// Schreibt den neuen Titel.
+    /// </summary>
+    /// <remarks>
+    /// Geprüft wird auch hier, damit ein leeres Feld sofort dastehen bleibt statt eine Anfrage
+    /// zu kosten. Die Regel selbst steht im Dienst — ein Bildschirm ist keine.
+    /// </remarks>
+    private Task RenameAsync(TaskItemDto item) => RunAsync(async () =>
+    {
+        var titel = fresh.Trim();
+
+        if (titel.Length == 0)
+        {
+            problem = "Der Vorgang braucht einen Titel.";
+            return;
+        }
+
+        if (titel == item.Title)
+        {
+            CancelRename();
+            return;
+        }
+
+        busy = true;
+
+        try
+        {
+            await Api.RenameTaskAsync(item.Id, titel);
+
+            renaming = null;
+            problem = null;
+            await LoadAsync();
+            Toasts.Show("Vorgang umbenannt.", ToastKind.Saved);
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
 
     protected override async Task LoadAsync() => data = await Api.GetTasksAsync(filter);
 

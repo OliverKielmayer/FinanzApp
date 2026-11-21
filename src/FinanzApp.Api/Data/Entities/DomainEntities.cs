@@ -613,6 +613,21 @@ public class TaskItem : IHouseholdOwned
     public int HouseholdId { get; set; }
 
     public required string Title { get; set; }
+
+    /// <summary>
+    /// Ob den Titel ein Mensch gegeben hat.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Ohne dieses Kennzeichen wäre Umbenennen wirkungslos.</b> Der Abgleich läuft vor
+    /// jedem Lesen der Liste und schreibt den abgeleiteten Titel zurück — ein von Hand
+    /// gegebener wäre beim nächsten Seitenaufruf wieder weg, ohne dass jemand etwas davon
+    /// merkt.</para>
+    /// <para><b>Nur der Titel.</b> Frist und Beschreibung wandern weiter mit dem Bestand: Sie
+    /// sind Tatsachen und keine Formulierung. Wer einen Vorgang umbenennt, benennt ihn — er
+    /// friert ihn nicht ein.</para>
+    /// </remarks>
+    public bool TitleEdited { get; set; }
+
     public string? Detail { get; set; }
 
     public DateOnly? DueOn { get; set; }
