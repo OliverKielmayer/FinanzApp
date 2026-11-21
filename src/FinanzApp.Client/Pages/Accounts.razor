@@ -378,6 +378,108 @@
                                     </button>
                                 </div>
                             }
+
+                            @*
+                                Überweisen, ohne dass eine Rechnung dahintersteht. Den Knopf
+                                gab es nur am offenen Posten — wer den Weg zur Bank mit einem
+                                Euro auf sein eigenes zweites Konto erproben will, hätte eine
+                                Schein-Rechnung anlegen müssen.
+                            *@
+                            <AuthorizeView Roles="Owner,Member" Context="ueberweisen">
+                                @if (transferOpen)
+                                {
+                                    <div class="blueprint report-payees">
+                                        <i class="corner tl" aria-hidden="true"></i>
+                                        <i class="corner br" aria-hidden="true"></i>
+
+                                        <span class="label-accent">
+                                            Überweisung von @konto.Name
+                                        </span>
+
+                                        @*
+                                            Das eigene Konto als Ziel zum Antippen: Für die
+                                            Erprobung ist es das naheliegende, und es tippt sich
+                                            kein Zeichen falsch.
+                                        *@
+                                        @foreach (var ziel in accounts.Where(a =>
+                                            a.Id != konto.Id && a.Iban is { Length: > 0 }))
+                                        {
+                                            <button type="button" class="tap import-row plain"
+                                                    @onclick="() => TakeOwnAccount(ziel)">
+                                                <span class="stack">
+                                                    <span class="work-title">@ziel.Name</span>
+                                                    <span class="work-due num">@ziel.Iban</span>
+                                                </span>
+                                            </button>
+                                        }
+
+                                        <div class="field">
+                                            <label for="ue-k-name">Empfänger</label>
+                                            <input id="ue-k-name" class="input"
+                                                   value="@transferName"
+                                                   @oninput="e => transferName = e.Value?.ToString() ?? string.Empty" />
+                                        </div>
+
+                                        <div class="field">
+                                            <label for="ue-k-iban">IBAN</label>
+                                            <input id="ue-k-iban" class="input"
+                                                   value="@transferIban"
+                                                   @oninput="e => transferIban = e.Value?.ToString() ?? string.Empty" />
+                                        </div>
+
+                                        <div class="field">
+                                            <label for="ue-k-betrag">Betrag</label>
+                                            <input id="ue-k-betrag" class="input"
+                                                   inputmode="decimal" value="@transferAmount"
+                                                   @oninput="e => transferAmount = e.Value?.ToString() ?? string.Empty" />
+                                        </div>
+
+                                        <div class="field">
+                                            <label for="ue-k-zweck">Verwendungszweck</label>
+                                            <input id="ue-k-zweck" class="input"
+                                                   value="@transferPurpose"
+                                                   @oninput="e => transferPurpose = e.Value?.ToString() ?? string.Empty" />
+                                        </div>
+
+                                        <div class="field">
+                                            <label for="ue-k-pin">PIN für @konto.Name</label>
+                                            <input id="ue-k-pin" type="password" class="input"
+                                                   autocomplete="off" inputmode="numeric"
+                                                   value="@transferPin"
+                                                   @oninput="e => transferPin = e.Value?.ToString() ?? string.Empty" />
+                                            <span class="meta">
+                                                Sie geht an die Bank und wird nirgends
+                                                gespeichert. Freigegeben wird in der App
+                                                deiner Bank — eine TAN wird hier nie
+                                                eingetippt.
+                                            </span>
+                                        </div>
+
+                                        @if (transferProblem is { Length: > 0 } fehler)
+                                        {
+                                            <div class="create-problem"><span>@fehler</span></div>
+                                        }
+
+                                        <div class="acct-sheet-actions">
+                                            <button type="button" class="btn btn-danger"
+                                                    disabled="@transferBusy"
+                                                    @onclick="() => RunTransfer(konto)">
+                                                @(transferBusy ? "Bank wird gefragt …" : "Auftrag erteilen")
+                                            </button>
+                                            <button type="button" class="btn btn-secondary"
+                                                    disabled="@transferBusy"
+                                                    @onclick="CloseTransfer">Abbrechen</button>
+                                        </div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="acct-sheet-actions">
+                                        <button type="button" class="btn btn-secondary"
+                                                @onclick="OpenTransfer">Überweisen</button>
+                                    </div>
+                                }
+                            </AuthorizeView>
                         </section>
                     }
                 </div>
@@ -755,6 +857,92 @@ else if (sheetTransaction is { } sheet)
     private int? bankAccountId;
 
     private string bankPin = string.Empty;
+
+    // ── Überweisung vom Konto ────────────────────────────────────────────────────
+
+    private bool transferOpen;
+    private bool transferBusy;
+    private string transferName = string.Empty;
+    private string transferIban = string.Empty;
+    private string transferAmount = string.Empty;
+    private string transferPurpose = string.Empty;
+    private string transferPin = string.Empty;
+    private string? transferProblem;
+
+    private void OpenTransfer()
+    {
+        transferOpen = true;
+        transferProblem = null;
+        transferName = string.Empty;
+        transferIban = string.Empty;
+        transferAmount = string.Empty;
+        transferPurpose = string.Empty;
+        transferPin = string.Empty;
+    }
+
+    private void CloseTransfer()
+    {
+        transferOpen = false;
+        transferProblem = null;
+        transferPin = string.Empty;
+    }
+
+    /// <summary>Ein eigenes Konto als Ziel — angetippt, nicht vorbelegt.</summary>
+    private void TakeOwnAccount(AccountDto ziel)
+    {
+        transferName = ziel.Name;
+        transferIban = ziel.Iban ?? string.Empty;
+        transferProblem = null;
+    }
+
+    /// <summary>
+    /// Erteilt den Auftrag.
+    /// </summary>
+    /// <remarks>
+    /// Die PIN wird nach dem Versuch geleert, ob er gelang oder nicht — sie soll nicht in
+    /// einer offenen Maske stehen bleiben.
+    /// </remarks>
+    private Task RunTransfer(AccountDto konto) => RunAsync(async () =>
+    {
+        transferProblem = null;
+
+        if (!decimal.TryParse(transferAmount, System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.GetCultureInfo("de-DE"), out var betrag)
+            && !decimal.TryParse(transferAmount, System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.InvariantCulture, out betrag))
+        {
+            transferProblem = "Der Betrag ist keine Zahl.";
+            return;
+        }
+
+        transferBusy = true;
+
+        try
+        {
+            var auftrag = await Api.SubmitTransferAsync(new TransferRequest
+            {
+                AccountId = konto.Id,
+                Pin = transferPin,
+                ReceiverName = transferName,
+                ReceiverIban = transferIban,
+                Amount = betrag,
+                Purpose = transferPurpose,
+            });
+
+            transferOpen = false;
+
+            Toasts.Show(
+                auftrag.State == TransferState.Accepted
+                    ? "Die Bank hat den Auftrag angenommen."
+                    : "Die Bank hat abgelehnt: " + auftrag.BankMessage,
+                auftrag.State == TransferState.Accepted ? ToastKind.Saved : ToastKind.Problem);
+        }
+        finally
+        {
+            transferPin = string.Empty;
+            transferBusy = false;
+        }
+    });
     private bool bankBusy;
     private IReadOnlyList<string> bankProblems = [];
     private string? bankError;
