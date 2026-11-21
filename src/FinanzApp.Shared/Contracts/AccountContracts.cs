@@ -168,6 +168,35 @@ public sealed record TransferDraftDto
     /// Auftrag ohne Antwort: Gerade bei dem ist die zweite Überweisung der teure Fehler.
     /// </remarks>
     public required bool AlreadyOrdered { get; init; }
+
+    /// <summary>
+    /// IBANs, die zu diesem Empfänger passen könnten — zum Antippen, nicht vorbelegt.
+    /// </summary>
+    /// <remarks>
+    /// Vorbelegt wäre die Entscheidung schon gefallen, und zwar von einer Vermutung. Bei zwei
+    /// Vorschlägen entscheidet der Mensch; bei einem auch.
+    /// </remarks>
+    public required IReadOnlyList<IbanSuggestionDto> IbanSuggestions { get; init; }
+}
+
+/// <summary>Ein Vorschlag, welche IBAN gemeint sein könnte — samt Herkunft.</summary>
+/// <remarks>
+/// Die Herkunft steht dabei, weil sie das Vertrauen begründet: Eine IBAN, an die schon
+/// überwiesen wurde, ist durch die Wirklichkeit geprüft. Eine aus einem Belegtext nur durch
+/// ihre Prüfziffer.
+/// </remarks>
+public sealed record IbanSuggestionDto
+{
+    public required string Iban { get; init; }
+
+    /// <summary>Woher sie stammt — „Buchung“ oder „Beleg“.</summary>
+    public required string Origin { get; init; }
+
+    /// <summary>Was den Vorschlag stützt, in einem Satz.</summary>
+    public required string Detail { get; init; }
+
+    /// <summary>Ob schon einmal an sie überwiesen wurde.</summary>
+    public required bool FromHistory { get; init; }
 }
 
 public sealed record StatementFetchRequest

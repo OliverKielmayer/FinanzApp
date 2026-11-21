@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using System.Numerics;
 
 namespace FinanzApp.Api.Infrastructure;
@@ -74,6 +75,54 @@ public static class IbanCheck
         // sich zu vertun.
         return BigInteger.Parse(ziffern, CultureInfo.InvariantCulture) % 97 == 1;
     }
+
+    /// <summary>
+    /// Sucht IBANs in einem Fliesstext — nur die, deren Prüfziffer aufgeht.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Die Prüfziffer ist hier nicht Beiwerk, sondern der Filter.</b> Auf einer
+    /// Rechnung steht mehr, was wie eine IBAN aussieht, als IBANs: Die Gläubiger-Identifikation
+    /// einer Lastschrift beginnt mit dem Ländercode und zwei Ziffern wie eine IBAN
+    /// (<c>DE98ZZZ…</c>) und ist keine. Eine maskierte eigene IBAN (<c>XX1234…XXX789</c>) sieht
+    /// ebenso aus. Am gemessenen Beleg fielen beide an der Prüfziffer durch — und nur an
+    /// ihr.</para>
+    /// <para><b>Die Reihenfolge bleibt die des Papiers.</b> Wer zwei Vorschläge sieht, soll sie
+    /// in der Reihenfolge sehen, in der sie auf dem Blatt stehen; eine andere Sortierung wäre
+    /// eine Behauptung darüber, welche die richtige ist.</para>
+    /// </remarks>
+    public static IReadOnlyList<string> FindAll(string? text)
+    {
+        if (text is not { Length: > 0 })
+        {
+            return [];
+        }
+
+        List<string> gefunden = [];
+
+        foreach (Match treffer in Kandidat.Matches(text))
+        {
+            var rein = Normalise(treffer.Value);
+
+            if (IsValid(rein) && !gefunden.Contains(rein))
+            {
+                gefunden.Add(rein);
+            }
+        }
+
+        return gefunden;
+    }
+
+    /// <summary>
+    /// Was überhaupt als IBAN in Frage kommt.
+    /// </summary>
+    /// <remarks>
+    /// Zwei Buchstaben, zwei Ziffern, dann Gruppen aus Buchstaben und Ziffern mit oder ohne
+    /// Leerzeichen dazwischen — so steht sie auf Papier. Was hier hängen bleibt, ist ein
+    /// Kandidat und kein Fund; darüber entscheidet <see cref="IsValid"/>.
+    /// </remarks>
+    private static readonly Regex Kandidat = new(
+        @"\b[A-Z]{2}[0-9]{2}(?:[ ]?[A-Z0-9]){10,30}\b",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     /// <summary>
     /// Ob eine BIC formal stimmt — leer gilt als in Ordnung.

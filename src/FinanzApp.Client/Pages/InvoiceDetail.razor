@@ -210,6 +210,33 @@
                         </span>
                     </div>
 
+                    @*
+                        Vorschläge zum Antippen, nicht vorbelegt. Eine falsche Vorbelegung, die
+                        niemand mehr ansieht, kostet das Geld; ein falscher Vorschlag einen Blick.
+                    *@
+                    @foreach (var vorschlag in entwurf.IbanSuggestions)
+                    {
+                        <button type="button" class="tap import-row plain"
+                                @onclick="() => TakeIban(vorschlag)">
+                            <span class="stack">
+                                <span class="work-title num">@Gruppiert(vorschlag.Iban)</span>
+                                <span class="work-due">
+                                    @(vorschlag.FromHistory ? "Schon überwiesen" : "Vom Beleg")
+                                    · @vorschlag.Detail
+                                </span>
+                            </span>
+                        </button>
+                    }
+
+                    @if (entwurf.IbanSuggestions.Count == 0)
+                    {
+                        <span class="create-help">
+                            Kein Vorschlag: An diesen Empfänger wurde noch nie überwiesen, und im
+                            Beleg steht keine IBAN mit aufgehender Prüfziffer. Dann hilft nur
+                            abtippen — und zweimal hinsehen.
+                        </span>
+                    }
+
                     <div class="field">
                         <label for="ue-betrag">Betrag</label>
                         <input id="ue-betrag" class="input" inputmode="decimal" value="@fresh.Amount"
@@ -307,6 +334,25 @@
             busy = false;
         }
     });
+
+    /// <summary>Ein Vorschlag wird übernommen — durch Antippen, nicht von selbst.</summary>
+    private void TakeIban(IbanSuggestionDto vorschlag)
+    {
+        fresh.Iban = vorschlag.Iban;
+        problem = null;
+    }
+
+    /// <summary>
+    /// Die IBAN in Vierergruppen.
+    /// </summary>
+    /// <remarks>
+    /// So steht sie auf jedem Papier, und so prüft man sie nach: zweiundzwanzig Zeichen am
+    /// Stück liest niemand gegen eine Rechnung.
+    /// </remarks>
+    private static string Gruppiert(string iban)
+        => string.Join(" ", Enumerable
+            .Range(0, (iban.Length + 3) / 4)
+            .Select(i => iban.Substring(i * 4, Math.Min(4, iban.Length - (i * 4)))));
 
     private void CancelTransfer()
     {

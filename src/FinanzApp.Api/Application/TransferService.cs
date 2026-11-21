@@ -69,7 +69,119 @@ public sealed class TransferService(
 
             AlreadyOrdered = await db.BankTransfers.AsNoTracking()
                 .AnyAsync(t => t.InvoiceId == invoiceId && t.State != TransferState.Rejected, ct),
+
+            IbanSuggestions = await IbanSuggestionsAsync(rechnung, ct),
         };
+    }
+
+    /// <summary>
+    /// Welche IBAN gemeint sein könnte — aus zwei Quellen, die es schon gibt.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Zuerst die eigenen Buchungen.</b> Wer schon einmal Geld von diesem Haushalt
+    /// bekommen hat, steht mit IBAN im Kontoauszug — am gemessenen Bestand bei fast jeder
+    /// Buchung. Eine solche IBAN ist durch die Wirklichkeit geprüft und nicht nur durch
+    /// ihre Prüfziffer; deshalb steht sie vorn.</para>
+    /// <para><b>Dann der Beleg.</b> Auf der Rechnung steht, wohin sie bezahlt werden will.
+    /// Gefiltert wird mit der Prüfziffer, und die reicht: Am gemessenen Beleg fielen die
+    /// Gläubiger-Identifikation und eine maskierte eigene IBAN genau an ihr durch.</para>
+    /// <para><b>Die eigenen Konten bleiben draußen.</b> Auf einem Beleg steht oft auch, von
+    /// welchem Konto eingezogen wird — an sich selbst zu überweisen ist kein Vorschlag.</para>
+    /// <para><b>Vorgeschlagen, nicht vorbelegt.</b> Ein falscher Vorschlag kostet einen Blick;
+    /// eine falsche Vorbelegung, die niemand mehr ansieht, kostet das Geld.</para>
+    /// </remarks>
+    private async Task<IReadOnlyList<IbanSuggestionDto>> IbanSuggestionsAsync(
+        Invoice rechnung, CancellationToken ct)
+    {
+        var eigene = await db.Accounts.AsNoTracking()
+            .Where(a => a.Iban != null && a.Iban != string.Empty)
+            .Select(a => a.Iban!)
+            .ToListAsync(ct);
+
+        var tabu = eigene.Select(IbanCheck.Normalise).ToHashSet(StringComparer.Ordinal);
+
+        List<IbanSuggestionDto> vorschlaege = [];
+
+        // ── Erste Quelle: wohin schon überwiesen wurde ─────────────────────────────
+        var gesucht = PolicyService.Normalise(
+            rechnung.Payee ?? rechnung.Contract?.Provider);
+
+        if (gesucht is { Length: >= 5 })
+        {
+            // Nur Ausgaben: Eine Gutschrift nennt die IBAN dessen, der gezahlt hat — das ist
+            // nicht, wohin man überweist.
+            var buchungen = await db.Transactions.AsNoTracking()
+                .Where(t => t.Amount < 0
+                            && t.CounterpartyIban != null && t.CounterpartyIban != string.Empty
+                            && t.Payee != null && t.Payee != string.Empty)
+                .OrderByDescending(t => t.BookingDate)
+                .Take(2000)
+                .Select(t => new { t.Payee, t.CounterpartyIban, t.BookingDate, t.Amount })
+                .ToListAsync(ct);
+
+            foreach (var buchung in buchungen)
+            {
+                var name = PolicyService.Normalise(buchung.Payee);
+
+                // Der eine enthält den anderen: Die Bank schreibt „EDI ENERGIE-DIREKT
+                // HOHENLOHE GMBH“, die Rechnung „EDi Energie-Direkt Hohenlohe GmbH“, und ein
+                // Vertrag nennt oft nur den Kern. Fünf Zeichen ist die Untergrenze — darunter
+                // träfe jeder jeden.
+                if (name is not { Length: >= 5 }
+                    || (!name.Contains(gesucht, StringComparison.Ordinal)
+                        && !gesucht.Contains(name, StringComparison.Ordinal)))
+                {
+                    continue;
+                }
+
+                var iban = IbanCheck.Normalise(buchung.CounterpartyIban);
+
+                if (tabu.Contains(iban) || vorschlaege.Any(v => v.Iban == iban))
+                {
+                    continue;
+                }
+
+                vorschlaege.Add(new IbanSuggestionDto
+                {
+                    Iban = iban,
+                    Origin = "Buchung",
+                    Detail = $"zuletzt am {GermanFormat.Date(buchung.BookingDate)} · "
+                             + $"{GermanFormat.Euro(Math.Abs(buchung.Amount))} an "
+                             + $"{buchung.Payee}",
+                    FromHistory = true,
+                });
+            }
+        }
+
+        // ── Zweite Quelle: was auf dem Beleg steht ───────────────────────────────
+        var belege = await (
+            from link in db.DocumentLinks
+            join dokument in db.Documents on link.DocumentId equals dokument.Id
+            where link.TargetType == LinkTargetType.Invoice
+                  && link.TargetId == rechnung.Id
+                  && dokument.ContentText != null
+            select new { dokument.Title, dokument.ContentText }).ToListAsync(ct);
+
+        foreach (var beleg in belege)
+        {
+            foreach (var iban in IbanCheck.FindAll(beleg.ContentText))
+            {
+                if (tabu.Contains(iban) || vorschlaege.Any(v => v.Iban == iban))
+                {
+                    continue;
+                }
+
+                vorschlaege.Add(new IbanSuggestionDto
+                {
+                    Iban = iban,
+                    Origin = "Beleg",
+                    Detail = $"steht in „{beleg.Title}“",
+                    FromHistory = false,
+                });
+            }
+        }
+
+        return vorschlaege;
     }
 
     /// <summary>Die Aufträge dieses Kontos, jüngster zuerst.</summary>
