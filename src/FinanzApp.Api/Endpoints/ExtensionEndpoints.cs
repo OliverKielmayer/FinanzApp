@@ -897,6 +897,29 @@ public static class ExtensionEndpoints
             => await Beanstandet(() => service.DeleteContractFactAsync(id, ct)))
             .RequireAuthorization(AuthPolicies.Write);
 
+        // ── Überweisungen ──────────────────────────────────────────────────────
+        //
+        // Hier geht Geld hinaus. Der Auftrag braucht deshalb dieselbe Schreibberechtigung wie
+        // jede Änderung — und die PIN, die der Inhaber je Auftrag eintippt.
+        var transfers = app.MapGroup("/api/ueberweisungen").WithTags("Konten")
+            .RequireAuthorization();
+
+        transfers.MapGet("/entwurf/{invoiceId:int}", async (
+            int invoiceId, TransferService service, CancellationToken ct) =>
+        {
+            var entwurf = await service.PrepareAsync(invoiceId, ct);
+            return entwurf is null ? Results.NotFound() : Results.Ok(entwurf);
+        });
+
+        transfers.MapGet("/konto/{accountId:int}", async (
+                int accountId, TransferService service, CancellationToken ct)
+            => Results.Ok(await service.GetListAsync(accountId, ct)));
+
+        transfers.MapPost("/", async (
+                TransferRequest request, TransferService service, CancellationToken ct)
+            => await Beanstandet(() => service.SubmitAsync(request, ct)))
+            .RequireAuthorization(AuthPolicies.Write);
+
         var invoices = app.MapGroup("/api/invoices").WithTags("Wohnen").RequireAuthorization();
 
         invoices.MapGet("/{id:int}", async (int id, PropertyService service, CancellationToken ct) =>

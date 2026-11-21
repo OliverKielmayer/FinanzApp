@@ -108,6 +108,68 @@ public sealed record UncountedBookingsDto
 /// Zeitraum, und ein gemeinsames Feld, das bei der einen Hälfte der Aufrufe leer bleibt, sagt
 /// niemandem mehr, wozu es da ist.</para>
 /// </remarks>
+/// <summary>
+/// Was für eine Überweisung gebraucht wird.
+/// </summary>
+/// <remarks>
+/// Die PIN kommt mit dem Auftrag und wird nirgends gespeichert — dieselbe Regel wie beim
+/// Abruf. Sie lebt nur für den Dialog mit der Bank.
+/// </remarks>
+public sealed record TransferRequest
+{
+    public required int AccountId { get; init; }
+    public required string Pin { get; init; }
+
+    public required string ReceiverName { get; init; }
+    public required string ReceiverIban { get; init; }
+
+    /// <summary>Darf leer bleiben — im SEPA-Raum findet die Bank das Institut über die IBAN.</summary>
+    public string? ReceiverBic { get; init; }
+
+    public required decimal Amount { get; init; }
+    public required string Purpose { get; init; }
+
+    /// <summary>Der offene Posten, der damit bezahlt wird.</summary>
+    public int? InvoiceId { get; init; }
+}
+
+/// <summary>Ein erteilter Überweisungsauftrag.</summary>
+public sealed record TransferDto
+{
+    public required int Id { get; init; }
+    public required int AccountId { get; init; }
+    public required string ReceiverName { get; init; }
+    public required string ReceiverIban { get; init; }
+    public required decimal Amount { get; init; }
+    public required string Purpose { get; init; }
+    public required TransferState State { get; init; }
+    public string? BankMessage { get; init; }
+    public int? InvoiceId { get; init; }
+    public required DateTime CreatedAt { get; init; }
+}
+
+/// <summary>Was zu einem offenen Posten schon bekannt ist, bevor jemand tippt.</summary>
+public sealed record TransferDraftDto
+{
+    public required int InvoiceId { get; init; }
+
+    /// <summary>Das Konto des Vertrags — leer, wenn keines feststeht.</summary>
+    public int? AccountId { get; init; }
+
+    public required string ReceiverName { get; init; }
+    public required decimal Amount { get; init; }
+    public required string Purpose { get; init; }
+
+    /// <summary>
+    /// Ob für diesen Posten schon ein Auftrag erteilt wurde.
+    /// </summary>
+    /// <remarks>
+    /// Abgelehnte zählen nicht — sie sind nicht hinausgegangen. Alles andere schon, auch ein
+    /// Auftrag ohne Antwort: Gerade bei dem ist die zweite Überweisung der teure Fehler.
+    /// </remarks>
+    public required bool AlreadyOrdered { get; init; }
+}
+
 public sealed record StatementFetchRequest
 {
     public required string Pin { get; init; }

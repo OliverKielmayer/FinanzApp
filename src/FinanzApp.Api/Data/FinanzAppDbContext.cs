@@ -108,6 +108,7 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
     public DbSet<Property> Properties => Set<Property>();
     public DbSet<Contract> Contracts => Set<Contract>();
     public DbSet<ContractFact> ContractFacts => Set<ContractFact>();
+    public DbSet<BankTransfer> BankTransfers => Set<BankTransfer>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<TaskItem> TaskItems => Set<TaskItem>();
 
@@ -870,6 +871,27 @@ public class FinanzAppDbContext(DbContextOptions<FinanzAppDbContext> options) : 
                 .HasForeignKey(x => x.PropertyId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Account).WithMany()
                 .HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        b.Entity<BankTransfer>(e =>
+        {
+            e.Property(x => x.ReceiverName).HasMaxLength(70).IsRequired();
+            e.Property(x => x.ReceiverIban).HasMaxLength(34).IsRequired();
+            e.Property(x => x.ReceiverBic).HasMaxLength(11);
+            e.Property(x => x.Purpose).HasMaxLength(140).IsRequired();
+            e.Property(x => x.BankMessage).HasMaxLength(1000);
+            e.Property(x => x.Amount).HasConversion(MoneyConverter);
+
+            e.HasOne(x => x.Account).WithMany()
+                .HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Restrict);
+
+            // Der offene Posten darf verschwinden, der Auftrag bleibt: Er ist erteilt worden,
+            // und das lässt sich nicht dadurch ungeschehen machen, dass die Rechnung weg ist.
+            e.HasOne(x => x.Invoice).WithMany()
+                .HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.SetNull);
+
+            // Gesucht wird nach frischen Aufträgen desselben Kontos — die Dublettenschranke.
+            e.HasIndex(x => new { x.HouseholdId, x.AccountId, x.CreatedAt });
         });
 
         b.Entity<ContractFact>(e =>

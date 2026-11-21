@@ -212,6 +212,11 @@ builder.Services.AddScoped<ScanInboxService>();
 builder.Services.AddScoped<CreateFormService>();
 builder.Services.AddScoped<ParticipationService>();
 builder.Services.AddScoped<PropertyService>();
+builder.Services.AddScoped<TransferService>();
+
+// Der Weg zur Bank für einen Auftrag. Dieselbe Bauart wie beim Abruf: eine Schnittstelle,
+// damit alles, was vor dem Auftrag entschieden wird, ohne Bank prüfbar bleibt.
+builder.Services.AddScoped<IBankTransferSource, FinTsTransferSource>();
 builder.Services.AddScoped<LiquidityService>();
 builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<HoldingsService>();

@@ -26,6 +26,20 @@ public sealed class BankAccessOptions
     /// <summary>Die Version, die das Programm der Bank nennt. Selbst vergeben.</summary>
     public string ProductVersion { get; set; } = "1.0";
 
+    /// <summary>
+    /// Der höchste Betrag, den diese Anwendung überweist.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Eine Schranke gegen den Vertipper, kein Limit der Bank.</b> Das Tageslimit
+    /// vereinbart der Inhaber mit seinem Institut und es gilt dort; hier geht es um die
+    /// Null, die beim Eintippen zu viel gerät. Ein Auftrag über das Zehnfache sieht auf dem
+    /// Bildschirm aus wie jeder andere.</para>
+    /// <para>Wer mehr überweisen will, tut es im Online-Banking seiner Bank. Diese Anwendung
+    /// ist für die Rechnungen gedacht, die ohnehin durch sie laufen.</para>
+    /// <para>0 schaltet die Schranke ab. Das ist eine Entscheidung und kein Versehen.</para>
+    /// </remarks>
+    public decimal TransferLimit { get; set; } = 5000m;
+
     /// <summary>Ob die Anwendung sich gegenüber einer Bank ausweisen kann.</summary>
     public bool IsConfigured => !string.IsNullOrWhiteSpace(ProductId);
 

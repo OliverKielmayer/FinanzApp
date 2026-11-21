@@ -155,6 +155,95 @@
                     </button>
                     <button type="button" class="btn btn-secondary" disabled="@busy"
                             @onclick="@(() => PayAsync(null))">Als bezahlt markieren</button>
+                    <button type="button" class="btn btn-secondary" disabled="@busy"
+                            @onclick="StartTransferAsync">Überweisen</button>
+                </div>
+            }
+
+            @*
+                Die Überweisung. Sie steht bewusst <b>unter</b> den übrigen Schaltflächen und
+                öffnet eine eigene Maske: Hier geht Geld hinaus, und das soll nicht derselbe
+                Handgriff sein wie „als bezahlt markieren“.
+            *@
+            @if (draft is { } entwurf)
+            {
+                <div class="blueprint report-payees">
+                    <i class="corner tl" aria-hidden="true"></i>
+                    <i class="corner br" aria-hidden="true"></i>
+
+                    @if (entwurf.AlreadyOrdered)
+                    {
+                        <div class="create-problem">
+                            <span>
+                                Für diesen Posten ist schon ein Auftrag erteilt worden. Ein zweiter
+                                ginge zusätzlich hinaus — sieh erst im Kontoauszug nach.
+                            </span>
+                        </div>
+                    }
+
+                    <div class="field">
+                        <label for="ue-konto">Von Konto</label>
+                        <select id="ue-konto" class="input" value="@fresh.AccountId"
+                                @onchange="e => fresh.AccountId = e.Value?.ToString() ?? string.Empty">
+                            <option value="">— wählen —</option>
+                            @foreach (var konto in accounts ?? [])
+                            {
+                                <option value="@konto.Id">@konto.Name</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label for="ue-name">Empfänger</label>
+                        <input id="ue-name" class="input" value="@fresh.ReceiverName"
+                               @oninput="e => fresh.ReceiverName = e.Value?.ToString() ?? string.Empty" />
+                    </div>
+
+                    <div class="field">
+                        <label for="ue-iban">IBAN</label>
+                        <input id="ue-iban" class="input" value="@fresh.Iban"
+                               placeholder="DE.. .... .... .... .... .."
+                               @oninput="e => fresh.Iban = e.Value?.ToString() ?? string.Empty" />
+                        <span class="create-help">
+                            Die Prüfziffer wird geprüft — sie fängt zwei vertauschte Ziffern ab. Ob
+                            das Konto dem Empfänger gehört, weiß sie nicht.
+                        </span>
+                    </div>
+
+                    <div class="field">
+                        <label for="ue-betrag">Betrag</label>
+                        <input id="ue-betrag" class="input" inputmode="decimal" value="@fresh.Amount"
+                               @oninput="e => fresh.Amount = e.Value?.ToString() ?? string.Empty" />
+                    </div>
+
+                    <div class="field">
+                        <label for="ue-zweck">Verwendungszweck</label>
+                        <input id="ue-zweck" class="input" value="@fresh.Purpose"
+                               @oninput="e => fresh.Purpose = e.Value?.ToString() ?? string.Empty" />
+                    </div>
+
+                    <div class="field">
+                        <label for="ue-pin">Bank-PIN</label>
+                        <input id="ue-pin" class="input" type="password" autocomplete="off"
+                               value="@fresh.Pin"
+                               @oninput="e => fresh.Pin = e.Value?.ToString() ?? string.Empty" />
+                        <span class="create-help">
+                            Sie geht an die Bank und wird nirgends gespeichert. Freigegeben wird
+                            danach in der App deiner Bank — hier wird keine TAN eingetippt.
+                        </span>
+                    </div>
+
+                    @if (problem is { Length: > 0 } fehler)
+                    {
+                        <div class="create-problem"><span>@fehler</span></div>
+                    }
+
+                    <div class="actions">
+                        <button type="button" class="btn btn-danger" disabled="@busy"
+                                @onclick="SubmitTransferAsync">Auftrag erteilen</button>
+                        <button type="button" class="btn btn-secondary"
+                                @onclick="CancelTransfer">Abbrechen</button>
+                    </div>
                 </div>
             }
         </AuthorizeView>
@@ -173,6 +262,114 @@
     private InvoiceDetailDto? data;
     private IReadOnlyList<PaymentCandidateDto>? candidates;
     private bool busy;
+
+    /// <summary>Der Entwurf der Überweisung, solange die Maske offen ist.</summary>
+    private TransferDraftDto? draft;
+    private IReadOnlyList<AccountDto>? accounts;
+    private string? problem;
+
+    private readonly Formular fresh = new();
+
+    /// <summary>Was in der Maske steht — alles als Text, bis es geprüft ist.</summary>
+    private sealed class Formular
+    {
+        public string AccountId { get; set; } = string.Empty;
+        public string ReceiverName { get; set; } = string.Empty;
+        public string Iban { get; set; } = string.Empty;
+        public string Amount { get; set; } = string.Empty;
+        public string Purpose { get; set; } = string.Empty;
+
+        /// <summary>Nur für diesen einen Auftrag. Sie verlässt die Maske nicht nach oben.</summary>
+        public string Pin { get; set; } = string.Empty;
+    }
+
+    private Task StartTransferAsync() => RunAsync(async () =>
+    {
+        busy = true;
+
+        try
+        {
+            accounts ??= await Api.GetAccountsAsync();
+            var entwurf = await Api.GetTransferDraftAsync(Id);
+
+            fresh.AccountId = entwurf.AccountId?.ToString() ?? string.Empty;
+            fresh.ReceiverName = entwurf.ReceiverName;
+            fresh.Amount = GermanFormat.Decimal2(entwurf.Amount);
+            fresh.Purpose = entwurf.Purpose;
+            fresh.Iban = string.Empty;
+            fresh.Pin = string.Empty;
+
+            problem = null;
+            draft = entwurf;
+        }
+        finally
+        {
+            busy = false;
+        }
+    });
+
+    private void CancelTransfer()
+    {
+        draft = null;
+        problem = null;
+        fresh.Pin = string.Empty;
+    }
+
+    /// <summary>
+    /// Erteilt den Auftrag.
+    /// </summary>
+    /// <remarks>
+    /// Die PIN wird nach dem Versuch geleert — ob er gelang oder nicht. Sie soll nicht in einer
+    /// offenen Maske stehen bleiben, während jemand anderes auf den Bildschirm sieht.
+    /// </remarks>
+    private Task SubmitTransferAsync() => RunAsync(async () =>
+    {
+        problem = null;
+
+        if (!int.TryParse(fresh.AccountId, out var konto))
+        {
+            problem = "Wähle das Konto, von dem überwiesen wird.";
+            return;
+        }
+
+        if (!decimal.TryParse(fresh.Amount, System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.GetCultureInfo("de-DE"), out var betrag)
+            && !decimal.TryParse(fresh.Amount, System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.InvariantCulture, out betrag))
+        {
+            problem = "Der Betrag ist keine Zahl.";
+            return;
+        }
+
+        busy = true;
+
+        try
+        {
+            var auftrag = await Api.SubmitTransferAsync(new TransferRequest
+            {
+                AccountId = konto,
+                Pin = fresh.Pin,
+                ReceiverName = fresh.ReceiverName,
+                ReceiverIban = fresh.Iban,
+                Amount = betrag,
+                Purpose = fresh.Purpose,
+                InvoiceId = Id,
+            });
+
+            draft = null;
+
+            Toasts.Show(
+                auftrag.State == TransferState.Accepted
+                    ? "Die Bank hat den Auftrag angenommen."
+                    : "Die Bank hat den Auftrag abgelehnt: " + auftrag.BankMessage,
+                auftrag.State == TransferState.Accepted ? ToastKind.Saved : ToastKind.Problem);
+        }
+        finally
+        {
+            fresh.Pin = string.Empty;
+            busy = false;
+        }
+    });
 
     /// <summary>Was zur Zahlung zu sagen ist, wenn keine Buchung dahintersteht.</summary>
     private string paymentNote = string.Empty;

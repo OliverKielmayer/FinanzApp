@@ -112,6 +112,39 @@ public enum LinkTargetType
 }
 
 /// <summary>
+/// Wohin eine Überweisung gekommen ist.
+/// </summary>
+/// <remarks>
+/// <para><b>Der Zustand wird geschrieben, <em>bevor</em> die Bank gefragt wird.</b> Bricht der
+/// Vorgang mittendrin ab — Netz weg, Programm beendet —, steht hinterher wenigstens da, dass
+/// etwas unterwegs war. Ohne diese Zeile wäre nicht zu unterscheiden, ob nie etwas losging
+/// oder ob die Antwort verloren ging; und beim zweiten Versuch ginge das Geld womöglich
+/// zweimal.</para>
+/// <para><b>Es gibt kein „erledigt“.</b> Angenommen heißt angenommen, nicht gebucht. Ob das
+/// Geld wirklich abgegangen ist, sagt der Kontoauszug — nicht diese Tabelle.</para>
+/// </remarks>
+public enum TransferState
+{
+    /// <summary>Eingetragen, die Bank ist noch nicht gefragt.</summary>
+    Prepared = 0,
+
+    /// <summary>Die Bank hat den Auftrag angenommen.</summary>
+    Accepted = 1,
+
+    /// <summary>Die Bank hat abgelehnt — der Grund steht dabei.</summary>
+    Rejected = 2,
+
+    /// <summary>
+    /// Die Antwort blieb aus.
+    /// </summary>
+    /// <remarks>
+    /// Der unangenehme Fall, und deshalb hat er einen eigenen Namen: Ob der Auftrag angekommen
+    /// ist, weiß hier niemand. Nachsehen muss ein Mensch, im Kontoauszug.
+    /// </remarks>
+    Unknown = 3,
+}
+
+/// <summary>
 /// Wie der Wert einer Vertragskennzahl zu lesen ist.
 /// </summary>
 /// <remarks>

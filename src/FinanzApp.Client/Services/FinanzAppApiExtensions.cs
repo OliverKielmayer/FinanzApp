@@ -573,6 +573,20 @@ public static class FinanzAppApiExtensions
 
     // ── Vertragskennzahlen ────────────────────────────────────────────────────
 
+    // ── Überweisungen ────────────────────────────────────────────────────────
+
+    public static Task<TransferDraftDto> GetTransferDraftAsync(
+        this FinanzAppApi api, int invoiceId, CancellationToken ct = default)
+        => api.GetAsync<TransferDraftDto>($"api/ueberweisungen/entwurf/{invoiceId}", ct);
+
+    public static Task<IReadOnlyList<TransferDto>> GetTransfersAsync(
+        this FinanzAppApi api, int accountId, CancellationToken ct = default)
+        => api.GetAsync<IReadOnlyList<TransferDto>>($"api/ueberweisungen/konto/{accountId}", ct);
+
+    public static Task<TransferDto> SubmitTransferAsync(
+        this FinanzAppApi api, TransferRequest request, CancellationToken ct = default)
+        => api.PostAsync<TransferRequest, TransferDto>("api/ueberweisungen", request, ct);
+
     public static Task RenameTaskAsync(
         this FinanzAppApi api, int id, string title, CancellationToken ct = default)
         => api.SendWithoutResultAsync(

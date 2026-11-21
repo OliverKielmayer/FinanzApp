@@ -471,6 +471,50 @@ public class Contract : IHouseholdOwned
 }
 
 /// <summary>
+/// Eine Überweisung, die diese Anwendung bei der Bank beauftragt hat.
+/// </summary>
+/// <remarks>
+/// <para><b>Sie ist das Gedächtnis, nicht die Buchung.</b> Was wirklich vom Konto geht, steht
+/// im Kontoauszug und kommt über den Umsatzabruf herein. Diese Zeile hält fest, dass jemand
+/// einen Auftrag erteilt hat — mit Empfänger, Betrag und dem, was die Bank dazu gesagt
+/// hat.</para>
+/// <para><b>Sie entsteht vor dem Bankaufruf</b>, siehe <see cref="TransferState"/>. Ohne das
+/// gäbe es nach einem Abbruch keinen Hinweis darauf, dass etwas unterwegs war.</para>
+/// <para><b>Die PIN steht nicht hier</b>, so wenig wie irgendwo sonst. Sie wird je Auftrag
+/// eingegeben und lebt nur für den Dialog.</para>
+/// </remarks>
+public class BankTransfer : IHouseholdOwned
+{
+    public int Id { get; set; }
+    public int HouseholdId { get; set; }
+
+    /// <summary>Das Konto, von dem überwiesen wird.</summary>
+    public int AccountId { get; set; }
+    public Account? Account { get; set; }
+
+    public required string ReceiverName { get; set; }
+    public required string ReceiverIban { get; set; }
+    public string? ReceiverBic { get; set; }
+
+    public decimal Amount { get; set; }
+    public required string Purpose { get; set; }
+
+    public TransferState State { get; set; }
+
+    /// <summary>Was die Bank geantwortet hat — im Klartext, wie sie es gesagt hat.</summary>
+    public string? BankMessage { get; set; }
+
+    /// <summary>Der offene Posten, den dieser Auftrag bezahlt.</summary>
+    public int? InvoiceId { get; set; }
+    public Invoice? Invoice { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+
+    /// <summary>Wann die Bank geantwortet hat. Leer, solange keine Antwort da ist.</summary>
+    public DateTime? AnsweredAt { get; set; }
+}
+
+/// <summary>
 /// Eine Kennzahl eines Vertrags, gültig ab einem Tag.
 /// </summary>
 /// <remarks>
