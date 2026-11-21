@@ -514,7 +514,7 @@ public static class FinanzAppApiExtensions
         form.Add(file, "file", fileName);
 
         return await api.PostFormAsync<ScanIntakeResultDto>(
-            "api/scan/intake?source=Erfassen", form, ct);
+            "api/scan/intake?source=Von%20Hand%20eingelesen", form, ct);
     }
 
     // ── Fahrzeuge und Scaneingang ──────────────────────────────────────────────

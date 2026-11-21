@@ -40,9 +40,19 @@ public sealed class ScanIntakeService(
     /// stellt sie in den Scaneingang.
     /// </summary>
     /// <param name="source">
-    /// Woher die Datei kam — der Pfad im überwachten Ordner. Steht danach als Beschreibung am
-    /// Dokument, damit sich ein Beleg bis zu seiner Quelle zurückverfolgen lässt.
+    /// Woher die Datei kam, im Klartext — <b>ganz, nicht nur der Pfad</b>. Steht danach als
+    /// Beschreibung am Dokument, damit sich ein Beleg bis zu seiner Quelle zurückverfolgen
+    /// lässt.
     /// </param>
+    /// <remarks>
+    /// <para><b>Den Satz formuliert der Aufrufer</b>, und das ist der Punkt: Nur er weiß,
+    /// woher die Bytes kommen. Hier stand einmal ein fester Vorspann — „Aus dem überwachten
+    /// Ordner übernommen: …“ — und von drei Aufrufern stimmte er bei einem. Das Postfach
+    /// lieferte „Aus dem überwachten Ordner übernommen: Postfach: ‚Betreff‘ von …“, die
+    /// Oberfläche „… übernommen: Erfassen“. Beide kommen aus keinem Ordner.</para>
+    /// <para>Gekürzt wird jetzt der ganze Satz und nicht nur sein Ende. Zweihundert Zeichen
+    /// reichen für jeden Pfad und jeden Betreff, den ein Mensch noch lesen will.</para>
+    /// </remarks>
     public async Task<ScanIntakeResultDto> TakeInAsync(
         Stream content, string fileName, string? source, CancellationToken ct = default)
     {
@@ -226,7 +236,7 @@ public sealed class ScanIntakeService(
 
         if (Clean(source) is { Length: > 0 } herkunft)
         {
-            dokument.Description = "Aus dem überwachten Ordner übernommen: " + herkunft;
+            dokument.Description = herkunft;
         }
 
         await db.SaveChangesAsync(ct);
@@ -330,7 +340,7 @@ public sealed class ScanIntakeService(
 
         if (Clean(source) is { Length: > 0 } herkunft)
         {
-            dokument.Description = "Aus dem überwachten Ordner übernommen: " + herkunft;
+            dokument.Description = herkunft;
         }
 
         await db.SaveChangesAsync(ct);
@@ -439,7 +449,7 @@ public sealed class ScanIntakeService(
 
         if (Clean(source) is { Length: > 0 } herkunft)
         {
-            dokument.Description = "Aus dem überwachten Ordner übernommen: " + herkunft;
+            dokument.Description = herkunft;
         }
 
         PaperFacts.Apply(dokument, clock.Today, dateMarker: clock.Today);

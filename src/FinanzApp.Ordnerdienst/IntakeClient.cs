@@ -103,7 +103,12 @@ public sealed class IntakeClient : IIntakeClient, IDisposable
                 path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
 
             using var file = new StreamContent(content);
-            return await PostAsync(file, Path.GetFileName(path), path, ct);
+
+            // Der ganze Satz und nicht nur der Pfad: Der Eingang setzt nichts mehr davor,
+            // weil er nicht wissen kann, woher die Bytes kommen. Beim Postfach steht hier
+            // MailItem.Source — dieselbe Stelle, andere Worte.
+            return await PostAsync(
+                file, Path.GetFileName(path), "Aus dem überwachten Ordner: " + path, ct);
         }
         catch (IOException ex)
         {
