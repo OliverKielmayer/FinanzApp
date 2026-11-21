@@ -66,6 +66,44 @@ public sealed class FinTsTransferSource(
         FinTsGlobals.ProductId = options.ProductId;
         FinTsGlobals.Version = options.ProductVersion;
 
+        // Ein eigener, leerer Ordner je Auftrag — und er verschwindet danach wieder. Ohne
+        // diese Zeilen schreibt die Bibliothek ihre Bankparameter (BPD) und Benutzerdaten
+        // (UPD) ins Benutzerprofil und lässt sie dort liegen: Bankleitzahl, Benutzerkennung,
+        // Kontodaten. Der Umsatzabruf macht es seit jeher so; dieser Dienst tat es nicht, und
+        // das ist am 21.11.2026 aufgefallen, als die Dateien noch dalagen.
+        var vorher = FinTsGlobals.ProgramBaseDir;
+        DirectoryInfo? ablage = null;
+
+        try
+        {
+            ablage = Directory.CreateTempSubdirectory("finanzapp-auftrag-");
+            FinTsGlobals.ProgramBaseDir = ablage.FullName;
+
+            return await BeauftragenAsync(
+                account, pin, receiverName, receiverIban, receiverBic, amount, purpose, ct);
+        }
+        finally
+        {
+            if (ablage is not null)
+            {
+                Aufraeumen(ablage);
+            }
+
+            FinTsGlobals.ProgramBaseDir = vorher;
+        }
+    }
+
+    /// <summary>Der Dialog selbst, innerhalb der eigenen Ablage.</summary>
+    private async Task<TransferOutcome> BeauftragenAsync(
+        Account account,
+        string pin,
+        string receiverName,
+        string receiverIban,
+        string? receiverBic,
+        decimal amount,
+        string purpose,
+        CancellationToken ct)
+    {
         var kunde = new FinTsClient(
             FinTsDialog.Verbindung(account, pin), loggerFactory: loggerFactory);
 
@@ -120,4 +158,26 @@ public sealed class FinTsTransferSource(
     /// <summary>Der Empfänger im Protokoll: so viel, dass man ihn wiedererkennt.</summary>
     private static string Gekuerzt(string name)
         => name.Length <= 24 ? name : name[..24] + "…";
+
+    /// <summary>
+    /// Räumt den Ordner weg, den die Bibliothek beschrieben hat.
+    /// </summary>
+    /// <remarks>
+    /// Ein Fehler beim Aufräumen darf den Auftrag nicht nachträglich scheitern lassen — er ist
+    /// zu diesem Zeitpunkt längst bei der Bank. Gemeldet wird er, mehr nicht.
+    /// </remarks>
+    private void Aufraeumen(DirectoryInfo ablage)
+    {
+        try
+        {
+            ablage.Delete(recursive: true);
+        }
+        catch (Exception ex)
+        {
+            log.LogWarning(
+                "Der Ordner {Ordner} liess sich nicht aufräumen: {Grund}. Darin stehen "
+                    + "Bankleitzahl und Benutzerkennung.",
+                ablage.FullName, ex.Message);
+        }
+    }
 }
