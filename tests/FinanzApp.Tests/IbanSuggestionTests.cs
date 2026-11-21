@@ -87,6 +87,56 @@ public sealed class IbanSuggestionTests
         Assert.Equal([Eine], IbanCheck.FindAll(text));
     }
 
+    /// <summary>
+    /// Die IBAN wird gefunden, auch wenn die BIC direkt daneben steht.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Fall, an dem es aufgefallen ist. Ein Briefbogen führt die Bankverbindung als
+    /// Tabellenzeile: Bank, IBAN, BIC — nebeneinander. Die BIC besteht auch nur aus
+    /// Großbuchstaben, und die Texterkennung setzt Leerzeichen hinein; das Muster läuft
+    /// hinüber und die Prüfziffer fällt durch.</para>
+    /// <para>Gegen eine echte Handwerkerrechnung gemessen wurde so <em>keine einzige</em> IBAN
+    /// gefunden — bei zwei Bankverbindungen auf dem Blatt.</para>
+    /// </remarks>
+    [Fact]
+    public void Eine_IBAN_neben_ihrer_BIC_wird_gefunden()
+    {
+        var zeile = $"Musterbank eG {Eine} GENO DE S1 MUS";
+
+        Assert.Equal([Eine], IbanCheck.FindAll(zeile));
+    }
+
+    /// <summary>
+    /// Was die Texterkennung beschädigt hat, bleibt draußen.
+    /// </summary>
+    /// <remarks>
+    /// Auf demselben Beleg stand eine zweite IBAN, in der aus zwei Nullen große O geworden
+    /// waren. Sie fällt an der Prüfziffer durch — und das ist richtig: Wer ein O zur Null
+    /// erklärt, errechnet eine Kontonummer, die auf keinem Papier steht. Abtippen ist dann die
+    /// ehrliche Antwort.
+    /// </remarks>
+    [Fact]
+    public void Eine_beschaedigte_IBAN_wird_nicht_repariert()
+    {
+        Assert.Empty(IbanCheck.FindAll("Deutsche Bank DE021005OOOOOO54540402 DEUT DE SS"));
+    }
+
+    /// <summary>
+    /// Ein Bruchstück wird nicht zur IBAN aufgefüllt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die Längenregel kürzt, und nur das. Würde sie auch auffüllen, entstünde aus einer
+    /// abgeschnittenen Zeichenfolge eine IBAN mit aufgehender Prüfziffer — die hier steht, ist
+    /// so gewählt: vierzehn Zeichen, und mit acht Nullen dahinter geht sie auf.</para>
+    /// <para>Vorgeschlagen würde dann eine Kontonummer, die auf keinem Papier steht. Von allen
+    /// Fehlern, die diese Maske machen kann, ist das der schlimmste.</para>
+    /// </remarks>
+    [Fact]
+    public void Ein_Bruchstueck_wird_nicht_aufgefuellt()
+    {
+        Assert.Empty(IbanCheck.FindAll("Konto DE121111111111 bei der Musterbank"));
+    }
+
     [Fact]
     public void Ohne_Text_gibt_es_nichts()
     {
