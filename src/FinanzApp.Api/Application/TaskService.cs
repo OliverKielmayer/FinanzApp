@@ -132,6 +132,26 @@ public sealed class TaskService(FinanzAppDbContext db, IClock clock)
             throw new ArgumentException("Die Aufgabe braucht einen Titel.");
         }
 
+        // Zeigt der Vorgang auf etwas, darf es ihn nur einmal geben. Der Grund ist kein
+        // Schnheitsfehler, sondern eine Schleife: Kommt dieselbe Mail ein zweites Mal, ist ihr
+        // Anhang eine Dublette und bekommt dieselbe Belegnummer. Ein zweiter Vorgang darauf
+        // verstößt gegen den Mandantenindex, das Anlegen scheitert, die Mail bleibt liegen —
+        // und beim nächsten Durchgang beginnt dasselbe von vorn.
+        //
+        // Zurückgegeben wird deshalb der vorhandene. Ein Aufrufer, der ein Ziel nennt, meint
+        // „ein Vorgang zu dieser Sache“ und nicht „noch einer“.
+        if (request.SourceType is { } art && request.SourceId is { } ziel)
+        {
+            var vorhanden = await db.TaskItems.FirstOrDefaultAsync(
+                t => t.Source == TaskSource.Manual && t.SourceType == art && t.SourceId == ziel,
+                ct);
+
+            if (vorhanden is not null)
+            {
+                return ToDto(vorhanden, clock.Today);
+            }
+        }
+
         var item = new TaskItem
         {
             Title = request.Title.Trim(),
@@ -139,25 +159,31 @@ public sealed class TaskService(FinanzAppDbContext db, IClock clock)
             DueOn = request.DueOn,
             State = TaskState.Open,
             Source = TaskSource.Manual,
+            SourceType = request.SourceType,
+            SourceId = request.SourceId,
             CreatedAt = clock.Now,
         };
 
         db.TaskItems.Add(item);
         await db.SaveChangesAsync(ct);
 
-        var today = clock.Today;
-        return new TaskItemDto
-        {
-            Id = item.Id,
-            Title = item.Title,
-            TitleEdited = item.TitleEdited,
-            Detail = item.Detail,
-            DueOn = item.DueOn,
-            State = item.State,
-            Source = item.Source,
-            DaysOverdue = item.DueOn is { } due ? today.DayNumber - due.DayNumber : 0,
-        };
+        return ToDto(item, clock.Today);
     }
+
+    /// <summary>Eine Aufgabe als Zeile — an einer Stelle, damit zwei Wege dasselbe liefern.</summary>
+    private static TaskItemDto ToDto(TaskItem item, DateOnly today) => new()
+    {
+        Id = item.Id,
+        Title = item.Title,
+        TitleEdited = item.TitleEdited,
+        Detail = item.Detail,
+        DueOn = item.DueOn,
+        State = item.State,
+        Source = item.Source,
+        SourceType = item.SourceType,
+        SourceId = item.SourceId,
+        DaysOverdue = item.DueOn is { } due ? today.DayNumber - due.DayNumber : 0,
+    };
 
     /// <summary>
     /// Gibt einem Vorgang einen anderen Titel.

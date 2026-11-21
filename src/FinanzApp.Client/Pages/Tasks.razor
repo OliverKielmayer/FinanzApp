@@ -327,7 +327,14 @@
 
         if (route is null)
         {
-            Toasts.Show("Zu dieser Aufgabe gibt es keinen eigenen Screen.");
+            // Der häufigste Fall ist eine Mail ohne Anhang: Betreff und Absender stehen in
+            // der Zeile, der Text der Mail wird nirgends gespeichert. Es gibt also wirklich
+            // nichts zu zeigen — und das soll dastehen statt eines Satzes über Bildschirme.
+            Toasts.Show(
+                item.Source == TaskSource.Manual
+                    ? "Zu diesem Vorgang liegt kein Beleg in der Ablage — kam die Mail ohne "
+                      + "Anhang, steht sie nur im Postfach."
+                    : "Dieser Vorgang zeigt auf kein Objekt.");
             return;
         }
 

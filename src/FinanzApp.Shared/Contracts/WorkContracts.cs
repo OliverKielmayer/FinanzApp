@@ -93,6 +93,20 @@ public sealed record CreateTaskRequest
     public required string Title { get; init; }
     public string? Detail { get; init; }
     public DateOnly? DueOn { get; init; }
+
+    /// <summary>
+    /// Worauf der Vorgang zeigt — etwa der Beleg, der mit der Mail kam.
+    /// </summary>
+    /// <remarks>
+    /// <para>Ohne Ziel führt der Tipp auf die Zeile nirgendwohin, und die Anwendung sagt
+    /// „Zu dieser Aufgabe gibt es keinen eigenen Screen“. Das war bei jedem Vorgang aus dem
+    /// Postfach so — obwohl der Anhang abgelegt daneben lag.</para>
+    /// <para>Beide Felder oder keines. Eine Art ohne Nummer zeigt so wenig irgendwohin wie
+    /// gar nichts.</para>
+    /// </remarks>
+    public LinkTargetType? SourceType { get; init; }
+
+    public int? SourceId { get; init; }
 }
 
 public sealed record UpdateTaskStateRequest

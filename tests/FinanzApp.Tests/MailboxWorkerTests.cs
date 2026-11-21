@@ -39,7 +39,8 @@ public sealed class MailboxWorkerTests
 
     /// <summary>Eine Gegenstelle, die antwortet, was der Test vorgibt, und mitschreibt.</summary>
     private sealed class Gegenstelle(
-        HandoverStatus antwort = HandoverStatus.Handed, bool vorgangGeht = true) : IIntakeClient
+        HandoverStatus antwort = HandoverStatus.Handed, bool vorgangGeht = true,
+        int belegNummer = 1) : IIntakeClient
     {
         public List<(string Datei, string Quelle, int Bytes)> Angeboten { get; } = [];
 
@@ -49,7 +50,23 @@ public sealed class MailboxWorkerTests
             byte[] content, string fileName, string source, CancellationToken ct)
         {
             Angeboten.Add((fileName, source, content.Length));
-            return Task.FromResult(new HandoverResult(antwort, "geprüft"));
+
+            // Mit Belegnummer, denn genau die braucht der Vorgang als Ziel.
+            return Task.FromResult(new HandoverResult(antwort, "geprüft")
+            {
+                Intake = antwort != HandoverStatus.Handed
+                    ? null
+                    : new ScanIntakeResultDto
+                    {
+                        DocumentId = belegNummer,
+                        FileName = fileName,
+                        RelativePath = "Sonstiges/" + fileName,
+                        Area = DocumentArea.Other,
+                        Outcome = ScanIntakeOutcome.Waiting,
+                        PageCount = 1,
+                        Summary = "geprüft",
+                    },
+            });
         }
 
         public Task<bool> CreateTaskAsync(CreateTaskRequest request, CancellationToken ct)
@@ -196,8 +213,18 @@ public sealed class MailboxWorkerTests
     /// Ohne Vorgang keine Mail: Steht der Merkzettel nicht, bleibt sie liegen.
     /// </summary>
     /// <remarks>
-    /// Andersherum käme der Beleg an und der Satz, der ihn erklärt, wäre für immer weg — und
-    /// nachzureichen ist er dann nicht mehr, weil niemand weiss, dass er fehlt.
+    /// <para><b>Der Anhang geht trotzdem schon hinaus</b>, und das ist seit dem 21.11.2026 so
+    /// gewollt. Vorher entstand der Vorgang zuerst — mit der Begründung, der Beleg käme sonst
+    /// ohne den Satz an, der ihn erklärt. Nur zeigte der Vorgang dadurch auf nichts: Den Beleg
+    /// gab es beim Anlegen noch nicht, und wer die Zeile antippte, landete bei „Zu dieser
+    /// Aufgabe gibt es keinen eigenen Screen“.</para>
+    /// <para><b>Die alte Sorge trägt nicht mehr.</b> Sie hing daran, dass der Satz „für immer
+    /// weg“ wäre — er ist es nicht: Die Mail bleibt liegen, also versucht der nächste
+    /// Durchgang es erneut, und der Anhang wird dabei am Abdruck als Dublette erkannt statt
+    /// ein zweites Mal abgelegt. Aus „nie ohne Vorgang“ wird „spätestens beim nächsten
+    /// Durchgang“.</para>
+    /// <para>Was unverändert gilt und hier geprüft wird: <b>Die Mail wird nicht
+    /// weggeräumt.</b> Daran hängt, dass es überhaupt einen nächsten Durchgang gibt.</para>
     /// </remarks>
     [Fact]
     public async Task Ohne_angelegten_Vorgang_bleibt_die_Mail_liegen()
@@ -208,7 +235,52 @@ public sealed class MailboxWorkerTests
             new Gegenstelle(vorgangGeht: false));
 
         Assert.Empty(postfach.Erledigt);
-        Assert.Empty(gegenstelle.Angeboten);
+
+        // Angeboten wurde er — sonst gäbe es keine Belegnummer, auf die der Vorgang zeigen
+        // könnte. Dass er beim nächsten Durchgang noch einmal angeboten wird, ist harmlos.
+        Assert.Single(gegenstelle.Angeboten);
+    }
+
+    /// <summary>
+    /// Der Vorgang zeigt auf den Beleg, der mit der Mail kam.
+    /// </summary>
+    /// <remarks>
+    /// Der Grund für die ganze Umkehr. Ohne Ziel führt die Zeile in der Vorgangsliste
+    /// nirgendwohin, während der Anhang zwei Klicks weiter in der Ablage liegt.
+    /// </remarks>
+    [Fact]
+    public async Task Der_Vorgang_zeigt_auf_seinen_Beleg()
+    {
+        var (_, gegenstelle) = await LaufAsync(
+            Options(),
+            new Postfach(Mail("Rechnung November", Anhang("rechnung.pdf"))),
+            new Gegenstelle(belegNummer: 4711));
+
+        var vorgang = Assert.Single(gegenstelle.Vorgaenge);
+
+        Assert.Equal(LinkTargetType.Document, vorgang.SourceType);
+        Assert.Equal(4711, vorgang.SourceId);
+    }
+
+    /// <summary>
+    /// Ohne Anhang bleibt der Vorgang ohne Ziel.
+    /// </summary>
+    /// <remarks>
+    /// Eine Mail ohne Anhang hat nichts, worauf sie zeigen könnte. Ein erfundenes Ziel führte
+    /// ins Leere und wäre schlimmer als keines.
+    /// </remarks>
+    [Fact]
+    public async Task Ohne_Anhang_bleibt_der_Vorgang_ohne_Ziel()
+    {
+        var (_, gegenstelle) = await LaufAsync(
+            Options(),
+            new Postfach(Mail("Nur ein Hinweis")),
+            new Gegenstelle());
+
+        var vorgang = Assert.Single(gegenstelle.Vorgaenge);
+
+        Assert.Null(vorgang.SourceType);
+        Assert.Null(vorgang.SourceId);
     }
 
     /// <summary>Eine Mail ohne brauchbaren Anhang ist trotzdem erledigt.</summary>

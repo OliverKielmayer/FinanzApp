@@ -95,12 +95,10 @@ public sealed class MailboxWorker(
     /// </remarks>
     private async Task<bool> DeliverAsync(MailItem mail, CancellationToken ct)
     {
-        if (options.CreateTask && !await CreateTaskAsync(mail, ct))
-        {
-            return false;
-        }
-
         var angeboten = 0;
+
+        // Der erste Beleg, der ankommt — auf ihn zeigt nachher der Vorgang.
+        int? ziel = null;
 
         foreach (var anhang in mail.Attachments)
         {
@@ -116,6 +114,8 @@ public sealed class MailboxWorker(
             switch (ergebnis.Status)
             {
                 case HandoverStatus.Handed:
+                    ziel ??= ergebnis.Intake?.DocumentId;
+
                     log.LogInformation(
                         "Aus „{Betreff}“: {Datei} übergeben. {Zusammenfassung}",
                         mail.Subject, anhang.FileName, ergebnis.Message);
@@ -144,7 +144,15 @@ public sealed class MailboxWorker(
                 "„{Betreff}“ hatte keinen übernehmbaren Anhang.", mail.Subject);
         }
 
-        return true;
+        // Zuletzt, und das ist der ganze Punkt: Jetzt gibt es den Beleg, auf den der Vorgang
+        // zeigen kann. Vorher angelegt zeigte er auf nichts, und wer die Zeile antippte,
+        // landete bei „Zu dieser Aufgabe gibt es keinen eigenen Screen“ — während der Anhang
+        // zwei Klicks weiter in der Ablage lag.
+        //
+        // Dass der Vorgang jetzt <em>nach</em> der Ablage entsteht, ist unbedenklich:
+        // Scheitert er, bleibt die Mail liegen, und beim nächsten Durchgang erkennt der
+        // Eingang dieselbe Datei am Abdruck wieder, statt sie ein zweites Mal abzulegen.
+        return !options.CreateTask || await CreateTaskAsync(mail, ziel, ct);
     }
 
     /// <summary>
@@ -155,7 +163,7 @@ public sealed class MailboxWorker(
     /// liesse den Vorgang sofort überfällig aussehen. Dieselbe Überlegung wie beim offenen
     /// Posten aus einem Beleg: Woran sich die Nachverfolgung misst, tippt ein Mensch.
     /// </remarks>
-    private async Task<bool> CreateTaskAsync(MailItem mail, CancellationToken ct)
+    private async Task<bool> CreateTaskAsync(MailItem mail, int? ziel, CancellationToken ct)
     {
         var anhaenge = mail.Attachments.Count(Allowed);
 
@@ -167,6 +175,10 @@ public sealed class MailboxWorker(
                          + (anhaenge == 0
                              ? " · ohne Anhang"
                              : $" · {anhaenge} {(anhaenge == 1 ? "Anhang" : "Anhänge")}"),
+
+                // Nur zusammen. Eine Art ohne Nummer zeigt so wenig irgendwohin wie nichts.
+                SourceType = ziel is null ? null : LinkTargetType.Document,
+                SourceId = ziel,
             },
             ct);
 
