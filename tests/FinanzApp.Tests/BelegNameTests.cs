@@ -27,6 +27,11 @@ public sealed class BelegNameTests
     [InlineData("Scan_20260820_0001")]
     [InlineData("IMG 4711")]
     [InlineData("dokument")]
+
+    // Der Titel, den das Einliefern hinterlässt: der Abdruck der Datei, beziehungsweise eine
+    // GUID. Er sagt so wenig wie „Scannen0003“ und weicht deshalb demselben Weg.
+    [InlineData("a1b2c3d4e5f60718293a4b5c6d7e8f901a2b3c4d5e6f708192a3b4c5d6e7f801")]
+    [InlineData("b7e2c9d4-3f16-4a8b-9c05-2d7e1f6a8b30")]
     public void Ein_Geraetename_weicht_dem_Dateinamen(string titel)
         => Assert.Equal(
             "Arztrechnung Musterklinik Nordstadt · 03.04.2026",
@@ -45,6 +50,11 @@ public sealed class BelegNameTests
     [InlineData("Scan der Police")]
     [InlineData("Gebührenbescheid 2026")]
     [InlineData("Scannen 0003 Zahnarzt")]
+
+    // Gegenprobe zum Abdruck: zu kurz für eine Prüfsumme, und ein Buchstabe jenseits von f
+    // macht aus einer Zeichenkette ohnehin keinen Hexwert.
+    [InlineData("deadbeefcafe")]
+    [InlineData("a1b2c3d4e5f60718293a4b5c6d7e8f901a2b3c4d5e6f708192a3b4c5d6e7f8zz")]
     public void Ein_gepflegter_Titel_bleibt(string titel)
         => Assert.Equal(
             titel,

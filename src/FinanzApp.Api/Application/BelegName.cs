@@ -28,15 +28,33 @@ public static class BelegName
     /// Namen, die ein Gerät vergibt und kein Mensch.
     /// </summary>
     /// <remarks>
-    /// <para>Zwei Formen, beide an echten Scans gemessen: <c>Scannen0003</c> — Wort und
-    /// laufende Nummer — und <c>Scan_20260820_0001</c> — Wort, Datum, laufende Nummer. Die
+    /// <para>Zwei Formen vom Scanner, beide an echten Scans gemessen: <c>Scannen0003</c> — Wort
+    /// und laufende Nummer — und <c>Scan_20260820_0001</c> — Wort, Datum, laufende Nummer. Die
     /// zweite braucht eine eigene Gruppe, weil zwischen den Ziffernblöcken wieder ein Trenner
     /// steht.</para>
+    /// <para><b>Dazu zwei Formen aus dem Einliefern.</b> Ordnerdienst und Postfach benennen eine
+    /// Datei nach ihrem Abdruck oder vergeben eine GUID — und dieser Name wurde zum Titel. Ein
+    /// Beleg stand damit als
+    /// <c>a1b2c3d4e5f60718293a4b5c6d7e8f901a2b3c4d5e6f708192a3b4c5d6e7f801</c> in der
+    /// Dokumentenliste der Immobilie, vierundsechzig Zeichen breit. Schlimmer als hässlich: Er
+    /// wurde beim Zuordnen auch nicht umbenannt, denn die Anwendung fasst nur an, was nach
+    /// Gerätename aussieht oder von ihr selbst stammt — und ein Abdruck war keines von beidem.
+    /// Eine Prüfsumme ist aber so wenig jemandes Name wie <c>Scannen0003</c>.</para>
+    /// <para><b>Gemessen an 163 echten Belegen:</b> Neu erfasst werden genau drei Dateinamen und
+    /// zwei Titel — zwei GUIDs und ein SHA-256. Kein gepflegter Name fällt mit hinein, und die
+    /// Gegenprobe über alles, was lang und fast vokallos ist, findet nichts Übriges. Die
+    /// Hexziffern sind eng gefasst: <c>a</c> bis <c>f</c>, nicht <c>a</c> bis <c>z</c>.</para>
+    /// <para>Die laufende Nummer darf auch hier dahinter — der Eingang hängt sie an, wenn
+    /// derselbe Name zweimal ankommt. Anders als beim Scannerwort braucht sie einen Trenner:
+    /// Ziffern sind selbst Hexziffern, und ohne Trenner wäre nicht zu sagen, wo der Abdruck
+    /// aufhört.</para>
     /// <para>Bewusst verankert mit <c>^</c> und <c>$</c>: „Scan der Police“ ist ein Titel, den
     /// jemand geschrieben hat, und bleibt stehen.</para>
     /// </remarks>
     public static readonly Regex Geraetename =
-        new(@"^(scannen|scan|bild|image|img|dokument|document|doc|pdf|datei|file)([ _-]*\d+)*$",
+        new(@"^(?:(?:scannen|scan|bild|image|img|dokument|document|doc|pdf|datei|file)(?:[ _-]*\d+)*"
+            + @"|[0-9a-f]{32,64}(?:[ _-]\d+)*"
+            + @"|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:[ _-]\d+)*)$",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     /// <summary>Ein angehängtes Datum im Dateinamen, so wie die Ablage es schreibt.</summary>

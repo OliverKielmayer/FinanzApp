@@ -19,6 +19,17 @@ namespace FinanzApp.Tests;
 /// </remarks>
 public sealed class ScannedNameTests : IDisposable
 {
+    /// <summary>
+    /// Die Namen, die das Einliefern selbst vergibt.
+    /// </summary>
+    /// <remarks>
+    /// Erfunden, in der Gestalt echter: ein SHA-256 mit vierundsechzig Hexzeichen und eine
+    /// GUID. Als Konstanten, weil <c>[InlineData]</c> nichts anderes nimmt.
+    /// </remarks>
+    private const string Hashname = "a1b2c3d4e5f60718293a4b5c6d7e8f901a2b3c4d5e6f708192a3b4c5d6e7f801";
+
+    private const string Guidname = "b7e2c9d4-3f16-4a8b-9c05-2d7e1f6a8b30";
+
     private readonly TestDatabase database = new();
     private readonly IClock clock = TestDatabase.ClockAt(2026, 10, 31);
 
@@ -104,6 +115,16 @@ public sealed class ScannedNameTests : IDisposable
     [InlineData("Bild 4.png")]
     [InlineData("Dokument.pdf")]
     [InlineData("datei-7.pdf")]
+
+    // Was der Eingang selbst vergibt: der Abdruck der Datei und eine GUID. Ein Beleg stand
+    // damit vierundsechzig Zeichen breit in der Dokumentenliste — und blieb dabei, weil die
+    // Anwendung nur anfasst, was nach Gerätename aussieht. Ein Abdruck war keines.
+    [InlineData(Hashname + ".pdf")]
+    [InlineData(Guidname + ".pdf")]
+
+    // Mit der laufenden Nummer, die der Eingang anhängt, wenn derselbe Name zweimal ankommt.
+    [InlineData(Hashname + "_1.pdf")]
+    [InlineData(Guidname + "_2.pdf")]
     public async Task Geraetenamen_werden_erkannt(string name)
     {
         var id = Beleg("Sonstiges/" + name);
@@ -125,6 +146,14 @@ public sealed class ScannedNameTests : IDisposable
     [InlineData("20240102 Beitragsrechnung Rechtsschutz.pdf")]
     [InlineData("Kontoauszug_8009_2026-08-03.xml")]
     [InlineData("Scan der Police vom Notar.pdf")]
+
+    // Die Gegenprobe zu den Abdrücken: Die Anker halten. Ein Hexstück <em>in</em> einem
+    // Namen macht ihn nicht zum Abdruck, und hinter einem GUID-Anfang steht hier ein Wort.
+    [InlineData("Rechnung_abcdef_2026-05-02.pdf")]
+    [InlineData("b7e2c9d4-3f16-Vertrag.pdf")]
+
+    // Und zu kurz ist zu kurz — eine Prüfsumme hat zweiunddreißig Zeichen oder mehr.
+    [InlineData("deadbeefcafe.pdf")]
     public async Task Ein_gepflegter_Name_bleibt_stehen(string name)
     {
         var id = Beleg("Sonstiges/" + name);
