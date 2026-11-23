@@ -14,6 +14,13 @@
                 @invoice.Subject
                 @(invoice.Number is { Length: > 0 } number ? " · Nr. " + number : string.Empty)
             </span>
+
+            @*
+                Bearbeiten gehört hierher wie bei Vertrag, Fahrzeug und Immobilie. Die Maske
+                gab es längst — nur führte von dieser Seite kein Weg dorthin, und wer eine
+                abgetippte Rechnungsnummer berichtigen wollte, musste die Adresse kennen.
+            *@
+            <EditLink Type="invoice" Id="invoice.Id" />
         </section>
 
         @if (invoice.Status == InvoiceStatus.Open)
