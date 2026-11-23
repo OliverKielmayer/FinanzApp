@@ -183,6 +183,19 @@ public static class BillTextReader
         // Händlerrechnungen stellen Netto und Brutto untereinander und nennen beide „Endsumme“.
         // Die ausdrückliche Brutto-Schreibweise steht deshalb vor der bloßen.
         "endsumme inkl", "endsumme brutto", "gesamtsumme inkl", "summe inkl", "endsumme",
+
+        // Dieselbe Beschriftung, abgekürzt — ein Warenwirtschaftssystem druckt „GES-BETRAG“
+        // in Grossbuchstaben in eine Spalte und hat für das ganze Wort keinen Platz. Ein
+        // Beleg in der Ablage trägt es so, und sein Betrag blieb beim Anlegen eines offenen
+        // Postens leer.
+        //
+        // <b>Nur diese eine Abkürzung, und das ist gemessen.</b> Durchgezählt wurden alle
+        // Summenzeilen der Ablage, die einen Betrag tragen: Was sonst unerkannt bleibt, heißt
+        // „Beitragssumme“ (30x), „Versicherungssumme“, „Zwischensumme“ oder
+        // „MwSt.-Betrag“ — und keines davon ist der Betrag, der zu zahlen ist. Die bloßen
+        // Wörter „Summe“ und „Betrag“ stünden auf zwei Dutzend Zeilen und träfen dabei
+        // jede Zwischenzeile.
+        "ges-betrag", "ges.-betrag", "ges. betrag",
     ];
 
     /// <summary>
@@ -727,7 +740,7 @@ public static class BillTextReader
         {
             if (Rechtsform.IsMatch(zeile))
             {
-                return (OhneAnschrift(zeile), zeile);
+                return (BisRechtsform(zeile), zeile);
             }
         }
 
@@ -761,6 +774,31 @@ public static class BillTextReader
     private static readonly Regex Fuellwort =
         new(@"^(?:der|die|das|den|dem|ihr|ihre|herr|frau|firma|seite)$",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>
+    /// Der Name bis einschließlich seiner Rechtsform.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Die Anschrift allein abzuschneiden reicht nicht.</b> Ein Briefkopf setzt Name,
+    /// Straße und Ort in eine Zeile, und <see cref="OhneAnschrift"/> schneidet dort ab, wo es
+    /// nach Anschrift aussieht — bei einer Straße ohne Endung auf <c>-straße</c> oder
+    /// <c>-weg</c> greift nur noch die Postleitzahl. Zurück blieb
+    /// „Musterwerke GmbH I Beispielgasse 26 I“, und das stand dann als Empfänger im Formular.</para>
+    /// <para>Die Rechtsform ist der genauere Schnitt: Sie steht <em>am Ende</em> des
+    /// Firmennamens und nicht mitten darin. Genommen wird die letzte im Namen — sonst verlöre
+    /// „Musterbau GmbH &amp; Co. KG“ schon hinter dem ersten Treffer seine Hälfte.</para>
+    /// <para>Erst die Anschrift, dann die Rechtsform: Suchte man die Rechtsform auf der ganzen
+    /// Zeile, könnte ein Ortsname sie tragen.</para>
+    /// </remarks>
+    private static string BisRechtsform(string zeile)
+    {
+        var name = OhneAnschrift(zeile);
+        var treffer = Rechtsform.Matches(name);
+
+        return treffer.Count == 0
+            ? name
+            : name[..(treffer[^1].Index + treffer[^1].Length)].Trim(' ', ',', '·', '•', '-');
+    }
 
     /// <summary>
     /// Schneidet die Anschrift ab, die im Briefkopf oft in derselben Zeile steht.

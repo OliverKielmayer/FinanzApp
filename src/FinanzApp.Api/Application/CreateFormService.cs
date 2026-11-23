@@ -152,17 +152,44 @@ public sealed class CreateFormService(
         CreateObjectType type, int documentId, IReadOnlyList<CreateFieldDto> felder,
         CancellationToken ct)
     {
-        var text = await db.Documents.AsNoTracking()
+        var beleg = await db.Documents.AsNoTracking()
             .Where(d => d.Id == documentId)
-            .Select(d => d.ContentText)
+            .Select(d => new { d.ContentText, d.DueDate, d.ActionLine })
             .FirstOrDefaultAsync(ct);
 
-        if (text is not { Length: > 0 })
+        if (beleg is null)
         {
             return felder;
         }
 
-        var vorschlaege = BillFormProposals.For(type, BillTextReader.Read(text));
+        var vorschlaege = beleg.ContentText is { Length: > 0 } text
+            ? new Dictionary<string, string>(
+                BillFormProposals.For(type, BillTextReader.Read(text)), StringComparer.Ordinal)
+            : new Dictionary<string, string>(StringComparer.Ordinal);
+
+        // Die Frist, die am Beleg schon steht.
+        //
+        // Der Grund: Zwei Leser sehen dasselbe Blatt an. Der eine sucht die Fälligkeit an einer
+        // Beschriftung („zahlbar bis“, „Zahlungsziel“) — eine Rechnung, die sie in einen Satz
+        // packt („Wir bitten um Überweisung des Gesamtbetrages bis …“), trägt keine davon.
+        // Der andere ist die Fundzeile des Belegs; sie steht am Dokument, aus ihr entsteht der
+        // Vorgang mit seinem Termin, und sie kannte den Tag längst. Das Formular las nur den
+        // ersten — und ließ das Feld leer, während die Antwort zwei Zentimeter daneben auf
+        // demselben Schirm stand.
+        //
+        // <b>Nur eine abgelesene Frist, keine gerechnete.</b> Eine aus „innerhalb von 14 Tagen“
+        // hochgerechnete Frist steht so nicht auf dem Papier; an ihr mäße sich danach, ob ein
+        // Posten überfällig ist. Diese Unterscheidung beantwortet
+        // <see cref="ActionEvidence.StatesDate"/> aus der Fundzeile selbst.
+        //
+        // Der gelesene Betrag gewinnt, wo es ihn gibt: Er stammt aus der Zeile mit der
+        // Beschriftung und ist die genauere Quelle.
+        if (!vorschlaege.ContainsKey("due")
+            && beleg.DueDate is { } frist
+            && ActionEvidence.StatesDate(beleg.ActionLine))
+        {
+            vorschlaege["due"] = frist.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        }
 
         return vorschlaege.Count == 0
             ? felder
