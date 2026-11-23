@@ -279,6 +279,18 @@
             </button>
         }
 
+        @*
+            Anhängen von hier aus. Bisher zeigte diese Liste nur — wer vom Vertrag kam und wusste,
+            dass der Beleg in der Ablage liegt, musste ihn dort suchen und von dort
+            zurückverknüpfen. Der Großteil der Post zu einem Vertrag kommt aber über die Buchung
+            herein und hängt danach <em>nur</em> an ihr.
+        *@
+        <DocumentAttach TargetType="LinkTargetType.Contract"
+                        TargetId="contract.Id"
+                        TargetLabel="@contract.Name"
+                        Linked="@(contract.Documents.Select(d => d.Id).ToList())"
+                        OnLinked="ReloadAsync" />
+
         <div class="spacer"></div>
     }
 </AsyncView>

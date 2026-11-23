@@ -1,0 +1,182 @@
+@implements IDisposable
+
+@*
+    „Dokument anhängen“ am Objekt — die Gegenrichtung zu „Objekt anhängen“ im Belegblatt.
+
+    Der Fall, aus dem es entstand: Zum Wasservertrag lag der Gebührenbescheid längst in der
+    Ablage, hing aber nur an seiner Buchung. Die Vertragsseite konnte Dokumente nur zeigen,
+    nicht annehmen — wer vom Vertrag kam, musste wissen, dass der Beleg existiert, ihn in der
+    Belegliste suchen und von dort zurückverknüpfen. Dieser Umweg entfällt damit.
+
+    Die Suche greift auch in den gelesenen Text, nicht nur in Titel und Dateiname. Genau darauf
+    kommt es hier an: Ein Scan heißt „Scannen0002“, und wiederzufinden ist er nur über das, was
+    drinsteht.
+*@
+<AuthorizeView Roles="Owner,Member">
+    <div class="picker">
+        <span class="label-strong">Dokument anhängen</span>
+
+        <div class="searchbar">
+            <input class="input" type="search" placeholder="Titel, Dateiname oder Text im Beleg …"
+                   aria-label="Dokument suchen" value="@term" @oninput="OnSearchInput" />
+        </div>
+
+        @if (searching)
+        {
+            <span class="meta">Wird gesucht …</span>
+        }
+        else if (term.Trim().Length > 1 && hits.Count == 0)
+        {
+            <span class="meta">Kein Dokument passt zu „@term“.</span>
+        }
+
+        @foreach (var hit in hits)
+        {
+            <button type="button" class="tap more-row" disabled="@busy"
+                    @onclick="() => LinkAsync(hit)">
+                <span class="stack">
+                    <span class="more-label">@hit.Title</span>
+
+                    @*
+                        Wo es schon hängt, steht dabei — und zwar als Hinweis, nicht als Warnung.
+                        Ein Bescheid hängt fast immer schon an seiner Buchung; das Anhängen legt
+                        eine zweite Verknüpfung dazu und rührt die erste nicht an.
+                    *@
+                    <span class="meta">
+                        @(hit.TypeName ?? "Dokument")@(hit.LinkedLabel is { } woanders
+                            ? $" · hängt an {woanders}"
+                            : null)
+                    </span>
+                </span>
+            </button>
+        }
+    </div>
+</AuthorizeView>
+
+@code {
+    [Inject] private FinanzAppApi Api { get; set; } = default!;
+
+    [Inject] private ToastService Toasts { get; set; } = default!;
+
+    /// <summary>Woran gehängt wird — Art und Nummer des Objekts.</summary>
+    [Parameter, EditorRequired]
+    public LinkTargetType TargetType { get; set; }
+
+    [Parameter, EditorRequired]
+    public int TargetId { get; set; }
+
+    /// <summary>Wie das Objekt heißt. Steht in der Rückmeldung, damit sie etwas aussagt.</summary>
+    [Parameter, EditorRequired]
+    public string TargetLabel { get; set; } = default!;
+
+    /// <summary>
+    /// Die Nummern der Dokumente, die schon hier hängen.
+    /// </summary>
+    /// <remarks>
+    /// Sie fallen aus den Treffern heraus. Ein zweites Mal anzuhängen ginge zwar — der Dienst
+    /// erkennt die vorhandene Zeile und legt keine neue an —, nur wäre es ein Klick, der
+    /// nichts tut, und das darf eine Liste nicht anbieten.
+    /// </remarks>
+    [Parameter]
+    public IReadOnlyList<int> Linked { get; set; } = [];
+
+    /// <summary>Läuft nach dem Anhängen, damit die Seite ihre Liste neu holen kann.</summary>
+    [Parameter]
+    public EventCallback OnLinked { get; set; }
+
+    private IReadOnlyList<DocumentListItemDto> hits = [];
+    private string term = string.Empty;
+    private bool searching;
+    private bool busy;
+    private CancellationTokenSource? debounce;
+
+    /// <summary>
+    /// Sucht nach einer kurzen Pause, nicht bei jedem Anschlag.
+    /// </summary>
+    /// <remarks>
+    /// Jeder Anschlag eine Anfrage wäre nicht nur Last, sondern falsche Ergebnisse: die letzte
+    /// überholte die vorletzte.
+    /// </remarks>
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        term = e.Value?.ToString() ?? string.Empty;
+
+        debounce?.Cancel();
+        debounce?.Dispose();
+        debounce = new CancellationTokenSource();
+
+        var laufend = debounce.Token;
+
+        // Ein einzelnes Zeichen trifft die halbe Ablage. Die Suche beginnt ab zwei.
+        if (term.Trim().Length < 2)
+        {
+            hits = [];
+            searching = false;
+            return;
+        }
+
+        searching = true;
+
+        try
+        {
+            await Task.Delay(250, laufend);
+
+            // Ohne Abbruchmarke: ein abgebrochener Aufruf käme als „Der Server hat nicht
+            // rechtzeitig geantwortet“ zurück, und das stimmte nicht — es hat nur jemand
+            // weitergetippt. Verworfen wird das Ergebnis, nicht die Anfrage.
+            var ergebnis = await Api.SearchDocumentsAsync(term.Trim());
+
+            if (laufend.IsCancellationRequested)
+            {
+                return;
+            }
+
+            hits = [.. ergebnis.Documents.Where(d => !Linked.Contains(d.Id))];
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message, ToastKind.Problem);
+        }
+        finally
+        {
+            if (!laufend.IsCancellationRequested)
+            {
+                searching = false;
+            }
+        }
+    }
+
+    /// <summary>Hängt das Dokument an und lässt die Seite nachladen.</summary>
+    private async Task LinkAsync(DocumentListItemDto treffer)
+    {
+        busy = true;
+        try
+        {
+            await Api.LinkDocumentAsync(treffer.Id, TargetType, TargetId);
+
+            term = string.Empty;
+            hits = [];
+
+            await OnLinked.InvokeAsync();
+            Toasts.Show($"„{treffer.Title}“ hängt jetzt an {TargetLabel}.", ToastKind.Saved);
+        }
+        catch (ApiException ex)
+        {
+            Toasts.Show(ex.Message, ToastKind.Problem);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    public void Dispose()
+    {
+        debounce?.Cancel();
+        debounce?.Dispose();
+    }
+}
